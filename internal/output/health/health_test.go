@@ -141,3 +141,41 @@ func TestSetTargets(t *testing.T) {
 		t.Errorf("after: %+v", st)
 	}
 }
+
+func TestChangedEndpointRechecksSettings(t *testing.T) {
+	a := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb"})
+	b := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb", Live: &fakewled.Live{Enabled: false}})
+	target := health.Target{ID: "shed", URL: a.URL, Pixels: 10, Channels: "rgb"}
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{target}}
+	m.Check(t.Context())
+	target.URL = b.URL
+	m.SetTargets([]health.Target{target})
+	m.Check(t.Context())
+	if got := strings.Join(m.Status()[0].Mismatches, "\n"); !strings.Contains(got, "realtime receive is off") {
+		t.Fatalf("replacement controller's settings were not checked: %q", got)
+	}
+}
+
+func TestChangedEndpointDiscardsInflightCheck(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(entered)
+		<-release
+		fmt.Fprint(w, `{"ver":"old","uptime":100,"leds":{"count":10}}`)
+	}))
+	defer old.Close()
+	replacement := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb"})
+	target := health.Target{ID: "shed", URL: old.URL, Pixels: 10, Channels: "rgb"}
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{target}}
+	done := make(chan struct{})
+	go func() { m.Check(t.Context()); close(done) }()
+	<-entered
+	target.URL = replacement.URL
+	m.SetTargets([]health.Target{target})
+	m.Check(t.Context())
+	close(release)
+	<-done
+	if st := m.Status()[0]; st.Version != "0.15.0-fake" {
+		t.Fatalf("old endpoint overwrote replacement health: %+v", st)
+	}
+}
