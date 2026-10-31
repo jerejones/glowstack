@@ -55,7 +55,7 @@ func TestMeasuredOverridesReportTheirLine(t *testing.T) {
 	for _, tt := range []struct{ name, body, want string }{
 		{"unknown run", "ends:\n  - { run: nope, last: 5 }\n", `anchors.yaml:3: ends: unknown run "nope"`},
 		{"no end", "ends:\n  - { run: a }\n", "give first, last or both"},
-		{"end outside controller", "ends:\n  - { run: a, last: 100 }\n", "outside controller"},
+		{"end outside controller", "ends:\n  - { run: a, last: 100 }\n", `anchors.yaml:3: run "a": index 100 outside controller`},
 		{"no such gap", "gaps:\n  - { from: x, to: w, length: 1 m }\n", `no gap edge between "x" and "w"`},
 		{"bad gap length", "gaps:\n  - { from: y, to: z, length: 0 m }\n", "positive length"},
 		{"bad dead", "dead:\n  - { controller: shed, indices: [5, 200] }\n", "anchors.yaml:3: dead: bad index range"},
