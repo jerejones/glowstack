@@ -336,3 +336,14 @@ func TestFlowErrors(t *testing.T) {
 		errContains(t, err, tt.want)
 	}
 }
+
+func TestFlowPinsCannotMoveOriginSyncGroup(t *testing.T) {
+	for _, node := range []string{"o", "linked"} {
+		t.Run(node, func(t *testing.T) {
+			_, _, _, err := newGraph(t).run("a", 10, "o", "x").run("b", 10, "linked", "y").link("o", "linked").flow(config.Flow{
+				ID: "f", Origin: "o", Pin: []config.Pin{{Node: node, U: unitsMetres(2)}},
+			})
+			errContains(t, err, "pinned at a different u")
+		})
+	}
+}
