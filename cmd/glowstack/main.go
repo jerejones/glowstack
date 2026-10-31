@@ -8,6 +8,12 @@
 // (/api/v1/, with calibration mode under /api/v1/calibration) and the
 // live map (/map/) on --http.
 //
+// Each zone with a `device:` block is also a WLED device for Home
+// Assistant (internal/wled), listening on its configured ip and port.
+// --wled-bind=HOST:PORT moves them, for development: the first device on
+// PORT, the next on PORT+1 and so on (PORT 0: free ports; each device's
+// address is logged). --wled-bind=off runs none. --mdns advertises them.
+//
 // --output chooses the controllers to send to: none (the default; all with
 // --loopback), all, or a comma-separated list of ids. --loopback=PORT sends
 // controller i to 127.0.0.1:PORT+i instead of its configured address, for
@@ -38,6 +44,7 @@ import (
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/output/wire"
 	"github.com/jerejones/glowstack/internal/render"
+	"github.com/jerejones/glowstack/internal/wled"
 )
 
 func main() {
@@ -50,6 +57,8 @@ func main() {
 	check := flag.Bool("check", false, "load, solve and print the summary, then exit")
 	httpAddr := flag.String("http", ":8080", `HTTP listen address for the control API (/api/v1/) and live map (/map/); "" for none`)
 	outputs := flag.String("output", "none", "controllers to send to: all, none, or comma-separated ids (default none; with --loopback, default all)")
+	wledBind := flag.String("wled-bind", "", `listen address for the zones' WLED devices instead of their configured ones: HOST:PORT puts the first on PORT, the next on PORT+1 (PORT 0: free ports); "off" for none`)
+	mdnsOn := flag.Bool("mdns", false, "advertise the zones' WLED devices over mDNS (_wled._tcp), for Home Assistant's discovery")
 	loopback := flag.Int("loopback", 0, "send controller i to 127.0.0.1:PORT+i (DDP and health checks), for cmd/fakewled")
 	flag.Parse()
 	// Sending to real controllers takes over their lights, so it must be asked
@@ -82,6 +91,9 @@ func main() {
 	})
 	if *httpAddr != "" {
 		opts.Services = append(opts.Services, httpserver.New(*httpAddr, api.Mount, mapview.Mount(mapview.Options{}), calibrate.Mount).Service())
+	}
+	if *wledBind != "off" {
+		opts.Services = append(opts.Services, wled.New(wled.Options{Bind: *wledBind, MDNS: *mdnsOn}).Service())
 	}
 	a, err := app.New(opts)
 	if err != nil {

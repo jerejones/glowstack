@@ -18,6 +18,9 @@ areas:
   - id: shed-west
     include: [{ run: shed-eave, after: shed-sw, before: shed-nw }]
 
+# Each zone with a device is a WLED device for Home Assistant, on port 80 of
+# its ip (add the addresses to the host), told apart by mac. To try them
+# without, run glowstack with --wled-bind 127.0.0.1:0.
 zones:
   - id: front
     area: everything

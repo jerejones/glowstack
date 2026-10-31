@@ -121,6 +121,12 @@ func (e *Engine) Resolve(active []stack.Active, dst []*render.Layer) []*render.L
 	return dst
 }
 
+// Inspect resolves a layer's effect, params and common params, without
+// geometry or an effect instance, for reporting them (the WLED devices
+// read slider positions back from it). It may be called from any
+// goroutine.
+func (e *Engine) Inspect(l *stack.Layer) (*render.Layer, error) { return e.build(l, nil, false) }
+
 // Expand returns a layer's effect id and full raw params, expanding a
 // preset and applying the layer's overrides.
 func (e *Engine) Expand(l *stack.Layer) (effect string, params map[string]any, err error) {

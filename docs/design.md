@@ -792,6 +792,52 @@ wled.fx: 87  "Glitter"
   effect can use the `index` mapping and WLED's own maths (ported, with
   attribution).
 
+### WLED devices
+
+Each zone with a `device:` block is its own WLED device: an HTTP server
+with WLED's JSON API (`/json`, `/json/state`, `/json/info`, `/json/eff`,
+`/json/pal`, `/json/fxdata`, a minimal `/json/cfg`, `/presets.json`) and
+the `/ws` websocket, which pushes the state on every change, whoever made
+it. It reports WLED 16 with brand `WLED` and product `Glowstack`, so Home
+Assistant offers no firmware updates.
+
+```yaml
+device: { name: "Glowstack Front", ip: 192.0.2.50, mac: "02:00:00:00:00:01", port: 80 }
+```
+
+- **Identity.** `mac` is required and unique: HA identifies devices by it.
+  `name` defaults to the zone id. HA's integration only talks to port 80,
+  so each device needs its own IP on the host; `port` is for development.
+  An empty `ip` listens on every address.
+- **Segments** are the zone's `segments`, in order. A segment is on when a
+  layer owned by `wled-device:<zone>/<n>` is on the stack (see "Layers and
+  the stack"). A segment that's off remembers its look and shows it again
+  when turned on. Segment `bri` is the layer's `brightness`, `rev` its
+  `reverse`. Segment bounds, names, grouping and freeze can't be changed.
+- **Device `on`/`bri` are the zone brightness.** Off sets it to 0, which
+  darkens the zone without removing any layer, so turning the device on
+  again shows what was there; the brightness to turn on at is kept in
+  `wled.json` in the data folder. A zone brightness set through the native
+  API is what the device reports.
+- **Controls an effect doesn't bind** are remembered and reported back as
+  set. Switching effect keeps the colours and palette; the sliders start at
+  the new effect's defaults.
+- **Transitions.** `transition` and `tt` are the fade-in of a pushed layer
+  and the fade-out of a removed one. Edits and brightness are immediate.
+- **Presets.** Glowstack's presets get WLED preset ids 1–250 in order of
+  first sight, kept in `wled.json` so they don't move. `ps` shows a preset
+  on the main segment, as a layer naming the preset; the first control
+  change copies it into the layer. `psave` saves the main segment's look
+  as a saved preset (configured presets can't be overwritten), `pdel`
+  deletes a saved one.
+- **Palettes.** `/json/pal` lists every palette at its WLED id, user
+  palettes by their own names (with nulls between), and reports no custom
+  palettes; WLED would call ids 200 and down "Custom n".
+- **Ignored.** Nightlight, UDP sync, live override, per-LED colours and
+  playlists are accepted, ignored and reported off.
+- **Discovery.** With `--mdns`, devices are advertised as `_wled._tcp` and
+  `_http._tcp` with `mac=` in the TXT record, as WLED does.
+
 ## Layers and the stack
 
 ```text

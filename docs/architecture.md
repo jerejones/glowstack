@@ -52,8 +52,9 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/api` | The native control API under `/api/v1/` (routes in the package doc). |
 | `internal/ctl` | The command-line client for the API: `glowstack ctl …` or `glowctl …`. |
 | `internal/calibrate` | Calibration mode: the session `Manager` (targets, cursors, the calibration layers), the internal `calibration` effect, `anchors.yaml` reads and writes, and its API under `/api/v1/calibration/` (routes in `http.go`). |
+| `internal/wled` | The zones' WLED devices for Home Assistant: one HTTP server per `device:` (WLED's JSON API and `/ws`, routes in the package doc), mapping segments to layers owned by `stack.WLEDOwner`, device `on`/`bri` to zone brightness, presets to stable WLED ids (`wled.json`), and the optional mDNS responder. |
 | `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS, no build step), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
-| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids; default `none`, or `all` with `--loopback`), `--loopback=PORT`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
+| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids; default `none`, or `all` with `--loopback`), `--loopback=PORT`, `--wled-bind` (move the WLED devices, e.g. `127.0.0.1:0`; `off` for none), `--mdns`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
 | `cmd/glowctl` | The client on its own. |
 | `cmd/fakewled` | Fake controllers on loopback, from flags, a YAML list or a Glowstack config folder. |
 
@@ -354,6 +355,30 @@ list, numbered in the order they were made.
     controller it lights, whether `wire.Outputs` sends to it (`Sends`),
     and warns when it doesn't; the map still shows the pattern.
 
+### WLED devices
+
+55. **One server per device, one service for all.** `wled.Devices` is one
+    `app.Service`; it starts an HTTP server per zone `device:` and follows
+    reloads (a device whose name, mac, ip or port changed restarts).
+    `--wled-bind=HOST:PORT` gives device i PORT+i (PORT 0: free ports),
+    and each device's address is logged as `wled device listening`.
+56. **State is derived, not mirrored.** The device reads its state from
+    the stack (a segment is on iff its owner has a layer), the zone
+    brightness and `Engine.Inspect` + `Def.GetWLED`, so changes made
+    through the native API show up. What WLED has that Glowstack doesn't
+    (unbound sliders, a segment's look while it's off, `sel`, `cct`) is
+    kept in memory; the last device brightness and preset ids in
+    `wled.json`.
+57. **Pushes.** `Stack.OnChange` and reloads signal the service, which
+    sends each websocket client the state when it differs from what it
+    last sent (debounced 20 ms). A one-second tick catches zone brightness
+    set through the native API, which has no change hook.
+58. **The python-wled test** (`internal/wled/pywled_test.go`) builds
+    glowstack, runs it on the fictional example with `--wled-bind
+    127.0.0.1:0` and runs `test/pywled/test_pywled.py`, which patches
+    python-wled's URL builder to reach the loopback ports (it hard-codes
+    port 80). It's skipped without a Python that has `wled` installed.
+
 ## Live map
 
 `internal/mapview`, at `/map/`. The routes are listed in its package doc.
@@ -396,7 +421,7 @@ list, numbered in the order they were made.
 | Work | Package | Notes |
 |---|---|---|
 | More effects (`wave`, `fire`, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
-| WLED-compatible devices | `internal/wled` | One `app.Service` per zone (its own IP, mDNS). Owners are `stack.WLEDOwner(zone, segment)`. Bindings come from `render.Def.WLED`; brightness through `App.SetZoneBrightness`. Test against `python-wled`. |
+| WLED device extras | `internal/wled` | Playlists, nightlight, segment names and bounds, and HA's update entity are not supported (see design.md, "WLED devices"). |
 
 Not assigned above:
 
@@ -425,6 +450,13 @@ go run ./cmd/glowstack ctl layers    # or: glowctl layers; --server or $GLOWSTAC
 go run ./cmd/glowstack ctl cal start  # calibration: lights the first unmeasured anchor
 go run ./cmd/glowstack ctl cal +10    # nudge; then: ctl cal confirm; ctl cal stop
 go test ./...
+
+# Zones' WLED devices on free loopback ports (addresses in the log), and
+# the python-wled test (python3 -m venv /tmp/pywled-venv &&
+# /tmp/pywled-venv/bin/pip install wled):
+go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs \
+  --http 127.0.0.1:8080 --wled-bind 127.0.0.1:0
+go test ./internal/wled -run PythonWLED -v
 ```
 
 See README.md, "Try it", for a longer walk-through.

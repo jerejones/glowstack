@@ -7,9 +7,9 @@ zones and areas that can be controlled independently from Home Assistant,
 because Glowstack presents itself as ordinary WLED devices.
 
 > **Status: early.** The core, the first effects, DDP output with power
-> limiting, the control API and CLI, and the live map run. The
-> WLED-compatible devices for Home Assistant aren't built yet. This README
-> describes the design being built; `docs/architecture.md` maps it to code.
+> limiting, the control API and CLI, the live map and the WLED-compatible
+> devices for Home Assistant run. This README describes the design being
+> built; `docs/architecture.md` maps it to code.
 
 ## Why
 
@@ -59,9 +59,10 @@ cp -r examples/fictional/data /tmp/gs-data      # anchors.yaml; state is saved h
 # 127.0.0.1:40481 (shed) and :40482 (yard), DDP and HTTP on each.
 bin/fakewled --from-config examples/fictional/config --base-port 40481
 
-# Terminal 2: Glowstack, sending controller i to 127.0.0.1:40481+i.
+# Terminal 2: Glowstack, sending controller i to 127.0.0.1:40481+i, with
+# the zones' WLED devices on 127.0.0.1:40080 (front) and :40081 (porch).
 bin/glowstack --config examples/fictional/config --data /tmp/gs-data \
-  --http 127.0.0.1:8080 --loopback=40481
+  --http 127.0.0.1:8080 --loopback=40481 --wled-bind 127.0.0.1:40080
 ```
 
 Open the live map at <http://127.0.0.1:8080/map/>, and the fakes' own
@@ -85,6 +86,10 @@ bin/glowstack ctl cal start                     # calibration: white pixel = the
 bin/glowstack ctl cal +10                       # nudge it (or -1, set 400, …)
 bin/glowstack ctl cal confirm --next            # write anchors.yaml, go to the next one
 bin/glowstack ctl cal stop                      # the house look comes back
+
+# The porch zone as a WLED device: segment 0 on, WLED's Glitter (fx 87).
+curl -s 127.0.0.1:40081/json/state -d '{"seg":[{"id":0,"on":true,"fx":87}]}'
+bin/glowstack ctl layers                        # owner wled-device:porch/0
 ```
 
 `glowctl` is the same client on its own. The map's side panel shows each
@@ -95,6 +100,45 @@ big nudge and confirm buttons for a phone. By default Glowstack sends
 nothing (`--output=none`); real controllers only receive frames with
 `--output=all` or `--output=<ids>`. `--loopback` defaults to all, because it
 only reaches local fakes.
+
+## Home Assistant
+
+Each zone with a `device:` block in `areas.yaml` is a WLED device of its
+own, and its `segments` are the device's segments:
+
+```yaml
+zones:
+  - id: porch
+    area: porch
+    device: { name: "Glowstack Porch", ip: 192.0.2.51, mac: "02:00:00:00:00:02" }
+    segments:
+      - { area: porch }
+      - { area: shed-north }
+```
+
+1. **Give each device its own IP on the Glowstack host.** Home Assistant's
+   WLED integration only talks to port 80, so two devices can't share an
+   address. With Docker, a macvlan network with one address per device
+   works; on a plain host, add the addresses to the interface. Each `mac`
+   must be unique (any locally administered `02:…` address will do); Home
+   Assistant tells devices apart by it.
+2. **Start Glowstack with `--mdns`** to have the devices discovered (they're
+   advertised as `_wled._tcp`, like WLED). Without it, add each one by hand:
+   Settings → Devices & services → Add integration → WLED, and enter the
+   device's IP.
+3. **Use them like WLED.** Each segment is a light; turning it on puts a
+   layer on its area, changing effect, palette, colours or sliders edits
+   that layer, and turning it off removes it so whatever is below shows
+   again (black is a colour, not off). The device's own switch and
+   brightness are the zone's brightness: off darkens the zone without
+   removing anything. Glowstack's presets are the device's presets, under
+   ids that don't change.
+
+To try it locally, `--wled-bind 127.0.0.1:0` puts every device on a free
+loopback port and logs each address (`wled device listening … addr=…`);
+`curl http://ADDR/json/state` or python-wled can talk to them there (Home
+Assistant can't: port 80 only). `--wled-bind off` runs no devices. See
+`docs/design.md`, "WLED devices", for what maps to what.
 
 ## Container
 
