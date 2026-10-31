@@ -84,7 +84,7 @@ func TestCheck(t *testing.T) {
 		{stack.Layer{Target: "barn", Effect: "solid"}, `no area "barn"`},
 		{stack.Layer{Target: "yard", Effect: "fire"}, `no effect "fire"`},
 		{stack.Layer{Target: "yard", Preset: "nope"}, `no preset "nope"`},
-		{stack.Layer{Target: "yard", Preset: "slow-crawl"}, `no effect "bands"`},
+		{stack.Layer{Target: "yard", Preset: "slow-crawl", Params: map[string]any{"speed": "fast"}}, "speed"},
 		{stack.Layer{Target: "yard", Effect: "solid", Params: map[string]any{"colour": "#fff"}}, `unknown parameter "colour"`},
 		{stack.Layer{Target: "yard", Effect: "solid", Params: map[string]any{"mapping": "sideways"}}, `no mapping "sideways"`},
 		{stack.Layer{Target: "yard", Effect: "solid", Params: map[string]any{"opacity": 3}}, "opacity"},

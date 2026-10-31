@@ -3,8 +3,19 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Package palette holds named colour gradients: built-ins (WLED's palettes,
-// under their WLED ids and names, added by the palette port) and user
-// palettes from palettes.yaml.
+// under their WLED ids and names) and user palettes from palettes.yaml.
+//
+// # WLED palettes
+//
+// Builtins holds WLED's 73 fixed palettes under their WLED ids (0–72) and
+// names, so Home Assistant's palette list matches a real WLED device. Ids
+// are slugs of the names ("Red & Blue" is "red-blue"); lookups also accept
+// the name, case-insensitively. User palettes get WLED ids from 200
+// downward, WLED's numbering for custom palettes; a user palette that
+// replaces a built-in keeps the built-in's id.
+//
+// Palettes 0–5 are special: they have no colours of their own and are
+// resolved per layer with Resolve. See Special.
 package palette
 
 import (
@@ -33,6 +44,10 @@ type Palette struct {
 	Stops []Stop
 	Step  bool // hold each stop's colour until the next instead of blending
 	Wrap  bool // positions wrap modulo 1 (and the last stop blends into the first)
+	// Special marks WLED's palettes 0–5, which are made per layer from the
+	// effect's default palette, its colours or the time. Effects call
+	// Resolve (or a Cache) before sampling. Their own Stops are a fallback.
+	Special Special
 
 	linear []color.Color
 }
@@ -107,9 +122,15 @@ func (p *Palette) At(t float64) color.Color {
 	return color.Lerp(p.linear[i], p.linear[j], float32(off/span))
 }
 
-// Builtins are palettes compiled into Glowstack. The WLED palette port
-// appends to it from an init function; NewRegistry copies it.
+// Builtins are palettes compiled into Glowstack: WLED's fixed palettes in
+// WLED id order (see wled.go and special.go). NewRegistry copies it.
 var Builtins []*Palette
+
+// WLED palette id ranges.
+const (
+	WLEDFixedCount = 73  // ids 0–72 are WLED's fixed palettes
+	WLEDCustomBase = 200 // user palettes count down from here
+)
 
 // Registry looks palettes up by id, name (case-insensitive) or WLED id.
 type Registry struct {
@@ -119,15 +140,49 @@ type Registry struct {
 
 // NewRegistry returns the built-ins plus user palettes. A user palette with
 // a built-in's id replaces it.
+//
+// User palettes get WLED ids from WLEDCustomBase downward, in file order,
+// unless they replace a built-in, whose WLED id they keep.
 func NewRegistry(user []config.Palette) *Registry {
 	r := &Registry{byID: map[string]*Palette{}}
 	for _, p := range Builtins {
 		r.Add(p)
 	}
+	next := WLEDCustomBase
 	for i := range user {
-		r.Add(FromConfig(&user[i]))
+		p := FromConfig(&user[i])
+		if old, ok := r.byID[p.ID]; ok && old.WLED >= 0 {
+			p.WLED = old.WLED
+		} else if next >= WLEDFixedCount {
+			p.WLED = next
+			next--
+		}
+		r.Add(p)
 	}
 	return r
+}
+
+// WLEDList lists the palettes that have WLED ids in the order WLED lists
+// them (for /json/pal): fixed palettes by id, then custom palettes from
+// id 200 downward.
+func (r *Registry) WLEDList() []*Palette {
+	var out []*Palette
+	for _, p := range r.list {
+		if p.WLED >= 0 {
+			out = append(out, p)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		a, b := out[i].WLED, out[j].WLED
+		if (a < WLEDFixedCount) != (b < WLEDFixedCount) {
+			return a < WLEDFixedCount
+		}
+		if a < WLEDFixedCount {
+			return a < b
+		}
+		return a > b
+	})
+	return out
 }
 
 // Add adds or replaces a palette.

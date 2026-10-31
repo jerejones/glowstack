@@ -433,11 +433,30 @@ palettes:
     wrap: true
 ```
 
-- **Built-ins.** WLED's palettes are included under their WLED ids and names,
-  so HA's palette list matches.
+- **Built-ins.** WLED's 73 fixed palettes are included under their WLED ids
+  (0–72) and names, so HA's palette list matches. Their ids are slugs of the
+  names (`"Red & Blue"` is `red-blue`), and the name works too. 16-entry
+  FastLED palettes become 16 evenly spaced wrapping stops; gradient
+  palettes keep their own stops. User palettes get WLED ids from 200
+  downward (WLED's custom-palette numbering), or keep a built-in's id when
+  they replace it.
+- **Special palettes.** WLED's palettes 0–5 have no colours of their own and
+  are resolved per layer:
+  - `Default` (0) is the effect's own default (Rainbow for `gradient` and
+    glitter, the sparkle's colour for `sparkle`, Party otherwise).
+  - `* Random Cycle` (1) is four random hues that change every 5 s with a
+    1 s cross-fade, a function of time only, so every layer agrees.
+  - `* Color 1`, `* Colors 1&2`, `* Color Gradient` and `* Colors Only`
+    (2–5) are built from the effect's colours as WLED builds them from a
+    segment's three colours. Effects with palettes take a `colors`
+    parameter for this (bound to WLED's `col`), except `sparkle`, which
+    uses its `color`.
 - **White channel.** Colours may give white explicitly (`"#ff8000/40"` = RGB
-  plus W). Otherwise the layer's `white` mode derives it: `none`, `brighter`
-  or `accurate`, as in WLED's auto-white.
+  plus W). Otherwise the layer's `white` mode derives it, as in WLED's
+  auto-white: `explicit` (the default) leaves W as authored, `brighter`
+  adds W = min(R, G, B), `accurate` moves min(R, G, B) into W, and `none`
+  drops W altogether. `brighter` and `accurate` leave colours that already
+  carry white alone (like WLED's "Dual").
 - **Linear light.** Authored colours are perceptual, like WLED's. They're
   decoded once to linear light with gamma 2.8 (WLED's default), and all
   compositing, brightness and power maths happens in linear light. The
@@ -512,16 +531,55 @@ of them, or presets over them:
 |---|---|---|
 | `solid` | One colour | `color` |
 | `bands` | A repeating sequence of coloured bands over `u` | `bands: [{color, width}]`, `speed`, `edge: hard\|soft` |
-| `gradient` | A palette stretched over `u`, optionally moving | `palette`, `span` (length of one full palette cycle), `speed` |
+| `gradient` | A palette stretched over `u`, optionally moving | `palette`, `span` (length of one full palette cycle), `speed`, `colors` |
 | `sparkle` | Random short-lived points over the base | `density`, `color` or `palette`, `lifetime`, `decay`, `seed` |
-| `chase` | Moving pulses | `width`, `spacing`, `speed`, `colors`, `tail` |
-| `noise` | Smooth noise over `u`/`x,y` and time | `palette`, `scale`, `speed` |
-| `breathe` | Brightness over time | `period`, `min`, `max` |
+| `chase` | Moving pulses | `width`, `spacing`, `speed`, `colors`, `tail`, `background`, `overlay` |
+| `noise` | Smooth noise over `u`/`x,y` and time | `palette`, `scale`, `speed`, `evolve`, `space: u\|xy`, `seed` |
+| `breathe` | Brightness over time | `color`, `background`, `period`, `min`, `max` |
+
+- **`bands`** with `edge: soft` blend linearly from each band's centre to
+  the next.
+- **`sparkle`** paints only its sparkles, with alpha, so it overlays. Each
+  is at full brightness for `lifetime` and then fades over `decay`.
+- **`chase`** paints `background` between pulses, or nothing with
+  `overlay: true`. The tail trails behind the direction of motion.
+- **`noise`** is 3-D gradient noise over (u or x, y) and time. `scale` is
+  the feature size and is physical by default; `speed` drifts the field
+  and `evolve` changes it in place.
+- **`breathe`** mixes `background` to `color` and back with a raised
+  cosine. Levels are perceptual, so it looks even. With white over black
+  and `blend: multiply` it makes the layers below breathe.
 
 A composite effect is a named stack of primitives sharing one target and
 mapping, presented as a single effect. For example, `glitter = gradient +
 sparkle(blend: over)`. Composites can be defined in config, so new looks don't
-need new code.
+need new code:
+
+```yaml
+# presets.yaml
+composites:
+  - id: ember-glitter
+    name: Ember glitter
+    layers:                      # bottom first
+      - { name: base, effect: gradient, params: { palette: ember, span: 4 m } }
+      - { name: sparks, effect: sparkle, blend: over, params: { density: 6 /m/s } }
+```
+
+- **Parameters.** A composite's parameters are its parts' parameters under
+  the part's name (`base.span`, `sparks.density`), plus `<part>.blend` and
+  `<part>.opacity`. A part's `params` are its defaults. The part name
+  defaults to the effect id. Each part gets its own seed, derived from the
+  layer's.
+- **Blending.** Parts are blended bottom first with the compositor's own
+  blend, and the composite outputs colour with alpha. With `blend: over`
+  that's exactly the same as stacking the parts as layers. `add`, `max` and
+  `multiply` parts act on the composite's own parts only.
+- **Nesting.** A part may be another composite, and its parameters get two
+  prefixes (`outer.inner.speed`). Composites may be listed in any order; a
+  cycle is a load error.
+- **WLED.** Config composites get fx ids from 240 up, `sx` bound to their
+  first speed, `ix` to their first density, `pal` to their first palette
+  and `col` to their first colours. `glitter` is built in as WLED fx 87.
 
 ### Sub-pixel motion
 
@@ -553,6 +611,13 @@ stateful random number generator. The same seed gives the same sparkles in the
 house and in the preview. Sparkles stay in sync across controllers, and
 density stays per metre whatever the frame rate.
 
+For `sparkle`, a time slot is as long as one sparkle lasts (`lifetime +
+decay`). The hash gives each pixel's number of sparkles starting in a slot,
+Poisson-distributed with mean `density × dl × slot`, and each one's start
+time and colour. A frame looks at the current and previous slots. Because
+`dl` is the pixel's physical size, density is per metre of strip whatever
+the stretch.
+
 ### Presets
 
 ```yaml
@@ -565,7 +630,12 @@ presets:
 ```
 
 A preset is a layer without a target. Applying it to an area makes a layer.
-Any parameter can be overridden when it's applied.
+Any parameter can be overridden when it's applied. Overrides replace whole
+parameters (overriding `bands` replaces the list). A layer can either copy
+the preset's effect and parameters (like applying a preset on WLED, so later
+edits to the preset don't affect it) or name the preset, which is expanded
+whenever the layer is resolved. Presets are checked against the effects at
+startup and problems are logged.
 
 ### WLED compatibility
 
@@ -585,9 +655,33 @@ wled.fx: 87  "Glitter"
   Sliders are a view of it. A slider change sets the physical value through
   its curve. A physical value set through the native API is reported back
   through the inverse curve, clamped.
+- **Curves.** With slider position x = s/255 and y the position between
+  the binding's two ends: `linear` is y = x; `exp` is
+  y = (e^(4x) − 1) / (e^4 − 1), fine control near the first end; `log` is
+  its inverse, fine control near the second. Ends may be in either order
+  ("255 → 0.5 s" for a period that gets shorter as the slider goes up).
+- **Parameter paths.** A binding names a parameter path: `speed`,
+  `colors.0` (an element), `bands.1.width` (a list element's field) or
+  `sparkle.density` (a composite part's parameter).
+- **Sliders set size, not direction.** A slider keeps a speed's sign and a
+  length's `physical` measure.
 - **Effects with no WLED equivalent.** They're still listed in `/json/eff`
   under ids above WLED's range, with their two most important parameters
-  bound to `sx`/`ix`.
+  bound to `sx`/`ix`. WLED's ids end at 220 and are 8-bit, so Glowstack
+  uses 240–255. `/json/eff` lists names by id with `RSVD` for ids Glowstack
+  doesn't implement, as WLED does.
+- **Bindings for the built-in effects:**
+
+  | Effect | WLED fx | `sx` | `ix` | Colours, palette |
+  |---|---|---|---|---|
+  | `solid` | 0 Solid | | | col0 → `color` |
+  | `breathe` | 2 Breathe | `period` 10 s → 0.5 s (log) | | col0 `color`, col1 `background` |
+  | `sparkle` | 20 Sparkle | `decay` 2 s → 0.05 s (exp) | `density` 0 → 50 /m/s (exp) | col0 `color`, pal |
+  | `chase` | 28 Chase | `speed` 0 → 5 m/s (exp) | `width` 1 px → 2 m (exp) | col0 `background`, col1–2 `colors` |
+  | `gradient` | 65 Palette | `speed` 0 → 2 m/s (exp) | `span` 0.25 → 20 m (exp) | col0–2 `colors`, pal |
+  | `bands` | 83 Solid Pattern | first band's width 1 → 256 px | second band's width 1 → 256 px | col0–1 band colours |
+  | `glitter` | 87 Glitter | `gradient.speed` | `sparkle.density` | col0–1 `gradient.colors`, col2 `sparkle.color`, pal |
+  | `noise` | 107 Noise Pal | `evolve` 0 → 3 /s (exp) | `scale` 5 → 0.1 m (log) | col0–2 `colors`, pal |
 - **WLED-exact mode.** For an effect that should look exactly like WLED, an
   effect can use the `index` mapping and WLED's own maths (ported, with
   attribution).
@@ -729,10 +823,10 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
   default.
 - Boot behaviour and default mappings (zone, with segment override) are
   configurable.
+- Composites may nest, with cycles rejected at load.
 
 ## Open questions
 
 - When a layer covers part of a larger layer's area, should turning it off in
   HA ever remove the larger layer? Currently it never does.
 - `led_ma` figures for the strips need measuring or a datasheet value.
-- Whether composites can nest (a composite inside a composite).

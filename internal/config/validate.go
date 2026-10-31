@@ -30,6 +30,7 @@ func (c *Config) Validate() error {
 	v.mappings(c)
 	v.palettes(c.Palettes)
 	v.presets(c.Presets)
+	v.composites(c.Composites)
 	runs := map[string]*Run{}
 	for i := range c.Layout.Runs {
 		runs[c.Layout.Runs[i].ID] = &c.Layout.Runs[i]
@@ -408,6 +409,26 @@ func (v *validator) presets(ps []Preset) {
 	unique(v, "preset", saved, func(p *Preset) (string, Pos) { return p.ID, p.Pos })
 	for _, p := range ps {
 		v.required(p.Pos, "effect", p.Effect)
+	}
+}
+
+func (v *validator) composites(cs []Composite) {
+	unique(v, "composite", cs, func(c *Composite) (string, Pos) { return c.ID, c.Pos })
+	for i := range cs {
+		c := &cs[i]
+		if len(c.Layers) == 0 {
+			v.errorf(c.Pos, "composite %q has no layers", c.ID)
+		}
+		for j := range c.Layers {
+			l := &c.Layers[j]
+			v.required(l.Pos, "effect", l.Effect)
+			if l.Blend != "" {
+				v.oneOf(l.Pos, "blend", &l.Blend, "over", "replace", "add", "max", "multiply")
+			}
+			if l.Opacity != nil && (*l.Opacity < 0 || *l.Opacity > 1) {
+				v.errorf(l.Pos, "opacity %v is outside 0–1", *l.Opacity)
+			}
+		}
 	}
 }
 

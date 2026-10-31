@@ -59,6 +59,7 @@ type Config struct {
 	Mappings       []Mapping
 	Palettes       []Palette
 	Presets        []Preset         // presets.yaml then presets.saved.yaml (Saved set)
+	Composites     []Composite      // presets.yaml then presets.saved.yaml
 	Anchors        []AnchorOverride // anchors.yaml from the data dir
 }
 
@@ -116,6 +117,7 @@ func Load(dir, dataDir string) (*Config, error) {
 		p.Saved = true
 		c.Presets = append(c.Presets, p)
 	}
+	c.Composites = append(presets.Composites, saved.Composites...)
 	c.Anchors = anchors.Anchors
 	if err := c.Validate(); err != nil {
 		return nil, err

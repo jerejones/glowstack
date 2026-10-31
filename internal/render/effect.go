@@ -64,6 +64,19 @@ type Def struct {
 	WLED     *WLED // optional WLED fx binding
 	// New returns the Effect for one layer.
 	New func() Effect
+	// CoordsFor optionally refines Coords from a layer's parameters, for
+	// effects that read u or x,y depending on a parameter (noise). nil
+	// means Coords.
+	CoordsFor func(*Values) Coords
+}
+
+// CoordsOf returns the coordinates a layer of this effect with params v
+// reads.
+func (d *Def) CoordsOf(v *Values) Coords {
+	if d.CoordsFor != nil && v != nil {
+		return d.CoordsFor(v)
+	}
+	return d.Coords
 }
 
 // Context is everything an effect gets for one frame. The per-pixel slices
@@ -121,18 +134,23 @@ type Curve string
 
 const (
 	CurveLinear Curve = "linear"
-	CurveExp    Curve = "exp"
+	CurveExp    Curve = "exp" // fine control at the low end; see Curve.Value
+	CurveLog    Curve = "log" // fine control at the high end
 )
 
 // Binding maps one WLED control to a parameter. For sliders, Min and Max
 // are the raw parameter values at 0 and 255 (e.g. "0 m/s", "2 m/s"). For
-// colours and palettes they're unused.
+// colours and palettes they're unused. See SetWLED and GetWLED.
 type Binding struct {
 	Slider Slider
-	Param  string // parameter name; dotted for composites ("sparkle.density")
-	Curve  Curve
-	Min    any
-	Max    any
+	// Param is a parameter path: a name ("speed"), dotted for composites
+	// ("sparkle.density"), then an element index for colors and list
+	// parameters and a field for list elements ("colors.0",
+	// "bands.1.width").
+	Param string
+	Curve Curve
+	Min   any
+	Max   any
 }
 
 // Common parameters every layer takes, whatever its effect.

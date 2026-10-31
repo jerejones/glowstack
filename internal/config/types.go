@@ -486,8 +486,9 @@ func (s *Stop) unmarshalNode(d *decoder, n *yaml.Node) error {
 
 // PresetsFile is presets.yaml (config dir) or presets.saved.yaml (data dir).
 type PresetsFile struct {
-	Schema  int      `yaml:"schema" json:"schema"`
-	Presets []Preset `yaml:"presets" json:"presets"`
+	Schema     int         `yaml:"schema" json:"schema"`
+	Presets    []Preset    `yaml:"presets" json:"presets"`
+	Composites []Composite `yaml:"composites" json:"composites,omitempty"`
 }
 
 // Preset is a saved layer specification without a target. Params holds raw
@@ -502,4 +503,25 @@ type Preset struct {
 	Effect string         `yaml:"effect" json:"effect"`
 	Params map[string]any `yaml:"params" json:"params,omitempty"`
 	Saved  bool           `yaml:"-" json:"-"` // came from presets.saved.yaml
+}
+
+// Composite is a named stack of effects sharing one target and mapping,
+// presented as a single effect with the id ID. Layers are listed bottom
+// first. Its effects (built-in or other composites) and params are checked
+// when it's registered, because effects live in code.
+type Composite struct {
+	Pos    `json:"-"`
+	ID     string           `yaml:"id" json:"id"`
+	Name   string           `yaml:"name" json:"name,omitempty"`
+	Layers []CompositeLayer `yaml:"layers" json:"layers"`
+}
+
+// CompositeLayer is one part of a composite.
+type CompositeLayer struct {
+	Pos     `json:"-"`
+	Name    string         `yaml:"name" json:"name,omitempty"`       // parameter prefix; default the effect id
+	Effect  string         `yaml:"effect" json:"effect"`             // effect or composite id
+	Blend   string         `yaml:"blend" json:"blend,omitempty"`     // onto the layers below; default over
+	Opacity *float64       `yaml:"opacity" json:"opacity,omitempty"` // default 1
+	Params  map[string]any `yaml:"params" json:"params,omitempty"`   // the part's default params
 }

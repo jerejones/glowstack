@@ -1,12 +1,126 @@
 schema: 1
+
+# Saved looks for the fictional installation. A preset is a layer without a
+# target: an effect and its parameters (common layer parameters such as
+# blend or opacity may be included). Apply one to any area; any parameter
+# can be overridden when it's applied.
 presets:
+  # --- the two milestone looks ---
+
+  # Orange bands 20 px long with 3 px green gaps, creeping one pixel every
+  # eight seconds. Widths follow the flow, so the bands stay in sync where
+  # the flow is stretched.
+  - id: slow-crawl
+    name: Slow crawl
+    effect: bands
+    params:
+      bands: [{ color: "#ff5a00", width: 20 px }, { color: "#3cff00", width: 3 px }]
+      speed: 1 px/8s
+
+  # WLED's Glitter: a slowly moving rainbow with white sparkles over it.
+  - id: glitter
+    name: Glitter
+    effect: glitter
+    params:
+      gradient.palette: Rainbow
+      gradient.span: 3 m
+      gradient.speed: 0.1 m/s
+      sparkle.density: 8 /m/s
+      sparkle.color: "#ffffff"
+
+  # --- one look per primitive ---
+
   - id: warm-white
     name: Warm white
     effect: solid
     params:
       color: "#ff9a40/c0"
-  - id: slow-crawl
+
+  # Soft-edged candy stripes 25 cm wide whatever the stretch.
+  - id: candy-stripes
+    name: Candy stripes
     effect: bands
     params:
-      bands: [{ color: "#ff5a00", width: 20 px }, { color: "#3cff00", width: 3 px }]
-      speed: 1 px/8s
+      bands:
+        - { color: "#ff0000", width: 25 cm physical }
+        - { color: "#ffffff/80", width: 25 cm physical }
+      edge: soft
+      speed: -0.05 m/s
+
+  - id: ember-drift
+    name: Ember drift
+    effect: gradient
+    params:
+      palette: ember
+      span: 4 m
+      speed: 0.08 m/s
+
+  # Sparkles only: put it on top of another look.
+  - id: frost-sparkle
+    name: Frost sparkle
+    effect: sparkle
+    params:
+      density: 3 /m/s
+      lifetime: 50 ms
+      decay: 600 ms
+      palette: frost
+      blend: over
+
+  - id: comet-chase
+    name: Comet chase
+    effect: chase
+    params:
+      width: 10 cm
+      spacing: 3 m
+      speed: 1.5 m/s
+      tail: 1 m
+      colors: ["#80c0ff", "#ffffff"]
+      overlay: true
+
+  - id: aurora-drift
+    name: Aurora drift
+    effect: noise
+    params:
+      palette: Aurora
+      scale: 2 m
+      speed: 0.05 m/s
+      evolve: 0.1 /s
+
+  - id: slow-breath
+    name: Slow breath
+    effect: breathe
+    params:
+      color: "#ff8000"
+      period: 8 s
+      min: 0.3
+
+  # Makes whatever is below it breathe.
+  - id: breathe-below
+    name: Breathe the layers below
+    effect: breathe
+    params:
+      color: "#ffffff"
+      background: "#000000"
+      period: 6 s
+      min: 0.4
+      blend: multiply
+
+  - id: ember-glitter
+    name: Ember glitter
+    effect: ember-glitter
+
+# Composites: named stacks of effects that share a target and mapping,
+# usable like any other effect. Layers are listed bottom first. Their
+# parameters are the parts' parameters under the part's name
+# ("base.speed", "sparks.density").
+composites:
+  - id: ember-glitter
+    name: Ember glitter
+    layers:
+      - name: base
+        effect: gradient
+        params: { palette: ember, span: 4 m, speed: 0.05 m/s }
+      - name: sparks
+        effect: sparkle
+        blend: over
+        params: { density: 6 /m/s, color: "#ffd060" }
