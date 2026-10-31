@@ -62,3 +62,22 @@ func TestCombinedBrightnessAndOn(t *testing.T) {
 		})
 	}
 }
+
+func TestReusedPresetNumber(t *testing.T) {
+	f := newFixture(t)
+	f.post(`{"psave":20,"n":"First look"}`)
+	f.post(`{"pdel":20}`)
+	f.post(`{"psave":20,"n":"Second look"}`)
+	// Reintroducing the deleted native preset must not steal the slot
+	// explicitly assigned to Second look, including after a restart.
+	f.a.Close()
+	f.start()
+	if _, _, err := f.a.SavePreset(config.Preset{ID: "first-look", Name: "First look", Effect: "solid"}); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := f.d.presetNumber(f.a.Current().Config, "first-look")
+	second, _ := f.d.presetNumber(f.a.Current().Config, "second-look")
+	if first == second || second != 20 {
+		t.Errorf("preset numbers: first=%d, second=%d, want distinct and second=20", first, second)
+	}
+}
