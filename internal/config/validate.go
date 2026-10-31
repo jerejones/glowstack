@@ -15,6 +15,8 @@ import (
 const (
 	DefaultFPS     = 40
 	DefaultPort    = 4048
+	DefaultHTTP    = 80
+	DefaultRelease = 2 * time.Second
 	DefaultFadeIn  = 300 * time.Millisecond
 	DefaultFadeOut = 500 * time.Millisecond
 )
@@ -101,6 +103,18 @@ func (v *validator) settings(s *Settings) {
 		d := units.Duration(DefaultFadeOut)
 		s.Fade.Out = &d
 	}
+	v.oneOf(s.Power.Pos, "power group", &s.Power.Group, "global", "zone", "controller", "output")
+	if s.Power.Release == nil {
+		d := units.Duration(DefaultRelease)
+		s.Power.Release = &d
+	}
+	if *s.Power.Release < 0 {
+		v.errorf(s.Power.Pos, "power release must not be negative")
+	}
+	if s.Dither == nil {
+		on := true
+		s.Dither = &on
+	}
 }
 
 func (v *validator) controllers(cs []Controller) {
@@ -119,6 +133,12 @@ func (v *validator) controllers(cs []Controller) {
 		}
 		if c.Port < 0 || c.Port > 65535 {
 			v.errorf(c.Pos, "port %d out of range", c.Port)
+		}
+		if c.HTTPPort == 0 {
+			c.HTTPPort = DefaultHTTP
+		}
+		if c.HTTPPort < 0 || c.HTTPPort > 65535 {
+			v.errorf(c.Pos, "http_port %d out of range", c.HTTPPort)
 		}
 		if c.Pixels <= 0 {
 			v.errorf(c.Pos, "controller %q: pixels must be positive", c.ID)
