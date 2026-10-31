@@ -6,9 +6,12 @@ package fakewled
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"net"
 	"net/http/httptest"
 	"testing"
+	"testing/synctest"
 
 	"github.com/jerejones/glowstack/internal/output/ddp"
 )
@@ -72,4 +75,23 @@ func TestJSON(t *testing.T) {
 	if !bytes.Contains(w.Body.Bytes(), []byte("fake WLED <b>t</b>")) {
 		t.Errorf("page: %s", w.Body)
 	}
+}
+
+// A receive failure must end the cancellation watcher even when its caller
+// keeps running. synctest detects a watcher left blocked after the call.
+func TestServeUDPReadErrorStopsWatcher(t *testing.T) {
+	conn, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn.Close()
+	synctest.Test(t, func(t *testing.T) {
+		d, err := New(Config{Pixels: 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := d.ServeUDP(context.Background(), conn); err == nil {
+			t.Fatal("closed socket should fail")
+		}
+	})
 }
