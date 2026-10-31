@@ -195,3 +195,16 @@ func TestRequiredPixelIndicesCannotDefaultToZero(t *testing.T) {
 		}
 	}
 }
+
+func TestRejectNonFiniteConfigNumbers(t *testing.T) {
+	for _, tt := range []struct{ file, body, location string }{
+		{SettingsFileName, "schema: 1\nfps: .nan\n", "glowstack.yaml:2:"},
+		{ControllersFileName, "schema: 1\ncontrollers:\n  - {id: shed, host: 192.0.2.1, pixels: 100, max_fps: .inf}\n", "controllers.yaml:3:"},
+		{MappingsFileName, "schema: 1\nflows:\n  - {id: f, origin: x, max_stretch: .nan}\n", "mappings.yaml:3:"},
+	} {
+		_, err := Load(writeConfig(t, map[string]string{tt.file: tt.body}), "")
+		if err == nil || !strings.Contains(err.Error(), tt.location) {
+			t.Errorf("non-finite value in %s: %v, want file:line error", tt.file, err)
+		}
+	}
+}
