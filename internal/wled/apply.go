@@ -244,6 +244,14 @@ func (e *edit) set(s render.Slider, value any) {
 
 // common sets (or, with nil, clears) a common layer parameter.
 func (e *edit) common(name string, value any) {
+	if e.lk.Preset != "" {
+		eff, params, err := e.v.Engine.Expand(e.lk.layer(e.sv))
+		if err != nil {
+			e.d.log.Warn("wled: preset can't be expanded", "preset", e.lk.Preset, "err", err)
+			return
+		}
+		e.lk = look{Effect: eff, Params: cloneRaw(params)}
+	}
 	params := cloneRaw(e.lk.Params)
 	if value == nil {
 		delete(params, name)
@@ -308,7 +316,12 @@ func (d *Devices) applySegment(v *view, i int, s *segReq, fade int) {
 			// the colours and palette carried over. A black second or third
 			// colour is WLED's "unset" (its Glitter sparkles white then), so
 			// those keep the new effect's defaults.
-			common, _ := render.SplitParams(e.lk.Params)
+			_, params, err := v.Engine.Expand(e.lk.layer(sv))
+			if err != nil {
+				d.log.Warn("wled: effect change not applied", "segment", sv.owner, "err", err)
+				return
+			}
+			common, _ := render.SplitParams(params)
 			e.lk, e.def, e.changed = look{Effect: def.ID, Params: common}, def, true
 			for k, cs := range controlColors {
 				if c := rep.ctl.Col[k]; k == 0 || c.R|c.G|c.B|c.W != 0 {
