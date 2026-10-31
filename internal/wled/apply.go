@@ -148,7 +148,7 @@ func (d *Devices) applyMaster(v *view, zm *zoneMem, onRaw, briRaw json.RawMessag
 		on = b
 	}
 	if bri == 0 {
-		on, bri = false, zm.bri
+		bri = oldBri
 	}
 	if on == wasOn && (!on || bri == oldBri) {
 		return
@@ -294,7 +294,7 @@ func (d *Devices) applySegment(v *view, i int, s *segReq, fade int) {
 			}
 		}
 	}
-	if b, ok := getBool(s.On, wasOn); ok {
+	if b, ok := getBool(s.On, on); ok {
 		on = b
 	}
 	if b, ok := getBool(s.Rev, rep.rev); ok && b != rep.rev {
