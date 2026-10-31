@@ -155,12 +155,12 @@ func (s *Stack) Push(l Layer) (Layer, error) {
 	defer s.mu.Unlock()
 	now := s.clock.Now()
 	if l.ID == "" {
-		for s.find(strconv.Itoa(s.nextID)) >= 0 {
+		for s.hasID(strconv.Itoa(s.nextID)) {
 			s.nextID++
 		}
 		l.ID = strconv.Itoa(s.nextID)
 		s.nextID++
-	} else if s.find(l.ID) >= 0 {
+	} else if s.hasID(l.ID) {
 		return Layer{}, fmt.Errorf("layer %q already exists", l.ID)
 	}
 	if l.Seed == 0 {
@@ -330,6 +330,11 @@ func ramp(elapsed, d time.Duration) float32 {
 		return 0
 	}
 	return float32(elapsed.Seconds() / d.Seconds())
+}
+
+// hasID includes removed layers until their fade-out has finished.
+func (s *Stack) hasID(id string) bool {
+	return slices.ContainsFunc(s.entries, func(e *entry) bool { return e.ID == id })
 }
 
 func (s *Stack) find(id string) int {
