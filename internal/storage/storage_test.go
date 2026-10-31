@@ -131,3 +131,32 @@ func TestWriteFileAtomicReportsDirectorySyncFailure(t *testing.T) {
 		t.Fatal("reported a durable write despite being unable to sync its directory")
 	}
 }
+
+func TestSaverCloseStopsTriggersBeforeFinalSave(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var saves atomic.Int32
+	s := NewSaver(time.Hour, func() error {
+		if saves.Add(1) == 1 {
+			close(started)
+			<-release
+		}
+		return nil
+	}, nil)
+	// Defer the initial background save so Close performs it.
+	s.last = time.Now()
+	s.Trigger()
+	done := make(chan error, 1)
+	go func() { done <- s.Close() }()
+	<-started
+	s.Trigger() // Close is already doing its final save.
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if got := saves.Load(); got != 1 {
+		t.Fatalf("accepted a trigger during Close: %d saves, want 1", got)
+	}
+}
