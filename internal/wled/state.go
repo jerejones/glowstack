@@ -282,6 +282,7 @@ func (d *Devices) state(v *view) *State {
 	}
 	if st.On {
 		st.Bri = max(1, int(math.Round(zb*255)))
+		d.setLastBri(v.zone.ID, zm, st.Bri)
 	}
 	for i := range v.segs {
 		seg, l := d.segment(v, i)
