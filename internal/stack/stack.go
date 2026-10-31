@@ -57,6 +57,10 @@ type Layer struct {
 	Updated  time.Time      `json:"updated"`
 	// Revision identifies a mutation independently of clock precision.
 	Revision uint64 `json:"-"`
+	// ResolvedFades is filled by Validate after preset expansion. A negative
+	// duration uses the stack default. It is recalculated on every change
+	// and restore, so persisted Params remain the caller's overrides.
+	ResolvedFades *Fades `json:"-"`
 }
 
 // Lifetime says when a layer removes itself. The zero value means "until
@@ -342,6 +346,7 @@ func (s *Stack) find(id string) int {
 }
 
 func (s *Stack) check(l *Layer, now time.Time) error {
+	l.ResolvedFades = nil
 	if l.Target == "" {
 		return errors.New("layer needs a target area")
 	}
@@ -368,7 +373,18 @@ func (s *Stack) setFades(e *entry) error {
 		return err
 	}
 	e.fadeOut, err = durationParam(e.Params, "fade_out", s.fades.Out)
-	return err
+	if err != nil {
+		return err
+	}
+	if f := e.ResolvedFades; f != nil {
+		if f.In >= 0 {
+			e.fadeIn = f.In
+		}
+		if f.Out >= 0 {
+			e.fadeOut = f.Out
+		}
+	}
+	return nil
 }
 
 func durationParam(params map[string]any, name string, def time.Duration) (time.Duration, error) {

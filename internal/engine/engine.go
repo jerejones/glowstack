@@ -62,8 +62,18 @@ func New(cfg *config.Config, l *layout.Layout, ms *layout.Mappings, effects *ren
 // Check validates a stack layer: its area, effect or preset, params and
 // mapping. Install it as stack.Stack.Validate.
 func (e *Engine) Check(l *stack.Layer) error {
-	_, err := e.build(l, nil, false)
-	return err
+	resolved, err := e.build(l, nil, false)
+	if err != nil {
+		return err
+	}
+	l.ResolvedFades = &stack.Fades{In: -1, Out: -1}
+	if resolved.Common.FadeIn >= 0 {
+		l.ResolvedFades.In = time.Duration(resolved.Common.FadeIn * float64(time.Second))
+	}
+	if resolved.Common.FadeOut >= 0 {
+		l.ResolvedFades.Out = time.Duration(resolved.Common.FadeOut * float64(time.Second))
+	}
+	return nil
 }
 
 // Resolve turns the stack's active layers (top first) into render layers,
