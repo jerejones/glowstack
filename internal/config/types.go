@@ -352,13 +352,20 @@ type Zone struct {
 	Segments []Segment `yaml:"segments"`
 }
 
-// Device is a zone's virtual WLED identity.
+// Device is a zone's virtual WLED identity. A zone with a device block
+// appears to Home Assistant as a WLED device (internal/wled).
 type Device struct {
 	Pos
-	Name string `yaml:"name"`
-	IP   string `yaml:"ip"`
-	MAC  string `yaml:"mac"`
+	Name string `yaml:"name"` // default: the zone id
+	IP   string `yaml:"ip"`   // listen address; "" listens on every address
+	MAC  string `yaml:"mac"`  // required; Home Assistant identifies devices by it
+	// Port is the HTTP port, default 80. Home Assistant's WLED integration
+	// only talks to port 80, so other ports are for development.
+	Port int `yaml:"port"`
 }
+
+// Present reports whether the zone has a device block.
+func (d *Device) Present() bool { return d.Line > 0 || d.MAC != "" }
 
 // Segment exposes an area as a WLED segment of a zone.
 type Segment struct {

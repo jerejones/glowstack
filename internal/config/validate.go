@@ -5,7 +5,9 @@
 package config
 
 import (
+	"net"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/units"
@@ -315,6 +317,7 @@ func (v *validator) areas(c *Config) {
 		mappingIDs[id] = true
 	}
 	unique(v, "zone", c.Zones, func(z *Zone) (string, Pos) { return z.ID, z.Pos })
+	v.devices(c.Zones)
 	for _, z := range c.Zones {
 		if v.required(z.Pos, "area", z.Area) && !areaIDs[z.Area] {
 			v.errorf(z.Pos, "zone %q: unknown area %q", z.ID, z.Area)
@@ -330,6 +333,63 @@ func (v *validator) areas(c *Config) {
 				v.errorf(s.Pos, "segment: unknown mapping %q", s.Mapping)
 			}
 		}
+	}
+}
+
+// DefaultDevicePort is a zone device's HTTP port: Home Assistant's WLED
+// integration only uses port 80.
+const DefaultDevicePort = 80
+
+// devices checks the zones' WLED device blocks: Home Assistant identifies
+// a device by its MAC, so each needs one of its own, and no two devices
+// can listen on the same address.
+func (v *validator) devices(zones []Zone) {
+	type bound struct {
+		ip  string
+		pos Pos
+	}
+	macs := map[string]Pos{}
+	ports := map[int][]bound{}
+	for i := range zones {
+		z := &zones[i]
+		d := &z.Device
+		if !d.Present() {
+			continue
+		}
+		if d.Name == "" {
+			d.Name = z.ID
+		}
+		if d.Port == 0 {
+			d.Port = DefaultDevicePort
+		}
+		if d.Port < 0 || d.Port > 65535 {
+			v.errorf(d.Pos, "zone %q: device port %d is out of range", z.ID, d.Port)
+		}
+		if d.IP != "" && net.ParseIP(d.IP) == nil {
+			v.errorf(d.Pos, "zone %q: device ip %q is not an IP address", z.ID, d.IP)
+		}
+		hw, err := net.ParseMAC(d.MAC)
+		switch {
+		case d.MAC == "":
+			v.errorf(d.Pos, "zone %q: device needs a mac (Home Assistant identifies devices by it)", z.ID)
+		case err != nil || len(hw) != 6:
+			v.errorf(d.Pos, "zone %q: device mac %q: want six hex bytes like 02:00:00:00:00:01", z.ID, d.MAC)
+		default:
+			if prev, dup := macs[hw.String()]; dup {
+				v.errorf(d.Pos, "zone %q: device mac %s is already used at %s; every device needs its own", z.ID, d.MAC, prev)
+			}
+			macs[hw.String()] = d.Pos
+		}
+		// An empty ip listens on every address, so it clashes with any
+		// other device on the same port.
+		for _, b := range ports[d.Port] {
+			if b.ip == d.IP || b.ip == "" || d.IP == "" {
+				v.errorf(d.Pos, "zone %q: device %s clashes with the device at %s", z.ID,
+					net.JoinHostPort(d.IP, strconv.Itoa(d.Port)), b.pos)
+				break
+			}
+		}
+		ports[d.Port] = append(ports[d.Port], bound{d.IP, d.Pos})
 	}
 }
 
