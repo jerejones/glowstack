@@ -542,3 +542,36 @@ func TestEffectIsInternal(t *testing.T) {
 		}
 	}
 }
+
+func TestCalibrationIgnoresMappingDomain(t *testing.T) {
+	f := newFixture(t, "", func(dir string) {
+		p := filepath.Join(dir, config.MappingsFileName)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(strings.Replace(string(b), "default: front-sweep", "default: from-gate", 1)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	})
+	// The porch is outside the default flow's domain. Calibration still
+	// needs to identify its physical pixels.
+	f.ok(f.m.Select(Target{Kind: KindEnd, Run: "porch", End: EndLast}))
+	f.frame()
+	if got := f.px("yard", 390); !same(got, colFocus) {
+		t.Errorf("unreached run's cursor = %v, want white", got)
+	}
+	// Index 482 has no run or mapping coordinate. A run-end cursor must
+	// reach it so an underestimated run can be extended.
+	f.ok(f.m.Select(Target{Kind: KindEnd, Run: "shed-eave", End: EndLast}))
+	f.ok(f.m.Set(-1, 482))
+	f.frame()
+	if got := f.px("shed", 482); !same(got, colFocus) {
+		t.Errorf("unassigned pixel's cursor = %v, want white", got)
+	}
+	f.ok(f.m.Select(Target{Kind: KindBands, Controller: "shed"}))
+	f.frame()
+	if got := f.px("shed", 482); !same(got, colBlockA) {
+		t.Errorf("unassigned pixel's band = %v, want %v", got, colBlockA)
+	}
+}
