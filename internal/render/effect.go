@@ -68,6 +68,10 @@ type Def struct {
 	// effects that read u or x,y depending on a parameter (noise). nil
 	// means Coords.
 	CoordsFor func(*Values) Coords
+	// Internal effects (calibration's) can be used by id but aren't listed
+	// by Registry.All, so catalogs, the map and WLED's effect list leave
+	// them out.
+	Internal bool
 }
 
 // CoordsOf returns the coordinates a layer of this effect with params v
@@ -279,8 +283,10 @@ func (r *Registry) ByWLED(fx int) (*Def, bool) {
 	return nil, false
 }
 
-// All lists effects in registration order.
-func (r *Registry) All() []*Def { return slices.Clone(r.defs) }
+// All lists the effects that aren't Internal, in registration order.
+func (r *Registry) All() []*Def {
+	return slices.DeleteFunc(slices.Clone(r.defs), func(d *Def) bool { return d.Internal })
+}
 
 func init() {
 	if err := checkSchema(CommonParams, false); err != nil {

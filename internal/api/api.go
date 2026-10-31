@@ -121,7 +121,7 @@ func (api *API) index(w http.ResponseWriter, r *http.Request) error {
 		"api":  "v1",
 		"endpoints": []string{
 			"layers", "preview/layers", "effects", "palettes", "presets", "areas", "zones",
-			"mappings", "controllers", "brightness", "status", "reload",
+			"mappings", "controllers", "brightness", "status", "reload", "calibration",
 		},
 	})
 }

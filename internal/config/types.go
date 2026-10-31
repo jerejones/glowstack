@@ -209,10 +209,15 @@ type Dead struct {
 
 // ---- anchors.yaml (data dir) ----
 
-// AnchorsFile is the machine-written anchors.yaml in the data dir.
+// AnchorsFile is the machine-written anchors.yaml in the data dir: what
+// calibration measured. Each section overrides layout.yaml (see
+// measured.go).
 type AnchorsFile struct {
 	Schema  int              `yaml:"schema"`
 	Anchors []AnchorOverride `yaml:"anchors"`
+	Ends    []EndOverride    `yaml:"ends"` // measured run ends
+	Gaps    []GapOverride    `yaml:"gaps"` // measured gap lengths
+	Dead    []Dead           `yaml:"dead"` // dead pixels found on site, added to layout.yaml's
 }
 
 // AnchorOverride replaces (or adds) the anchor for Node on Run.
@@ -222,6 +227,24 @@ type AnchorOverride struct {
 	Node   string `yaml:"node" json:"node"`
 	Index  int    `yaml:"index" required:"true" json:"index"`
 	Source string `yaml:"source" json:"source"` // default measured
+}
+
+// EndOverride moves a run's first or last pixel (its `indices`) to where
+// calibration found the strip actually starts or ends.
+type EndOverride struct {
+	Pos
+	Run   string `yaml:"run" json:"run"`
+	First *int   `yaml:"first" json:"first,omitempty"`
+	Last  *int   `yaml:"last" json:"last,omitempty"`
+}
+
+// GapOverride replaces the length of layout.yaml's gap edge between From
+// and To (either way round) with a measured one.
+type GapOverride struct {
+	Pos
+	From   string       `yaml:"from" json:"from"`
+	To     string       `yaml:"to" json:"to"`
+	Length units.Length `yaml:"length" json:"length"`
 }
 
 // ---- areas.yaml ----

@@ -141,6 +141,15 @@ func (o *Outputs) Rebuild(_ *config.Config, l *layout.Layout) error {
 	return old.Close()
 }
 
+// Sends reports whether controller id is selected (by --output) and so
+// receives frames. Calibration uses it to say which lights will show its
+// patterns.
+func (o *Outputs) Sends(id string) bool {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return slices.ContainsFunc(o.targets, func(t ddp.Target) bool { return t.ID == id })
+}
+
 // Run runs the health monitor until ctx is done. It suits app.Service.
 func (o *Outputs) Run(ctx context.Context) error { return o.monitor.Run(ctx) }
 

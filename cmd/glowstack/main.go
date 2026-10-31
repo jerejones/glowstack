@@ -5,12 +5,13 @@
 // Command glowstack loads an installation's config and data folders,
 // solves the layout, prints a summary and runs the frame loop, sending
 // frames to the controllers over DDP and serving the control API
-// (/api/v1/) and the live map (/map/) on --http.
+// (/api/v1/, with calibration mode under /api/v1/calibration) and the
+// live map (/map/) on --http.
 //
-// --output chooses the controllers to send to: all (default), none, or a
-// comma-separated list of ids. --loopback=PORT sends controller i to
-// 127.0.0.1:PORT+i instead of its configured address, for testing with
-// cmd/fakewled; health checks then go there too.
+// --output chooses the controllers to send to: none (the default; all with
+// --loopback), all, or a comma-separated list of ids. --loopback=PORT sends
+// controller i to 127.0.0.1:PORT+i instead of its configured address, for
+// testing with cmd/fakewled; health checks then go there too.
 //
 // `glowstack ctl …` is the control API's command-line client instead (see
 // internal/ctl).
@@ -28,12 +29,15 @@ import (
 
 	"github.com/jerejones/glowstack/internal/api"
 	"github.com/jerejones/glowstack/internal/app"
+	"github.com/jerejones/glowstack/internal/calibrate"
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/ctl"
+	"github.com/jerejones/glowstack/internal/effects"
 	"github.com/jerejones/glowstack/internal/httpserver"
 	"github.com/jerejones/glowstack/internal/mapview"
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/output/wire"
+	"github.com/jerejones/glowstack/internal/render"
 )
 
 func main() {
@@ -59,6 +63,9 @@ func main() {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	var out *wire.Outputs
 	opts := app.Options{ConfigDir: *configDir, DataDir: *dataDir, FPS: *fps, Log: log}
+	opts.Effects = func(r *render.Registry) error {
+		return errors.Join(effects.Register(r), calibrate.Register(r))
+	}
 	opts.NewSink = func(a *app.App) (output.Sink, error) {
 		if *check {
 			return nil, nil
@@ -74,7 +81,7 @@ func main() {
 		return out.Run(ctx)
 	})
 	if *httpAddr != "" {
-		opts.Services = append(opts.Services, httpserver.New(*httpAddr, api.Mount, mapview.Mount(mapview.Options{})).Service())
+		opts.Services = append(opts.Services, httpserver.New(*httpAddr, api.Mount, mapview.Mount(mapview.Options{}), calibrate.Mount).Service())
 	}
 	a, err := app.New(opts)
 	if err != nil {

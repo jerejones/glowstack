@@ -29,9 +29,10 @@ import (
 // Owners. A WLED device owns its segments' layers as
 // "wled-device:<zone>/<segment>".
 const (
-	OwnerAPI        = "api"
-	OwnerCLI        = "cli"
-	OwnerWLEDPrefix = "wled-device:"
+	OwnerAPI         = "api"
+	OwnerCLI         = "cli"
+	OwnerCalibration = "calibration"
+	OwnerWLEDPrefix  = "wled-device:"
 )
 
 // WLEDOwner returns the owner string for a WLED device segment.
@@ -56,6 +57,9 @@ type Layer struct {
 	Updated  time.Time      `json:"updated"`
 	// Revision identifies a mutation independently of clock precision.
 	Revision uint64 `json:"-"`
+	// Ephemeral layers are never written to state.json, so they don't
+	// survive a restart (calibration's layers).
+	Ephemeral bool `json:"ephemeral,omitempty"`
 	// ResolvedFades is filled by Validate after preset expansion. A negative
 	// duration uses the stack default. It is recalculated on every change
 	// and restore, so persisted Params remain the caller's overrides.
@@ -504,7 +508,7 @@ func (s *Stack) Marshal() ([]byte, error) {
 	s.mu.Lock()
 	st := state{Schema: SchemaVersion, Layers: []Layer{}}
 	for _, e := range s.entries {
-		if e.removedAt.IsZero() {
+		if e.removedAt.IsZero() && !e.Ephemeral {
 			st.Layers = append(st.Layers, e.Layer)
 		}
 	}
@@ -529,6 +533,9 @@ func (s *Stack) Restore(data []byte) (warnings []string, err error) {
 	s.entries = s.entries[:0]
 	seen := map[string]bool{}
 	for _, l := range st.Layers {
+		if l.Ephemeral {
+			continue // never saved; a hand-edited state.json may still have one
+		}
 		if seen[l.ID] || l.ID == "" {
 			warnings = append(warnings, fmt.Sprintf("layer %q: duplicate or missing id; dropped", l.ID))
 			continue

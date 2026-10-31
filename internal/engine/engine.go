@@ -204,7 +204,11 @@ func (e *Engine) build(l *stack.Layer, prev *render.Layer, full bool) (*render.L
 	if !ok {
 		return nil, fmt.Errorf("no effect %q", effectID)
 	}
-	env := render.Env{Pitch: e.pitch[area.ID], Palettes: e.palettes}
+	pitch, ok := e.pitch[area.ID]
+	if !ok { // an implicit run:<id> or controller:<id> area
+		pitch = e.areaPitch(area.Pixels)
+	}
+	env := render.Env{Pitch: pitch, Palettes: e.palettes}
 	commonRaw, effectRaw := render.SplitParams(raw)
 	common, err := render.ResolveCommon(commonRaw, env)
 	if err != nil {

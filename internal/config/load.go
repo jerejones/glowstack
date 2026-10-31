@@ -61,6 +61,11 @@ type Config struct {
 	Presets        []Preset         // presets.yaml then presets.saved.yaml (Saved set)
 	Composites     []Composite      // presets.yaml then presets.saved.yaml
 	Anchors        []AnchorOverride // anchors.yaml from the data dir
+	// The rest of anchors.yaml. Load has already applied them to Layout
+	// (see measured.go); they're kept so calibration can rewrite the file.
+	Ends         []EndOverride
+	Gaps         []GapOverride
+	MeasuredDead []Dead
 }
 
 // Load reads and validates the config folder dir and the data folder
@@ -119,6 +124,10 @@ func Load(dir, dataDir string) (*Config, error) {
 	}
 	c.Composites = append(presets.Composites, saved.Composites...)
 	c.Anchors = anchors.Anchors
+	c.Ends, c.Gaps, c.MeasuredDead = anchors.Ends, anchors.Gaps, anchors.Dead
+	if err := c.applyMeasured(); err != nil {
+		return nil, err
+	}
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
