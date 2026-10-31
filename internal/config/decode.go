@@ -7,6 +7,7 @@ package config
 import (
 	"encoding"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -176,6 +177,10 @@ func (d *decoder) decode(n *yaml.Node, v reflect.Value) {
 		}
 		if err := n.Decode(v.Addr().Interface()); err != nil {
 			d.errorf(n, "%s", cleanYAMLError(err))
+		} else if v.Kind() == reflect.Float32 || v.Kind() == reflect.Float64 {
+			if f := v.Float(); math.IsNaN(f) || math.IsInf(f, 0) {
+				d.errorf(n, "want a finite number, got %q", n.Value)
+			}
 		}
 	}
 }
