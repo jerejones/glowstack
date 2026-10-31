@@ -7,6 +7,7 @@ package effects
 import (
 	"github.com/jerejones/glowstack/internal/color"
 	"github.com/jerejones/glowstack/internal/render"
+	"math"
 )
 
 // Bands is a repeating sequence of coloured bands over u, optionally
@@ -93,7 +94,12 @@ func (b *bands) Render(ctx *render.Context, out []color.Color) {
 		x := wrap(float64(ctx.U[i])-shift, period)
 		switch {
 		case soft:
-			out[i] = b.soft(x, period)
+			fw := footprint(ctx, i)
+			if ctx.Smooth && fw >= period*1e-6 {
+				out[i] = b.softAverage(x, fw, period)
+			} else {
+				out[i] = b.soft(x, period)
+			}
 		case ctx.Smooth:
 			fw := footprint(ctx, i)
 			if fw < period*1e-6 {
@@ -148,6 +154,37 @@ func (b *bands) soft(x, period float64) color.Color {
 		}
 	}
 	return b.cols[0]
+}
+
+// softAverage integrates the linear transitions between band centres.
+// Each transition contributes the areas under its two colour weights,
+// including complete cycles when a pixel covers a compressed pattern.
+func (b *bands) softAverage(x, fw, period float64) color.Color {
+	centre := func(k int) float64 { return b.start[k] + b.w[k]/2 }
+	lo, hi := x-centre(0)-fw/2, x-centre(0)+fw/2
+	var c color.Color
+	for k := range b.cols {
+		start := centre(k) - centre(0)
+		end := period
+		if k+1 < len(b.cols) {
+			end = centre(k+1) - centre(0)
+		}
+		width := end - start
+		if width <= 0 {
+			continue
+		}
+		rampArea := func(t float64) float64 {
+			cycles := math.Floor(t / period)
+			z := max(0, min(width, t-cycles*period-start))
+			return cycles*width/2 + z*z/(2*width)
+		}
+		right := rampArea(hi) - rampArea(lo)
+		total := covered(hi, start, width, period) - covered(lo, start, width, period)
+		c = add(c, b.cols[k], float32((total-right)/fw))
+		c = add(c, b.cols[(k+1)%len(b.cols)], float32(right/fw))
+	}
+	c.A = 1
+	return c
 }
 
 // add returns c + k·d (channels only).
