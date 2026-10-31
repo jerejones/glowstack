@@ -63,3 +63,24 @@ func TestReloadSwapsDeviceAddresses(t *testing.T) {
 		}
 	}
 }
+
+func TestReloadRemovesMainSegment(t *testing.T) {
+	f := newFixture(t)
+	f.post(`{"mainseg":2}`)
+	path := filepath.Join(f.config, "areas.yaml")
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body = []byte(strings.Replace(string(body), "      - { area: yard }\n", "", 1))
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.a.Reload(); err != nil {
+		t.Fatal(err)
+	}
+	st := f.post(`{"ps":2}`)
+	if num(st["mainseg"]) != 0 || num(st["ps"]) != 2 || !seg(st, 0)["on"].(bool) {
+		t.Errorf("removed main segment: mainseg=%v, ps=%v, seg0.on=%v", st["mainseg"], st["ps"], seg(st, 0)["on"])
+	}
+}
