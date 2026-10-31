@@ -73,6 +73,9 @@ func TestPreview(t *testing.T) {
 		t.Errorf("step: %v", got)
 	}
 	p.SetSpeed(0.5)
+	if p.Speed() != 0.5 {
+		t.Errorf("speed %v", p.Speed())
+	}
 	p.Resume()
 	base.Advance(2 * time.Second)
 	if got := p.Now(); !got.Equal(t0.Add(2*time.Second + 25*time.Millisecond)) {
