@@ -30,11 +30,26 @@ func (c *Config) Validate() error {
 	v.mappings(c)
 	v.palettes(c.Palettes)
 	v.presets(c.Presets)
+	runs := map[string]*Run{}
+	for i := range c.Layout.Runs {
+		runs[c.Layout.Runs[i].ID] = &c.Layout.Runs[i]
+	}
+	seenAnchors := map[[2]string]Pos{}
 	for i := range c.Anchors {
 		a := &c.Anchors[i]
 		v.required(a.Pos, "run", a.Run)
 		v.required(a.Pos, "node", a.Node)
 		v.oneOf(a.Pos, "source", &a.Source, SourceMeasured, SourceEstimated)
+		key := [2]string{a.Run, a.Node}
+		if prev, ok := seenAnchors[key]; ok {
+			v.errorf(a.Pos, "duplicate anchor for %q on run %q (first at %s)", a.Node, a.Run, prev)
+		}
+		seenAnchors[key] = a.Pos
+		if r, ok := runs[a.Run]; !ok {
+			v.errorf(a.Pos, "anchor: unknown run %q", a.Run)
+		} else if a.Index < min(r.Indices[0], r.Indices[1]) || a.Index > max(r.Indices[0], r.Indices[1]) {
+			v.errorf(a.Pos, "anchor %q: index %d outside run %q's %d–%d", a.Node, a.Index, a.Run, r.Indices[0], r.Indices[1])
+		}
 	}
 	return v.errs.Err()
 }
