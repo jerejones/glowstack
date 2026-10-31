@@ -110,3 +110,24 @@ func TestPresetVersionAcrossEmptyCatalog(t *testing.T) {
 		t.Errorf("preset versions %d -> %d -> %d, want increasing across an empty catalog", before, empty, after)
 	}
 }
+
+func TestObservedNativeBrightnessIsRemembered(t *testing.T) {
+	f := newFixture(t)
+	if err := f.a.SetZoneBrightness("front", 64.0/255); err != nil {
+		t.Fatal(err)
+	}
+	if num(f.post(`{}`)["bri"]) != 64 {
+		t.Fatal("native brightness was not reported")
+	}
+	if err := f.a.SetZoneBrightness("front", 0); err != nil {
+		t.Fatal(err)
+	}
+	if st := f.post(`{}`); st["on"] != false || num(st["bri"]) != 64 {
+		t.Errorf("native off: on/bri=%v/%v, want false/64", st["on"], st["bri"])
+	}
+	f.a.Close()
+	f.start()
+	if st := f.post(`{"on":true}`); num(st["bri"]) != 64 {
+		t.Errorf("on after restart: bri=%v, want 64", st["bri"])
+	}
+}
