@@ -365,7 +365,8 @@ func (v *validator) devices(zones []Zone) {
 		if d.Port < 0 || d.Port > 65535 {
 			v.errorf(d.Pos, "zone %q: device port %d is out of range", z.ID, d.Port)
 		}
-		if d.IP != "" && net.ParseIP(d.IP) == nil {
+		ip := net.ParseIP(d.IP)
+		if d.IP != "" && ip == nil {
 			v.errorf(d.Pos, "zone %q: device ip %q is not an IP address", z.ID, d.IP)
 		}
 		hw, err := net.ParseMAC(d.MAC)
@@ -380,16 +381,23 @@ func (v *validator) devices(zones []Zone) {
 			}
 			macs[hw.String()] = d.Pos
 		}
-		// An empty ip listens on every address, so it clashes with any
-		// other device on the same port.
+		// Empty and unspecified IPs listen on every address. Compare
+		// canonical IPs so alternate spellings cannot share a bind.
+		bindIP := d.IP
+		if ip != nil {
+			bindIP = ip.String()
+			if ip.IsUnspecified() {
+				bindIP = ""
+			}
+		}
 		for _, b := range ports[d.Port] {
-			if b.ip == d.IP || b.ip == "" || d.IP == "" {
+			if b.ip == bindIP || b.ip == "" || bindIP == "" {
 				v.errorf(d.Pos, "zone %q: device %s clashes with the device at %s", z.ID,
 					net.JoinHostPort(d.IP, strconv.Itoa(d.Port)), b.pos)
 				break
 			}
 		}
-		ports[d.Port] = append(ports[d.Port], bound{d.IP, d.Pos})
+		ports[d.Port] = append(ports[d.Port], bound{bindIP, d.Pos})
 	}
 }
 
