@@ -220,7 +220,30 @@ func (ls layerRoutes) edit(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	edited, err := ls.stack().Edit(id, func(l *stack.Layer) {
-		l.Target, l.Effect, l.Preset, l.Params, l.Lifetime = next.Target, next.Effect, next.Preset, next.Params, next.Lifetime
+		// Merge into the current layer while the stack lock is held. The
+		// preflight snapshot may predate another successful PATCH.
+		if req.replace {
+			l.Params = map[string]any{}
+		}
+		if req.target != "" {
+			l.Target = req.target
+		}
+		if req.effect != "" || req.preset != "" || req.use != "" {
+			l.Effect, l.Preset = next.Effect, next.Preset
+			if !req.replace {
+				ls.api.dropForeign(l)
+			}
+		}
+		for k, v := range req.params {
+			if v == nil {
+				delete(l.Params, k)
+			} else {
+				l.Params[k] = v
+			}
+		}
+		if req.lifetimeSet {
+			l.Lifetime = next.Lifetime
+		}
 	})
 	if err != nil {
 		return invalid(err)
