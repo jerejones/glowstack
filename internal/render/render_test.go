@@ -320,3 +320,23 @@ func TestRegistry(t *testing.T) {
 		t.Errorf("split = %v %v", common, effect)
 	}
 }
+
+func TestUnreachedDarkAppliesToEffectsWithoutCoordinates(t *testing.T) {
+	l, m := tenPixels(t)
+	m.U[3] = float32(math.NaN())
+	for _, coords := range []Coords{0, CoordXY} {
+		// Supply plan positions so only the flow domain excludes pixel 3.
+		for i := range l.Pixels {
+			l.Pixels[i].Plan = 0
+		}
+		top := layer(t, l, m, ids(0, 9), &recorder{c: red}, false, nil)
+		top.Def.Coords = coords
+		top.Geometry = BuildGeometry(l, m, ids(0, 9), coords, top.Common)
+		under := layer(t, l, m, ids(0, 9), &recorder{c: blue}, false, nil)
+		buf := NewBuffer(10)
+		NewCompositor(10).Render(frame, []*Layer{top, under}, buf)
+		if buf.Pix[3] != color.Black || buf.Pix[4] != red {
+			t.Fatalf("coords %v: unreached pixel = %+v, reached pixel = %+v", coords, buf.Pix[3], buf.Pix[4])
+		}
+	}
+}
