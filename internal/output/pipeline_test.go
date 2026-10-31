@@ -379,3 +379,18 @@ func TestPipelineRebuild(t *testing.T) {
 		t.Errorf("after: %+v", r)
 	}
 }
+
+func TestDitherPreservesNearStepFractions(t *testing.T) {
+	for _, v := range []float32{0.0005 / 255, 1.0005 / 255, 0.9995 / 255} {
+		r := float32(0)
+		sum := 0
+		const frames = 20000
+		for range frames {
+			sum += int(ditherByte(v, &r))
+		}
+		want := float64(v) * 255 * frames
+		if math.Abs(float64(sum)-want) > 1 {
+			t.Errorf("level %.9g: sum %d, want %.4f (within one byte)", v, sum, want)
+		}
+	}
+}
