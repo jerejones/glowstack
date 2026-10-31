@@ -50,6 +50,20 @@ control surface.
   Assistant for mDNS discovery
 - Home Assistant with the WLED integration
 
+## How it's built
+
+Glowstack is written largely by AI coding agents, directed and reviewed by
+the maintainer. Agents follow [AGENTS.md](AGENTS.md), which covers the
+license header every file needs, how code ported from WLED is attributed, and
+the rule that no real installation data goes in this repo.
+
+Agent-written code is tested against the real thing where it matters. The
+WLED API is checked with Home Assistant's own `python-wled` library. Expect
+rough edges anyway.
+
+Contributions written with AI tools are welcome if they follow AGENTS.md.
+Pull requests may not be reviewed.
+
 ## License
 
 [MPL-2.0](LICENSE) (Mozilla Public License 2.0). Use it for anything,
@@ -58,6 +72,9 @@ modified version, share your changes to Glowstack's own files.
 
 **No support.** Glowstack is provided as is, with no warranty and no promise
 of help, fixes or answers to issues.
+
+Parts of Glowstack may not be eligible for copyright protection. To the
+extent they are, they're offered under MPL-2.0.
 
 Some effects are ported from [WLED](https://github.com/wled/WLED), Copyright
 (c) 2016-present Christian Schwinne and individual WLED contributors,
