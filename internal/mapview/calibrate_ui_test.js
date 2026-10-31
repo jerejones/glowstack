@@ -15,7 +15,7 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 // Run the real panel script with a minimal DOM and a controlled server.
 // Buttons and inputs are rebuilt from its HTML, as they are in a browser.
-async function panel(fetch) {
+async function panel(fetch, saved = new Map()) {
   const elements = new Map();
   const box = {
     buttons: [],
@@ -39,6 +39,7 @@ async function panel(fetch) {
   vm.runInNewContext(source, {
     document, S: { geo: null }, $: (id) => elements.get(id), esc: String,
     fetch, setInterval() {}, resize() {}, markDirty() {},
+    sessionStorage: { getItem: (key) => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) },
   });
   await flush();
   return {
@@ -83,4 +84,17 @@ test('confirm waits for an earlier nudge to finish', async () => {
   await flush();
   assert.equal(confirmedBeforeNudge, false, 'confirm overtook the pending nudge');
   assert.equal(confirmedIndex, 6);
+});
+
+test('confirm-and-next preference survives the reload caused by confirming', async () => {
+  const saved = new Map();
+  const fetch = async () => reply(state());
+  const first = await panel(fetch, saved);
+  const checkbox = first.elements.get('calNext');
+  checkbox.checked = false;
+  checkbox.onchange();
+  first.click('Confirm');
+  await flush();
+  const reloaded = await panel(fetch, saved);
+  assert.equal(reloaded.elements.get('calNext').checked, false);
 });
