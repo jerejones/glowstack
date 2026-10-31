@@ -242,6 +242,21 @@ func (b *builder) solveAnchors(cr *config.Run, r *Run, anchors []pathAnchor) boo
 		prev = j
 	}
 
+	// Drawn knots must follow run order even when every index is measured.
+	// Otherwise plan placement doubles back between otherwise valid anchors.
+	prevDrawn := 0
+	for j := 1; j < len(anchors); j++ {
+		if math.IsNaN(anchors[j].drawn) {
+			continue
+		}
+		if anchors[j].drawn <= anchors[prevDrawn].drawn {
+			b.errorf(cr.Plan.Pos, "run %s: the drawing labels %q out of order relative to %q", cr.ID,
+				b.l.Nodes[anchors[j].node].ID, b.l.Nodes[anchors[prevDrawn].node].ID)
+			return false
+		}
+		prevDrawn = j
+	}
+
 	// Estimate the rest, piecewise between known anchors that the drawing
 	// also labels.
 	for j := 1; j < len(anchors)-1; j++ {
