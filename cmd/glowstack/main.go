@@ -7,7 +7,7 @@
 // frames to the controllers over DDP and serving the control API
 // (/api/v1/) and the live map (/map/) on --http.
 //
-// --output chooses the controllers to send to: all (default), none, or a
+// --output chooses the controllers to send to: all, none (default), or a
 // comma-separated list of ids. --loopback=PORT sends controller i to
 // 127.0.0.1:PORT+i instead of its configured address, for testing with
 // cmd/fakewled; health checks then go there too.

@@ -274,8 +274,8 @@ list, numbered in the order they were made.
     stack with the house clock (lifetimes end, removed layers free their
     ids); the outputs never render it. The map's "clear" removes every
     preview layer, whoever pushed it. In the preview pass, preview layers
-    are renamed `preview:<id>` so their ids can't clash with house layers
-    in the engine's cache.
+    are renamed `preview:<id>` and house layers `house:<id>`, so arbitrary
+    caller-chosen ids cannot clash in the preview engine's cache.
 43. **Reload rebuilds the output in place.** `output.Pipeline.Rebuild`
     keeps the same stage object, so the API and the map can hold it; its
     power smoothing and dither state restart. `wire.Outputs` re-selects
