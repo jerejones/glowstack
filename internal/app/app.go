@@ -33,6 +33,7 @@ import (
 	"github.com/jerejones/glowstack/internal/layout"
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/palette"
+	"github.com/jerejones/glowstack/internal/preset"
 	"github.com/jerejones/glowstack/internal/render"
 	"github.com/jerejones/glowstack/internal/stack"
 	"github.com/jerejones/glowstack/internal/storage"
@@ -119,6 +120,12 @@ func New(opts Options) (*App, error) {
 	}
 	if err := register(a.Effects); err != nil {
 		return nil, err
+	}
+	if err := effects.RegisterComposites(a.Effects, a.Config.Composites); err != nil {
+		return nil, err
+	}
+	for _, err := range preset.New(a.Config.Presets).Check(a.Effects, a.Palettes, a.Layout.Pitch) {
+		a.Log.Warn("preset can't be used", "err", err)
 	}
 	a.Engine = engine.New(a.Config, a.Layout, a.Mappings, a.Effects, a.Palettes)
 	a.Engine.OnError = func(id string, err error) { a.Log.Error("layer can't be rendered", "layer", id, "err", err) }
