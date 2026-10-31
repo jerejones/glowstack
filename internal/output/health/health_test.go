@@ -141,3 +141,73 @@ func TestSetTargets(t *testing.T) {
 		t.Errorf("after: %+v", st)
 	}
 }
+
+func TestChangedEndpointRechecksSettings(t *testing.T) {
+	a := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb"})
+	b := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb", Live: &fakewled.Live{Enabled: false}})
+	target := health.Target{ID: "shed", URL: a.URL, Pixels: 10, Channels: "rgb"}
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{target}}
+	m.Check(t.Context())
+	target.URL = b.URL
+	m.SetTargets([]health.Target{target})
+	m.Check(t.Context())
+	if got := strings.Join(m.Status()[0].Mismatches, "\n"); !strings.Contains(got, "realtime receive is off") {
+		t.Fatalf("replacement controller's settings were not checked: %q", got)
+	}
+}
+
+func TestChangedEndpointDiscardsInflightCheck(t *testing.T) {
+	entered, release := make(chan struct{}), make(chan struct{})
+	old := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(entered)
+		<-release
+		fmt.Fprint(w, `{"ver":"old","uptime":100,"leds":{"count":10}}`)
+	}))
+	defer old.Close()
+	replacement := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb"})
+	target := health.Target{ID: "shed", URL: old.URL, Pixels: 10, Channels: "rgb"}
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{target}}
+	done := make(chan struct{})
+	go func() { m.Check(t.Context()); close(done) }()
+	<-entered
+	target.URL = replacement.URL
+	m.SetTargets([]health.Target{target})
+	m.Check(t.Context())
+	close(release)
+	<-done
+	if st := m.Status()[0]; st.Version != "0.15.0-fake" {
+		t.Fatalf("old endpoint overwrote replacement health: %+v", st)
+	}
+}
+
+func TestRebootAfterOfflineRefreshesSettings(t *testing.T) {
+	var offline atomic.Bool
+	var uptime atomic.Int64
+	var cfgReads atomic.Int32
+	uptime.Store(100)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if offline.Load() {
+			http.Error(w, "offline", http.StatusServiceUnavailable)
+			return
+		}
+		switch r.URL.Path {
+		case "/json/info":
+			fmt.Fprintf(w, `{"ver":"test","uptime":%d,"leds":{"count":10}}`, uptime.Load())
+		case "/json/cfg":
+			cfgReads.Add(1)
+			fmt.Fprintf(w, `{"if":{"live":{"en":%t}}}`, uptime.Load() >= 100)
+		}
+	}))
+	defer srv.Close()
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{{ID: "shed", URL: srv.URL, Pixels: 10}}}
+	m.Check(t.Context())
+	offline.Store(true)
+	m.Check(t.Context())
+	offline.Store(false)
+	uptime.Store(5)
+	m.Check(t.Context())
+	st := m.Status()[0]
+	if st.Reboots != 1 || cfgReads.Load() != 2 || !strings.Contains(strings.Join(st.Mismatches, "\n"), "realtime receive is off") {
+		t.Fatalf("missed offline reboot: %+v; cfg reads %d", st, cfgReads.Load())
+	}
+}

@@ -191,8 +191,8 @@ func (ls layerRoutes) edit(w http.ResponseWriter, r *http.Request) error {
 		if err := ls.api.setLook(&next, req); err != nil {
 			return err
 		}
-		if !req.replace {
-			ls.api.dropForeign(&next)
+		if !req.replace && (next.Effect != old.Effect || next.Preset != old.Preset) {
+			clearEffectParams(&next)
 		}
 	}
 	for k, v := range req.params {
@@ -220,7 +220,31 @@ func (ls layerRoutes) edit(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	edited, err := ls.stack().Edit(id, func(l *stack.Layer) {
-		l.Target, l.Effect, l.Preset, l.Params, l.Lifetime = next.Target, next.Effect, next.Preset, next.Params, next.Lifetime
+		// Merge into the current layer while the stack lock is held. The
+		// preflight snapshot may predate another successful PATCH.
+		if req.replace {
+			l.Params = map[string]any{}
+		}
+		if req.target != "" {
+			l.Target = req.target
+		}
+		if req.effect != "" || req.preset != "" || req.use != "" {
+			changed := l.Effect != next.Effect || l.Preset != next.Preset
+			l.Effect, l.Preset = next.Effect, next.Preset
+			if !req.replace && changed {
+				clearEffectParams(l)
+			}
+		}
+		for k, v := range req.params {
+			if v == nil {
+				delete(l.Params, k)
+			} else {
+				l.Params[k] = v
+			}
+		}
+		if req.lifetimeSet {
+			l.Lifetime = next.Lifetime
+		}
 	})
 	if err != nil {
 		return invalid(err)
@@ -418,16 +442,11 @@ func (api *API) setLook(l *stack.Layer, req *request) error {
 	return nil
 }
 
-// dropForeign removes params that l's (new) effect doesn't take, keeping
-// the common ones, so switching effect in an edit doesn't trip over the
-// old effect's parameters.
-func (api *API) dropForeign(l *stack.Layer) {
-	def := api.layerEffect(l)
-	if def == nil {
-		return
-	}
+// clearEffectParams drops the old look's overrides when switching looks,
+// keeping only the common layer parameters.
+func clearEffectParams(l *stack.Layer) {
 	for k := range l.Params {
-		if !render.IsCommon(k) && !slices.ContainsFunc(def.Params, func(p render.Param) bool { return p.Name == k }) {
+		if !render.IsCommon(k) {
 			delete(l.Params, k)
 		}
 	}

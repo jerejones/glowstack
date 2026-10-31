@@ -15,6 +15,7 @@ package wire
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -124,7 +125,15 @@ func (o *Outputs) Close() error {
 func (o *Outputs) Rebuild(_ *config.Config, l *layout.Layout) error {
 	targets, checks, err := o.plan(l)
 	if err != nil {
-		return err
+		// The app is already rendering the new layout. Never send it using
+		// old endpoints after a failed selection; stop output until a valid
+		// reload rebuilds the explicitly selected set.
+		o.monitor.SetTargets(nil)
+		o.mu.Lock()
+		old := o.sink
+		o.targets, o.sink = nil, ddp.New(nil, o.opts.DDP)
+		o.mu.Unlock()
+		return errors.Join(err, old.Close())
 	}
 	o.monitor.SetTargets(checks)
 	o.mu.Lock()

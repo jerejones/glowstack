@@ -199,9 +199,14 @@ func (d *Device) live() bool {
 
 // ServeUDP reads DDP packets from conn until ctx is done.
 func (d *Device) ServeUDP(ctx context.Context, conn net.PacketConn) error {
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
-		<-ctx.Done()
-		conn.Close()
+		select {
+		case <-ctx.Done():
+			conn.Close()
+		case <-done:
+		}
 	}()
 	buf := make([]byte, 2048)
 	for {

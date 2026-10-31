@@ -511,7 +511,7 @@ func TestPreviewRendersWithoutTouchingTheHouse(t *testing.T) {
 	}
 	// The brief house layer has ended at the preview's time; the porch
 	// shows the long-lived house layer.
-	if got := s.RGB[3*p : 3*p+3]; got[1] != 0 || got[2] != 255 || s.Layers[s.Top[p]] != house.ID {
+	if got := s.RGB[3*p : 3*p+3]; got[1] != 0 || got[2] != 255 || s.Layers[s.Top[p]] != houseIDPrefix+house.ID {
 		t.Errorf("porch %v top %v", got, s.Layers[s.Top[p]])
 	}
 	if sh := m.inspect(m.state().View, y).Showing; sh == nil || !sh.Preview || sh.Layer != pl.ID {
@@ -707,5 +707,34 @@ func TestService(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPreviewNamespaceCannotCollideWithChosenHouseID(t *testing.T) {
+	f := newFixture(t)
+	house, err := f.app.Stack.Push(stack.Layer{ID: "preview:p1", Target: "porch", Effect: "solid", Params: map[string]any{"color": "#ff0000"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pl, err := f.app.PushPreview(stack.Layer{Target: "yard", Effect: "solid", Params: map[string]any{"color": "#0000ff"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.m.renderPreview()
+	s, _ := f.m.latest()
+	porch, _ := f.app.Current().Layout.Area("porch")
+	p := porch.Pixels[0]
+	if got := s.RGB[3*p : 3*p+3]; !bytes.Equal(got, []byte{255, 0, 0}) {
+		t.Errorf("preview cache collision changed house layer on map: %v", got)
+	}
+	if sh := f.m.inspect(f.m.state().View, p).Showing; sh == nil || sh.Preview || sh.Layer != house.ID {
+		t.Errorf("house layer misidentified as preview %s: %+v", pl.ID, sh)
+	}
+	// The same chosen id must also inspect correctly in a house snapshot.
+	f.m.ClearPreview()
+	f.m.touch()
+	f.frame(t)
+	if sh := f.m.inspect(f.m.state().View, p).Showing; sh == nil || sh.Preview || sh.Layer != house.ID {
+		t.Errorf("house snapshot misidentified: %+v", sh)
 	}
 }

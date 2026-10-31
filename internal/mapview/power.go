@@ -64,7 +64,8 @@ type OutputPower struct {
 // estimatePower estimates each output's current from a linear frame and
 // the controllers' `led_ma`, before any limiting, the way the design's
 // brightness pipeline does: a channel at full drive draws its led_ma, plus
-// idle per pixel. On RGB controllers white is folded into RGB first. A
+// idle per pixel. On RGB controllers and RGBW controllers in auto-white mode, W is
+// folded into RGB first, matching the output pipeline. A
 // controller with no outputs listed counts as one output.
 func estimatePower(l *layout.Layout, buf *render.Buffer) []OutputPower {
 	var out []OutputPower
@@ -94,7 +95,7 @@ func estimatePower(l *layout.Layout, buf *render.Buffer) []OutputPower {
 				for k := o.start; k < o.start+o.count && k < c.Pixels; k++ {
 					px := buf.Pix[int(c.Base)+k]
 					pr, pg, pb, pw := clamp1(px.R), clamp1(px.G), clamp1(px.B), clamp1(px.W)
-					if !rgbw {
+					if !rgbw || cfg.White == "auto" {
 						pr, pg, pb, pw = clamp1(pr+pw), clamp1(pg+pw), clamp1(pb+pw), 0
 					}
 					total += float64(pr)*r + float64(pg)*g + float64(pb)*b + float64(pw)*w + idle

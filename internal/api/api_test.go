@@ -602,3 +602,63 @@ func TestReload(t *testing.T) {
 		t.Errorf("config_gen %v", st["config_gen"])
 	}
 }
+
+func TestConcurrentEditsMergeIndependentParameters(t *testing.T) {
+	f := newFixture(t, nil)
+	id := f.must(http.StatusCreated, "POST", "/api/v1/layers", `{"target":"porch","effect":"solid"}`)["id"].(string)
+	edits := map[string]any{
+		"brightness": 0.5, "opacity": 0.7, "smooth": false, "reverse": true,
+		"offset": "0.1 m", "blend": "add", "white": "none", "mapping": "local",
+	}
+	start := make(chan struct{})
+	results := make(chan *httptest.ResponseRecorder, len(edits))
+	for k, v := range edits {
+		go func() {
+			body, _ := json.Marshal(map[string]any{"params": map[string]any{k: v}})
+			req := httptest.NewRequest("PATCH", "/api/v1/layers/"+id, bytes.NewReader(body))
+			rec := httptest.NewRecorder()
+			<-start
+			f.h.ServeHTTP(rec, req)
+			results <- rec
+		}()
+	}
+	close(start)
+	for range edits {
+		if rec := <-results; rec.Code != http.StatusOK {
+			t.Fatalf("edit: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	got := f.must(http.StatusOK, "GET", "/api/v1/layers/"+id, nil)["params"].(map[string]any)
+	for k, v := range edits {
+		if got[k] != v {
+			t.Errorf("concurrent edit lost %s: got %v, want %v", k, got[k], v)
+		}
+	}
+}
+
+func TestRequestRejectsTrailingClosingDelimiter(t *testing.T) {
+	f := newFixture(t, nil)
+	for _, suffix := range []string{"]", "}"} {
+		f.must(http.StatusBadRequest, "POST", "/api/v1/layers", `{"target":"porch","effect":"solid"}`+suffix)
+	}
+	if n := f.app.Stack.Len(); n != 0 {
+		t.Fatalf("invalid requests pushed %d layers", n)
+	}
+}
+
+func TestSwitchLookDropsOldEffectParameters(t *testing.T) {
+	f := newFixture(t, nil)
+	out := f.must(http.StatusCreated, "POST", "/api/v1/layers", `{"target":"porch","effect":"breathe","params":{"color":"#ff0000","opacity":0.5}}`)
+	id := out["id"].(string)
+	out = f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"effect":"solid"}`)
+	params := out["params"].(map[string]any)
+	if params["color"] != nil || params["opacity"] != 0.5 {
+		t.Errorf("switch retained old effect parameters or lost common ones: %v", params)
+	}
+	// An edit naming the current effect still merges its parameters.
+	f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"params":{"color":"#0000ff"}}`)
+	out = f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"effect":"solid","opacity":0.7}`)
+	if out["params"].(map[string]any)["color"] != "#0000ff" {
+		t.Errorf("same effect lost its colour: %v", out)
+	}
+}
