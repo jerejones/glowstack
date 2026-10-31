@@ -54,4 +54,3 @@ func TestMulti(t *testing.T) {
 		t.Error("close")
 	}
 }
-
