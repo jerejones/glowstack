@@ -435,3 +435,15 @@ func TestShapeErrorsNameTheShape(t *testing.T) {
 		}
 	}
 }
+
+func TestRejectNonFinitePlanCoordinates(t *testing.T) {
+	for _, shape := range []string{
+		`<line id="run" x2="NaN"/>`,
+		`<line id="run" y2="+Inf"/>`,
+		`<path id="run" d="M0 0 L2 0" transform="scale(1e308)"/>`,
+	} {
+		if _, err := Parse(strings.NewReader("<svg>" + shape + "</svg>")); err == nil {
+			t.Errorf("accepted non-finite plan geometry: %s", shape)
+		}
+	}
+}
