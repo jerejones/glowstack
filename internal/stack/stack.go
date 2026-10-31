@@ -197,7 +197,12 @@ func (s *Stack) Edit(id string, fn func(*Layer)) (Layer, error) {
 	fn(&l)
 	l.ID, l.Owner, l.Seed, l.Created = e.ID, e.Owner, e.Seed, e.Created
 	now := s.clock.Now()
+	// Updated must change on every edit: the engine rebuilds a layer when
+	// it does, and two edits can share a clock reading.
 	l.Updated = now
+	if !l.Updated.After(e.Updated) {
+		l.Updated = e.Updated.Add(time.Nanosecond)
+	}
 	if err := s.check(&l, now); err != nil {
 		return Layer{}, err
 	}
@@ -236,6 +241,39 @@ func (s *Stack) Clear() {
 		}
 	}
 	s.changed()
+}
+
+// Prune drops live layers that check rejects, at once and without a
+// fade (they can no longer be rendered), and returns a warning for each.
+// A config reload uses it to drop layers whose area, effect, preset or
+// mapping no longer exists.
+func (s *Stack) Prune(check func(*Layer) error) (warnings []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	kept := s.entries[:0]
+	for _, e := range s.entries {
+		if e.removedAt.IsZero() {
+			if err := check(&e.Layer); err != nil {
+				warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", e.ID, err))
+				continue
+			}
+		}
+		kept = append(kept, e)
+	}
+	clear(s.entries[len(kept):])
+	s.entries = kept
+	if len(warnings) > 0 {
+		s.changed()
+	}
+	return warnings
+}
+
+// SetFades changes the default fade durations for layers that don't set
+// their own. Layers already on the stack keep theirs until edited.
+func (s *Stack) SetFades(f Fades) {
+	s.mu.Lock()
+	s.fades = f
+	s.mu.Unlock()
 }
 
 func (s *Stack) remove(e *entry, now time.Time) {

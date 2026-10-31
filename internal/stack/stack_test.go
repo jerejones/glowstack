@@ -182,3 +182,27 @@ func TestWLEDOwner(t *testing.T) {
 		t.Errorf("by owner: %+v", got)
 	}
 }
+
+func TestPrune(t *testing.T) {
+	s, _ := newStack()
+	s.Push(Layer{Target: "fence", Effect: "solid"})
+	s.Push(Layer{Target: "gone", Effect: "solid"})
+	s.Push(Layer{Target: "porch", Effect: "solid"})
+	changes := 0
+	s.OnChange(func() { changes++ })
+	w := s.Prune(func(l *Layer) error {
+		if l.Target == "gone" {
+			return errors.New(`no area "gone"`)
+		}
+		return nil
+	})
+	if len(w) != 1 || !strings.Contains(w[0], `layer "2"`) || changes != 1 {
+		t.Errorf("warnings %v, changes %d", w, changes)
+	}
+	if f := s.Frame(t0, nil); ids(f) != "3,1" {
+		t.Errorf("frame after prune: %s", ids(f))
+	}
+	if w := s.Prune(func(*Layer) error { return nil }); len(w) != 0 || changes != 1 {
+		t.Errorf("no-op prune: %v, changes %d", w, changes)
+	}
+}
