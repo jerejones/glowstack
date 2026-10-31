@@ -223,6 +223,9 @@ func (d *Devices) view(zone string) (*view, error) {
 	if zm.view != nil && zm.view.Gen == cur.Gen {
 		return zm.view, nil
 	}
+	if zm.mainseg >= len(z.Segments) {
+		zm.mainseg = 0
+	}
 	v := &view{View: cur, zone: z}
 	// The device's LEDs are the zone's pixels in global id order, then any
 	// segment pixels outside the zone's area. A segment spans its first to
