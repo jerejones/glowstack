@@ -11,6 +11,9 @@
 (() => {
   const BASE = '/api/v1/calibration';
   const C = { st: null, tapped: -1, error: '', details: [], next: true };
+  // Confirm reloads the map's geometry. Keep the user's choice for this
+  // tab across that reload, including when browser storage is unavailable.
+  try { C.next = sessionStorage.getItem('calNext') !== 'false'; } catch (_) {}
   const box = $('cal');
 
   // Keep actions in tap order: confirming must wait for earlier nudges.
@@ -150,7 +153,10 @@
       if (a.fn) b.onclick = (e) => { e.preventDefault(); a.fn(); };
     }
     const nx = $('calNext');
-    if (nx) nx.onchange = () => { C.next = nx.checked; };
+    if (nx) nx.onchange = () => {
+      C.next = nx.checked;
+      try { sessionStorage.setItem('calNext', String(C.next)); } catch (_) {}
+    };
     for (const f of box.querySelectorAll('form[data-form]')) {
       f.onsubmit = (e) => {
         e.preventDefault();
