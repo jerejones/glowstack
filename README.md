@@ -96,6 +96,42 @@ nothing (`--output=none`); real controllers only receive frames with
 `--output=all` or `--output=<ids>`. `--loopback` defaults to all, because it
 only reaches local fakes.
 
+## Container
+
+```sh
+docker build -t glowstack:dev .
+docker run -d --name glowstack \
+  -v /path/to/config:/config:ro -v glowstack-data:/data \
+  -p 8080:8080 glowstack:dev
+```
+
+The image is a static Go binary on `distroless/static` (no shell, so debug
+with `--entrypoint`), running as a non-root user (uid 65532) with
+`glowstack`, `glowctl` and `fakewled` in `/usr/local/bin`. `/config` is your
+site config, mounted read-only and never built in; `/data` is writable and
+holds `state.json`, `anchors.yaml` and saved presets, and must be writable by
+uid 65532 (or run with `--user`). The entrypoint is
+`glowstack --config /config --data /data` and the default argument is
+`--http :8080`; add `--output=all` (or ids) to send to real controllers. It
+sends nothing by default. The healthcheck is `glowctl status`.
+
+Port 8080 carries the API and live map. Port 80 is for the WLED-compatible
+devices, which bind :80 on their own IPs. Docker already lets non-root
+processes bind it; if your runtime doesn't, add
+`--sysctl net.ipv4.ip_unprivileged_port_start=0`.
+
+Home Assistant finds WLED devices by mDNS and each device needs its own IP,
+so the container wants a network on the LAN segment: a `br0` bridge or a
+`macvlan` network, one IP for the container plus extra IPs for the WLED
+devices. Adding those extra addresses from inside the container needs
+`--cap-add NET_ADMIN`; the alternative is to assign them on the host or the
+network and leave the container unprivileged. That's the pattern only; the
+addressing is yours to choose.
+
+CI (`.github/workflows/ci.yml`) runs `go vet`, `go test -race` and the license
+header check. `image.yml` publishes a multi-arch (amd64, arm64) image to
+`ghcr.io/jerejones/glowstack` on `v*` tags and on pushes to `main`.
+
 ## Requirements (planned)
 
 - WLED controllers that can receive DDP

@@ -1,0 +1,13 @@
+# Site config and runtime data never go into the image; they are mounted.
+.git
+.github
+.githooks
+bin/
+*.test
+*.out
+**/.DS_Store
+docs/
+Dockerfile
+.dockerignore
+/config
+/data
