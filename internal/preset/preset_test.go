@@ -5,6 +5,7 @@
 package preset
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -58,7 +59,7 @@ func TestExamplePresets(t *testing.T) {
 		t.Fatal(err)
 	}
 	l := New(cfg.Presets)
-	if errs := l.Check(r, palette.NewRegistry(cfg.Palettes), 1.0/60); len(errs) > 0 {
+	if errs := l.Check(r, palette.NewRegistry(cfg.Palettes), 1.0/60, nil); len(errs) > 0 {
 		t.Fatal(errs)
 	}
 	// Each primitive and the two milestone looks are covered.
@@ -87,11 +88,25 @@ func TestCheckFindsMistakes(t *testing.T) {
 		{ID: "x", Effect: "fire"},
 		{ID: "y", Effect: "bands", Params: map[string]any{"speed": "fast"}},
 		{ID: "z", Effect: "solid", Params: map[string]any{"blend": "sideways"}},
-		{ID: "ok", Effect: "gradient", Params: map[string]any{"palette": "Ocean", "opacity": 0.5}},
+		{ID: "p", Effect: "gradient", Params: map[string]any{"palette": "Sunset Glow"}},
+		{ID: "m", Effect: "solid", Params: map[string]any{"mapping": "sideways"}},
+		{ID: "i", Effect: "solid", Params: map[string]any{"mapping": map[string]any{"kind": "radial"}}},
+		{ID: "ok", Effect: "gradient", Params: map[string]any{"palette": "Ocean", "opacity": 0.5, "mapping": "known"}},
 	})
-	errs := l.Check(r, palette.NewRegistry(nil), 0.02)
-	if len(errs) != 3 || !strings.Contains(errs[0].Error(), `no effect "fire"`) ||
-		!strings.Contains(errs[1].Error(), "speed") || !strings.Contains(errs[2].Error(), "blend") {
-		t.Errorf("errors = %v", errs)
+	mapping := func(c render.Common) error {
+		if c.Inline == nil && c.Mapping != "known" {
+			return fmt.Errorf("no mapping %q", c.Mapping)
+		}
+		return nil
+	}
+	errs := l.Check(r, palette.NewRegistry(nil), 0.02, mapping)
+	want := []string{`no effect "fire"`, "speed", "blend", `"Sunset Glow"`, `preset m: mapping: no mapping "sideways"`, "missing center"}
+	if len(errs) != len(want) {
+		t.Fatalf("errors = %v", errs)
+	}
+	for i, w := range want {
+		if !strings.Contains(errs[i].Error(), w) {
+			t.Errorf("error %d = %v, want %q", i, errs[i], w)
+		}
 	}
 }

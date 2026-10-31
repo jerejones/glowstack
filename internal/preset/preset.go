@@ -97,32 +97,45 @@ func (l *Library) Apply(id, target string, overrides map[string]any) (stack.Laye
 	return stack.Layer{Target: target, Effect: s.Effect, Params: s.Params}, nil
 }
 
-// Check validates every preset against the effects and palettes, with px
-// values at pitch. Presets are only checked when used otherwise, because
-// effects are registered in code and composites after config loads.
-func (l *Library) Check(effects *render.Registry, palettes *palette.Registry, pitch float64) config.Errors {
+// MappingCheck checks a resolved mapping parameter: a known id, or an
+// inline mapping that solves (engine.Engine.CheckMapping). "" means the
+// target's default and is always fine.
+type MappingCheck func(render.Common) error
+
+// Check validates every preset against the effects, palettes and (if
+// mapping isn't nil) mappings, with px values at pitch. Presets are only
+// checked when used otherwise, because effects are registered in code and
+// composites after config loads.
+func (l *Library) Check(effects *render.Registry, palettes *palette.Registry, pitch float64, mapping MappingCheck) config.Errors {
 	var errs config.Errors
 	for _, p := range l.list {
-		if err := CheckSpec(Expand(p, nil), effects, palettes, pitch); err != nil {
+		if err := CheckSpec(Expand(p, nil), effects, palettes, pitch, mapping); err != nil {
 			errs = append(errs, config.Errorf(p.Pos, "preset %s: %v", p.ID, err))
 		}
 	}
 	return errs
 }
 
-// CheckSpec validates a spec's effect and parameters (effect and common).
-func CheckSpec(s Spec, effects *render.Registry, palettes *palette.Registry, pitch float64) error {
+// CheckSpec validates a spec's effect and parameters (effect and common),
+// and its mapping if mapping isn't nil.
+func CheckSpec(s Spec, effects *render.Registry, palettes *palette.Registry, pitch float64, mapping MappingCheck) error {
 	d, ok := effects.Get(s.Effect)
 	if !ok {
 		return fmt.Errorf("no effect %q", s.Effect)
 	}
 	env := render.Env{Pitch: pitch, Palettes: palettes}
 	common, effect := render.SplitParams(s.Params)
-	if _, err := render.ResolveCommon(common, env); err != nil {
+	c, err := render.ResolveCommon(common, env)
+	if err != nil {
 		return err
 	}
 	if _, err := render.Resolve(d.Params, effect, env); err != nil {
 		return fmt.Errorf("effect %s: %w", d.ID, err)
+	}
+	if mapping != nil {
+		if err := mapping(c); err != nil {
+			return fmt.Errorf("mapping: %w", err)
+		}
 	}
 	return nil
 }

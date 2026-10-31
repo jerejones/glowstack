@@ -115,9 +115,11 @@ type App struct {
 	pactive  []stack.Active
 	observed Observed
 
-	// mu guards the fields Reload replaces (see Current) and gen.
-	mu       sync.RWMutex
-	gen      uint64     // increases on every reload
+	// mu guards the fields Reload replaces (see Current), gen and
+	// presetWarnings.
+	mu             sync.RWMutex
+	gen            uint64 // increases on every reload
+	presetWarnings []string
 	reloadMu sync.Mutex // one Reload at a time
 
 	previewID atomic.Uint64
@@ -162,11 +164,9 @@ func New(opts Options) (*App, error) {
 	if err := effects.RegisterComposites(a.Effects, a.Config.Composites); err != nil {
 		return nil, err
 	}
-	for _, err := range preset.New(a.Config.Presets).Check(a.Effects, a.Palettes, a.Layout.Pitch) {
-		a.Log.Warn("preset can't be used", "err", err)
-	}
 	a.Engine = engine.New(a.Config, a.Layout, a.Mappings, a.Effects, a.Palettes)
 	a.Engine.OnError = func(id string, err error) { a.Log.Error("layer can't be rendered", "layer", id, "err", err) }
+	a.presetWarnings = a.checkPresets(a.Current())
 
 	s := a.Config.Settings
 	fades := stack.Fades{In: time.Duration(*s.Fade.In), Out: time.Duration(*s.Fade.Out)}
@@ -350,7 +350,7 @@ func (a *App) Summary(w io.Writer) {
 	}
 	fmt.Fprintf(w, "mappings: %v (default %s)\n", a.Mappings.IDs(), a.Mappings.Default)
 	fmt.Fprintf(w, "effects: %d, palettes: %d, presets: %d, zones: %d\n",
-		len(a.Effects.All()), len(a.Palettes.All()), len(a.Config.Presets), len(a.Config.Zones))
+		len(a.Effects.All()), len(a.Palettes.All()), len(preset.New(a.Config.Presets).List()), len(a.Config.Zones))
 	boot := cmp.Or(a.Config.Settings.Boot, BootRestore)
 	fmt.Fprintf(w, "stack: %d layers (boot: %s)\n", len(a.Stack.List()), boot)
 	var warnings []string
@@ -360,6 +360,7 @@ func (a *App) Summary(w io.Writer) {
 	for _, e := range a.Mappings.Warnings {
 		warnings = append(warnings, e.Error())
 	}
+	warnings = append(warnings, a.PresetWarnings()...)
 	warnings = append(warnings, a.Restored...)
 	if len(warnings) > 0 {
 		fmt.Fprintf(w, "%d warnings:\n", len(warnings))

@@ -668,8 +668,12 @@ Any parameter can be overridden when it's applied. Overrides replace whole
 parameters (overriding `bands` replaces the list). A layer can either copy
 the preset's effect and parameters (like applying a preset on WLED, so later
 edits to the preset don't affect it) or name the preset, which is expanded
-whenever the layer is resolved. Presets are checked against the effects at
-startup and problems are logged.
+whenever the layer is resolved. Presets are checked at startup and on every
+reload: an unknown effect, palette or mapping (or an inline mapping that
+doesn't solve) and bad parameter values are warnings, with the preset's file
+and line, in `--check`'s summary, the log and the reload result. A preset
+has no target, so there's no area to check; the area is checked when it's
+applied.
 
 ### WLED compatibility
 

@@ -6,6 +6,7 @@ package app
 
 import (
 	"cmp"
+	"slices"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/jerejones/glowstack/internal/layout"
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/palette"
+	"github.com/jerejones/glowstack/internal/preset"
 	"github.com/jerejones/glowstack/internal/render"
 	"github.com/jerejones/glowstack/internal/stack"
 )
@@ -94,9 +96,12 @@ func (a *App) Reload() (*ReloadResult, error) {
 	eng.OnError = a.Engine.OnError
 	n := len(lay.Pixels)
 
+	pw := a.checkPresets(View{Config: cfg, Layout: lay, Mappings: ms, Palettes: pal, Engine: eng})
+
 	a.mu.Lock()
 	res := &ReloadResult{Pixels: n, PixelsWere: len(a.Layout.Pixels)}
 	a.Config, a.Layout, a.Mappings, a.Palettes, a.Engine = cfg, lay, ms, pal, eng
+	a.presetWarnings = pw
 	a.Compositor = render.NewCompositor(n)
 	a.buf = render.NewBuffer(n)
 	a.frames = output.Frames(lay)
@@ -117,6 +122,7 @@ func (a *App) Reload() (*ReloadResult, error) {
 	for _, e := range ms.Warnings {
 		res.Warnings = append(res.Warnings, e.Error())
 	}
+	res.Warnings = append(res.Warnings, pw...)
 	for _, d := range res.Dropped {
 		a.Log.Warn("reload dropped a layer", "detail", d)
 	}
@@ -146,6 +152,26 @@ func (a *App) rebuildOutputs(stage output.Stage, cfg *config.Config, l *layout.L
 // Sink returns the output sink, for services that want to ask it about
 // controller health.
 func (a *App) Sink() output.Sink { return a.sink }
+
+// checkPresets checks every preset in v against the effects, palettes and
+// mappings, logging and returning the problems. A preset that fails isn't
+// an error: layers can't use it, and the API says why.
+func (a *App) checkPresets(v View) []string {
+	var out []string
+	for _, err := range preset.New(v.Config.Presets).Check(a.Effects, v.Palettes, v.Layout.Pitch, v.Engine.CheckMapping) {
+		a.Log.Warn("preset can't be used", "err", err)
+		out = append(out, err.Error())
+	}
+	return out
+}
+
+// PresetWarnings lists the presets that can't be used and why (an unknown
+// effect, palette or mapping, or a bad parameter), as of the last load.
+func (a *App) PresetWarnings() []string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return slices.Clone(a.presetWarnings)
+}
 
 // Stage returns the output stage.
 func (a *App) Stage() output.Stage {
