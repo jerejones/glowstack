@@ -66,7 +66,7 @@ how often it changes:
 
 | File | Contents | Changes when |
 |---|---|---|
-| `glowstack.yaml` | Optional program settings: `fps`, `boot`, default `fade` times | Rarely |
+| `glowstack.yaml` | Optional program settings: `fps`, `boot`, default `fade` times, power-limit `power: { group, release }`, `dither` | Rarely |
 | `controllers.yaml` | Controllers, outputs, transport settings | Hardware or network changes |
 | `layout.yaml` | Runs, nodes, anchors, edges, plan coordinates | Strips are repaired, moved or measured |
 | `areas.yaml` | Areas and zones, virtual device identity | Grouping changes |
@@ -123,7 +123,8 @@ controllers:
   - id: shed
     host: 192.0.2.21          # IP or hostname
     transport: ddp            # ddp now; e131/artnet possible later
-    port: 4048
+    port: 4048                # DDP port
+    http_port: 80             # JSON API port, for read-only health checks
     pixels: 1800              # total pixel count the controller expects
     channels: rgbw            # rgb | rgbw: bytes per pixel on the wire
     max_fps: 40               # cap; also derived from the longest output
@@ -144,9 +145,12 @@ Notes:
 
 - **DDP framing.** Each packet holds at most 1440 data bytes, which is 360
   RGBW pixels. The offset is in bytes. The push flag goes on the last packet
-  of a frame so the controller shows the whole frame at once. Check the exact
-  header fields and data-type bits against WLED's receive code before
-  implementing.
+  of a frame so the controller shows the whole frame at once. Checked
+  against WLED's receiver (`wled00/e131.cpp`): flags `0x40` (version 1)
+  plus `0x01` (push), data type `0x0B` RGB or `0x1B` RGBW, destination 1.
+  All packets of a frame share one sequence number (1–15), advancing per
+  frame, which WLED's optional out-of-sequence check always accepts. See
+  `internal/output/ddp`.
 - **Wire-time ceiling.** About 30 µs per RGB pixel and 40 µs per RGBW pixel
   per output. Glowstack warns when `max_fps` can't be reached on the longest
   output.
@@ -733,11 +737,18 @@ Per frame, per pixel:
    - Apply the **lowest** of those scales uniformly to every pixel in the
      limit group, so the brightest-constrained output sets the brightness
      for all of them. The look stays even instead of one stretch going dim.
-   - The limit group is configurable: `global` (default), `zone`,
-     `controller` or `output`.
+   - The limit group is configurable (`glowstack.yaml` `power.group`):
+     `global` (default), `zone`, `controller` or `output`. A pixel gets
+     the lowest scale among its own output's and controller's limits and
+     every limit touching a group it belongs to.
    - The scale is smoothed: fast to drop, slow to recover, so moving
-     patterns don't make the whole house pump.
-4. Gamma and white handling, then temporal dithering, then quantise to 8 bits.
+     patterns don't make the whole house pump. Drops apply in the same
+     frame; recovery has time constant `power.release` (default 2 s).
+   - Current is estimated on the wire values, after white handling (step
+     4), since it depends on which channels are driven.
+4. White handling, then temporal dithering, then quantise to 8 bits. There
+   is no gamma step here: values are already linear drive levels (see
+   "Linear light"), and quantising is the one encoding to 8 bits.
 5. Slice per controller, in wire channel order, and send.
 
 Glowstack owns brightness and gamma. Controllers are configured so they don't

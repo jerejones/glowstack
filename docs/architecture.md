@@ -40,9 +40,13 @@ frame; everything up to the stack is built once at start.
 | `internal/stack` | The layer stack: push, edit, remove with fades, lifetimes, owners, `state.json`. |
 | `internal/engine` | Stack layers to render layers: presets, mapping precedence, params at the target's pitch, geometry, caching. |
 | `internal/storage` | `Store` (atomic file writes in the data folder, or memory) and the debounced `Saver`. |
-| `internal/output` | `Stage` and `Sink`, the controller `Frame`, `Quantize` (a placeholder stage), `Discard`, `Multi`. |
+| `internal/output` | `Stage` and `Sink`, the controller `Frame`, `Pipeline` (the production stage: white handling, power limiting, dithering, quantising; `Power()` reports current estimates), `Quantize` (a minimal stage), `Discard`, `Multi`, `Check` (wire-time and power-config warnings), `Select` (`--output`). |
+| `internal/output/ddp` | DDP packets (`Packets`, `Parse`) and `Sink`: one sender goroutine per controller over UDP, newest frame wins, `max_fps` pacing, `Stats`. |
+| `internal/output/health` | Read-only controller checks: polls `/json/info`, reads `/json/cfg`, reports reboots, firmware changes and realtime-setting mismatches. |
+| `internal/fakewled` | A fake WLED controller: DDP receiver with WLED's semantics, `/json/info`, `/json/cfg`, a pixel page. |
 | `internal/app` | Wiring, the frame loop, `Summary`, and the seams below. |
-| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`. |
+| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--output`, `--loopback`. |
+| `cmd/fakewled` | Fake controllers on loopback, from flags, a YAML list or a Glowstack config folder. |
 
 ## Seams
 
@@ -68,7 +72,9 @@ change them in one place when they need to grow.
 - **`output.Stage` / `output.Sink`.** A stage turns the linear buffer into
   wire bytes per controller (power limiting, white, dithering,
   quantising). A sink delivers them. `app.Options.Stage` and
-  `app.Options.Sink` choose them.
+  `app.Options.Sink` (or `NewSink`, called once the layout exists) choose
+  them. `App.Stage` is the stage in use; the live map gets power
+  estimates with `a.Stage.(output.PowerReporter).Power()`.
 - **`app.Service`.** `func(ctx, *App) error`, run for the life of
   `App.Run`. The HTTP API, the WLED-compatible devices and the live-map
   server are services. They reach the stack (`App.Stack`), validation
@@ -163,12 +169,36 @@ These are choices the design left open, recorded so they can be revisited.
    Patterns move with absolute time, so an edit to `speed` makes them
    jump.
 
+### Decisions made while building the output stage
+
+18. **Power policy** lives in `glowstack.yaml`: `power: { group, release }`
+    (default `global`, `2 s`). `dither` (default on) is there too.
+19. **White handling comes before power limiting**, because current
+    depends on the channels actually driven. RGB controllers, and RGBW
+    ones with `white: auto`, get W folded into R, G and B (W sent as 0).
+20. **Limit groups.** Every pixel gets the lowest scale among the limits
+    of its own output and controller and every limit touching any group
+    it's in. A controller total therefore always covers the whole
+    controller, even with `group: output`. With `group: zone`, pixels in
+    no zone get only their own limits.
+21. **Smoothing.** A tighter limit takes effect in the same frame (never
+    over budget); recovery is exponential with time constant `release`.
+22. **Dithering** carries each channel's rounding error to the next frame.
+    The error stays within ±½, so 0 and 255 are exact and never flicker.
+23. **DDP sequence numbers** advance per frame, not per packet, so WLED's
+    optional out-of-sequence check accepts frames of any size.
+24. **`http_port`** (default 80) is the controller's JSON API port, for
+    health checks. `--loopback=PORT` sends controller *i* to
+    `127.0.0.1:PORT+i` (DDP and HTTP), matching `fakewled --from-config`.
+25. **The DDP sink never blocks rendering.** `Send` copies the frame; each
+    controller's goroutine sends the newest one, at most `max_fps`, with
+    100 µs between a frame's packets.
+
 ## Work not in the core, and where it goes
 
 | Work | Package | Notes |
 |---|---|---|
 | More effects (`wave`, `fire`, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
-| Output stage and DDP | `internal/output` (stage), `internal/output/ddp` (sink) | Replace `Quantize` with power limiting (per output and controller, limit groups, smoothing), white handling per controller, temporal dithering and quantising; channel order from config. The DDP sink sends per controller, splitting packets and respecting `max_fps`. Use loopback in tests. |
 | Live map | `internal/livemap` | An `app.Service` serving the page and a websocket. `App.OnFrame` gives frames. For "try before applying", run a second `engine.Engine` and `render.Compositor` on a `clock.Preview` (an engine's `Resolve` is single-goroutine). |
 | HTTP / CLI API | `internal/api`, CLI subcommands in `cmd/glowstack` or `cmd/glowctl` | An `app.Service`. Push, edit and remove go through `App.Stack`, which validates with `App.Engine.Check`. |
 | WLED-compatible devices | `internal/wled` | One `app.Service` per zone (its own IP, mDNS). Owners are `stack.WLEDOwner(zone, segment)`. Bindings come from `render.Def.WLED`. Test against `python-wled`. |
@@ -187,6 +217,12 @@ Not done in the core, and not assigned above:
 ```sh
 go run ./cmd/glowstack --config examples/fictional/config \
   --data "$(mktemp -d)" --check     # print the summary and exit
-go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs
+go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs --output=none
+
+# With fake controllers on loopback (two terminals):
+go run ./cmd/fakewled --from-config examples/fictional/config --base-port 40481
+go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs --loopback=40481
+# then open http://127.0.0.1:40481/ and http://127.0.0.1:40482/
+# (examples/fictional/fake/fakes.yaml is a misconfigured variant: --config)
 go test ./...
 ```

@@ -6,12 +6,15 @@
 // hands it to sinks. Two seams:
 //
 //   - A Stage converts the linear-light frame buffer to bytes per
-//     controller: power limiting, white handling, dithering and
-//     quantising. Quantize is a minimal stage with none of the
-//     refinements; the output-stage work replaces it.
-//   - A Sink delivers controller frames: DDP over UDP in production, a
-//     recorder in tests, Discard when running without output. DDP isn't
-//     implemented here.
+//     controller: white handling, power limiting, dithering and
+//     quantising. Pipeline is the production stage; Quantize is a
+//     minimal one with none of the refinements.
+//   - A Sink delivers controller frames: DDP over UDP in production
+//     (package ddp), a recorder in tests, Discard when running without
+//     output.
+//
+// Check warns about frame rates the wire can't carry and power limits
+// that can't work; Select parses the --output flag.
 //
 // Neither applies gamma: the buffer is already linear drive levels (see
 // package color).

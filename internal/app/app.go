@@ -8,7 +8,9 @@
 //
 // Seams for work that lives elsewhere:
 //
-//   - Options.Sink and Options.Stage: the output stage and DDP senders.
+//   - Options.Sink (or Options.NewSink) and Options.Stage: the output stage
+//     and DDP senders. App.Stage is the stage in use; the default,
+//     output.Pipeline, reports power estimates (output.PowerReporter).
 //   - Options.Services: long-running parts that need the App, such as the
 //     HTTP API, the WLED-compatible devices and the live map. Each runs
 //     in its own goroutine for the life of Run.
@@ -58,11 +60,14 @@ type Options struct {
 	DataDir   string  // "" keeps state in memory only
 	FPS       float64 // 0 = glowstack.yaml's fps
 	Clock     clock.Source
-	Sink      output.Sink  // nil = output.Discard
-	Stage     output.Stage // nil = output.Quantize
+	Sink      output.Sink  // nil = NewSink, else output.Discard
+	Stage     output.Stage // nil = output.NewPipeline
 	Effects   func(*render.Registry) error
 	Services  []Service
 	Log       *slog.Logger
+
+	// NewSink makes the sink once the layout is known, when Sink is nil.
+	NewSink func(*App) (output.Sink, error)
 }
 
 // App is a running Glowstack. Its exported fields are read-only after New.
@@ -79,13 +84,15 @@ type App struct {
 	Clock      clock.Source
 	Store      storage.Store
 	Log        *slog.Logger
+	// Stage turns rendered frames into wire data. The default
+	// *output.Pipeline also implements output.PowerReporter.
+	Stage output.Stage
 	// Restored lists warnings from restoring state.json.
 	Restored []string
 
 	opts   Options
 	saver  *storage.Saver
 	sink   output.Sink
-	stage  output.Stage
 	buf    *render.Buffer
 	frames []output.Frame
 	active []stack.Active
@@ -147,8 +154,21 @@ func New(opts Options) (*App, error) {
 		func(err error) { a.Log.Error("saving the stack", "err", err) })
 	a.Stack.OnChange(a.saver.Trigger)
 
-	a.sink = cmp.Or[output.Sink](opts.Sink, output.Discard{})
-	a.stage = cmp.Or[output.Stage](opts.Stage, output.Quantize{Layout: a.Layout})
+	a.Stage = opts.Stage
+	if a.Stage == nil {
+		if a.Stage, err = output.NewPipeline(a.Layout, a.Config); err != nil {
+			return nil, err
+		}
+	}
+	a.sink = opts.Sink
+	if a.sink == nil && opts.NewSink != nil {
+		if a.sink, err = opts.NewSink(a); err != nil {
+			return nil, err
+		}
+	}
+	if a.sink == nil {
+		a.sink = output.Discard{}
+	}
 	n := len(a.Layout.Pixels)
 	a.Compositor = render.NewCompositor(n)
 	a.buf = render.NewBuffer(n)
@@ -176,7 +196,7 @@ func (a *App) RenderFrame(f clock.Frame) error {
 		fn(f, a.buf)
 	}
 	a.obsMu.RUnlock()
-	a.stage.Process(f, a.buf, a.frames)
+	a.Stage.Process(f, a.buf, a.frames)
 	var errs []error
 	for i := range a.frames {
 		if err := a.sink.Send(&a.frames[i]); err != nil {

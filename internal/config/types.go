@@ -27,6 +27,23 @@ type Settings struct {
 	FPS  float64 `yaml:"fps"`  // frame rate; default 40, capped by controllers' max_fps
 	Boot string  `yaml:"boot"` // restore | dark; default restore
 	Fade Fade    `yaml:"fade"` // default layer fade durations
+	// Power is the power-limit policy. The limits themselves are per
+	// output and controller in controllers.yaml.
+	Power PowerPolicy `yaml:"power"`
+	// Dither turns temporal dithering to 8 bits on or off; default on.
+	Dither *bool `yaml:"dither"`
+}
+
+// PowerPolicy says how power-limit scales are shared and smoothed.
+type PowerPolicy struct {
+	Pos
+	// Group is the limit group: global (default) | zone | controller |
+	// output. Every pixel in a group is scaled by the lowest scale any
+	// limit touching the group needs.
+	Group string `yaml:"group"`
+	// Release is the time constant for recovering after a limit eases;
+	// default 2 s. Limiting itself takes effect at once.
+	Release *units.Duration `yaml:"release"`
 }
 
 // Fade gives default layer fade durations.
@@ -50,7 +67,8 @@ type Controller struct {
 	ID        string   `yaml:"id"`
 	Host      string   `yaml:"host"`
 	Transport string   `yaml:"transport"` // ddp (default)
-	Port      int      `yaml:"port"`      // default 4048
+	Port      int      `yaml:"port"`      // DDP port; default 4048
+	HTTPPort  int      `yaml:"http_port"` // JSON API port for health checks; default 80
 	Pixels    int      `yaml:"pixels"`
 	Channels  string   `yaml:"channels"` // rgb (default) | rgbw
 	MaxFPS    float64  `yaml:"max_fps"`
