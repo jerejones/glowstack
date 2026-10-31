@@ -6,8 +6,9 @@ every pixel and streams each controller its frame. Lighting is organised into
 zones and areas that can be controlled independently from Home Assistant,
 because Glowstack presents itself as ordinary WLED devices.
 
-> **Status: early.** The core runs (config, layout solver, layer stack,
-> compositor, frame loop) but doesn't drive any LEDs yet. This README
+> **Status: early.** The core, the first effects, DDP output with power
+> limiting, the control API and CLI, and the live map run. The
+> WLED-compatible devices for Home Assistant aren't built yet. This README
 > describes the design being built; `docs/architecture.md` maps it to code.
 
 ## Why
@@ -43,6 +44,48 @@ control surface.
 - **Runs as one container.** Deployment is a single static Go binary in a
   Docker image. Site config (area map, addresses, floor plans) is mounted at
   runtime and never built into the image.
+
+## Try it
+
+Everything below runs on your machine against a fictional installation
+(`examples/fictional`, a shed, a tower, a fence and a porch) and fake WLED
+controllers on loopback. No real controller is contacted. You need Go 1.26.
+
+```sh
+go build -o bin/ ./cmd/...
+cp -r examples/fictional/data /tmp/gs-data      # anchors.yaml; state is saved here
+
+# Terminal 1: one fake controller per controllers.yaml entry, on
+# 127.0.0.1:40481 (shed) and :40482 (yard), DDP and HTTP on each.
+bin/fakewled --from-config examples/fictional/config --base-port 40481
+
+# Terminal 2: Glowstack, sending controller i to 127.0.0.1:40481+i.
+bin/glowstack --config examples/fictional/config --data /tmp/gs-data \
+  --http 127.0.0.1:8080 --loopback=40481
+```
+
+Open the live map at <http://127.0.0.1:8080/map/>, and the fakes' own
+pages at <http://127.0.0.1:40481/> and <http://127.0.0.1:40482/> to see
+what reaches the "controllers". Then, in a third terminal:
+
+```sh
+bin/glowstack ctl push everything slow-crawl    # orange bands creeping along
+bin/glowstack ctl push shed glitter             # rainbow with white sparkles
+bin/glowstack ctl push porch solid color=#000000   # the porch goes dark …
+bin/glowstack ctl layers
+bin/glowstack ctl rm 3                          # … and rejoins the yard (use the id shown)
+bin/glowstack ctl bri 0.5                       # master brightness
+bin/glowstack ctl bri porch 30%                 # one zone
+bin/glowstack ctl push --preview porch solid color=#0040ff   # map only
+bin/glowstack ctl reload                        # re-read the config folder
+bin/glowstack ctl status                        # frame rate and controller health
+```
+
+`glowctl` is the same client on its own. The map's side panel shows each
+output's estimated current, the output stage's figures after power
+limiting and the limit scale; it also has preview controls (pause, scrub,
+speed) and a form for preview-only layers. Without fakes, use
+`--output=none` to render without sending anything.
 
 ## Requirements (planned)
 

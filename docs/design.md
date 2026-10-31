@@ -771,7 +771,9 @@ checked without going outside.
   committed. Pixels are drawn at their plan coordinates from the layout
   solver. Runs with no plan geometry are listed but not drawn.
 - **Output optional.** `--output=none` renders without sending DDP, so the
-  map works with no controllers. `--output=<controller,…>` sends to some.
+  map works with no controllers. `--output=<controller,…>` sends to some
+  (the default is `all`). `--loopback=PORT` sends to fake controllers on
+  this machine instead (`cmd/fakewled`).
 - **Inspect.** Hover or tap a pixel for its controller, index, run, edge,
   areas, flow position `u`, stretch and which layer is showing.
 - **Diagnostic views** (overlays instead of the live frame):
@@ -785,7 +787,9 @@ checked without going outside.
   running normally. Because effects are functions of place and time, the
   scrubbed view is exactly what the house would show at that moment.
 - **Try before applying.** A layer can be previewed on the map only, without
-  pushing it to the real stack.
+  pushing it to the real stack. There is one preview stack, shared by the
+  map's panel and the API (`preview: true`); it's never saved or sent to
+  the lights.
 - **Later:** embedded in HA as a dashboard panel (iframe or custom card), and
   2-D/elevation views for multi-floor runs.
 
@@ -797,16 +801,18 @@ config loader ─► layout solver ─► pixel table + mapping arrays
 API (native HTTP, CLI) ─┐                ▼
 WLED-compat devices ────┼─► stack ─► renderer ─► output stage ─► DDP senders
 live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (one per
-                              ▼       shared clock)  gamma, dither)  controller)
+                              ▼       shared clock)  white, dither)  controller)
                          state.json
 ```
 
 - **Clock.** One monotonic frame clock. Frame time is shared by every layer
   and controller. The frame rate is configurable and capped by the slowest
   controller.
-- **Hot reload.** Palettes, presets and mappings reload without a restart.
-  Layout and controller changes rebuild the pixel table. Layers whose target
-  no longer exists are dropped with a warning.
+- **Hot reload.** Palettes, presets and mappings reload without a restart
+  (`POST /api/v1/reload`, `glowstack ctl reload` or SIGHUP). Layout and
+  controller changes rebuild the pixel table, the output stage, the DDP
+  senders and the live map. Layers whose target no longer exists are
+  dropped with a warning.
 - **Observability.** Frame time, per-controller send errors, controller
   reboots and power-limit activity. Logs explain config errors in house
   terms, for example "run `fence` overlaps run `wall` at shed:600–605".
