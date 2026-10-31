@@ -5,7 +5,8 @@
 Glowstack is a Go program that renders every pixel of a large addressable LED
 installation and streams frames to many WLED controllers over DDP. It presents
 itself to Home Assistant as several ordinary WLED devices. See `README.md` for
-the design. Status: planning. There is no code yet.
+the overview and `docs/design.md` for the vocabulary, config shapes and effect
+model; use its terms in code. Status: planning. There is no code yet.
 
 ## License header: required in every source file
 
