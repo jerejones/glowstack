@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fictional plan for examples/fictional. One plan unit is 5 cm. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="800" height="800">
+  <g id="outlines" fill="none" stroke="#999" stroke-width="1">
+    <rect x="100" y="100" width="120" height="80"/>
+    <text x="140" y="145" font-size="10" fill="#999">shed</text>
+    <rect x="95" y="50" width="70" height="20"/>
+    <text x="115" y="48" font-size="8" fill="#999">porch</text>
+    <text x="226" y="352" font-size="8" fill="#999">gate</text>
+  </g>
+  <g id="runs" fill="none" stroke="#f80" stroke-width="2">
+    <path id="eave" d="M220 180 H100 V100 L160 100 220 100"
+          data-nodes="shed-se,shed-sw,shed-nw,shed-eave-mid,shed-ne"/>
+    <!-- Drawn a little too tall: 4.47 m drawn against 4 m of pixels. -->
+    <path id="tower" d="M250 190 L270 150 290 190"
+          data-nodes="tower-l,tower-top,tower-r"/>
+    <path id="fence-west" d="M220 180 V340" data-nodes="shed-se,gate-w"/>
+    <path id="fence-east" d="M244 340 H344" data-nodes="gate-e,fence-end"/>
+    <g transform="translate(100 60)">
+      <path id="porch" d="M0 0 h60" data-nodes="porch-w,porch-e"/>
+    </g>
+  </g>
+</svg>

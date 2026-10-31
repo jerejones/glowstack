@@ -1,0 +1,29 @@
+schema: 1
+areas:
+  - id: shed
+    include: [shed-eave, tower]
+  - id: yard
+    include: [fence-west, fence-east]
+  - id: porch
+    include: [porch]
+  - id: shed-north
+    include: [{ run: shed-eave, from: shed-nw, to: shed-ne }]
+  - id: everything
+    include: [{ area: shed }, { area: yard }, { area: porch }]
+
+zones:
+  - id: front
+    area: everything
+    device: { name: "Glowstack Front", ip: 192.0.2.50, mac: "02:00:00:00:00:01" }
+    mapping: front-sweep
+    segments:
+      - { area: everything }
+      - { area: shed }
+      - { area: yard }
+  - id: porch
+    area: porch
+    device: { name: "Glowstack Porch", ip: 192.0.2.51, mac: "02:00:00:00:00:02" }
+    mapping: porch-local
+    segments:
+      - { area: porch }
+      - { area: shed-north, mapping: east-west }

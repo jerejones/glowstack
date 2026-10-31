@@ -1,0 +1,27 @@
+schema: 1
+controllers:
+  - id: shed
+    host: 192.0.2.21
+    transport: ddp
+    port: 4048
+    pixels: 604
+    channels: rgbw
+    max_fps: 40
+    outputs:
+      - { pin: 1, start: 0,   count: 484, max_ma: 4000 }   # eave (+2 dead)
+      - { pin: 2, start: 484, count: 120, max_ma: 2000 }   # tower
+    power:
+      max_ma: 5000
+      led_ma: { r: 12, g: 12, b: 12, w: 20, idle: 1 }
+    white: explicit
+
+  - id: yard
+    host: 192.0.2.22
+    pixels: 480
+    channels: rgb
+    max_fps: 40
+    outputs:
+      - { pin: 1, start: 0,   count: 390, max_ma: 4000 }   # fence, both sides of the gate
+      - { pin: 2, start: 390, count: 90 }                  # porch rail
+    power:
+      led_ma: { r: 12, g: 12, b: 12, idle: 1 }

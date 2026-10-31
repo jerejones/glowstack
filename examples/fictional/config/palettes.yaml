@@ -1,0 +1,9 @@
+schema: 1
+palettes:
+  - id: ember
+    name: Ember
+    stops: [[0.0, "#ff2000"], [0.6, "#ff8000"], [1.0, "#ffd060"]]
+    interpolate: linear
+    wrap: true
+  - id: frost
+    stops: [[0.0, "#0040ff/00"], [0.5, "#80c0ff/20"], [1.0, "#ffffff/ff"]]

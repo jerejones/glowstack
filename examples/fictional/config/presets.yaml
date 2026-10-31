@@ -1,0 +1,12 @@
+schema: 1
+presets:
+  - id: warm-white
+    name: Warm white
+    effect: solid
+    params:
+      color: "#ff9a40/c0"
+  - id: slow-crawl
+    effect: bands
+    params:
+      bands: [{ color: "#ff5a00", width: 20 px }, { color: "#3cff00", width: 3 px }]
+      speed: 1 px/8s
