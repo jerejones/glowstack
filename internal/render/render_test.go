@@ -121,6 +121,32 @@ func TestEarlyOutSkipsCoveredPixels(t *testing.T) {
 	}
 }
 
+func TestTop(t *testing.T) {
+	l, m := tenPixels(t)
+	clear := color.Color{R: 1}
+	layers := []*Layer{
+		layer(t, l, m, ids(0, 2), &recorder{c: clear}, false, map[string]any{"blend": BlendOver}),
+		layer(t, l, m, ids(2, 4), &recorder{c: red}, false, nil),
+		layer(t, l, m, ids(0, 6), &recorder{c: blue}, false, nil),
+	}
+	layers[0].ID, layers[1].ID, layers[2].ID = "glass", "red", "blue"
+	c := NewCompositor(10)
+	c.Render(frame, layers, NewBuffer(10))
+	top := make([]int32, 10)
+	got := c.Top(top, nil)
+	// The transparent top layer never shows; red shows above blue.
+	if strings.Join(got, ",") != "red,blue" {
+		t.Fatalf("ids = %v", got)
+	}
+	want := []int32{1, 1, 0, 0, 0, 1, 1, -1, -1, -1}
+	for p := range want {
+		if top[p] != want[p] {
+			t.Errorf("top = %v, want %v", top, want)
+			break
+		}
+	}
+}
+
 func TestStatefulGetsFullTarget(t *testing.T) {
 	l, m := tenPixels(t)
 	bottom := &recorder{c: blue}

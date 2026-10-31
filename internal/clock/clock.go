@@ -120,6 +120,13 @@ func (p *Preview) Paused() bool {
 	return p.paused
 }
 
+// Speed returns the rate of preview time to base time.
+func (p *Preview) Speed() float64 {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.speed
+}
+
 // SetSpeed sets the rate of preview time to base time (1 = real time;
 // negative runs backwards).
 func (p *Preview) SetSpeed(s float64) {

@@ -4,8 +4,8 @@
 
 // Command glowstack loads an installation's config and data folders,
 // solves the layout, prints a summary and runs the frame loop, sending
-// frames to the controllers over DDP and serving the control API on
-// --http.
+// frames to the controllers over DDP and serving the control API
+// (/api/v1/) and the live map (/map/) on --http.
 //
 // --output chooses the controllers to send to: all (default), none, or a
 // comma-separated list of ids. --loopback=PORT sends controller i to
@@ -31,6 +31,7 @@ import (
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/ctl"
 	"github.com/jerejones/glowstack/internal/httpserver"
+	"github.com/jerejones/glowstack/internal/mapview"
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/output/wire"
 )
@@ -43,7 +44,7 @@ func main() {
 	dataDir := flag.String("data", "/data", "data folder (writable): state.json, anchors.yaml, presets.saved.yaml")
 	fps := flag.Float64("fps", 0, "frame rate (default: glowstack.yaml's fps, else 40)")
 	check := flag.Bool("check", false, "load, solve and print the summary, then exit")
-	httpAddr := flag.String("http", ":8080", "HTTP listen address for the control API (empty: no HTTP server)")
+	httpAddr := flag.String("http", ":8080", `HTTP listen address for the control API (/api/v1/) and live map (/map/); "" for none`)
 	outputs := flag.String("output", "all", "controllers to send to: all, none, or comma-separated ids")
 	loopback := flag.Int("loopback", 0, "send controller i to 127.0.0.1:PORT+i (DDP and health checks), for cmd/fakewled")
 	flag.Parse()
@@ -66,7 +67,7 @@ func main() {
 		return out.Run(ctx)
 	})
 	if *httpAddr != "" {
-		opts.Services = append(opts.Services, httpserver.New(*httpAddr, api.Mount).Service())
+		opts.Services = append(opts.Services, httpserver.New(*httpAddr, api.Mount, mapview.Mount(mapview.Options{})).Service())
 	}
 	a, err := app.New(opts)
 	if err != nil {

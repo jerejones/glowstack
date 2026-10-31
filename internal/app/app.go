@@ -32,7 +32,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/clock"
@@ -108,11 +110,17 @@ type App struct {
 	frames []output.Frame
 	active []stack.Active
 	layers []*render.Layer
+	// Frame-loop only: the preview stack's frame (discarded) and what the
+	// frame being observed was rendered with.
+	pactive  []stack.Active
+	observed Observed
 
 	// mu guards the fields Reload replaces (see Current) and gen.
 	mu       sync.RWMutex
 	gen      uint64     // increases on every reload
 	reloadMu sync.Mutex // one Reload at a time
+
+	previewID atomic.Uint64
 
 	levels levels
 	stats  stats
@@ -215,6 +223,33 @@ func (a *App) OnFrame(fn func(clock.Frame, *render.Buffer)) {
 	a.obsMu.Unlock()
 }
 
+// Observed is what a frame was rendered with.
+type Observed struct {
+	View
+	// Compositor rendered the frame; its Top says which layer shows at
+	// each pixel.
+	Compositor *render.Compositor
+}
+
+// Observed returns what the frame being observed was rendered with. Call
+// it only from an OnFrame observer: after a reload, Current may already be
+// newer than the buffer the observer was given.
+func (a *App) Observed() Observed { return a.observed }
+
+// PushPreview pushes l onto the preview stack. Layers without an id get
+// "p1", "p2", … so they can't be mistaken for layers on the house stack.
+func (a *App) PushPreview(l stack.Layer) (stack.Layer, error) {
+	if l.ID != "" {
+		return a.Preview.Push(l)
+	}
+	for {
+		l.ID = "p" + strconv.FormatUint(a.previewID.Add(1), 10)
+		if _, taken := a.Preview.Get(l.ID); !taken {
+			return a.Preview.Push(l)
+		}
+	}
+}
+
 // RenderFrame renders, observes and sends one frame. Run calls it on each
 // tick; tests call it directly.
 func (a *App) RenderFrame(f clock.Frame) error {
@@ -223,7 +258,7 @@ func (a *App) RenderFrame(f clock.Frame) error {
 	// the next frame and never touches these.
 	a.mu.RLock()
 	gen, eng, comp, buf, frames, stage := a.gen, a.Engine, a.Compositor, a.buf, a.frames, a.stage
-	cfg, lay := a.Config, a.Layout
+	cfg, lay, mappings, palettes := a.Config, a.Layout, a.Mappings, a.Palettes
 	a.mu.RUnlock()
 	if gen != a.outGen {
 		a.outGen = gen
@@ -232,8 +267,13 @@ func (a *App) RenderFrame(f clock.Frame) error {
 	a.applyLevels(gen, comp, cfg, lay)
 
 	a.active = a.Stack.Frame(f.Time, a.active[:0])
+	// The outputs never show preview layers, but the preview stack still
+	// advances with the house clock: lifetimes end, removed layers finish
+	// and free their ids. The live map renders them on its own clock.
+	a.pactive = a.Preview.Frame(f.Time, a.pactive[:0])
 	a.layers = eng.Resolve(a.active, a.layers[:0])
 	comp.Render(f, a.layers, buf)
+	a.observed = Observed{View: View{Config: cfg, Layout: lay, Mappings: mappings, Palettes: palettes, Engine: eng, Gen: gen}, Compositor: comp}
 	a.obsMu.RLock()
 	for _, fn := range a.observers {
 		fn(f, buf)

@@ -7,6 +7,10 @@
 // /map/ and /api/map/), and it runs as an app.Service: it listens on the
 // --http address and shuts down gracefully when the app stops.
 //
+// Long-lived connections (the live map's websockets) are hijacked, so
+// Shutdown doesn't wait for them: their handlers end when the request
+// context, derived from the app's, is done.
+//
 // Auth: there is none. Glowstack is meant for a trusted LAN. Authorize is
 // the hook for adding it later; every request passes through it.
 package httpserver
@@ -17,6 +21,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/app"
@@ -37,9 +42,10 @@ type Server struct {
 	// with 401 Unauthorized. nil allows everything (LAN only, for now).
 	Authorize func(*http.Request) error
 
-	mux    *http.ServeMux
-	mounts []Mount
-	addr   chan net.Addr
+	mux     *http.ServeMux
+	mounts  []Mount
+	workers []func(context.Context) error
+	addr    chan net.Addr
 }
 
 // New returns a server for addr with the given mounts.
@@ -57,6 +63,12 @@ func (s *Server) Handle(pattern string, h http.Handler) { s.mux.Handle(pattern, 
 func (s *Server) HandleFunc(pattern string, fn func(http.ResponseWriter, *http.Request)) {
 	s.mux.HandleFunc(pattern, fn)
 }
+
+// Go adds background work for a mount, such as the live map's preview
+// renderer. Service runs fn with its context once the routes are mounted
+// and waits for it before returning; an error from fn stops the server.
+// When the mounts are run directly (tests), fn isn't started.
+func (s *Server) Go(fn func(ctx context.Context) error) { s.workers = append(s.workers, fn) }
 
 // Handler returns the server's handler, with the Authorize hook applied.
 // Tests can drive it with httptest.
@@ -107,6 +119,21 @@ func (s *Server) Service() app.Service {
 			return err
 		}
 		s.addr <- ln.Addr()
+		ctx, cancel := context.WithCancel(ctx)
+		var wg sync.WaitGroup
+		werrs := make(chan error, len(s.workers))
+		for _, fn := range s.workers {
+			wg.Go(func() {
+				if err := fn(ctx); err != nil && ctx.Err() == nil {
+					werrs <- err
+					cancel()
+				}
+			})
+		}
+		defer func() {
+			cancel()
+			wg.Wait()
+		}()
 		srv := &http.Server{
 			Handler:           s.Handler(),
 			ReadHeaderTimeout: 10 * time.Second,
@@ -121,11 +148,19 @@ func (s *Server) Service() app.Service {
 			return err
 		case <-ctx.Done():
 		}
-		sctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
-		defer cancel()
+		sctx, scancel := context.WithTimeout(context.Background(), ShutdownTimeout)
+		defer scancel()
 		err = srv.Shutdown(sctx)
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = srv.Close()
+		}
 		if serr := <-errc; !errors.Is(serr, http.ErrServerClosed) {
 			err = errors.Join(err, serr)
+		}
+		select {
+		case werr := <-werrs:
+			err = errors.Join(werr, err)
+		default:
 		}
 		return err
 	}

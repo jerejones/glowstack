@@ -45,7 +45,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/app"
@@ -70,9 +69,8 @@ type HealthReporter interface {
 
 // API serves the control API for one App.
 type API struct {
-	app       *app.App
-	started   time.Time
-	previewID atomic.Uint64
+	app     *app.App
+	started time.Time
 }
 
 // Mount is an httpserver.Mount that registers the API's routes.

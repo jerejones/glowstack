@@ -34,6 +34,7 @@ type Compositor struct {
 	n       int
 	covered []bool
 	evals   []eval
+	top     []int32 // per pixel: index into evals of the topmost layer that showed, or -1
 	ctx     Context
 	scratch gather
 }
@@ -57,7 +58,40 @@ type gather struct {
 
 // NewCompositor returns a compositor for n pixels.
 func NewCompositor(n int) *Compositor {
-	return &Compositor{Master: 1, n: n, covered: make([]bool, n)}
+	return &Compositor{Master: 1, n: n, covered: make([]bool, n), top: make([]int32, n)}
+}
+
+// Top reports which layer is showing at each pixel after the last Render:
+// the topmost layer that drew it with nonzero alpha. It writes into top
+// (len n) each pixel's index into the returned ids, or -1 where no layer
+// showed, and appends the ids of the layers that showed somewhere (top
+// first) to ids. Call it from the goroutine that renders, between Renders.
+func (c *Compositor) Top(top []int32, ids []string) []string {
+	pos := make([]int32, len(c.evals)) // eval index → position in the new ids, -1
+	for i := range pos {
+		pos[i] = -1
+	}
+	for _, e := range c.top {
+		if e >= 0 {
+			pos[e] = 0
+		}
+	}
+	n := int32(0)
+	for i := range pos {
+		if pos[i] == 0 {
+			pos[i] = n
+			ids = append(ids, c.evals[i].layer.ID)
+			n++
+		}
+	}
+	for p, e := range c.top[:min(len(top), c.n)] {
+		if e < 0 {
+			top[p] = -1
+		} else {
+			top[p] = pos[e]
+		}
+	}
+	return ids
 }
 
 // Render draws layers (top first) at frame f into buf.
@@ -115,9 +149,17 @@ func (c *Compositor) Render(f clock.Frame, layers []*Layer, buf *Buffer) {
 	c.evals = ev
 
 	buf.Clear()
+	for i := range c.top {
+		c.top[i] = -1
+	}
 	for i := len(ev) - 1; i >= 0; i-- {
 		e := &ev[i]
 		blendInto(buf.Pix, e.pix, e.col, e.layer.Common.Blend, e.op)
+		for j, p := range e.pix {
+			if shows(e.layer.Common.Blend, e.col[j].A, e.op) {
+				c.top[p] = int32(i)
+			}
+		}
 	}
 	for p := range buf.Pix {
 		k := c.Master
@@ -206,6 +248,14 @@ func covers(blend string, alpha, op float32) bool {
 		return alpha*op >= opaque
 	}
 	return false
+}
+
+// shows reports whether a layer pixel contributes anything to the result.
+func shows(blend string, alpha, op float32) bool {
+	if blend == BlendReplace {
+		return op > 0
+	}
+	return alpha*op > 0
 }
 
 // deriveWhite applies a layer's white mode (WLED auto-white):

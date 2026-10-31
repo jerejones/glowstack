@@ -306,6 +306,19 @@ func (s *Stack) List() []Layer {
 	return out
 }
 
+// Len is the number of live layers.
+func (s *Stack) Len() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, e := range s.entries {
+		if e.removedAt.IsZero() {
+			n++
+		}
+	}
+	return n
+}
+
 // ByOwner returns the live layers with the given owner, top first.
 func (s *Stack) ByOwner(owner string) []Layer {
 	var out []Layer

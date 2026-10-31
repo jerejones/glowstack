@@ -100,3 +100,15 @@ func TestServeWhileRendering(t *testing.T) {
 		t.Error("server still answering after shutdown")
 	}
 }
+
+// TestListenError: a bad address fails the service, and so the app.
+func TestListenError(t *testing.T) {
+	a, err := app.New(app.Options{ConfigDir: "../../examples/fictional/config", Log: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	if err := httpserver.New("127.0.0.1:bad-port").Service()(t.Context(), a); err == nil {
+		t.Error("listened on a bad address")
+	}
+}

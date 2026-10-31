@@ -157,18 +157,12 @@ func (ls layerRoutes) push(w http.ResponseWriter, r *http.Request) error {
 	return writeJSON(w, http.StatusCreated, toLayer(pushed, 0, preview))
 }
 
-// pushTo pushes l. Preview layers get ids "p1", "p2", … so they can't be
-// mistaken for layers on the real stack.
+// pushTo pushes l (see App.PushPreview for preview ids).
 func (api *API) pushTo(s *stack.Stack, l stack.Layer, preview bool) (stack.Layer, error) {
-	if !preview || l.ID != "" {
-		return s.Push(l)
+	if preview {
+		return api.app.PushPreview(l)
 	}
-	for {
-		l.ID = fmt.Sprintf("p%d", api.previewID.Add(1))
-		if _, taken := s.Get(l.ID); !taken {
-			return s.Push(l)
-		}
-	}
+	return s.Push(l)
 }
 
 func (ls layerRoutes) edit(w http.ResponseWriter, r *http.Request) error {
