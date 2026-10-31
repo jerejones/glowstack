@@ -43,6 +43,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -203,7 +204,7 @@ func readJSON(r *http.Request) (map[string]json.RawMessage, error) {
 	if err := dec.Decode(&m); err != nil {
 		return nil, errorf(http.StatusBadRequest, "request body: want a JSON object: %v", err)
 	}
-	if dec.More() {
+	if err := dec.Decode(new(any)); err != io.EOF {
 		return nil, errorf(http.StatusBadRequest, "request body: trailing data after the JSON object")
 	}
 	if m == nil {
