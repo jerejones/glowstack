@@ -143,3 +143,29 @@ func TestSelectNoneAndLoopback(t *testing.T) {
 		t.Error("unknown controller accepted")
 	}
 }
+
+func TestRebuildFailureStopsOldTargets(t *testing.T) {
+	fs := map[string]fake{"shed": startFake(t, "shed", 4), "tower": startFake(t, "tower", 2)}
+	l := testLayout(fs, "shed", "tower")
+	o, err := New(l, Options{Select: "shed,tower", Log: slog.New(slog.DiscardHandler)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer o.Close()
+	send(t, o, l, 7)
+	waitFor(t, fs["shed"].dev, bytes.Repeat([]byte{7}, 12))
+	// The app has accepted a new layout. If one selected id vanished,
+	// keeping the old sender would send new frames to stale endpoints.
+	if err := o.Rebuild(nil, testLayout(fs, "shed")); err == nil {
+		t.Fatal("missing selected controller should report an error")
+	}
+	if r := o.Report(); len(r) != 0 {
+		t.Fatalf("failed rebuild left old outputs active: %+v", r)
+	}
+	// A subsequent valid reload can enable the explicitly selected set.
+	if err := o.Rebuild(nil, l); err != nil {
+		t.Fatal(err)
+	}
+	send(t, o, l, 9)
+	waitFor(t, fs["shed"].dev, bytes.Repeat([]byte{9}, 12))
+}
