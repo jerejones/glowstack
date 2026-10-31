@@ -595,3 +595,21 @@ func TestKeepRestoresEditedCalibrationEffect(t *testing.T) {
 		t.Errorf("cursor after keep = %v, want white", got)
 	}
 }
+
+func TestConfirmDoesNotWriteWhenSavedPresetsCannotBeRead(t *testing.T) {
+	f := newFixture(t, exampleDir+"/data", nil)
+	before := f.file()
+	f.ok(f.m.Select(Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-eave-mid"}))
+	f.ok(f.m.Nudge(-1, 1))
+	// The real reload will reject an unreadable saved-presets path. The
+	// scratch validation must reject it before replacing anchors.yaml.
+	if err := os.Mkdir(filepath.Join(f.data, config.SavedPresetsFileName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.m.Confirm(ConfirmOptions{}); err == nil {
+		t.Fatal("confirmed with unreadable saved presets")
+	}
+	if got := f.file(); got != before {
+		t.Errorf("failed confirm changed anchors.yaml:\n%s", got)
+	}
+}
