@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -170,7 +169,7 @@ func (s *Stack) Push(l Layer) (Layer, error) {
 	if l.Seed == 0 {
 		l.Seed = rand.Uint64() | 1
 	}
-	l.Params = maps.Clone(l.Params)
+	l.Params = cloneParams(l.Params)
 	l.Created, l.Updated = now, now
 	l.Revision = s.version + 1
 	if err := s.check(&l, now); err != nil {
@@ -197,7 +196,7 @@ func (s *Stack) Edit(id string, fn func(*Layer)) (Layer, error) {
 	}
 	e := s.entries[i]
 	l := e.Layer
-	l.Params = maps.Clone(l.Params)
+	l.Params = cloneParams(l.Params)
 	if l.Params == nil {
 		l.Params = map[string]any{}
 	}
@@ -411,6 +410,34 @@ func durationParam(params map[string]any, name string, def time.Duration) (time.
 		return 0, fmt.Errorf("%s: negative duration", name)
 	}
 	return d, nil
+}
+
+// cloneParams copies the raw YAML/JSON tree, so editing a nested list or
+// mapping cannot mutate an active layer before validation succeeds.
+func cloneParams(params map[string]any) map[string]any {
+	if params == nil {
+		return nil
+	}
+	out := make(map[string]any, len(params))
+	for k, v := range params {
+		out[k] = cloneParam(v)
+	}
+	return out
+}
+
+func cloneParam(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		return cloneParams(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = cloneParam(item)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // SchemaVersion is the state.json schema.
