@@ -280,3 +280,14 @@ func TestMeasuredEdgeLength(t *testing.T) {
 		t.Errorf("pixel = %+v", p)
 	}
 }
+
+func TestMeasuredLengthRejectsUnknownEndpoint(t *testing.T) {
+	g := newGraph(t).run("r", 10, "a", "b")
+	g.cfg.Controllers[0].Pixels = 10
+	g.cfg.Layout.Runs[0].Lengths = []config.EdgeLength{{From: "missing", To: "b", Length: unitsMetres(2)}}
+	if err := g.cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	_, err := BuildWith(g.cfg, nil)
+	errContains(t, err, `"missing"`)
+}
