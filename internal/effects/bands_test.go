@@ -100,3 +100,24 @@ func TestSoftBands(t *testing.T) {
 		t.Errorf("pixel 4 = %+v", out[4])
 	}
 }
+
+func TestSoftBandsAveragePixelFootprint(t *testing.T) {
+	d := Bands()
+	for _, tc := range []struct{ pitch, red float64 }{{0.2, 0.95}, {2, 0.5}} {
+		s := newStrip(1, tc.pitch, 1)
+		s.u[0] = 0.5 // red band centre, where the linear blend changes slope
+		v := resolve(t, d, map[string]any{"bands": redBlue, "edge": "soft"}, s.pitch)
+		ctx := s.ctx(v, epoch)
+		out := make([]color.Color, 1)
+		d.New().Render(ctx, out)
+		want := color.Color{R: float32(tc.red), B: float32(1 - tc.red), A: 1}
+		if !near(out[0], want, 1e-6) {
+			t.Errorf("footprint %v: got %+v, want %+v", tc.pitch, out[0], want)
+		}
+		ctx.Smooth = false
+		d.New().Render(ctx, out)
+		if !near(out[0], lin("#ff0000"), 1e-6) {
+			t.Errorf("centre sample: %+v", out[0])
+		}
+	}
+}
