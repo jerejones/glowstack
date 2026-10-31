@@ -446,14 +446,17 @@ func clamp01(v float32) float32 {
 // in [-0.5, 0.5), so 0 always gives 0 and 1 always gives 255: dark pixels
 // never flicker on and full ones never flicker off.
 func ditherByte(v float32, r *float32) byte {
-	x := v * 255
-	q := float32(math.Round(float64(x)))
-	if d := x - q; d < 1e-3 && d > -1e-3 {
-		return byte(q) // on a step already: don't let float noise accumulate
+	if v <= 0 {
+		return 0
 	}
-	x += *r
-	q = min(max(float32(math.Floor(float64(x)+0.5)), 0), 255) // float32 rounding can reach 256
-	*r = min(max(x-q, -0.5), 0.4999)
+	if v >= 1 {
+		return 255
+	}
+	// Accumulate every fractional byte, including values close to a step.
+	// Use float64 here so adding the residual cannot round 255.5 up.
+	x := float64(v)*255 + float64(*r)
+	q := min(max(math.Floor(x+0.5), 0), 255)
+	*r = min(max(float32(x-q), -0.5), math.Nextafter32(0.5, 0))
 	return byte(q)
 }
 
