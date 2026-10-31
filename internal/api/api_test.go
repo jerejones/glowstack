@@ -602,3 +602,36 @@ func TestReload(t *testing.T) {
 		t.Errorf("config_gen %v", st["config_gen"])
 	}
 }
+
+func TestConcurrentEditsMergeIndependentParameters(t *testing.T) {
+	f := newFixture(t, nil)
+	id := f.must(http.StatusCreated, "POST", "/api/v1/layers", `{"target":"porch","effect":"solid"}`)["id"].(string)
+	edits := map[string]any{
+		"brightness": 0.5, "opacity": 0.7, "smooth": false, "reverse": true,
+		"offset": "0.1 m", "blend": "add", "white": "none", "mapping": "local",
+	}
+	start := make(chan struct{})
+	results := make(chan *httptest.ResponseRecorder, len(edits))
+	for k, v := range edits {
+		go func() {
+			body, _ := json.Marshal(map[string]any{"params": map[string]any{k: v}})
+			req := httptest.NewRequest("PATCH", "/api/v1/layers/"+id, bytes.NewReader(body))
+			rec := httptest.NewRecorder()
+			<-start
+			f.h.ServeHTTP(rec, req)
+			results <- rec
+		}()
+	}
+	close(start)
+	for range edits {
+		if rec := <-results; rec.Code != http.StatusOK {
+			t.Fatalf("edit: %d %s", rec.Code, rec.Body.String())
+		}
+	}
+	got := f.must(http.StatusOK, "GET", "/api/v1/layers/"+id, nil)["params"].(map[string]any)
+	for k, v := range edits {
+		if got[k] != v {
+			t.Errorf("concurrent edit lost %s: got %v, want %v", k, got[k], v)
+		}
+	}
+}
