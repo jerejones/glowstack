@@ -635,3 +635,13 @@ func TestConcurrentEditsMergeIndependentParameters(t *testing.T) {
 		}
 	}
 }
+
+func TestRequestRejectsTrailingClosingDelimiter(t *testing.T) {
+	f := newFixture(t, nil)
+	for _, suffix := range []string{"]", "}"} {
+		f.must(http.StatusBadRequest, "POST", "/api/v1/layers", `{"target":"porch","effect":"solid"}`+suffix)
+	}
+	if n := f.app.Stack.Len(); n != 0 {
+		t.Fatalf("invalid requests pushed %d layers", n)
+	}
+}
