@@ -54,15 +54,16 @@ type Info struct {
 	Leds   struct {
 		Count int `json:"count"`
 	} `json:"leds"`
-	Maps []struct {
-		ID int `json:"id"`
-	} `json:"maps"`
 }
 
 // Cfg is the part of /json/cfg that's checked. Pointers are nil when a
 // firmware doesn't have the setting.
 type Cfg struct {
-	If struct {
+	// LedMapFile is whether /ledmap.json exists, the map WLED loads at
+	// boot. It isn't in /json/cfg; the checker probes for it when rlm is on,
+	// because /json/info lists map 0 whether or not the file exists.
+	LedMapFile bool `json:"-"`
+	If         struct {
 		Live struct {
 			En      *bool `json:"en"`
 			MSO     *bool `json:"mso"`
@@ -123,8 +124,8 @@ func Mismatches(t Target, info *Info, cfg *Cfg) []string {
 	if l.MaxBri != nil && !*l.MaxBri {
 		add("\"Force max brightness\" is off; the controller's brightness would scale Glowstack's frames")
 	}
-	if l.RLM != nil && *l.RLM && info != nil && len(info.Maps) > 0 {
-		add("an LED map exists and realtime respects LED maps (rlm); indices would be remapped")
+	if l.RLM != nil && *l.RLM && cfg.LedMapFile {
+		add("ledmap.json exists and realtime respects LED maps (rlm); indices would be remapped")
 	}
 	ch := 3
 	if t.Channels == "rgbw" {
@@ -276,6 +277,9 @@ func (m *Monitor) check(ctx context.Context, t Target) {
 		if err := m.get(ctx, t.URL+"/json/cfg", cfg); err != nil {
 			m.log().Warn("reading controller settings", "controller", t.ID, "err", err)
 			cfg = nil
+		} else if l := cfg.If.Live; l.RLM != nil && *l.RLM {
+			// A missing file is a 404, which get reports as an error.
+			cfg.LedMapFile = m.get(ctx, t.URL+"/ledmap.json", new(json.RawMessage)) == nil
 		}
 	}
 	found := Mismatches(t, &info, cfg)
