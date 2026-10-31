@@ -242,14 +242,39 @@ type Area struct {
 }
 
 // AreaPart is one entry of an area's include list. A bare string is a run
-// id. A mapping gives `{run, from, to}` (from/to are node ids or pixel
-// indices, inclusive, either may be omitted) or `{area}`.
+// id. A mapping gives `{run, …}` with a start and an end, or `{area}`.
+//
+// The start is `from` (inclusive) or `after` (exclusive) and the end is
+// `to` (inclusive) or `before` (exclusive), each a node id or a pixel
+// index. Either end may be omitted, meaning the run's end. Exclusive ends
+// let neighbouring areas meet at a node without sharing its pixel:
+// `{to: shed-nw}` and `{after: shed-nw}`. "After" and "before" are along
+// the walk from the start to the end, so a range written against the run
+// direction works too.
 type AreaPart struct {
 	Pos
-	Run  string       `yaml:"run"`
-	Area string       `yaml:"area"`
-	From *NodeOrIndex `yaml:"from"`
-	To   *NodeOrIndex `yaml:"to"`
+	Run    string       `yaml:"run"`
+	Area   string       `yaml:"area"`
+	From   *NodeOrIndex `yaml:"from"`
+	After  *NodeOrIndex `yaml:"after"`
+	To     *NodeOrIndex `yaml:"to"`
+	Before *NodeOrIndex `yaml:"before"`
+}
+
+// Start returns the range's start and whether it's exclusive (after).
+func (a *AreaPart) Start() (*NodeOrIndex, bool) {
+	if a.After != nil {
+		return a.After, true
+	}
+	return a.From, false
+}
+
+// End returns the range's end and whether it's exclusive (before).
+func (a *AreaPart) End() (*NodeOrIndex, bool) {
+	if a.Before != nil {
+		return a.Before, true
+	}
+	return a.To, false
 }
 
 func (a *AreaPart) unmarshalNode(d *decoder, n *yaml.Node) error {

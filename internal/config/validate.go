@@ -292,12 +292,18 @@ func (v *validator) areas(c *Config) {
 				if !areaIDs[p.Area] {
 					v.errorf(p.Pos, "unknown area %q", p.Area)
 				}
-				if p.From != nil || p.To != nil {
-					v.errorf(p.Pos, "from/to apply to runs, not areas")
+				if p.From != nil || p.After != nil || p.To != nil || p.Before != nil {
+					v.errorf(p.Pos, "from/after/to/before apply to runs, not areas")
 				}
 			case p.Run != "":
 				if !runIDs[p.Run] {
 					v.errorf(p.Pos, "unknown run %q", p.Run)
+				}
+				if p.From != nil && p.After != nil {
+					v.errorf(p.Pos, "give one start, from (inclusive) or after (exclusive), not both")
+				}
+				if p.To != nil && p.Before != nil {
+					v.errorf(p.Pos, "give one end, to (inclusive) or before (exclusive), not both")
 				}
 			default:
 				v.errorf(p.Pos, "include entry needs a run or an area")

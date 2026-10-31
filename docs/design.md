@@ -311,6 +311,8 @@ areas:
     include: [shed-eave, fence, wall]
   - id: porch
     include: [{ run: shed-eave, from: shed-nw, to: shed-ne }]  # by node or index
+  - id: west-eave
+    include: [{ run: shed-eave, after: shed-sw, before: shed-nw }]  # ends excluded
   - id: everything
     include: [{ area: front }, { area: porch }]               # other areas
 zones:
@@ -322,6 +324,15 @@ zones:
       - { area: front }
       - { area: porch, mapping: porch-local }   # per-segment override
 ```
+
+A run range has a start and an end, each a node id or a pixel index.
+`from` and `to` include the pixel at that point; `after` and `before`
+exclude it, so two neighbouring areas can meet at a node without sharing
+its pixel (`{to: shed-nw}` and `{after: shed-nw}`). Give at most one start
+(`from` or `after`) and one end (`to` or `before`); a missing one means the
+run's end. "After" and "before" are along the walk from the start to the
+end, so a range written against the run direction works the same way. A
+range that ends up with no pixels is an error.
 
 A layer's mapping comes from, in order: the layer itself, its segment, its
 zone, then the global default in `mappings.yaml`.

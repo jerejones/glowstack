@@ -51,7 +51,10 @@ func (b *builder) areas() {
 	}
 }
 
-// runPart resolves `{run, from, to}` to global ids, inclusive at both ends.
+// runPart resolves a `{run, …}` include to global ids. `from` and `to`
+// include their pixel; `after` and `before` exclude it, stepping one pixel
+// along the walk from the start to the end (so a range written against the
+// run direction works too). A range left empty is an error.
 func (b *builder) runPart(part config.AreaPart) []int32 {
 	ri, ok := b.l.runByID[part.Run]
 	if !ok {
@@ -80,9 +83,25 @@ func (b *builder) runPart(part config.AreaPart) []int32 {
 		b.errorf(part.Pos, "node %q isn't on run %s", x.Node, r.ID)
 		return 0, false
 	}
-	from, ok1 := end(part.From, 0)
-	to, ok2 := end(part.To, r.Count-1)
+	start, after := part.Start()
+	stop, before := part.End()
+	from, ok1 := end(start, 0)
+	to, ok2 := end(stop, r.Count-1)
 	if !ok1 || !ok2 {
+		return nil
+	}
+	dir := 1
+	if to < from {
+		dir = -1
+	}
+	if after {
+		from += dir
+	}
+	if before {
+		to -= dir
+	}
+	if (to-from)*dir < 0 {
+		b.errorf(part.Pos, "range on run %s is empty", r.ID)
 		return nil
 	}
 	if from > to {

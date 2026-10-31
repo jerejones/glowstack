@@ -130,7 +130,10 @@ func TestExampleLengthReport(t *testing.T) {
 
 func TestExampleAreas(t *testing.T) {
 	_, l, _ := loadExample(t, exampleData)
-	sizes := map[string]int{"shed": 602, "yard": 390, "porch": 90, "shed-north": 482 - 305, "everything": 1082}
+	sizes := map[string]int{"shed": 602, "yard": 390, "porch": 90, "shed-north": 482 - 305, "everything": 1082,
+		// shed-sw is at 186 (data anchors.yaml) and shed-nw at 305; after
+		// and before leave the corner pixels to the neighbours.
+		"shed-south": 187, "shed-west": 305 - 187}
 	for id, n := range sizes {
 		a, ok := l.Area(id)
 		if !ok || len(a.Pixels) != n {
