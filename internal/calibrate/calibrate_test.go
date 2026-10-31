@@ -634,3 +634,40 @@ func TestForgetRejectsInvalidTargets(t *testing.T) {
 		}
 	}
 }
+
+func TestSessionSurvivesTargetRemovedDuringStackChange(t *testing.T) {
+	f := newFixture(t, "", nil)
+	reloaded := false
+	f.app.Stack.OnChange(func() {
+		if reloaded {
+			return
+		}
+		reloaded = true
+		// Reload can run while Push has released the stack lock to notify
+		// observers. Rename the selected run and all references to it.
+		entries, err := os.ReadDir(f.config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			p := filepath.Join(f.config, e.Name())
+			b, err := os.ReadFile(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(strings.ReplaceAll(string(b), "shed-eave", "upper-eave")), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := f.app.Reload(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	st := f.ok(f.m.Start(&Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-sw"}))
+	if st.Target != nil {
+		t.Errorf("removed target still selected: %+v", st.Target)
+	}
+	if err := f.m.Keep(); err != nil {
+		t.Fatal(err)
+	}
+}
