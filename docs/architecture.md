@@ -33,9 +33,10 @@ frame; everything up to the stack is built once at start.
 | `internal/layout` | The solver. `Layout` is the immutable pixel table (global id, controller, index, run, edge, distances, dl, plan x/y), runs with solved anchors, nodes, edges and areas. `Mapping` is per-pixel `u` and stretch. `SolveFlow` and `SolveSpatial` make them. |
 | `internal/clock` | `Source` (injectable time), `Manual` for tests, `Preview` (pause, seek, speed) for the live map, `Ticker` for pacing, `Frame`. |
 | `internal/color` | Linear-light RGBW with straight alpha; gamma decode of authored colours. |
-| `internal/palette` | Palettes, the palette registry and `Builtins`. |
-| `internal/render` | The `Effect` interface, `Def` and registry, the typed parameter schema with WLED bindings, common layer params, `Layer` and `Geometry`, `Buffer` and the `Compositor`. |
-| `internal/effects` | Effect implementations. `Register` adds them all. Only `solid` so far. |
+| `internal/palette` | Palettes, the palette registry and `Builtins`: WLED's 73 fixed palettes (`wled.go`, ported) and the special palettes 0–5 with `Resolve` and `Cache` (`special.go`). |
+| `internal/render` | The `Effect` interface, `Def` and registry, the typed parameter schema with WLED bindings and their curves (`SetWLED`, `GetWLED`), common layer params, `Layer` and `Geometry`, `Buffer`, `Blend` and the `Compositor`. |
+| `internal/effects` | Effect implementations, one file each: `solid`, `bands`, `gradient`, `sparkle`, `chase`, `noise`, `breathe`, and composites (`Composite`, built-in `glitter`, `RegisterComposites` for config). `WLEDEffects`/`WLEDEffectNames` give the `/json/eff` order. |
+| `internal/preset` | Presets as layer specs: the effective `Library` (saved presets shadow configured ones), `Expand`/`Apply` with overrides, `Check` against the effects. |
 | `internal/stack` | The layer stack: push, edit, remove with fades, lifetimes, owners, `state.json`. |
 | `internal/engine` | Stack layers to render layers: presets, mapping precedence, params at the target's pitch, geometry, caching. |
 | `internal/storage` | `Store` (atomic file writes in the data folder, or memory) and the debounced `Saver`. |
@@ -56,6 +57,11 @@ change them in one place when they need to grow.
   subset of their target (pixels covered from above are skipped).
   Randomness must be hashed from seed, pixel id and time, never drawn from a
   generator. See the `render` package doc.
+- **`render.Def.WLED`.** Bindings from WLED controls to parameter paths,
+  with curves. `Def.SetWLED` applies a control value (slider position,
+  option, colour or palette id) to a layer's raw params, and `Def.GetWLED`
+  reads one back. `effects.WLEDEffectNames` and `palette.Registry.WLEDList`
+  give `/json/eff` and `/json/pal` order.
 - **`render.Param`.** Typed parameters. `Resolve` turns raw values into
   metres, m/s and so on at the layer's pitch. `Length` keeps its `Measure`
   (`flow` = along u, `physical` = along the strip; convert with `InU`).
@@ -132,12 +138,36 @@ These are choices the design left open, recorded so they can be revisited.
 17. **Layer pitch** (for `px` params) is the most common pitch among the
     target's runs.
 
+## Decisions made while building the effects
+
+1. **Effects read u or x,y by parameter.** `Def.CoordsFor` lets `noise`
+   choose with `space: u|xy`; the engine builds geometry from
+   `Def.CoordsOf`.
+2. **Sub-pixel edges** are a box filter: a pixel's colour is the average
+   of the pattern over its footprint along u (`dl / stretch`). `smooth:
+   false` samples the pixel centre.
+3. **Sparkle** slots are one sparkle long, and counts per slot are
+   Poisson-distributed (design.md "Randomness").
+4. **Perceptual fades.** Sparkle decay, chase tails and breathing fade
+   evenly to the eye: a perceptual level is raised to the decode gamma.
+5. **Composites** are built from `render.Values.Sub` and `render.Blend`.
+   They're registered after the built-ins, from `presets.yaml`'s
+   `composites:` (and `presets.saved.yaml`'s), and may nest.
+6. **WLED palettes** are ported with WLED's authored values and decoded
+   like any authored colour (gamma 2.8). WLED's main branch pre-corrects
+   these palettes for its own 2.2 default, so they look a little deeper
+   here than on a current WLED.
+7. **`white: none`** drops W; `explicit` keeps authored W only.
+8. **Phase maths** reduces `speed × T` modulo the pattern period in
+   float64 before adding u, so patterns stay precise at Unix-epoch times.
+   Patterns move with absolute time, so an edit to `speed` makes them
+   jump.
+
 ## Work not in the core, and where it goes
 
 | Work | Package | Notes |
 |---|---|---|
-| Effects beyond `solid` (`bands`, `gradient`, `sparkle`, `wave`, `noise`, `fire`, composites, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
-| Palettes: the WLED palette port | `internal/palette` | Append to `palette.Builtins` with WLED ids (`Palette.WLED`) and names. |
+| More effects (`wave`, `fire`, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
 | Output stage and DDP | `internal/output` (stage), `internal/output/ddp` (sink) | Replace `Quantize` with power limiting (per output and controller, limit groups, smoothing), white handling per controller, temporal dithering and quantising; channel order from config. The DDP sink sends per controller, splitting packets and respecting `max_fps`. Use loopback in tests. |
 | Live map | `internal/livemap` | An `app.Service` serving the page and a websocket. `App.OnFrame` gives frames. For "try before applying", run a second `engine.Engine` and `render.Compositor` on a `clock.Preview` (an engine's `Resolve` is single-goroutine). |
 | HTTP / CLI API | `internal/api`, CLI subcommands in `cmd/glowstack` or `cmd/glowctl` | An `app.Service`. Push, edit and remove go through `App.Stack`, which validates with `App.Engine.Check`. |
