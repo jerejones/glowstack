@@ -179,3 +179,35 @@ func TestChangedEndpointDiscardsInflightCheck(t *testing.T) {
 		t.Fatalf("old endpoint overwrote replacement health: %+v", st)
 	}
 }
+
+func TestRebootAfterOfflineRefreshesSettings(t *testing.T) {
+	var offline atomic.Bool
+	var uptime atomic.Int64
+	var cfgReads atomic.Int32
+	uptime.Store(100)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if offline.Load() {
+			http.Error(w, "offline", http.StatusServiceUnavailable)
+			return
+		}
+		switch r.URL.Path {
+		case "/json/info":
+			fmt.Fprintf(w, `{"ver":"test","uptime":%d,"leds":{"count":10}}`, uptime.Load())
+		case "/json/cfg":
+			cfgReads.Add(1)
+			fmt.Fprintf(w, `{"if":{"live":{"en":%t}}}`, uptime.Load() >= 100)
+		}
+	}))
+	defer srv.Close()
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{{ID: "shed", URL: srv.URL, Pixels: 10}}}
+	m.Check(t.Context())
+	offline.Store(true)
+	m.Check(t.Context())
+	offline.Store(false)
+	uptime.Store(5)
+	m.Check(t.Context())
+	st := m.Status()[0]
+	if st.Reboots != 1 || cfgReads.Load() != 2 || !strings.Contains(strings.Join(st.Mismatches, "\n"), "realtime receive is off") {
+		t.Fatalf("missed offline reboot: %+v; cfg reads %d", st, cfgReads.Load())
+	}
+}
