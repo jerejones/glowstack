@@ -51,6 +51,7 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/httpserver` | The one HTTP server. Features register routes through a `Mount` (and background work with `Go`); it runs as an `app.Service` on `--http` and shuts down gracefully. `Authorize` is the auth hook (none for now: LAN only). |
 | `internal/api` | The native control API under `/api/v1/` (routes in the package doc). |
 | `internal/ctl` | The command-line client for the API: `glowstack ctl …` or `glowctl …`. |
+| `internal/calibrate` | Calibration mode: the session `Manager` (targets, cursors, the calibration layers), the internal `calibration` effect, `anchors.yaml` reads and writes, and its API under `/api/v1/calibration/` (routes in `http.go`). |
 | `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS, no build step), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
 | `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids; default `none`, or `all` with `--loopback`), `--loopback=PORT`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
 | `cmd/glowctl` | The client on its own. |
@@ -291,6 +292,35 @@ list, numbered in the order they were made.
 45. **The ticker's wall clock is injectable** (unexported), so the
     late-frame test runs on a fake clock and doesn't depend on load.
 
+### Calibration
+
+46. **Calibration layers are real layers**, owner `calibration`, marked
+    `Ephemeral`: `state.json` never holds them and `Restore` drops any it
+    finds. The `calibration` effect is a `render.Def` with `Internal` set,
+    so `Registry.All` (the effect lists) leaves it out. It reads
+    global pixel ids (`base` turns them into controller indices).
+47. **Implicit areas** `run:<id>` and `controller:<id>` exist for every
+    run and controller, through `Layout.Area`, but aren't listed in
+    `Layout.Areas`. They let a layer cover exactly what calibration needs,
+    and so light only the controllers involved.
+48. **The calibration layers stay on top.** A 500 ms tick in
+    `calibrate.Mount` re-pushes them if anything went above them, and
+    edits them in place when the cursor moves. Ending the session removes
+    them (and any other `calibration` layer).
+49. **Confirm checks before it writes.** The new `anchors.yaml` is loaded
+    with the config in a scratch data folder (config, layout, mappings);
+    only if that passes is it written through `storage.Dir` and the app
+    reloaded. The measurement becomes a knot in the piecewise estimate,
+    so the reload re-estimates its neighbours; the map reloads when it
+    sees the new config generation.
+50. **`anchors.yaml` grew `ends`, `gaps` and `dead`**, applied by
+    `config.Load` over `layout.yaml` with errors at their own lines. The
+    file is regenerated whole from the loaded measurements, one flow-style
+    line per entry in layout order, so it diffs cleanly.
+51. **Calibration never widens `--output`.** The session reports, per
+    controller it lights, whether `wire.Outputs` sends to it (`Sends`),
+    and warns when it doesn't; the map still shows the pattern.
+
 ## Live map
 
 `internal/mapview`, at `/map/`. The routes are listed in its package doc.
@@ -334,7 +364,6 @@ list, numbered in the order they were made.
 |---|---|---|
 | More effects (`wave`, `fire`, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
 | WLED-compatible devices | `internal/wled` | One `app.Service` per zone (its own IP, mDNS). Owners are `stack.WLEDOwner(zone, segment)`. Bindings come from `render.Def.WLED`; brightness through `App.SetZoneBrightness`. Test against `python-wled`. |
-| Calibration | `internal/calibrate` | Pushes a temporary top layer, then writes `anchors.yaml` through `storage.Store` (atomic), then `App.Reload`. |
 | Saved presets | `internal/api` + `storage` | Write `presets.saved.yaml` through `storage.Store`, then `App.Reload`. |
 
 Not assigned above:
@@ -362,6 +391,8 @@ go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs \
 
 go run ./cmd/glowstack ctl push porch solid color=#ff5a00 for=30s
 go run ./cmd/glowstack ctl layers    # or: glowctl layers; --server or $GLOWSTACK_URL
+go run ./cmd/glowstack ctl cal start  # calibration: lights the first unmeasured anchor
+go run ./cmd/glowstack ctl cal +10    # nudge; then: ctl cal confirm; ctl cal stop
 go test ./...
 ```
 

@@ -580,7 +580,9 @@ func (m *Manager) sync() error {
 		m.removeLayers()
 		// Push bottom first, so the active side ends up on top.
 		for i := len(specs) - 1; i >= 0; i-- {
-			l, err := st.Push(m.layer(specs[i]))
+			l := m.layer(specs[i])
+			l.ID = m.newID()
+			l, err := st.Push(l)
 			if err != nil {
 				m.removeLayers()
 				return fmt.Errorf("pushing the calibration layer: %w", err)
@@ -602,18 +604,21 @@ func (m *Manager) sync() error {
 	return nil
 }
 
-// layer makes the stack layer for s.
+// layer makes the stack layer for s, without an id.
 func (m *Manager) layer(s spec) stack.Layer {
 	params := maps.Clone(s.params)
 	params["fade_in"], params["fade_out"] = "0s", "0s"
-	m.seq++
+	return stack.Layer{Owner: stack.OwnerCalibration, Target: s.target, Effect: EffectID, Params: params, Ephemeral: true}
+}
+
+// newID picks an unused layer id: cal1, cal2, …
+func (m *Manager) newID() string {
 	for {
+		m.seq++
 		id := "cal" + strconv.Itoa(m.seq)
 		if _, taken := m.app.Stack.Get(id); !taken {
-			return stack.Layer{ID: id, Owner: stack.OwnerCalibration, Target: s.target, Effect: EffectID,
-				Params: params, Ephemeral: true}
+			return id
 		}
-		m.seq++
 	}
 }
 

@@ -48,6 +48,7 @@ commands:
   presets | palettes | areas | zones | mappings | controllers
   status                                  frame rate, layout solve, health
   reload                                  re-read the config folder
+  cal [command]                           calibration mode; "cal help" lists its commands
 
 Special keys for push and edit: target=, effect=, preset=, for=10s,
 until=23:00 (or RFC 3339), and the common layer parameters (blend=,
@@ -208,6 +209,8 @@ func (c *client) run(cmd string, args []string) error {
 		return c.status()
 	case "reload":
 		return c.reload()
+	case "cal", "calibrate":
+		return c.calibrate(args)
 	case "help":
 		fmt.Fprint(c.out, usage)
 		return nil
