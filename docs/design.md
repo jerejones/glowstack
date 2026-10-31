@@ -675,6 +675,19 @@ and line, in `--check`'s summary, the log and the reload result. A preset
 has no target, so there's no area to check; the area is checked when it's
 applied.
 
+Presets saved through the API (or from HA) go to `presets.saved.yaml` in the
+data folder; `presets.yaml` is never rewritten, so its presets are read-only
+through the API. `GET /api/v1/presets` lists the effective set with each
+preset's `source` (`saved` or `config`); a saved preset with a configured
+one's id replaces it, and deleting the saved one brings the configured one
+back. A preset can be saved from an effect and parameters or from a layer,
+which is the usual way to keep something tried on the preview:
+
+```sh
+glowstack ctl save-preset blue-porch --from-layer p1 --name "Blue porch"
+glowstack ctl rm-preset blue-porch
+```
+
 ### WLED compatibility
 
 HA's WLED integration speaks in fx ids, palette ids, `sx`/`ix` sliders

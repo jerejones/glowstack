@@ -121,8 +121,12 @@ change them in one place when they need to grow.
   map. `mapview.Options.Power` supplies it; by default it's
   `FromStage(App.Stage().(output.PowerReporter).Power())`.
 - **`storage.Store`.** Everything Glowstack writes goes through it:
-  `state.json` and `brightness.json` now, and `anchors.yaml` and
-  `presets.saved.yaml` later.
+  `state.json`, `brightness.json` and `presets.saved.yaml` now, and
+  `anchors.yaml` later.
+- **`App.SavePreset` / `App.DeletePreset`.** Write `presets.saved.yaml`
+  (atomically, through the Store) and reload. The API uses them; the WLED
+  devices should too, for HA's preset saves. `App.PresetWarnings` lists
+  presets that can't be used.
 
 ## Conventions
 
@@ -304,6 +308,21 @@ list, numbered in the order they were made.
     content hash (at most `engine.MaxInline`, then the cache restarts).
     Flow warnings (such as `max_stretch`) aren't reported for them;
     `strict: true` turns those into errors.
+48. **Saved presets.** `PUT /api/v1/presets/{id}` saves a preset from an
+    effect and params or from a layer (`from_layer`, with `preview` for a
+    preview layer); a layer showing a preset is saved expanded, so the new
+    preset doesn't depend on the old one. Presets in `presets.yaml` are
+    read-only through the API (409): saving under a configured id would
+    silently shadow the hand-edited one, so pick another id. A saved
+    preset that already shadows one (written by hand) can be replaced or
+    deleted, and deleting it brings the configured one back. Every save is
+    checked first, then the file is rewritten whole (comments in it are
+    lost; it's machine-written) and the config reloaded; if the reload
+    fails, the old file is put back. Layers naming a deleted preset are
+    dropped by the reload and listed in the reply. Preset ids are letters,
+    digits, `.`, `_` and `-`. Composites in the file are kept, but the API
+    doesn't save them, and composites added to the file take a restart
+    (the effect registry doesn't reload).
 
 ## Live map
 
@@ -349,7 +368,6 @@ list, numbered in the order they were made.
 | More effects (`wave`, `fire`, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
 | WLED-compatible devices | `internal/wled` | One `app.Service` per zone (its own IP, mDNS). Owners are `stack.WLEDOwner(zone, segment)`. Bindings come from `render.Def.WLED`; brightness through `App.SetZoneBrightness`. Test against `python-wled`. |
 | Calibration | `internal/calibrate` | Pushes a temporary top layer, then writes `anchors.yaml` through `storage.Store` (atomic), then `App.Reload`. |
-| Saved presets | `internal/api` + `storage` | Write `presets.saved.yaml` through `storage.Store`, then `App.Reload`. |
 
 Not assigned above:
 

@@ -97,6 +97,16 @@ func TestCommands(t *testing.T) {
 	run("Glowstack Porch", "zones")
 	run("default: front-sweep", "mappings")
 	run("192.0.2.", "controllers")
+	run("saved preset red: solid", "save-preset", "red", "solid", "--name", "Red", "color=#ff0000")
+	run("saved preset red-glow: solid", "save-preset", "red-glow", "--from-layer", "2", "brightness=", "opacity=0.5")
+	if p, ok := a.Current().Config.Preset("red-glow"); !ok || !p.Saved || p.Params["opacity"] != 0.5 || p.Params["brightness"] != nil || p.Params["color"] == nil {
+		t.Errorf("saved from layer 2: %+v", p)
+	}
+	out = run("saved", "presets")
+	if !strings.Contains(out, "red-glow") || !strings.Contains(out, "config") {
+		t.Errorf("presets:\n%s", out)
+	}
+	run("deleted preset red", "rm-preset", "red")
 	run("1084 pixels", "status")
 	run("reloaded: 1084 pixels (was 1084)", "reload")
 	run("removed 1 layers", "rm", "--all")
@@ -125,6 +135,10 @@ func TestErrors(t *testing.T) {
 		{[]string{"bri", "loud"}, 2, "want 0–1"},
 		{[]string{"bri", "1.5"}, 1, "brightness must be 0–1"},
 		{[]string{"frobnicate"}, 2, `unknown command "frobnicate"`},
+		{[]string{"save-preset", "x"}, 2, "want an effect"},
+		{[]string{"save-preset", "x", "solid", "color="}, 2, "no value"},
+		{[]string{"save-preset", "slow-crawl", "solid"}, 1, "presets.yaml"},
+		{[]string{"rm-preset", "nope"}, 1, `no saved preset "nope"`},
 	} {
 		code, _, errs := ctl(url, c.args...)
 		if code != c.code || !strings.Contains(errs, c.want) {

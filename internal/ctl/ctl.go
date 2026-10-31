@@ -46,6 +46,11 @@ commands:
   bri <zone> <value>                      set a zone's brightness
   effects [id]                            list effects, or one effect's parameters
   presets | palettes | areas | zones | mappings | controllers
+  save-preset <id> <effect> [--name N] [k=v ...]
+  save-preset <id> --from-layer L [--preview] [--name N] [k=v ...]
+                                          save a preset (presets.saved.yaml);
+                                          from a layer, k=v override (k= removes)
+  rm-preset <id>                          delete a saved preset
   status                                  frame rate, layout solve, health
   reload                                  re-read the config folder
 
@@ -204,6 +209,10 @@ func (c *client) run(cmd string, args []string) error {
 			return usagef("%s takes no arguments", cmd)
 		}
 		return c.catalog(cmd)
+	case "save-preset":
+		return c.savePreset(args)
+	case "rm-preset":
+		return c.removePreset(args)
 	case "status":
 		return c.status()
 	case "reload":
@@ -658,7 +667,7 @@ func (c *client) catalog(what string) error {
 	tw := c.table()
 	defer tw.Flush()
 	cols := map[string][]string{
-		"presets":     {"id", "effect", "name", "params", "saved"},
+		"presets":     {"id", "effect", "name", "source", "params"},
 		"palettes":    {"id", "name", "wled", "interpolate", "stops"},
 		"areas":       {"id", "pixels", "runs", "zones"},
 		"zones":       {"id", "area", "name", "mapping", "brightness", "segments"},
@@ -850,6 +859,115 @@ func (c *client) reload() error {
 		}
 		for _, w := range r.Warnings {
 			fmt.Fprintf(c.out, "warning: %s\n", w)
+		}
+	})
+	return nil
+}
+
+// parseInterspersed parses fs's flags wherever they appear among args and
+// returns the other arguments in order, so `save-preset red --name Red`
+// works as well as `save-preset --name Red red`.
+func parseInterspersed(fs *flag.FlagSet, args []string) ([]string, error) {
+	var pos []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		if fs.NArg() == 0 {
+			return pos, nil
+		}
+		pos = append(pos, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+}
+
+type savedPreset struct {
+	ID      string   `json:"id"`
+	Effect  string   `json:"effect"`
+	Source  string   `json:"source"`
+	Dropped []string `json:"dropped"`
+}
+
+func (c *client) savePreset(args []string) error {
+	fs := flag.NewFlagSet("save-preset", flag.ContinueOnError)
+	from := fs.String("from-layer", "", "save this layer's effect and params")
+	preview := fs.Bool("preview", false, "with --from-layer: a preview-only layer")
+	name := fs.String("name", "", "display name")
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return usageError{err}
+	}
+	if len(pos) == 0 {
+		return usagef("want <id> <effect> [k=v ...] or <id> --from-layer L [k=v ...]")
+	}
+	id, rest := pos[0], pos[1:]
+	body := map[string]any{}
+	if *from != "" {
+		body["from_layer"] = *from
+		if *preview {
+			body["preview"] = true
+		}
+	} else {
+		if len(rest) == 0 || strings.Contains(rest[0], "=") {
+			return usagef("want an effect, or --from-layer")
+		}
+		body["effect"], rest = rest[0], rest[1:]
+	}
+	if *name != "" {
+		body["name"] = *name
+	}
+	params := map[string]any{}
+	for _, kv := range rest {
+		k, v, ok := strings.Cut(kv, "=")
+		if !ok || k == "" {
+			return usagef("%q: want key=value", kv)
+		}
+		switch {
+		case v != "":
+			params[k] = parseValue(v)
+		case *from != "":
+			params[k] = nil
+		default:
+			return usagef("%q: no value", kv)
+		}
+	}
+	if len(params) > 0 {
+		body["params"] = params
+	}
+	var p savedPreset
+	raw, err := c.call("PUT", "presets/"+url.PathEscape(id), body, &p)
+	if err != nil {
+		return err
+	}
+	c.show(raw, func() {
+		fmt.Fprintf(c.out, "saved preset %s: %s\n", p.ID, p.Effect)
+		if len(p.Dropped) > 0 {
+			fmt.Fprintf(c.out, "dropped layers that no longer validate: %s\n", strings.Join(p.Dropped, "; "))
+		}
+	})
+	return nil
+}
+
+func (c *client) removePreset(args []string) error {
+	if len(args) != 1 {
+		return usagef("want <id>")
+	}
+	var reply struct {
+		Deleted string   `json:"deleted"`
+		Dropped []string `json:"dropped"`
+		Now     *savedPreset
+	}
+	raw, err := c.call("DELETE", "presets/"+url.PathEscape(args[0]), nil, &reply)
+	if err != nil {
+		return err
+	}
+	c.show(raw, func() {
+		fmt.Fprintf(c.out, "deleted preset %s\n", reply.Deleted)
+		if reply.Now != nil {
+			fmt.Fprintf(c.out, "presets.yaml's %s (%s) is in effect again\n", reply.Now.ID, reply.Now.Effect)
+		}
+		if len(reply.Dropped) > 0 {
+			fmt.Fprintf(c.out, "dropped layers that no longer validate: %s\n", strings.Join(reply.Dropped, "; "))
 		}
 	})
 	return nil

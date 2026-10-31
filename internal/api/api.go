@@ -21,7 +21,10 @@
 //	…      /api/v1/preview/layers[/{id}]  the same for preview-only layers
 //	GET    /api/v1/effects[/{id}]         effects with parameter schemas
 //	GET    /api/v1/palettes               palettes
-//	GET    /api/v1/presets                presets
+//	GET    /api/v1/presets                presets, with source saved|config
+//	GET    /api/v1/presets/{id}           one preset
+//	PUT    /api/v1/presets/{id}           save a preset (presets.saved.yaml)
+//	DELETE /api/v1/presets/{id}           delete a saved preset
 //	GET    /api/v1/areas                  areas
 //	GET    /api/v1/zones                  zones
 //	GET    /api/v1/mappings               mappings
@@ -32,8 +35,9 @@
 //	POST   /api/v1/reload                 re-read the config folder
 //
 // Errors are JSON: {"error": "...", "errors": ["file:line: ..."]}, with
-// 400 for invalid input, 404 for unknown ids, 409 for a taken layer id
-// and 422 for a config that doesn't load.
+// 400 for invalid input, 404 for unknown ids, 409 for a taken layer id or
+// a preset that's read-only (in presets.yaml) and 422 for a config that
+// doesn't load.
 //
 // There is no authentication: Glowstack is for a trusted LAN. The hook
 // for adding it is httpserver.Server.Authorize.
@@ -101,6 +105,9 @@ func (api *API) Register(s *httpserver.Server) {
 	h("GET /api/v1/effects/{id}", api.effect)
 	h("GET /api/v1/palettes", api.palettes)
 	h("GET /api/v1/presets", api.presets)
+	h("GET /api/v1/presets/{id}", api.preset)
+	h("PUT /api/v1/presets/{id}", api.savePreset)
+	h("DELETE /api/v1/presets/{id}", api.deletePreset)
 	h("GET /api/v1/areas", api.areas)
 	h("GET /api/v1/zones", api.zones)
 	h("GET /api/v1/mappings", api.mappings)

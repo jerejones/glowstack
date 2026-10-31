@@ -20,6 +20,9 @@
 //   - App.Preview: a second stack for "try before applying" layers that
 //     only the live map renders.
 //   - Options.Effects: effect registration (default effects.Register).
+//   - App.SavePreset and App.DeletePreset: presets saved through the API
+//     (or the WLED devices) go to presets.saved.yaml, then the config
+//     reloads.
 //
 // Brightness (App.SetMaster, App.SetZoneBrightness) and Reload are safe to
 // call from any goroutine; they take effect from the next frame.
@@ -120,7 +123,8 @@ type App struct {
 	mu             sync.RWMutex
 	gen            uint64 // increases on every reload
 	presetWarnings []string
-	reloadMu sync.Mutex // one Reload at a time
+	reloadMu       sync.Mutex // one Reload at a time
+	presetMu       sync.Mutex // one SavePreset or DeletePreset at a time
 
 	previewID atomic.Uint64
 

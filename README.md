@@ -77,6 +77,8 @@ bin/glowstack ctl rm 3                          # … and rejoins the yard (use 
 bin/glowstack ctl bri 0.5                       # master brightness
 bin/glowstack ctl bri porch 30%                 # one zone
 bin/glowstack ctl push --preview porch solid color=#0040ff   # map only
+bin/glowstack ctl save-preset blue-porch --from-layer p1   # keep it (use the id shown)
+bin/glowstack ctl presets                       # saved ones say "saved"
 bin/glowstack ctl reload                        # re-read the config folder
 bin/glowstack ctl status                        # frame rate and controller health
 ```

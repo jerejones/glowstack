@@ -136,24 +136,6 @@ func (api *API) palettes(w http.ResponseWriter, r *http.Request) error {
 	return writeJSON(w, http.StatusOK, map[string]any{"palettes": nonNil(list)})
 }
 
-// Preset is a preset as the API lists it.
-type Preset struct {
-	ID     string         `json:"id"`
-	Name   string         `json:"name,omitempty"`
-	Effect string         `json:"effect"`
-	Params map[string]any `json:"params,omitempty"`
-	// Saved is true for presets saved through the API (presets.saved.yaml).
-	Saved bool `json:"saved,omitempty"`
-}
-
-func (api *API) presets(w http.ResponseWriter, r *http.Request) error {
-	var list []Preset
-	for _, p := range api.app.Current().Config.Presets {
-		list = append(list, Preset{ID: p.ID, Name: p.Name, Effect: p.Effect, Params: p.Params, Saved: p.Saved})
-	}
-	return writeJSON(w, http.StatusOK, map[string]any{"presets": nonNil(list)})
-}
-
 // Area is an area as the API lists it.
 type Area struct {
 	ID     string   `json:"id"`
