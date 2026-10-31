@@ -337,7 +337,7 @@ func TestValidation(t *testing.T) {
 	}{
 		{map[string]any{"target": "nowhere", "effect": "solid"}, 400, `no area "nowhere" (areas: `},
 		{map[string]any{"target": "porch", "effect": "glitterz"}, 400, `no effect "glitterz" (effects: "solid"`},
-		{map[string]any{"target": "porch", "preset": "nope"}, 400, `no preset "nope" (presets: "warm-white"`},
+		{map[string]any{"target": "porch", "preset": "nope"}, 400, `no preset "nope" (presets: "slow-crawl", "glitter", "warm-white"`},
 		{map[string]any{"target": "porch", "use": "nope"}, 400, `no effect or preset "nope"`},
 		{map[string]any{"target": "porch", "effect": "solid", "preset": "warm-white"}, 400, "only one of"},
 		{map[string]any{"target": "porch"}, 400, "needs an effect or a preset"},
@@ -465,7 +465,7 @@ func TestCatalog(t *testing.T) {
 	f.must(http.StatusOK, "GET", "/api/v1/effects/solid", nil)
 	f.must(http.StatusNotFound, "GET", "/api/v1/effects/nope", nil)
 
-	if p := f.must(http.StatusOK, "GET", "/api/v1/presets", nil)["presets"].([]any); len(p) != 2 {
+	if p := f.must(http.StatusOK, "GET", "/api/v1/presets", nil)["presets"].([]any); len(p) < 2 || p[0].(map[string]any)["id"] != "slow-crawl" {
 		t.Errorf("presets %v", p)
 	}
 	if p := f.must(http.StatusOK, "GET", "/api/v1/palettes", nil)["palettes"].([]any); len(p) == 0 {
@@ -581,7 +581,11 @@ func TestReload(t *testing.T) {
 	os.WriteFile(areas, []byte(fixed), 0o644)
 	presets := filepath.Join(f.config, "presets.yaml")
 	p, _ := os.ReadFile(presets)
-	os.WriteFile(presets, append(p, "  - { id: alarm, effect: solid, params: { color: \"#ff0000\" } }\n"...), 0o644)
+	withAlarm := strings.Replace(string(p), "\npresets:\n", "\npresets:\n  - { id: alarm, effect: solid, params: { color: \"#ff0000\" } }\n", 1)
+	if withAlarm == string(p) {
+		t.Fatal("test edit didn't apply to presets.yaml")
+	}
+	os.WriteFile(presets, []byte(withAlarm), 0o644)
 
 	out = f.must(http.StatusOK, "POST", "/api/v1/reload", nil)
 	if d := out["dropped"].([]any); len(d) != 1 || !strings.Contains(d[0].(string), `layer "`+gone+`"`) {
