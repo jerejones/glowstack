@@ -156,3 +156,23 @@ func TestSavedPresetShadows(t *testing.T) {
 		t.Errorf("preset = %+v", p)
 	}
 }
+
+func TestAnchorOverridesRejectUnknownRunsAndDuplicates(t *testing.T) {
+	for _, tt := range []struct{ name, body, want string }{
+		{"unknown run", "  - {run: missing, node: corner, index: 5}\n", `unknown run "missing"`},
+		{"duplicate", "  - {run: a, node: corner, index: 5}\n  - {run: a, node: corner, index: 6}\n", "duplicate anchor"},
+		{"outside run", "  - {run: a, node: corner, index: 100}\n", "outside run"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := writeConfig(t, nil)
+			data := t.TempDir()
+			if err := os.WriteFile(filepath.Join(data, AnchorsFileName), []byte("schema: 1\nanchors:\n"+tt.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Load(dir, data)
+			if err == nil || !strings.Contains(err.Error(), "anchors.yaml:") || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want anchors.yaml file:line and %q", err, tt.want)
+			}
+		})
+	}
+}
