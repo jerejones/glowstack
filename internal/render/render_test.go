@@ -212,8 +212,8 @@ func TestGeometry(t *testing.T) {
 	if len(g.Dark) != 1 || g.Dark[0] != 3 || len(g.Pixels) != 9 {
 		t.Errorf("dark = %v", g.Dark)
 	}
-	// An effect that doesn't read u ignores the mapping's domain.
-	if g = BuildGeometry(l, &m2, ids(0, 9), 0, Common{}); len(g.Dark) != 0 {
+	// The mapping domain applies even when an effect does not read u.
+	if g = BuildGeometry(l, &m2, ids(0, 9), 0, Common{}); len(g.Dark) != 1 {
 		t.Errorf("no-coordinate effect dark = %v", g.Dark)
 	}
 	// Index mapping: position within the target, 0–1.

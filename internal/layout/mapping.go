@@ -15,8 +15,8 @@ import (
 // Mapping is a solved mapping: one coordinate per global pixel id.
 //
 // U is the mapping's coordinate, in metres except for `index` (0–1). Pixels
-// outside the mapping's domain have U = NaN; the renderer treats them as not
-// covered by a layer using this mapping (see render). Plan positions (x, y)
+// outside the mapping's domain have U = NaN; layers using this mapping paint them
+// black (see render). Plan positions (x, y)
 // are a property of the pixel, not the mapping: read them from
 // Layout.Pixels. A `plan` mapping's U is the plan x.
 //
