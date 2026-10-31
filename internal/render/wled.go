@@ -264,7 +264,19 @@ func formatRaw(t ParamType, v float64, old any) any {
 	switch t {
 	case TLength:
 		s := num(v) + " m"
-		if strings.HasSuffix(oldStr, " "+string(MeasurePhysical)) {
+		physical := strings.HasSuffix(oldStr, " "+string(MeasurePhysical))
+		if m, ok := old.(map[string]any); ok {
+			// Lengths also accept {value, measure}; retain that measure
+			// just as for the equivalent string suffix.
+			physical = m["measure"] == string(MeasurePhysical)
+			if value, ok := m["value"].(string); ok {
+				physical = physical || strings.HasSuffix(value, " "+string(MeasurePhysical))
+				if strings.HasSuffix(value, " "+string(MeasureFlow)) {
+					physical = false
+				}
+			}
+		}
+		if physical {
 			s += " " + string(MeasurePhysical)
 		}
 		return s
