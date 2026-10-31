@@ -317,7 +317,11 @@ func (b *builder) stripEdges(cr *config.Run, ri int, anchors []pathAnchor) {
 	for j := 0; j+1 < len(anchors); j++ {
 		key := [2]int{anchors[j].node, anchors[j+1].node}
 		for li, el := range cr.Lengths {
-			from, to := b.l.nodeByID[el.From], b.l.nodeByID[el.To]
+			from, okFrom := b.l.nodeByID[el.From]
+			to, okTo := b.l.nodeByID[el.To]
+			if !okFrom || !okTo {
+				continue
+			}
 			if (from == key[0] && to == key[1]) || (from == key[1] && to == key[0]) {
 				lengths[key] = el.Length.Value
 				usedLength[li] = true
