@@ -291,6 +291,20 @@ list, numbered in the order they were made.
 45. **The ticker's wall clock is injectable** (unexported), so the
     late-frame test runs on a fake clock and doesn't depend on load.
 
+### Config gaps
+
+46. **Exclusive area range ends.** `after` and `before` step one pixel
+    along the walk from the range's start to its end, not along the run,
+    so a range written against the run direction means the same thing.
+    Start and end stay optional (the run's ends); a range left empty is an
+    error.
+47. **Inline mappings** are parsed by `config.ParseInlineMapping` (the same
+    decoder and checks as `mappings.yaml`, errors without positions) when
+    the `mapping` param resolves, and solved by `Engine.Inline`, cached by
+    content hash (at most `engine.MaxInline`, then the cache restarts).
+    Flow warnings (such as `max_stretch`) aren't reported for them;
+    `strict: true` turns those into errors.
+
 ## Live map
 
 `internal/mapview`, at `/map/`. The routes are listed in its package doc.
@@ -339,7 +353,6 @@ list, numbered in the order they were made.
 
 Not assigned above:
 
-- Inline mappings in a layer's `mapping` param (only ids are accepted).
 - `max_stretch` and other flow diagnostics on the live map, beyond the
   values already stored in `layout.FlowInfo`.
 

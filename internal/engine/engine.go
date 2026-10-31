@@ -15,6 +15,7 @@ import (
 	"maps"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/clock"
@@ -38,6 +39,11 @@ type Engine struct {
 	cache map[string]*cached
 	seen  map[string]bool
 
+	// Inline mappings solved for layers, by content id. Check (any
+	// goroutine) and Resolve share them.
+	inlineMu sync.Mutex
+	inline   map[string]*layout.Mapping
+
 	// OnError is told about layers that fail to resolve at render time
 	// (which validation should have prevented). They're skipped.
 	OnError func(id string, err error)
@@ -52,7 +58,8 @@ type cached struct {
 // New returns an engine.
 func New(cfg *config.Config, l *layout.Layout, ms *layout.Mappings, effects *render.Registry, palettes *palette.Registry) *Engine {
 	e := &Engine{cfg: cfg, layout: l, mappings: ms, effects: effects, palettes: palettes,
-		pitch: map[string]float64{}, cache: map[string]*cached{}, seen: map[string]bool{}}
+		pitch: map[string]float64{}, cache: map[string]*cached{}, seen: map[string]bool{},
+		inline: map[string]*layout.Mapping{}}
 	for _, a := range l.Areas {
 		e.pitch[a.ID] = e.areaPitch(a.Pixels)
 	}
@@ -210,12 +217,9 @@ func (e *Engine) build(l *stack.Layer, prev *render.Layer, full bool) (*render.L
 	if err != nil {
 		return nil, err
 	}
-	if common.Mapping == "" {
-		common.Mapping = e.Mapping(l)
-	}
-	m, ok := e.mappings.Get(common.Mapping)
-	if !ok {
-		return nil, fmt.Errorf("no mapping %q", common.Mapping)
+	m, err := e.mapping(l, &common)
+	if err != nil {
+		return nil, err
 	}
 	values, err := render.Resolve(def.Params, effectRaw, env)
 	if err != nil {
@@ -235,6 +239,65 @@ func (e *Engine) build(l *stack.Layer, prev *render.Layer, full bool) (*render.L
 		L.Effect = def.New()
 	}
 	return L, nil
+}
+
+// mapping finds a layer's mapping: an inline one, a named one or the
+// default (setting common.Mapping to the default's id).
+func (e *Engine) mapping(l *stack.Layer, common *render.Common) (*layout.Mapping, error) {
+	if common.Inline != nil {
+		return e.Inline(common.Inline)
+	}
+	if common.Mapping == "" {
+		common.Mapping = e.Mapping(l)
+	}
+	m, ok := e.mappings.Get(common.Mapping)
+	if !ok {
+		return nil, fmt.Errorf("no mapping %q (mappings: %s)", common.Mapping, strings.Join(e.mappings.IDs(), ", "))
+	}
+	return m, nil
+}
+
+// MaxInline is how many solved inline mappings an engine keeps. Past it
+// the cache starts again; layers already resolved keep their geometry.
+const MaxInline = 32
+
+// Inline solves an inline mapping on the engine's layout, or returns the
+// solve of an equal one from before. Errors (an unknown node, a loop
+// under `loops: error`) say what's wrong without file positions.
+func (e *Engine) Inline(im *config.InlineMapping) (*layout.Mapping, error) {
+	e.inlineMu.Lock()
+	defer e.inlineMu.Unlock()
+	if m, ok := e.inline[im.ID]; ok {
+		return m, nil
+	}
+	var m *layout.Mapping
+	var err error
+	if im.Flow != nil {
+		f := *im.Flow
+		m, _, err = layout.SolveFlow(e.layout, &f)
+	} else {
+		mp := *im.Mapping
+		m, err = layout.SolveSpatial(e.layout, &mp)
+	}
+	if err != nil {
+		return nil, config.InlineError(err)
+	}
+	if len(e.inline) >= MaxInline {
+		clear(e.inline)
+	}
+	e.inline[im.ID] = m
+	return m, nil
+}
+
+// CheckMapping checks a mapping parameter's value as a preset or layer
+// gives it: a known id, or an inline mapping that solves. "" (the
+// default) is fine.
+func (e *Engine) CheckMapping(c render.Common) error {
+	if c.Inline == nil && c.Mapping == "" {
+		return nil
+	}
+	_, err := e.mapping(nil, &c)
+	return err
 }
 
 // areaPitch is the most common pitch among the runs of pixels: px

@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/jerejones/glowstack/internal/color"
+	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/palette"
 	"github.com/jerejones/glowstack/internal/units"
 )
@@ -31,7 +32,7 @@ const (
 	TColor    ParamType = "color"    // "#rrggbb" or "#rrggbb/ww"
 	TColors   ParamType = "colors"   // list of color
 	TPalette  ParamType = "palette"  // palette id/name or inline stops
-	TMapping  ParamType = "mapping"  // mapping id
+	TMapping  ParamType = "mapping"  // mapping id, or an inline mapping object
 	TEnum     ParamType = "enum"     // one of Param.Enum
 	TBool     ParamType = "bool"
 	TSeed     ParamType = "seed"   // non-negative integer
@@ -151,8 +152,21 @@ func (v *Values) Palette(name string) *palette.Palette {
 	return getAs[*palette.Palette](v, name, TPalette)
 }
 
-// Mapping returns a mapping id ("" for the default).
-func (v *Values) Mapping(name string) string { return getAs[string](v, name, TMapping) }
+// Mapping returns a mapping id ("" for the default). An inline mapping's
+// id is config.InlinePrefix plus a hash of its content.
+func (v *Values) Mapping(name string) string {
+	if m := v.InlineMapping(name); m != nil {
+		return m.ID
+	}
+	return getAs[string](v, name, TMapping)
+}
+
+// InlineMapping returns the inline mapping a mapping parameter holds, or
+// nil if it names one by id.
+func (v *Values) InlineMapping(name string) *config.InlineMapping {
+	m, _ := v.get(name, TMapping).(*config.InlineMapping)
+	return m
+}
 
 // Enum returns the chosen enum value.
 func (v *Values) Enum(name string) string { return getAs[string](v, name, TEnum) }
@@ -297,7 +311,13 @@ func resolveOne(p Param, x any, env Env) (any, error) {
 		}
 		return env.Palettes.Parse(x)
 	case TMapping, TEnum:
+		if m, ok := x.(map[string]any); ok && p.Type == TMapping {
+			return config.ParseInlineMapping(m)
+		}
 		s, ok := x.(string)
+		if !ok && p.Type == TMapping {
+			return nil, fmt.Errorf("want a mapping id or an inline mapping object")
+		}
 		if !ok {
 			return nil, fmt.Errorf("want a string")
 		}

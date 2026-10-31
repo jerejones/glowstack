@@ -357,46 +357,54 @@ func (v *validator) mappings(c *Config) {
 		v.errorf(Pos{File: MappingsFileName}, "default: unknown mapping %q", c.DefaultMapping)
 	}
 	for i := range c.Flows {
-		f := &c.Flows[i]
-		v.required(f.Pos, "origin", f.Origin)
-		v.oneOf(f.Pos, "pace", &f.Pace, PaceReference, PaceLongest, PaceShortest, PaceAverage)
-		v.oneOf(f.Pos, "warp", &f.Warp, WarpLinear, WarpSmooth)
-		v.oneOf(f.Pos, "loops", &f.Loops, LoopsStretch, LoopsMeet, LoopsError)
-		v.oneOf(f.Pos, "unreached", &f.Unreached, UnreachedLocal, UnreachedDark, UnreachedError)
-		if f.MaxStretch != 0 && f.MaxStretch < 1 {
-			v.errorf(f.Pos, "max_stretch %v must be at least 1 (it applies both ways)", f.MaxStretch)
-		}
-		for _, o := range f.Orient {
-			if o.Into != o.Edge[0] && o.Into != o.Edge[1] {
-				v.errorf(o.Pos, "into %q must be one of the edge's nodes %v", o.Into, o.Edge)
-			}
-		}
-		for _, p := range f.Pin {
-			v.required(p.Pos, "node", p.Node)
-			if p.U.PX {
-				v.errorf(p.Pos, "pin u must be in metres, not px")
-			}
-		}
+		v.flow(&c.Flows[i])
 	}
 	for i := range c.Mappings {
-		m := &c.Mappings[i]
-		if m.Kind == KindFlow {
-			v.errorf(m.Pos, "declare flows under `flows:`")
-			continue
+		v.mapping(&c.Mappings[i])
+	}
+}
+
+// flow fills a flow's defaults and checks it on its own.
+func (v *validator) flow(f *Flow) {
+	v.required(f.Pos, "origin", f.Origin)
+	v.oneOf(f.Pos, "pace", &f.Pace, PaceReference, PaceLongest, PaceShortest, PaceAverage)
+	v.oneOf(f.Pos, "warp", &f.Warp, WarpLinear, WarpSmooth)
+	v.oneOf(f.Pos, "loops", &f.Loops, LoopsStretch, LoopsMeet, LoopsError)
+	v.oneOf(f.Pos, "unreached", &f.Unreached, UnreachedLocal, UnreachedDark, UnreachedError)
+	if f.MaxStretch != 0 && f.MaxStretch < 1 {
+		v.errorf(f.Pos, "max_stretch %v must be at least 1 (it applies both ways)", f.MaxStretch)
+	}
+	for _, o := range f.Orient {
+		if o.Into != o.Edge[0] && o.Into != o.Edge[1] {
+			v.errorf(o.Pos, "into %q must be one of the edge's nodes %v", o.Into, o.Edge)
 		}
-		v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindPlan)
-		switch m.Kind {
-		case KindAxis:
-			if (m.Angle == nil) == (m.To == nil) {
-				v.errorf(m.Pos, "axis mapping %q: give either angle or from+to", m.ID)
-			}
-			if m.To != nil && m.From == nil {
-				v.errorf(m.Pos, "axis mapping %q: to needs from", m.ID)
-			}
-		case KindRadial:
-			if m.Center == nil {
-				v.errorf(m.Pos, "radial mapping %q: missing center", m.ID)
-			}
+	}
+	for _, p := range f.Pin {
+		v.required(p.Pos, "node", p.Node)
+		if p.U.PX {
+			v.errorf(p.Pos, "pin u must be in metres, not px")
+		}
+	}
+}
+
+// mapping fills a non-flow mapping's defaults and checks it on its own.
+func (v *validator) mapping(m *Mapping) {
+	if m.Kind == KindFlow {
+		v.errorf(m.Pos, "declare flows under `flows:`")
+		return
+	}
+	v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindPlan)
+	switch m.Kind {
+	case KindAxis:
+		if (m.Angle == nil) == (m.To == nil) {
+			v.errorf(m.Pos, "axis mapping %q: give either angle or from+to", m.ID)
+		}
+		if m.To != nil && m.From == nil {
+			v.errorf(m.Pos, "axis mapping %q: to needs from", m.ID)
+		}
+	case KindRadial:
+		if m.Center == nil {
+			v.errorf(m.Pos, "radial mapping %q: missing center", m.ID)
 		}
 	}
 }

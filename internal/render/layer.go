@@ -14,7 +14,8 @@ import (
 
 // Common is a layer's resolved common parameters.
 type Common struct {
-	Mapping    string
+	Mapping    string                // mapping id; an inline mapping's is config.InlinePrefix + hash
+	Inline     *config.InlineMapping // set for an inline mapping
 	Reverse    bool
 	Offset     float64 // metres of u
 	Brightness float32
@@ -34,6 +35,7 @@ func ResolveCommon(raw map[string]any, env Env) (Common, error) {
 	}
 	c := Common{
 		Mapping:    v.Mapping(ParamMapping),
+		Inline:     v.InlineMapping(ParamMapping),
 		Reverse:    v.Bool(ParamReverse),
 		Offset:     v.Length(ParamOffset).Metres,
 		Brightness: float32(v.Fraction(ParamBrightness)),

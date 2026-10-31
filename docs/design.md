@@ -436,6 +436,24 @@ which stay physical (see "Flow versus physical quantities").
   negative speed), so one flow serves both directions. Mappings are named in
   config, and the API can also accept an inline mapping for experiments.
 
+#### Inline mappings
+
+A layer's (or a preset's) `mapping` parameter may be an object instead of an
+id, with the same fields as a `mappings.yaml` entry:
+
+```json
+{"target": "yard", "effect": "gradient",
+ "mapping": {"origin": "gate-e", "pace": "average", "unreached": "dark"}}
+```
+
+An object with `kind: flow`, or with an `origin` and no `kind`, is a flow;
+otherwise `kind` is one of the `mappings:` kinds. An `id` is allowed and
+ignored. It's checked and solved when the layer is pushed or edited, and
+errors name the problem without a file position (`inline mapping: unknown
+field "pase"`). Solves are cached by a hash of the content, so equal inline
+mappings on several layers are solved once, and the layer reports the
+mapping as `inline:<hash>`. A reload solves them again on the new layout.
+
 The solver turns each mapping into a precomputed `[]float32` per coordinate,
 indexed by global pixel id. Mappings are solved at load time, not per frame.
 
