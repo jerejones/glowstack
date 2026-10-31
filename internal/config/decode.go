@@ -205,14 +205,14 @@ func (d *decoder) decodeStruct(n *yaml.Node, v reflect.Value) {
 			continue
 		}
 		seen[k.Value] = true
-		if val.Tag == "!!null" && strings.HasSuffix(v.Type().FieldByIndex(idx).Tag.Get("yaml"), ",required") {
+		if val.Tag == "!!null" && v.Type().FieldByIndex(idx).Tag.Get("required") == "true" {
 			d.errorf(val, "missing %s", k.Value)
 			continue
 		}
 		d.decode(val, v.FieldByIndex(idx))
 	}
 	for name, idx := range fields {
-		if !seen[name] && strings.HasSuffix(v.Type().FieldByIndex(idx).Tag.Get("yaml"), ",required") {
+		if !seen[name] && v.Type().FieldByIndex(idx).Tag.Get("required") == "true" {
 			d.errorf(n, "missing %s", name)
 		}
 	}

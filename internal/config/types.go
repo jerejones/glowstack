@@ -126,9 +126,9 @@ type Run struct {
 	Pos
 	ID         string        `yaml:"id"`
 	Controller string        `yaml:"controller"`
-	Indices    [2]int        `yaml:"indices,required"` // inclusive; order = direction along path
-	Pitch      *units.Length `yaml:"pitch"`            // overrides the layout pitch
-	Path       []string      `yaml:"path"`             // node sequence; may be omitted if Plan labels vertices
+	Indices    [2]int        `yaml:"indices" required:"true"` // inclusive; order = direction along path
+	Pitch      *units.Length `yaml:"pitch"`                   // overrides the layout pitch
+	Path       []string      `yaml:"path"`                    // node sequence; may be omitted if Plan labels vertices
 	Anchors    []Anchor      `yaml:"anchors"`
 	Lengths    []EdgeLength  `yaml:"lengths"` // measured lengths overriding count × pitch
 	Plan       *RunPlan      `yaml:"plan"`
@@ -202,7 +202,7 @@ type AnchorOverride struct {
 	Pos
 	Run    string `yaml:"run" json:"run"`
 	Node   string `yaml:"node" json:"node"`
-	Index  int    `yaml:"index,required" json:"index"`
+	Index  int    `yaml:"index" required:"true" json:"index"`
 	Source string `yaml:"source" json:"source"` // default measured
 }
 

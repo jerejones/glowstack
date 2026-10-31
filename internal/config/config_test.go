@@ -220,7 +220,7 @@ func TestRequiredIndicesStillMarshalAsYAML(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(data), "index") {
+		if !strings.Contains(string(data), "index:") && !strings.Contains(string(data), "indices:") {
 			t.Fatalf("missing pixel indices in YAML: %s", data)
 		}
 	}
