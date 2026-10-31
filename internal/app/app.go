@@ -124,7 +124,7 @@ type App struct {
 	gen            uint64 // increases on every reload
 	presetWarnings []string
 	reloadMu       sync.Mutex // one Reload at a time
-	presetMu       sync.Mutex // serializes preset writes/rollback with Reload
+	presetMu       sync.Mutex // serializes data config writes/rollback with Reload
 
 	previewID atomic.Uint64
 

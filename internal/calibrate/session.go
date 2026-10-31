@@ -20,7 +20,6 @@ import (
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/layout"
 	"github.com/jerejones/glowstack/internal/stack"
-	"github.com/jerejones/glowstack/internal/storage"
 	"github.com/jerejones/glowstack/internal/units"
 )
 
@@ -675,10 +674,7 @@ func (m *Manager) change(fn func(*measurements) error) error {
 	if err := check(v.Config.Dir, v.Config.DataDir, data); err != nil {
 		return err
 	}
-	if err := storage.Dir(v.Config.DataDir).Write(config.AnchorsFileName, data); err != nil {
-		return fmt.Errorf("writing %s: %w", config.AnchorsFileName, err)
-	}
-	if _, err := m.app.Reload(); err != nil {
+	if _, err := m.app.WriteDataConfig(config.AnchorsFileName, data); err != nil {
 		return configErr(err)
 	}
 	m.reloaded.Store(false)
