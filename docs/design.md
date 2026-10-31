@@ -751,7 +751,7 @@ equivalent declares bindings:
 
 ```text
 wled.fx: 87  "Glitter"
-  sx  -> gradient.speed   curve: exp, 0 -> 0, 255 -> 2 m/s
+  sx  -> gradient.speed   curve: exp, 0 -> 0, 255 -> 10 m/s
   ix  -> sparkle.density  curve: exp, 0 -> 0, 255 -> 50 /m/s
   pal -> gradient.palette
   col[2] -> sparkle.color
@@ -784,7 +784,7 @@ wled.fx: 87  "Glitter"
   | `breathe` | 2 Breathe | `period` 10 s → 0.5 s (log) | | col0 `color`, col1 `background` |
   | `sparkle` | 20 Sparkle | `decay` 2 s → 0.05 s (exp) | `density` 0 → 50 /m/s (exp) | col0 `color`, pal |
   | `chase` | 28 Chase | `speed` 0 → 5 m/s (exp) | `width` 1 px → 2 m (exp) | col0 `background`, col1–2 `colors` |
-  | `gradient` | 65 Palette | `speed` 0 → 2 m/s (exp) | `span` 0.25 → 20 m (exp) | col0–2 `colors`, pal |
+  | `gradient` | 65 Palette | `speed` 0 → 10 m/s (exp) | `span` 0.25 → 20 m (exp) | col0–2 `colors`, pal |
   | `bands` | 83 Solid Pattern | first band's width 1 → 256 px | second band's width 1 → 256 px | col0–1 band colours |
   | `glitter` | 87 Glitter | `gradient.speed` | `sparkle.density` | col0–1 `gradient.colors`, col2 `sparkle.color`, pal |
   | `noise` | 107 Noise Pal | `evolve` 0 → 3 /s (exp) | `scale` 5 → 0.1 m (log) | col0–2 `colors`, pal |

@@ -165,7 +165,7 @@ func Glitter() *render.Def {
 		panic(err)
 	}
 	d.WLED = &render.WLED{FX: 87, Name: "Glitter", Bindings: []render.Binding{
-		{Slider: render.SliderSpeed, Param: "gradient.speed", Curve: render.CurveExp, Min: "0 m/s", Max: "2 m/s"},
+		{Slider: render.SliderSpeed, Param: "gradient.speed", Curve: render.CurveExp, Min: "0 m/s", Max: "10 m/s"},
 		{Slider: render.SliderIntensity, Param: "sparkle.density", Curve: render.CurveExp, Min: "0 /m/s", Max: "50 /m/s"},
 		{Slider: render.SliderPalette, Param: "gradient.palette"},
 		{Slider: render.SliderColor0, Param: "gradient.colors.0"},
@@ -265,7 +265,7 @@ func autoBindings(d *render.Def) []render.Binding {
 		return "", false
 	}
 	if p, ok := first(render.TSpeed); ok {
-		bs = append(bs, render.Binding{Slider: render.SliderSpeed, Param: p, Curve: render.CurveExp, Min: "0 m/s", Max: "2 m/s"})
+		bs = append(bs, render.Binding{Slider: render.SliderSpeed, Param: p, Curve: render.CurveExp, Min: "0 m/s", Max: "10 m/s"})
 	}
 	if p, ok := first(render.TDensity); ok {
 		bs = append(bs, render.Binding{Slider: render.SliderIntensity, Param: p, Curve: render.CurveExp, Min: "0 /m/s", Max: "50 /m/s"})
