@@ -176,3 +176,22 @@ func TestAnchorOverridesRejectUnknownRunsAndDuplicates(t *testing.T) {
 		})
 	}
 }
+
+func TestRequiredPixelIndicesCannotDefaultToZero(t *testing.T) {
+	body := "schema: 1\npitch: 1 cm\nruns:\n  - {id: a, controller: shed, path: [x, y]}\n"
+	_, err := Load(writeConfig(t, map[string]string{LayoutFileName: body}), "")
+	if err == nil || !strings.Contains(err.Error(), "layout.yaml:4: missing indices") {
+		t.Fatalf("missing run indices: %v", err)
+	}
+	for _, field := range []string{"", ", index: null"} {
+		dir := writeConfig(t, nil)
+		data := t.TempDir()
+		if err := os.WriteFile(filepath.Join(data, AnchorsFileName), []byte("schema: 1\nanchors:\n  - {run: a, node: corner"+field+"}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := Load(dir, data)
+		if err == nil || !strings.Contains(err.Error(), "anchors.yaml:3: missing index") {
+			t.Fatalf("missing override index (%q): %v", field, err)
+		}
+	}
+}
