@@ -347,3 +347,35 @@ func TestFlowPinsCannotMoveOriginSyncGroup(t *testing.T) {
 		})
 	}
 }
+
+func TestSmoothWarpEnforcesLocalStretchLimitsBothWays(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		u, limit float64
+	}{
+		{"stretch", 1.5, 1.35},
+		{"compression", 2.925, 1.55},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := func() *graph { return newGraph(t).run("r", 40, "o", "a@19", "e") }
+			f := config.Flow{ID: "f", Origin: "o", Pin: []config.Pin{{Node: "a", U: unitsMetres(tt.u)}}, Warp: config.WarpSmooth, MaxStretch: tt.limit}
+			_, m, warnings, err := g().flow(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			violates := false
+			for _, st := range m.Stretch {
+				violates = violates || float64(st) > tt.limit || float64(st) < 1/tt.limit
+			}
+			if !violates {
+				t.Fatal("fixture must exceed the local stretch limit")
+			}
+			if len(warnings) == 0 {
+				t.Error("smooth warp exceeded max_stretch without a warning")
+			}
+			f.Strict = true
+			_, _, _, err = g().flow(f)
+			errContains(t, err, "exceeds max_stretch")
+		})
+	}
+}
