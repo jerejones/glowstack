@@ -144,3 +144,22 @@ func TestResolveCachesAndKeepsState(t *testing.T) {
 		t.Errorf("after removal: %d layers, %d cached", len(ls), len(e.cache))
 	}
 }
+
+func TestResolveEditsWithoutClockAdvance(t *testing.T) {
+	e, s, c := setup(t)
+	l, err := s.Push(stack.Layer{Target: "shed", Effect: "count"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := e.Resolve(s.Frame(c.Now(), nil), nil)[0]
+	inst := first.Effect
+	for _, opacity := range []float32{0.25, 0.75} {
+		if _, err := s.Edit(l.ID, func(l *stack.Layer) { l.Params["opacity"] = float64(opacity) }); err != nil {
+			t.Fatal(err)
+		}
+		got := e.Resolve(s.Frame(c.Now(), nil), nil)[0]
+		if got.Common.Opacity != opacity || got.Effect != inst {
+			t.Fatalf("edit at the same clock time: opacity %v, want %v; instance preserved %v", got.Common.Opacity, opacity, got.Effect == inst)
+		}
+	}
+}
