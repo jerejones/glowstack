@@ -256,7 +256,7 @@ func (s *flowSolver) pins(origin int) map[int]flowPin {
 			continue
 		}
 		g := s.group[n]
-		if prev, dup := pins[g]; dup && prev.pin != 0 && prev.u != p.U.Value {
+		if prev, dup := pins[g]; dup && prev.u != p.U.Value {
 			s.errorf(p.Pos, "pin: node %q is linked to a node pinned at a different u", p.Node)
 			continue
 		}
