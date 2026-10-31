@@ -182,15 +182,43 @@ func Seconds(t time.Time) float64 {
 // frame timestamps come from the Source.
 type Ticker struct {
 	src  Source
+	wall pacer
 	fps  atomic.Uint64 // frames per 1000 s
 	seq  uint64
 	prev time.Time
 	late atomic.Uint64
 }
 
+// pacer is the wall clock Run paces with: the system timer, or a fake in
+// tests.
+type pacer interface {
+	now() time.Time
+	// wait blocks until the wall clock reaches t or ctx is done.
+	wait(ctx context.Context, t time.Time) error
+}
+
+type systemPacer struct{ timer *time.Timer }
+
+func (systemPacer) now() time.Time { return time.Now() }
+
+func (p *systemPacer) wait(ctx context.Context, t time.Time) error {
+	if p.timer == nil {
+		p.timer = time.NewTimer(time.Until(t))
+	} else {
+		p.timer.Reset(time.Until(t))
+	}
+	select {
+	case <-ctx.Done():
+		p.timer.Stop()
+		return ctx.Err()
+	case <-p.timer.C:
+		return nil
+	}
+}
+
 // NewTicker returns a ticker at fps frames per second reading time from src.
 func NewTicker(fps float64, src Source) *Ticker {
-	t := &Ticker{src: src}
+	t := &Ticker{src: src, wall: &systemPacer{}}
 	t.SetFPS(fps)
 	return t
 }
@@ -230,22 +258,19 @@ func (t *Ticker) Next() Frame {
 // Run calls fn once per frame until ctx is done. If fn overruns, frames are
 // skipped rather than bunched up.
 func (t *Ticker) Run(ctx context.Context, fn func(Frame)) error {
-	deadline := time.Now()
-	timer := time.NewTimer(0)
-	defer timer.Stop()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	deadline := t.wall.now()
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-timer.C:
-		}
 		fn(t.Next())
-		period := t.Period()
-		deadline = deadline.Add(period)
-		if now := time.Now(); now.After(deadline) {
+		deadline = deadline.Add(t.Period())
+		if now := t.wall.now(); now.After(deadline) {
 			t.late.Add(1)
 			deadline = now
 		}
-		timer.Reset(time.Until(deadline))
+		if err := t.wall.wait(ctx, deadline); err != nil {
+			return err
+		}
 	}
 }

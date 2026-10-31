@@ -6,6 +6,7 @@ package clock
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -45,14 +46,67 @@ func TestTickerRun(t *testing.T) {
 	}
 }
 
+// fakePacer is a wall clock that only moves when told to, or to reach a
+// wait's deadline at once.
+type fakePacer struct{ t time.Time }
+
+func (p *fakePacer) now() time.Time { return p.t }
+
+func (p *fakePacer) wait(ctx context.Context, until time.Time) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if until.After(p.t) {
+		p.t = until
+	}
+	return nil
+}
+
+// TestTickerSkipsWhenLate runs on a fake wall clock, so it doesn't depend
+// on the machine's load. The first three frames take 5 ms against a 1 ms
+// period; the ticker must count them late and then carry on 1 ms apart
+// instead of firing a burst of frames to catch up.
 func TestTickerSkipsWhenLate(t *testing.T) {
+	wall := &fakePacer{t: t0}
 	tk := NewTicker(1000, Real{})
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	tk.wall = wall
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var at []time.Duration
+	err := tk.Run(ctx, func(Frame) {
+		at = append(at, wall.t.Sub(t0))
+		if len(at) <= 3 {
+			wall.t = wall.t.Add(5 * time.Millisecond)
+		}
+		if len(at) == 8 {
+			cancel()
+		}
+	})
+	if err != context.Canceled {
+		t.Errorf("Run returned %v", err)
+	}
+	ms := time.Millisecond
+	want := []time.Duration{0, 5 * ms, 10 * ms, 15 * ms, 16 * ms, 17 * ms, 18 * ms, 19 * ms}
+	if fmt.Sprint(at) != fmt.Sprint(want) || tk.Late() != 3 {
+		t.Errorf("frames at %v, want %v; late %d, want 3", at, want, tk.Late())
+	}
+}
+
+// TestTickerPacesInRealTime is a loose check of the system pacer.
+func TestTickerPacesInRealTime(t *testing.T) {
+	tk := NewTicker(200, Real{})
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	n := 0
-	tk.Run(ctx, func(Frame) { n++; time.Sleep(5 * time.Millisecond) })
-	if tk.Late() == 0 || n > 8 {
-		t.Errorf("late = %d, frames = %d", tk.Late(), n)
+	start := time.Now()
+	tk.Run(ctx, func(Frame) {
+		if n++; n == 5 {
+			cancel()
+		}
+	})
+	// Five frames at 5 ms are at least 20 ms apart end to end.
+	if d := time.Since(start); n != 5 || d < 20*time.Millisecond {
+		t.Errorf("%d frames in %v", n, d)
 	}
 }
 
