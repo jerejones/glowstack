@@ -114,3 +114,20 @@ func TestMemory(t *testing.T) {
 		t.Errorf("b = %q", b)
 	}
 }
+
+func TestWriteFileAtomicReportsDirectorySyncFailure(t *testing.T) {
+	dir := t.TempDir()
+	// Write and search permissions allow file creation and rename, but no
+	// read permission means the directory cannot be opened for syncing.
+	if err := os.Chmod(dir, 0o300); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(dir, 0o700)
+	if f, err := os.Open(dir); err == nil {
+		f.Close()
+		t.Skip("directory permissions are not enforced for this user")
+	}
+	if err := WriteFileAtomic(filepath.Join(dir, "state.json"), []byte("new"), 0o644); err == nil {
+		t.Fatal("reported a durable write despite being unable to sync its directory")
+	}
+}
