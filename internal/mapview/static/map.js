@@ -28,6 +28,7 @@ const S = {
   hover: -1,
   pinned: -1,
   frame: { seq: 0, t: 0, preview: false, paused: false },
+  show: localStorage.getItem('glowstack.show') === 'house' ? 'house' : '', // '' preview, 'house' live
   connected: false,
   preview: null,        // preview state from the server
   dirty: false,
@@ -43,6 +44,8 @@ async function api(path, opts) {
   return body;
 }
 const post = (path, body) => api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+// showQ is the ?show= query for the inspect and power endpoints.
+const showQ = () => (S.show ? '?show=' + S.show : '');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (v, d = 3) => (v === null || v === undefined || Number.isNaN(v)) ? '—' : (+v).toFixed(d);
 const hex = (r, g, b) => '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
@@ -435,6 +438,8 @@ function bindUI() {
   $('fit').onclick = fit;
   $('panelToggle').onclick = () => { document.body.classList.toggle('nopanel'); resize(); markDirty(); };
   $('fps').onchange = subscribe;
+  for (const b of $('showSeg').querySelectorAll('button')) b.onclick = () => setShow(b.dataset.show);
+  setShow(S.show);
   $('streamArea').onchange = subscribe;
 
   // Preview clock.
@@ -479,6 +484,7 @@ function bindUI() {
     } catch (err) { $('pError').textContent = err.message; }
   };
   $('pClear').onclick = async () => { await api('/api/map/preview/layers', { method: 'DELETE' }); pollPreview(); };
+  $('pPromote').onclick = () => promote([]);
 
   // Zoom, pan, pinch, hover and tap.
   const pointers = new Map();
@@ -569,7 +575,7 @@ async function inspect(p) {
   if (p < 0) { body.innerHTML = 'Nothing selected.'; body.classList.add('muted'); return; }
   const seq = ++inspectSeq;
   let d;
-  try { d = await api('/api/map/pixels/' + p); } catch (e) { return; }
+  try { d = await api('/api/map/pixels/' + p + showQ()); } catch (e) { return; }
   if (seq !== inspectSeq) return;
   body.classList.remove('muted');
   const row = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
@@ -632,14 +638,26 @@ function connect() {
 function subscribe() {
   if (!ws || ws.readyState !== 1) return;
   const area = $('streamArea').value;
-  ws.send(JSON.stringify({ fps: +$('fps').value, areas: area ? [area] : [] }));
+  ws.send(JSON.stringify({ fps: +$('fps').value, areas: area ? [area] : [], show: S.show }));
+}
+
+// setShow picks what the map shows: '' the preview (house frames when
+// nothing is being previewed), 'house' what the lights show.
+function setShow(v) {
+  S.show = v;
+  localStorage.setItem('glowstack.show', v);
+  for (const b of $('showSeg').querySelectorAll('button')) b.classList.toggle('on', b.dataset.show === v);
+  subscribe();
+  badge();
+  refreshSide();
 }
 
 function badge() {
   const b = $('badge');
   if (!S.connected) { b.textContent = 'disconnected'; b.className = 'badge off'; return; }
   const f = S.frame;
-  b.textContent = f.preview ? (f.paused ? 'preview · paused' : 'preview') : 'house';
+  const hidden = S.show === 'house' && S.preview && S.preview.previewing;
+  b.textContent = f.preview ? (f.paused ? 'preview · paused' : 'preview') : hidden ? 'house · preview hidden' : 'house';
   b.className = 'badge ' + (f.preview ? 'preview' : 'house');
 }
 
@@ -662,10 +680,22 @@ function setPreview(st) {
     (st.following ? ' · following the house' : ` · ${off >= 0 ? '+' : '−'}${Math.abs(off).toFixed(2)} s vs house`);
   $('pLayers').innerHTML = st.layers.map((l) =>
     `<li><span>${esc(l.id)} · ${esc(l.effect || 'preset ' + l.preset)} on ${esc(l.target)} <code>${esc(JSON.stringify(l.params || {}))}</code></span>
-     <button data-id="${esc(l.id)}" title="Remove">✕</button></li>`).join('');
-  for (const b of $('pLayers').querySelectorAll('button')) {
-    b.onclick = async () => { await api('/api/map/preview/layers/' + encodeURIComponent(b.dataset.id), { method: 'DELETE' }); pollPreview(); };
+     <button class="golive" data-promote="${esc(l.id)}" title="Move this layer onto the lights">→ live</button>
+     <button data-remove="${esc(l.id)}" title="Remove">✕</button></li>`).join('');
+  for (const b of $('pLayers').querySelectorAll('button[data-remove]')) {
+    b.onclick = async () => { await api('/api/map/preview/layers/' + encodeURIComponent(b.dataset.remove), { method: 'DELETE' }); pollPreview(); };
   }
+  for (const b of $('pLayers').querySelectorAll('button[data-promote]')) b.onclick = () => promote([b.dataset.promote]);
+  $('pPromote').disabled = st.layers.length === 0;
+  badge();
+}
+
+// promote moves preview layers (all of them if ids is empty) onto the
+// house stack, so the lights show them.
+async function promote(ids) {
+  $('pError').textContent = '';
+  try { await post('/api/map/preview/promote', ids.length ? { ids } : {}); } catch (err) { $('pError').textContent = err.message; }
+  pollPreview();
 }
 
 async function pollPreview() {
@@ -676,7 +706,7 @@ async function refreshSide() {
   if (document.body.classList.contains('nopanel')) return;
   if (S.pinned >= 0) inspect(S.pinned);
   let pw;
-  try { pw = await api('/api/map/power'); } catch (e) { return; }
+  try { pw = await api('/api/map/power' + showQ()); } catch (e) { return; }
   const st = pw.stage;
   const scale = st ? st.scale.toFixed(3) + (st.group ? ` (group: ${esc(st.group)})` : '') : 'n/a (output stage not reporting)';
   const rows = pw.estimate.map((o) => {

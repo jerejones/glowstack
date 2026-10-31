@@ -41,6 +41,7 @@ func (m *Map) Register(mux interface{ Handle(string, http.Handler) }) {
 	mux.Handle("POST /api/map/preview/layers", h(m.handlePreviewPush))
 	mux.Handle("DELETE /api/map/preview/layers", h(m.handlePreviewClear))
 	mux.Handle("DELETE /api/map/preview/layers/{id}", h(m.handlePreviewRemove))
+	mux.Handle("POST /api/map/preview/promote", h(m.handlePreviewPromote))
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
@@ -58,7 +59,7 @@ func httpError(w http.ResponseWriter, code int, format string, args ...any) {
 }
 
 func (m *Map) handleGeometry(w http.ResponseWriter, r *http.Request) {
-	m.touch()
+	m.touch(ShowAuto)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Write(m.state().geom)
@@ -171,18 +172,33 @@ type ShowingJSON struct {
 	Owner   string `json:"owner,omitempty"`
 }
 
+// showParam reads ?show= (ShowAuto or ShowHouse), replying with an error
+// and returning false if it's something else.
+func showParam(w http.ResponseWriter, r *http.Request) (string, bool) {
+	show := r.URL.Query().Get("show")
+	if !validShow(show) {
+		httpError(w, http.StatusBadRequest, "show=%q: want house or nothing", show)
+		return "", false
+	}
+	return show, true
+}
+
 func (m *Map) handlePixel(w http.ResponseWriter, r *http.Request) {
-	m.touch()
+	show, ok := showParam(w, r)
+	if !ok {
+		return
+	}
+	m.touch(show)
 	st := m.state()
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id < 0 || id >= len(st.Layout.Pixels) {
 		httpError(w, http.StatusNotFound, "no pixel %q", r.PathValue("id"))
 		return
 	}
-	writeJSON(w, m.inspect(st.View, int32(id)))
+	writeJSON(w, m.inspect(st.View, int32(id), show))
 }
 
-func (m *Map) inspect(v app.View, p int32) *PixelJSON {
+func (m *Map) inspect(v app.View, p int32, show string) *PixelJSON {
 	l := v.Layout
 	px := &l.Pixels[p]
 	out := &PixelJSON{
@@ -213,7 +229,7 @@ func (m *Map) inspect(v app.View, p int32) *PixelJSON {
 		out.Mappings = append(out.Mappings, PixelCoord{ID: id, Kind: mp.Kind, U: float(mp.U[p]), Stretch: float(mp.Stretch[p])})
 	}
 	// A snapshot from before a reload describes other pixels.
-	if s, _ := m.latest(); s != nil && s.Gen == v.Gen {
+	if s, _ := m.latest(show); s != nil && s.Gen == v.Gen {
 		out.Frame, out.Preview = s.Seq, s.Preview
 		out.RGB = fmt.Sprintf("#%02x%02x%02x", s.RGB[3*p], s.RGB[3*p+1], s.RGB[3*p+2])
 		if t := s.Top[p]; t >= 0 {

@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/clock"
@@ -135,6 +137,49 @@ func (m *Map) RemovePreview(id string) error { return m.app.Preview.Remove(id) }
 // ClearPreview removes every preview layer, whoever pushed it.
 func (m *Map) ClearPreview() { m.app.Preview.Clear() }
 
+// Promote moves preview layers onto the house stack, so the lights show
+// them: the layers with ids (top first, as listed), or every preview
+// layer if ids is empty. They keep their order, look, lifetime and seed
+// (so sparkles fall where the preview showed them), go on top of the house
+// stack, and get new house ids, owner OwnerPreview and a new creation time
+// (a `for` lifetime starts again). Each is removed from the preview once
+// it's on the house stack. If one can't be pushed, Promote stops and
+// returns the ones already moved with the error. An unknown id moves
+// nothing.
+func (m *Map) Promote(ids []string) ([]stack.Layer, error) {
+	all := m.app.Preview.List()
+	pick := all
+	if len(ids) > 0 {
+		pick = nil
+		for _, l := range all {
+			if slices.Contains(ids, l.ID) {
+				pick = append(pick, l)
+			}
+		}
+		for _, id := range ids {
+			if !slices.ContainsFunc(pick, func(l stack.Layer) bool { return l.ID == id }) {
+				return nil, fmt.Errorf("%w: preview layer %q", stack.ErrNotFound, id)
+			}
+		}
+	}
+	var moved []stack.Layer
+	// Bottom first, so the top preview layer ends up on top.
+	for i := len(pick) - 1; i >= 0; i-- {
+		p := pick[i]
+		l, err := m.app.Stack.Push(stack.Layer{
+			Owner: OwnerPreview, Target: p.Target, Effect: p.Effect, Preset: p.Preset,
+			Params: p.Params, Lifetime: p.Lifetime, Seed: p.Seed,
+		})
+		if err != nil {
+			return moved, fmt.Errorf("preview layer %q: %w", p.ID, err)
+		}
+		moved = append(moved, l)
+		m.app.Preview.Remove(p.ID)
+	}
+	slices.Reverse(moved) // top first, like List
+	return moved, nil
+}
+
 func (m *Map) handlePreviewState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, m.State())
 }
@@ -186,6 +231,35 @@ func (m *Map) handlePreviewRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// promoteJSON is a POST /api/map/preview/promote body. No ids (or no
+// body) promotes every preview layer.
+type promoteJSON struct {
+	IDs []string `json:"ids,omitempty"`
+}
+
+func (m *Map) handlePreviewPromote(w http.ResponseWriter, r *http.Request) {
+	var b promoteJSON
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&b); err != nil && !errors.Is(err, io.EOF) {
+		httpError(w, http.StatusBadRequest, "%v", err)
+		return
+	}
+	moved, err := m.Promote(b.IDs)
+	if moved == nil {
+		moved = []stack.Layer{}
+	}
+	if err != nil {
+		code := http.StatusBadRequest
+		if errors.Is(err, stack.ErrNotFound) && len(moved) == 0 {
+			code = http.StatusNotFound
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(map[string]any{"error": err.Error(), "layers": moved})
+		return
+	}
+	writeJSON(w, map[string]any{"layers": moved})
 }
 
 func (m *Map) handlePreviewClear(w http.ResponseWriter, r *http.Request) {

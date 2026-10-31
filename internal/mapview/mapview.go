@@ -20,6 +20,7 @@
 //	GET  /api/map/preview/layers      preview-only layers
 //	POST /api/map/preview/layers      push one
 //	DELETE /api/map/preview/layers[/{id}]
+//	POST /api/map/preview/promote     move preview layers to the house stack
 //
 // # House frames and preview frames
 //
@@ -31,6 +32,13 @@
 // engine and compositor on the preview clock: the house stack's live
 // layers with the preview layers on top. The house output never sees any
 // of it.
+//
+// Each viewer chooses what it's shown (Subscription.Show, and ?show= on
+// the pixel and power endpoints): the default follows the rule above,
+// and ShowHouse always gets the house's frames, preview or not, so a
+// dashboard can show what the lights show while someone designs. The two
+// kinds of frame are kept as separate feeds and only rendered while
+// someone wants them.
 //
 // The preview pass reads both stacks with Stack.List, not Stack.Frame, so
 // scrubbing never expires or drops layers. Layers show at full fade in the
@@ -105,15 +113,26 @@ type Map struct {
 	pprev   time.Time
 	pkey    previewKey // what the last paused preview frame showed
 
-	clients   atomic.Int32
-	wantUntil atomic.Int64 // UnixNano
-	lastHouse time.Time    // frame goroutine only
+	clients        atomic.Int32 // websocket clients
+	houseClients   atomic.Int32 // of which ShowHouse
+	wantUntil      atomic.Int64 // UnixNano
+	wantHouseUntil atomic.Int64 // UnixNano, for ShowHouse requests
+	lastHouse      time.Time    // frame goroutine only
 
 	mu    sync.Mutex
-	snap  *Snapshot
-	seq   uint32
+	house *Snapshot // latest house frame
+	prev  *Snapshot // latest preview frame; nil once the preview ends
+	seq   uint32    // shared by both feeds, so a client switching sees a new number
 	ready chan struct{} // closed and replaced when a snapshot is published
 }
+
+// What a viewer is shown.
+const (
+	ShowAuto  = ""      // preview frames while previewing, else house frames
+	ShowHouse = "house" // always the house's frames
+)
+
+func validShow(s string) bool { return s == ShowAuto || s == ShowHouse }
 
 // state is the config the map describes: the app's view and the
 // geometry JSON built from it. It's replaced whole after a reload.
@@ -190,7 +209,7 @@ func (m *Map) Run(ctx context.Context) error {
 			return nil
 		case <-t.C:
 		}
-		if m.previewing() && m.wanted() {
+		if m.previewing() && m.wantedAuto() {
 			m.renderPreview()
 		}
 	}
@@ -202,17 +221,33 @@ func (m *Map) previewing() bool {
 	return !m.following.Load() || m.app.Preview.Len() > 0
 }
 
-// wanted reports whether anyone is looking at frames.
-func (m *Map) wanted() bool {
-	return m.clients.Load() > 0 || time.Now().UnixNano() < m.wantUntil.Load()
+// wantedAuto reports whether anyone is looking at ShowAuto frames.
+func (m *Map) wantedAuto() bool {
+	return m.clients.Load() > m.houseClients.Load() || time.Now().UnixNano() < m.wantUntil.Load()
 }
 
-func (m *Map) touch() { m.wantUntil.Store(time.Now().Add(wantFor).UnixNano()) }
+// wantedHouse reports whether house frames are needed.
+func (m *Map) wantedHouse() bool {
+	if m.previewing() {
+		return m.houseClients.Load() > 0 || time.Now().UnixNano() < m.wantHouseUntil.Load()
+	}
+	return m.clients.Load() > 0 || time.Now().UnixNano() < max(m.wantUntil.Load(), m.wantHouseUntil.Load())
+}
+
+// touch keeps the frames show wants coming for a while, for API requests.
+func (m *Map) touch(show string) {
+	until := time.Now().Add(wantFor).UnixNano()
+	if show == ShowHouse {
+		m.wantHouseUntil.Store(until)
+	} else {
+		m.wantUntil.Store(until)
+	}
+}
 
 // onFrame captures house frames at up to the stream rate. It runs on the
 // frame goroutine.
 func (m *Map) onFrame(f clock.Frame, buf *render.Buffer) {
-	if m.previewing() || !m.wanted() {
+	if !m.wantedHouse() {
 		return
 	}
 	period := time.Duration(float64(time.Second) / m.opts.FPS)
@@ -251,7 +286,10 @@ func (m *Map) renderPreview() {
 	paused := m.preview.Paused()
 	key := previewKey{now, m.app.Stack.Version(), m.app.Preview.Version(), st.Gen}
 	if paused && key == m.pkey {
-		if s, _ := m.latest(); s != nil && s.Preview {
+		m.mu.Lock()
+		have := m.prev != nil
+		m.mu.Unlock()
+		if have {
 			return
 		}
 	}
@@ -294,21 +332,38 @@ func (m *Map) previewActive(now time.Time, dst []stack.Active) []stack.Active {
 	return dst
 }
 
-// publish makes s the latest snapshot and wakes the stream writers.
+// publish makes s the latest snapshot of its feed and wakes the stream
+// writers.
 func (m *Map) publish(s *Snapshot) {
+	previewing := m.previewing()
 	m.mu.Lock()
 	m.seq++
 	s.Seq = m.seq
-	m.snap = s
+	if s.Preview {
+		m.prev = s
+	} else {
+		m.house = s
+		if !previewing {
+			// The preview is over; don't show its last frame when the
+			// next one starts.
+			m.prev = nil
+		}
+	}
 	close(m.ready)
 	m.ready = make(chan struct{})
 	m.mu.Unlock()
 }
 
-// latest returns the latest snapshot (nil before the first) and a channel
-// closed when the next one is published.
-func (m *Map) latest() (*Snapshot, <-chan struct{}) {
+// latest returns the latest snapshot for show (nil before the first) and
+// a channel closed when the next snapshot of either feed is published.
+// ShowAuto gets preview frames while previewing, falling back to the last
+// house frame until the first preview frame is rendered.
+func (m *Map) latest(show string) (*Snapshot, <-chan struct{}) {
+	previewing := show == ShowAuto && m.previewing()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.snap, m.ready
+	if previewing && m.prev != nil {
+		return m.prev, m.ready
+	}
+	return m.house, m.ready
 }

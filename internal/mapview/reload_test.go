@@ -107,7 +107,7 @@ func TestReloadRebuildsTheMap(t *testing.T) {
 	if typ, _ := read(); typ != websocket.MessageBinary {
 		t.Fatal("no frame after reload")
 	}
-	if s, _ := m.latest(); s.Gen != 1 {
+	if s, _ := m.latest(ShowAuto); s.Gen != 1 {
 		t.Errorf("snapshot gen %d", s.Gen)
 	}
 
@@ -121,13 +121,13 @@ func TestReloadRebuildsTheMap(t *testing.T) {
 		t.Fatalf("API preview layer not on the map: %+v", m.State())
 	}
 	m.renderPreview()
-	s, _ := m.latest()
+	s, _ := m.latest(ShowAuto)
 	yard, _ := f.app.Current().Layout.Area("yard")
 	y := yard.Pixels[0]
 	if !s.Preview || s.Gen != 1 || s.Layers[s.Top[y]] != previewIDPrefix+pl.ID {
 		t.Errorf("preview after reload: gen %d top %v", s.Gen, s.Layers)
 	}
-	if sh := m.inspect(m.state().View, y).Showing; sh == nil || !sh.Preview || sh.Layer != pl.ID {
+	if sh := m.inspect(m.state().View, y, ShowAuto).Showing; sh == nil || !sh.Preview || sh.Layer != pl.ID {
 		t.Errorf("inspect %+v", sh)
 	}
 }

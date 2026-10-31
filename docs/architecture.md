@@ -378,6 +378,18 @@ list, numbered in the order they were made.
     127.0.0.1:0` and runs `test/pywled/test_pywled.py`, which patches
     python-wled's URL builder to reach the loopback ports (it hard-codes
     port 80). It's skipped without a Python that has `wled` installed.
+59. **The map keeps two feeds,** house frames and preview frames, and
+    each viewer picks one (`show`: auto or house), so a dashboard can show
+    the lights while someone previews. Both feeds share one frame number,
+    so a client that switches always gets a new frame. Each feed is only
+    rendered while someone wants it. The last preview frame is dropped
+    when the preview ends, so the next preview doesn't open on a stale
+    frame.
+60. **Push to live copies, then removes.** `Map.Promote` pushes each
+    preview layer onto the house stack (bottom first, keeping order, look,
+    lifetime and seed) and only then removes it from the preview, so a
+    failure part-way leaves nothing lost. A `for` lifetime restarts, since
+    the house layer is new.
 
 ## Live map
 

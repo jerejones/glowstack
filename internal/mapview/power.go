@@ -130,8 +130,12 @@ type ctrlPower struct {
 }
 
 func (m *Map) handlePower(w http.ResponseWriter, r *http.Request) {
-	m.touch()
-	s, _ := m.latest()
+	show, ok := showParam(w, r)
+	if !ok {
+		return
+	}
+	m.touch(show)
+	s, _ := m.latest(show)
 	out := powerJSON{Estimate: []OutputPower{}, Totals: []ctrlPower{}}
 	if s != nil {
 		out.Frame, out.Preview, out.Estimate = s.Seq, s.Preview, s.Power

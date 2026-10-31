@@ -14,11 +14,12 @@ import (
 )
 
 // Subscription is what a client asks for, as a text message on the
-// websocket. Both fields are optional: FPS 0 means the server's cap,
-// no Areas means every pixel.
+// websocket. Every field is optional: FPS 0 means the server's cap, no
+// Areas means every pixel, and Show "" is ShowAuto.
 type Subscription struct {
 	FPS   float64  `json:"fps"`
 	Areas []string `json:"areas"`
+	Show  string   `json:"show,omitempty"` // ShowAuto or ShowHouse
 }
 
 // Subscribed is the server's text reply to a subscription (and its first
@@ -30,6 +31,7 @@ type Subscribed struct {
 	Gen     uint64   `json:"gen"`
 	FPS     float64  `json:"fps"`
 	Areas   []string `json:"areas"`
+	Show    string   `json:"show"`
 	Unknown []string `json:"unknown,omitempty"` // area ids that don't exist
 	Count   int      `json:"count"`             // pixels per frame
 	Ranges  []Range  `json:"ranges"`            // inclusive global-id ranges
@@ -52,7 +54,7 @@ func (m *Map) subscribe(s Subscription) (Subscribed, []Range) {
 	if areas == nil {
 		areas = []string{}
 	}
-	return Subscribed{Type: "subscribed", Gen: st.Gen, FPS: fps, Areas: areas, Unknown: unknown, Count: rangeLen(rs), Ranges: rs}, rs
+	return Subscribed{Type: "subscribed", Gen: st.Gen, FPS: fps, Areas: areas, Show: s.Show, Unknown: unknown, Count: rangeLen(rs), Ranges: rs}, rs
 }
 
 // handleWS streams frames to one client: the latest snapshot whenever
@@ -79,7 +81,7 @@ func (m *Map) handleWS(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			var s Subscription
-			if json.Unmarshal(data, &s) != nil {
+			if json.Unmarshal(data, &s) != nil || !validShow(s.Show) {
 				continue
 			}
 			select {
@@ -96,6 +98,19 @@ func (m *Map) handleWS(w http.ResponseWriter, r *http.Request) {
 		return c.Write(wctx, typ, b) == nil
 	}
 	sub := Subscription{}
+	// Count this client among the ShowHouse ones while it asks for that.
+	house := false
+	setHouse := func(h bool) {
+		if h != house {
+			house = h
+			if h {
+				m.houseClients.Add(1)
+			} else {
+				m.houseClients.Add(-1)
+			}
+		}
+	}
+	defer setHouse(false)
 	reply, rs := m.subscribe(sub)
 	sendReply := func() bool {
 		b, _ := json.Marshal(reply)
@@ -112,7 +127,7 @@ func (m *Map) handleWS(w http.ResponseWriter, r *http.Request) {
 	)
 	defer timer.Stop()
 	for {
-		snap, ready := m.latest()
+		snap, ready := m.latest(sub.Show)
 		if snap != nil && snap.Gen > reply.Gen {
 			// A reload changed the pixels: re-subscribe on the new
 			// layout before sending its frames.
@@ -145,6 +160,7 @@ func (m *Map) handleWS(w http.ResponseWriter, r *http.Request) {
 		case <-wake:
 		case s := <-subs:
 			sub = s
+			setHouse(s.Show == ShowHouse)
 			reply, rs = m.subscribe(s)
 			last = 0 // resend the current frame in the new shape
 			if !sendReply() {

@@ -936,7 +936,12 @@ checked without going outside.
 - **Try before applying.** A layer can be previewed on the map only, without
   pushing it to the real stack. There is one preview stack, shared by the
   map's panel and the API (`preview: true`); it's never saved or sent to
-  the lights.
+  the lights. Once it looks right, **push to live** moves preview layers
+  (one, or all in order) onto the house stack with the same look and seed.
+- **Preview or live.** Each viewer picks what its map shows: the preview
+  (preview layers and clock over the house; the house's own frames when
+  nothing is previewed) or live, what the lights show, even while someone
+  else is previewing.
 - **Later:** embedded in HA as a dashboard panel (iframe or custom card), and
   2-D/elevation views for multi-floor runs.
 

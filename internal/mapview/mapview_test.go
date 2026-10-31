@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -335,7 +336,7 @@ func TestCaptureFoldsWhiteAndTracksLayers(t *testing.T) {
 	bottom := f.push(t, "everything", "#000080")
 	top := f.push(t, "porch", "#ff0000/80")
 	f.frame(t)
-	s, _ := f.m.latest()
+	s, _ := f.m.latest(ShowAuto)
 	if s == nil || s.Preview {
 		t.Fatalf("snapshot %+v", s)
 	}
@@ -354,7 +355,7 @@ func TestCaptureFoldsWhiteAndTracksLayers(t *testing.T) {
 		t.Errorf("dead pixel top %d", s.Top[482])
 	}
 
-	px := f.m.inspect(f.m.state().View, p)
+	px := f.m.inspect(f.m.state().View, p, ShowAuto)
 	if px.Showing == nil || px.Showing.Layer != top.ID || px.Showing.Preview || px.Showing.Target != "porch" ||
 		px.RGB != "#ff8080" || px.Run != "porch" || px.Controller != "yard" || px.Index != 390 || px.RunPixel != 89 {
 		t.Errorf("inspect %+v showing %+v", px, px.Showing)
@@ -367,7 +368,7 @@ func TestCaptureFoldsWhiteAndTracksLayers(t *testing.T) {
 	seq := s.Seq
 	f.clock.Advance(time.Millisecond)
 	f.app.RenderFrame(f.app.Ticker.Next())
-	if s, _ := f.m.latest(); s.Seq != seq {
+	if s, _ := f.m.latest(ShowAuto); s.Seq != seq {
 		t.Errorf("captured a frame 1 ms later")
 	}
 }
@@ -499,7 +500,7 @@ func TestPreviewRendersWithoutTouchingTheHouse(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.renderPreview()
-	s, _ := m.latest()
+	s, _ := m.latest(ShowAuto)
 	if s == nil || !s.Preview {
 		t.Fatalf("snapshot %+v", s)
 	}
@@ -514,7 +515,7 @@ func TestPreviewRendersWithoutTouchingTheHouse(t *testing.T) {
 	if got := s.RGB[3*p : 3*p+3]; got[1] != 0 || got[2] != 255 || s.Layers[s.Top[p]] != houseIDPrefix+house.ID {
 		t.Errorf("porch %v top %v", got, s.Layers[s.Top[p]])
 	}
-	if sh := m.inspect(m.state().View, y).Showing; sh == nil || !sh.Preview || sh.Layer != pl.ID {
+	if sh := m.inspect(m.state().View, y, ShowAuto).Showing; sh == nil || !sh.Preview || sh.Layer != pl.ID {
 		t.Errorf("inspect showing %+v", sh)
 	}
 
@@ -530,16 +531,16 @@ func TestPreviewRendersWithoutTouchingTheHouse(t *testing.T) {
 		t.Errorf("house yard pixel %+v", c)
 	}
 	// While previewing, house frames aren't captured.
-	if s2, _ := m.latest(); s2 != s {
+	if s2, _ := m.latest(ShowAuto); s2 != s {
 		t.Errorf("house frame replaced the preview")
 	}
 
 	// Paused and unchanged: no new render.
 	m.Control(PreviewControl{Action: "pause"})
 	m.renderPreview()
-	s, _ = m.latest()
+	s, _ = m.latest(ShowAuto)
 	m.renderPreview()
-	if s2, _ := m.latest(); s2 != s {
+	if s2, _ := m.latest(ShowAuto); s2 != s {
 		t.Error("re-rendered an unchanged paused preview")
 	}
 
@@ -558,7 +559,7 @@ func TestPreviewRendersWithoutTouchingTheHouse(t *testing.T) {
 		t.Error("still previewing")
 	}
 	f.frame(t)
-	if s, _ := m.latest(); s.Preview {
+	if s, _ := m.latest(ShowAuto); s.Preview {
 		t.Error("expected a house frame")
 	}
 }
@@ -721,20 +722,172 @@ func TestPreviewNamespaceCannotCollideWithChosenHouseID(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.m.renderPreview()
-	s, _ := f.m.latest()
+	s, _ := f.m.latest(ShowAuto)
 	porch, _ := f.app.Current().Layout.Area("porch")
 	p := porch.Pixels[0]
 	if got := s.RGB[3*p : 3*p+3]; !bytes.Equal(got, []byte{255, 0, 0}) {
 		t.Errorf("preview cache collision changed house layer on map: %v", got)
 	}
-	if sh := f.m.inspect(f.m.state().View, p).Showing; sh == nil || sh.Preview || sh.Layer != house.ID {
+	if sh := f.m.inspect(f.m.state().View, p, ShowAuto).Showing; sh == nil || sh.Preview || sh.Layer != house.ID {
 		t.Errorf("house layer misidentified as preview %s: %+v", pl.ID, sh)
 	}
 	// The same chosen id must also inspect correctly in a house snapshot.
 	f.m.ClearPreview()
-	f.m.touch()
+	f.m.touch(ShowAuto)
 	f.frame(t)
-	if sh := f.m.inspect(f.m.state().View, p).Showing; sh == nil || sh.Preview || sh.Layer != house.ID {
+	if sh := f.m.inspect(f.m.state().View, p, ShowAuto).Showing; sh == nil || sh.Preview || sh.Layer != house.ID {
 		t.Errorf("house snapshot misidentified: %+v", sh)
+	}
+}
+
+// pushPreview puts a solid preview layer on target through the API.
+func (f *fixture) pushPreview(t *testing.T, target, hex string) stack.Layer {
+	t.Helper()
+	resp := f.post(t, "/api/map/preview/layers", map[string]any{"target": target, "effect": "solid",
+		"params": map[string]any{"color": hex, "fade_in": "0s"}})
+	var l stack.Layer
+	if err := json.NewDecoder(resp.Body).Decode(&l); err != nil || resp.StatusCode != http.StatusOK {
+		t.Fatalf("push preview: %s %v", resp.Status, err)
+	}
+	return l
+}
+
+func TestPromote(t *testing.T) {
+	f := newFixture(t)
+	house := f.push(t, "yard", "#0000ff")
+	bottom := f.pushPreview(t, "yard", "#ff0000")
+	top := f.pushPreview(t, "porch", "#00ff00")
+
+	// An unknown id moves nothing.
+	if resp := f.post(t, "/api/map/preview/promote", map[string]any{"ids": []string{top.ID, "p99"}}); resp.StatusCode != http.StatusNotFound {
+		t.Errorf("unknown id: %s", resp.Status)
+	}
+	if n := len(f.app.Preview.List()); n != 2 {
+		t.Fatalf("preview has %d layers after a failed promote", n)
+	}
+
+	// One layer.
+	var out struct{ Layers []stack.Layer }
+	resp := f.post(t, "/api/map/preview/promote", map[string]any{"ids": []string{top.ID}})
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil || resp.StatusCode != http.StatusOK || len(out.Layers) != 1 {
+		t.Fatalf("promote one: %s %v %+v", resp.Status, err, out)
+	}
+	got := out.Layers[0]
+	if hs := f.app.Stack.List(); len(hs) != 2 || hs[0].ID != got.ID || hs[1].ID != house.ID {
+		t.Errorf("house stack %+v", hs)
+	}
+	if got.Owner != OwnerPreview || got.Target != "porch" || got.Seed != top.Seed || got.Params["color"] != "#00ff00" {
+		t.Errorf("promoted %+v", got)
+	}
+	if ps := f.app.Preview.List(); len(ps) != 1 || ps[0].ID != bottom.ID {
+		t.Errorf("preview %+v", ps)
+	}
+
+	// Everything (no body), keeping the preview's order: the top one ends
+	// on top of the house stack.
+	upper := f.pushPreview(t, "yard", "#ffffff")
+	r, err := http.Post(f.srv.URL+"/api/map/preview/promote", "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out.Layers = nil
+	if err := json.NewDecoder(r.Body).Decode(&out); err != nil || r.StatusCode != http.StatusOK || len(out.Layers) != 2 {
+		t.Fatalf("promote all: %s %v %+v", r.Status, err, out)
+	}
+	r.Body.Close()
+	hs := f.app.Stack.List()
+	if len(hs) != 4 || hs[0].Params["color"] != "#ffffff" || hs[1].Params["color"] != "#ff0000" || hs[0].Seed != upper.Seed {
+		t.Errorf("house stack %+v", hs)
+	}
+	if n := len(f.app.Preview.List()); n != 0 {
+		t.Errorf("preview still has %d layers", n)
+	}
+
+	// The lights show it.
+	var buf *render.Buffer
+	f.app.OnFrame(func(_ clock.Frame, b *render.Buffer) { buf = b })
+	f.frame(t)
+	yard, _ := f.app.Layout.Area("yard")
+	if c := buf.Pix[yard.Pixels[0]]; c.R != 1 || c.G != 1 || c.B != 1 {
+		t.Errorf("house yard pixel %+v", c)
+	}
+}
+
+// TestShowHouseWhilePreviewing checks that a viewer can ask for the
+// house's frames while the preview is active, without changing what
+// other viewers see.
+func TestShowHouseWhilePreviewing(t *testing.T) {
+	f := newFixture(t)
+	f.push(t, "yard", "#0000ff")
+	pl := f.pushPreview(t, "yard", "#ff0000")
+	yard, _ := f.app.Layout.Area("yard")
+	y := int(yard.Pixels[0])
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, _, err := websocket.Dial(ctx, "ws"+strings.TrimPrefix(f.srv.URL, "http")+"/api/map/ws", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.CloseNow()
+	read := func(want websocket.MessageType) []byte {
+		t.Helper()
+		typ, b, err := c.Read(ctx)
+		if err != nil || typ != want {
+			t.Fatalf("read: %v %v", typ, err)
+		}
+		return b
+	}
+	read(websocket.MessageText) // default subscription
+	msg, _ := json.Marshal(Subscription{Show: ShowHouse})
+	if err := c.Write(ctx, websocket.MessageText, msg); err != nil {
+		t.Fatal(err)
+	}
+	var s Subscribed
+	if err := json.Unmarshal(read(websocket.MessageText), &s); err != nil || s.Show != ShowHouse {
+		t.Fatalf("subscribed %+v %v", s, err)
+	}
+	for f.m.houseClients.Load() == 0 {
+		time.Sleep(time.Millisecond)
+	}
+
+	// While previewing, the house frame is still captured for this
+	// client, and the preview is rendered for everyone else.
+	f.frame(t)
+	b := read(websocket.MessageBinary)
+	if b[1]&1 != 0 {
+		t.Errorf("flags %x: got a preview frame", b[1])
+	}
+	if px := b[frameHeader+3*y : frameHeader+3*y+3]; px[0] != 0 || px[2] != 255 {
+		t.Errorf("house yard pixel %v", px)
+	}
+	f.m.renderPreview()
+	if s, _ := f.m.latest(ShowAuto); s == nil || !s.Preview || s.RGB[3*y] != 255 {
+		t.Errorf("auto snapshot %+v", s)
+	}
+	if s, _ := f.m.latest(ShowHouse); s == nil || s.Preview || s.RGB[3*y+2] != 255 {
+		t.Errorf("house snapshot %+v", s)
+	}
+
+	// Inspect follows ?show=.
+	var px PixelJSON
+	f.get(t, "/api/map/pixels/"+strconv.Itoa(y)+"?show=house", &px)
+	if px.Preview || px.RGB != "#0000ff" || px.Showing == nil || px.Showing.Preview {
+		t.Errorf("inspect show=house %+v", px)
+	}
+	f.get(t, "/api/map/pixels/"+strconv.Itoa(y), &px)
+	if !px.Preview || px.Showing == nil || px.Showing.Layer != pl.ID {
+		t.Errorf("inspect auto %+v", px)
+	}
+	if r, _ := http.Get(f.srv.URL + "/api/map/power?show=lights"); r.StatusCode != http.StatusBadRequest {
+		t.Errorf("bad show: %s", r.Status)
+	}
+
+	// Back to auto: the client stops counting as a house viewer.
+	msg, _ = json.Marshal(Subscription{})
+	c.Write(ctx, websocket.MessageText, msg)
+	read(websocket.MessageText)
+	for f.m.houseClients.Load() != 0 {
+		time.Sleep(time.Millisecond)
 	}
 }
