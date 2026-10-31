@@ -166,6 +166,14 @@ type Monitor struct {
 // Controllers that stay keep their status; Run checks the new set at once.
 func (m *Monitor) SetTargets(ts []Target) {
 	m.mu.Lock()
+	// An id may now name a different endpoint (including shifted loopback
+	// ports). Do not reuse settings or in-flight results from the old one.
+	for _, old := range m.Targets {
+		if !slices.ContainsFunc(ts, func(t Target) bool { return t.ID == old.ID && t.URL == old.URL }) {
+			delete(m.status, old.ID)
+			delete(m.cfgs, old.ID)
+		}
+	}
 	m.Targets = slices.Clone(ts)
 	if m.kick == nil {
 		m.kick = make(chan struct{}, 1)
@@ -229,6 +237,10 @@ func (m *Monitor) check(ctx context.Context, t Target) {
 	err := m.get(ctx, t.URL+"/json/info", &info)
 	m.mu.Lock()
 	st := m.status[t.ID]
+	if st == nil || !slices.Contains(m.Targets, t) {
+		m.mu.Unlock()
+		return
+	}
 	prev := *st
 	st.Checked = time.Now()
 	if err != nil {
@@ -272,6 +284,9 @@ func (m *Monitor) check(ctx context.Context, t Target) {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.status[t.ID] != st || !slices.Contains(m.Targets, t) {
+		return
+	}
 	m.cfgs[t.ID] = cfg
 	st.Mismatches = found
 }
