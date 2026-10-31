@@ -55,6 +55,21 @@ func TestGoodController(t *testing.T) {
 	}
 }
 
+// WLED always lists LED map 0 in /json/info, file or not; only a
+// ledmap.json remaps realtime data.
+func TestRespectLedMapsWithoutMap(t *testing.T) {
+	live := fakewled.GoodLive
+	live.RespectLedMaps = true
+	srv := server(t, fakewled.Config{Name: "shed", Pixels: 604, Channels: "rgbw", Live: &live})
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{
+		{ID: "shed", URL: srv.URL, Pixels: 604, Channels: "rgbw", White: "explicit"},
+	}}
+	m.Check(t.Context())
+	if st := m.Status()[0]; len(st.Mismatches) != 0 {
+		t.Errorf("%+v", st.Mismatches)
+	}
+}
+
 func TestMisconfiguredController(t *testing.T) {
 	srv := server(t, fakewled.Config{Name: "yard", Pixels: 500, Channels: "rgbw", AutoWhite: 2, LedMaps: 1,
 		Live: &fakewled.Live{Enabled: false, MainSegmentOnly: true, RespectLedMaps: true, Timeout: 650, DMXAddress: 9}})

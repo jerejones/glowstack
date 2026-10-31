@@ -51,7 +51,7 @@ type Config struct {
 	// AutoWhite is the bus auto-white mode (hw.led.ins[].rgbwm): 0 off,
 	// 1 brighter, 2 accurate, 3 dual, 4 max.
 	AutoWhite int    `yaml:"rgbwm"`
-	LedMaps   int    `yaml:"ledmaps"` // how many LED maps exist (listed in info.maps)
+	LedMaps   int    `yaml:"ledmaps"` // how many LED map files exist, ledmap.json first (info.maps always lists 0)
 	Version   string `yaml:"version"`
 }
 
@@ -258,6 +258,13 @@ func (d *Device) Serve(ctx context.Context) error {
 func (d *Device) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /json/info", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, d.info()) })
+	mux.HandleFunc("GET /ledmap.json", func(w http.ResponseWriter, r *http.Request) {
+		if d.cfg.LedMaps < 1 {
+			http.NotFound(w, r)
+			return
+		}
+		writeJSON(w, map[string]any{"map": []int{}})
+	})
 	mux.HandleFunc("GET /json/cfg", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, d.cfgJSON()) })
 	mux.HandleFunc("GET /frame", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := d.Frame()
@@ -280,8 +287,9 @@ func writeJSON(w http.ResponseWriter, v any) {
 func (d *Device) info() map[string]any {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	// Like WLED, map 0 is always listed, whether or not ledmap.json exists.
 	maps := []map[string]any{}
-	for i := range d.cfg.LedMaps {
+	for i := range max(d.cfg.LedMaps, 1) {
 		maps = append(maps, map[string]any{"id": i})
 	}
 	lm, lip := "", ""
