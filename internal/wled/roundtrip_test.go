@@ -81,3 +81,14 @@ func TestReusedPresetNumber(t *testing.T) {
 		t.Errorf("preset numbers: first=%d, second=%d, want distinct and second=20", first, second)
 	}
 }
+
+func TestPresetVersionAcrossEmptyCatalog(t *testing.T) {
+	f := newFixture(t)
+	cfg := f.a.Current().Config
+	before := f.d.presetsModified(cfg)
+	empty := f.d.presetsModified(&config.Config{})
+	after := f.d.presetsModified(cfg)
+	if empty <= before || after <= empty {
+		t.Errorf("preset versions %d -> %d -> %d, want increasing across an empty catalog", before, empty, after)
+	}
+}
