@@ -32,6 +32,12 @@ func TestDevices(t *testing.T) {
 		{"every address", "  - { id: z1, area: x, device: { mac: \"02:00:00:00:00:01\" } }\n" +
 			"  - { id: z2, area: x, device: { ip: 192.0.2.50, mac: \"02:00:00:00:00:02\" } }\n",
 			`zone "z2": device 192.0.2.50:80 clashes`},
+		{"explicit wildcard", "  - { id: z1, area: x, device: { ip: 0.0.0.0, mac: \"02:00:00:00:00:01\" } }\n" +
+			"  - { id: z2, area: x, device: { ip: 192.0.2.50, mac: \"02:00:00:00:00:02\" } }\n",
+			`zone "z2": device 192.0.2.50:80 clashes`},
+		{"equivalent addresses", "  - { id: z1, area: x, device: { ip: '::ffff:192.0.2.50', mac: \"02:00:00:00:00:01\" } }\n" +
+			"  - { id: z2, area: x, device: { ip: 192.0.2.50, mac: \"02:00:00:00:00:02\" } }\n",
+			`zone "z2": device 192.0.2.50:80 clashes`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			c, err := Load(writeConfig(t, map[string]string{AreasFileName: head + tt.zones}), "")
