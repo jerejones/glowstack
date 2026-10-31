@@ -11,6 +11,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 <meta name="theme-color" content="#111">
 <title>Glowstack live map</title>
 <link rel="stylesheet" href="map.css">
+<link rel="stylesheet" href="calibrate.css">
 </head>
 <body>
 <header id="bar">
@@ -31,6 +32,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
   <label class="check"><input type="checkbox" id="showLabels"> Labels</label>
   <span class="grow"></span>
   <button id="fit" title="Fit to screen">Fit</button>
+  <button id="calToggle" title="Calibration">Calibrate</button>
   <button id="panelToggle" title="Panel">☰</button>
 </header>
 
@@ -40,6 +42,11 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 </main>
 
 <aside id="panel">
+  <section id="calSec">
+    <h2>Calibration <small>drives the real lights</small></h2>
+    <div id="cal" class="muted">Loading…</div>
+  </section>
+
   <section id="inspect">
     <h2>Inspect <small id="pinHint">hover or tap a pixel</small></h2>
     <div id="inspectBody" class="muted">Nothing selected.</div>
@@ -92,5 +99,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 </footer>
 
 <script src="map.js"></script>
+<script src="calibrate.js"></script>
 </body>
 </html>

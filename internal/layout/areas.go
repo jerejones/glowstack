@@ -113,3 +113,25 @@ func (b *builder) runPart(part config.AreaPart) []int32 {
 	}
 	return px
 }
+
+// implicitAreas makes the run:<id> and controller:<id> areas.
+func (b *builder) implicitAreas() {
+	for _, c := range b.l.Controllers {
+		px := make([]int32, c.Pixels)
+		for k := range px {
+			px[k] = c.Base + int32(k)
+		}
+		id := AreaControllerPrefix + c.ID
+		b.l.implicit[id] = &Area{ID: id, Pixels: px}
+	}
+	for i := range b.l.Runs {
+		r := &b.l.Runs[i]
+		px := make([]int32, r.Count)
+		for k := range px {
+			px[k] = r.Pixel(b.l, k)
+		}
+		slices.Sort(px)
+		id := AreaRunPrefix + r.ID
+		b.l.implicit[id] = &Area{ID: id, Pixels: px}
+	}
+}

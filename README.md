@@ -81,12 +81,17 @@ bin/glowstack ctl save-preset blue-porch --from-layer p1   # keep it (use the id
 bin/glowstack ctl presets                       # saved ones say "saved"
 bin/glowstack ctl reload                        # re-read the config folder
 bin/glowstack ctl status                        # frame rate and controller health
+bin/glowstack ctl cal start                     # calibration: white pixel = the guessed corner
+bin/glowstack ctl cal +10                       # nudge it (or -1, set 400, …)
+bin/glowstack ctl cal confirm --next            # write anchors.yaml, go to the next one
+bin/glowstack ctl cal stop                      # the house look comes back
 ```
 
 `glowctl` is the same client on its own. The map's side panel shows each
 output's estimated current, the output stage's figures after power
 limiting and the limit scale; it also has preview controls (pause, scrub,
-speed) and a form for preview-only layers. By default Glowstack sends
+speed), a form for preview-only layers, and a Calibrate panel with
+big nudge and confirm buttons for a phone. By default Glowstack sends
 nothing (`--output=none`); real controllers only receive frames with
 `--output=all` or `--output=<ids>`. `--loopback` defaults to all, because it
 only reaches local fakes.

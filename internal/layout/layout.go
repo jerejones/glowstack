@@ -56,6 +56,7 @@ type Layout struct {
 	nodeByID map[string]int
 	runByID  map[string]int
 	areaByID map[string]int
+	implicit map[string]*Area // run:<id> and controller:<id>; see Area
 }
 
 // Controller is a controller's slice of the global id space. Its pixels are
@@ -219,6 +220,7 @@ func BuildWith(cfg *config.Config, load PlanLoader) (*Layout, error) {
 			nodeByID: map[string]int{},
 			runByID:  map[string]int{},
 			areaByID: map[string]int{},
+			implicit: map[string]*Area{},
 		},
 		planByFile: map[string]int{},
 	}
@@ -237,6 +239,7 @@ func BuildWith(cfg *config.Config, load PlanLoader) (*Layout, error) {
 		b.dead()
 		b.unassigned()
 		b.areas()
+		b.implicitAreas()
 	}
 	if len(b.errs) > 0 {
 		return nil, b.errs
@@ -256,11 +259,22 @@ func (l *Layout) RunIndex(id string) (int, bool) {
 	return i, ok
 }
 
-// Area returns the area with the given id.
+// Prefixes of the implicit areas: every run and every controller is also
+// a layer target, as "run:<id>" and "controller:<id>". They aren't listed in
+// Areas (so they don't show up as areas, segments or in inspect), and an
+// areas.yaml area with the same id wins.
+const (
+	AreaRunPrefix        = "run:"
+	AreaControllerPrefix = "controller:"
+)
+
+// Area returns the area with the given id, or an implicit run or
+// controller area.
 func (l *Layout) Area(id string) (*Area, bool) {
 	i, ok := l.areaByID[id]
 	if !ok {
-		return nil, false
+		a, ok := l.implicit[id]
+		return a, ok
 	}
 	return &l.Areas[i], true
 }

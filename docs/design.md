@@ -1,8 +1,9 @@
 # Glowstack design
 
-Status: draft. Nothing here is built. This document fixes the vocabulary, the
-configuration shapes and the effect model before any code is written.
-Examples use made-up installations only.
+Status: living spec. Most of it is built; `architecture.md` describes the
+code and records where it refines this document. This document fixes the
+vocabulary, the configuration shapes and the effect model. Examples use
+made-up installations only.
 
 ## Principles
 
@@ -301,6 +302,60 @@ and the real lights together:
 
 Calibration needs DDP output to the controllers involved. Everything before it
 (drawing, estimating, designing looks on the map) works with no hardware.
+
+How it works:
+
+- **One session at a time**, held by the server, so a phone and a laptop see
+  the same one. It has a *target*: `anchor` (run, node), `end` (run,
+  `first` | `last`), `link` or `gap` (its two nodes), `dead` (controller,
+  first and last index) or `bands` (a run or a controller). A target has one
+  or two *cursors* (a link has one per side, a dead range one per end); the
+  nudge buttons move the selected one along its run, so `+` always means
+  "towards the run's end", whichever way the run was drawn.
+- **The calibration layer** is an ordinary layer with owner `calibration`
+  and the internal `calibration` effect (hidden from effect lists and the
+  WLED API). It targets the implicit area `run:<id>` or
+  `controller:<id>`, so only the controllers involved light up. It is never
+  written to `state.json`, and it stays on top: a layer pushed during a
+  session ends up underneath it within half a second.
+- **The ruler**: the cursor is white; every 10th pixel within 100 of it is
+  red towards the run's start and green towards its end, with the cursor's
+  direct neighbours a dim red and green; the rest of the run is dim grey.
+  A run end lights its whole controller, with pixels outside the run dark.
+  A dead range lights its controller, with the ruler at the selected end and
+  the range magenta. Bands are 100-pixel blocks, alternately orange and
+  blue, with every 10th pixel white.
+- **Confirming** writes `anchors.yaml` atomically and reloads the config, so
+  the layout is re-solved and the map refreshes. The new file is checked
+  first, the same way a reload checks config; if a measurement doesn't fit
+  (say, out of order along the run) nothing is written and the error comes
+  back with its line. Measured anchors are knots for the piecewise
+  estimate, so their neighbours move with them.
+- **Output.** Calibration never widens `--output`. If a controller it lights
+  isn't selected, the session says so; the live map still shows the pattern.
+
+`anchors.yaml` holds four lists, each optional, one flow-style line per
+entry, sorted in layout order:
+
+```yaml
+schema: 1
+anchors:   # a node's pixel on a run (overrides that anchor in layout.yaml)
+  - { run: shed-eave, node: shed-nw, index: 305, source: measured }
+ends:      # a run's first or last pixel (overrides indices in layout.yaml)
+  - { run: porch, last: 392 }
+gaps:      # a gap edge's length, measured by hand
+  - { from: gate-w, to: gate-e, length: 1.25 m }
+dead:      # added to the layout's dead pixels
+  - { controller: yard, indices: [100, 103] }
+```
+
+A link is calibrated by placing both of its nodes; confirming writes an
+anchor for each side that sits inside its run (a run end is already fixed).
+
+The API lives under `/api/v1/calibration/` (`GET` for the state; `POST`
+`start`, `target`, `next`, `nudge`, `set`, `side`, `confirm`, `forget`,
+`end`), the CLI under `glowstack ctl cal`, and the live map has a
+Calibrate panel.
 
 ### Areas and zones
 
@@ -742,7 +797,7 @@ wled.fx: 87  "Glitter"
 ```text
 layer:
   id            stable id (returned to the caller)
-  owner         who created it: api | wled-device:<zone>/<segment> | cli
+  owner         who created it: api | wled-device:<zone>/<segment> | cli | calibration
   target        area id
   effect        effect id + params (or preset id + overrides)
   mapping       mapping id or inline (defaults to the zone's)

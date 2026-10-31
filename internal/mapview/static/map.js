@@ -499,6 +499,7 @@ function bindUI() {
       S.pinned = p;
       S.hover = -1;
       inspect(p);
+      document.dispatchEvent(new CustomEvent('glowstack:tap', { detail: p })); // calibrate.js
       markDirty();
     }
     pointers.delete(e.pointerId);
