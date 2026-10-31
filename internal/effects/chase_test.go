@@ -34,3 +34,24 @@ func TestChaseKeepsMovingPulseColour(t *testing.T) {
 		})
 	}
 }
+
+func TestChaseSubpixelColours(t *testing.T) {
+	d := Chase()
+	for _, tc := range []struct {
+		name     string
+		u, pitch float64
+		want     color.Color
+	}{
+		{"before head", 0.975, 0.1, color.Color{B: 1, A: 0.25}},
+		{"several pulses", 0.25, 3, color.Color{R: 1.0 / 3, B: 2.0 / 3, A: 0.5}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newStrip(1, tc.pitch, 1)
+			s.u[0] = float32(tc.u)
+			out := s.render(t, d, map[string]any{"width": "0.5 m", "spacing": "1 m", "speed": "0 m/s", "colors": []any{"#ff0000", "#0000ff"}, "overlay": true}, epoch)
+			if !near(out[0], tc.want, 1e-5) {
+				t.Errorf("got %+v, want %+v", out[0], tc.want)
+			}
+		})
+	}
+}
