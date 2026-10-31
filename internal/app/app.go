@@ -54,7 +54,7 @@ type Service func(ctx context.Context, a *App) error
 // Options configures New.
 type Options struct {
 	ConfigDir string
-	DataDir   string // "" keeps state in memory only
+	DataDir   string  // "" keeps state in memory only
 	FPS       float64 // 0 = glowstack.yaml's fps
 	Clock     clock.Source
 	Sink      output.Sink  // nil = output.Discard
