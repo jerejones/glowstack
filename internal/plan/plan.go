@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -299,6 +300,9 @@ func buildPath(id string, verts []vertex, nodes string, m matrix) (*Path, error)
 			k++
 		}
 		p := m.apply(v.p)
+		if math.IsNaN(p.X) || math.IsNaN(p.Y) || math.IsInf(p.X, 0) || math.IsInf(p.Y, 0) {
+			return nil, fmt.Errorf("plan: shape %q: non-finite coordinate after transform", id)
+		}
 		if n := len(points); n > 0 && samePoint(points[n-1], p) {
 			// Zero-length segment: keep one point, merge labels.
 			if l != "" {
@@ -313,7 +317,11 @@ func buildPath(id string, verts []vertex, nodes string, m matrix) (*Path, error)
 		labels = append(labels, l)
 	}
 
-	return &Path{ID: id, Points: points, Labels: labels}, nil
+	p := &Path{ID: id, Points: points, Labels: labels}
+	if math.IsInf(p.Length(), 0) || math.IsNaN(p.Length()) {
+		return nil, fmt.Errorf("plan: shape %q: non-finite path length", id)
+	}
+	return p, nil
 }
 
 func samePoint(a, b Point) bool {
