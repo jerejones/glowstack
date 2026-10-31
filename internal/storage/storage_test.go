@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -158,5 +159,53 @@ func TestSaverCloseStopsTriggersBeforeFinalSave(t *testing.T) {
 	}
 	if got := saves.Load(); got != 1 {
 		t.Fatalf("accepted a trigger during Close: %d saves, want 1", got)
+	}
+}
+
+func TestSaverFlushCancelsChangesQueuedDuringSave(t *testing.T) {
+	started, release := make(chan struct{}), make(chan struct{})
+	var saves atomic.Int32
+	s := NewSaver(time.Hour, func() error {
+		if saves.Add(1) == 1 {
+			close(started)
+			<-release
+		}
+		return nil
+	}, nil)
+	s.Trigger()
+	<-started
+	// Give Flush a timer to stop, then wait until it has stopped it and
+	// is blocked behind the in-flight save.
+	s.Trigger()
+	done := make(chan error, 1)
+	go func() { done <- s.Flush() }()
+	deadline := time.Now().Add(time.Second)
+	for {
+		s.mu.Lock()
+		stopped := s.timer == nil
+		s.mu.Unlock()
+		if stopped {
+			break
+		}
+		if time.Now().After(deadline) {
+			close(release)
+			t.Fatal("Flush did not stop its pending timer")
+		}
+		runtime.Gosched()
+	}
+	// A later change arms another timer while Flush waits.
+	s.Trigger()
+	s.mu.Lock()
+	pending := s.timer
+	s.mu.Unlock()
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if pending != nil && pending.Stop() {
+		t.Fatal("Flush left a timer armed for a change it already saved")
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
 	}
 }
