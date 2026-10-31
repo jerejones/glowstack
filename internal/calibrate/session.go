@@ -594,10 +594,13 @@ func (m *Manager) sync() error {
 	for i, s := range specs {
 		cur := top[i]
 		want := m.layer(s)
-		if cur.Target == want.Target && reflect.DeepEqual(normalise(cur.Params), normalise(want.Params)) {
+		if cur.Effect == want.Effect && cur.Preset == want.Preset && cur.Target == want.Target && reflect.DeepEqual(normalise(cur.Params), normalise(want.Params)) {
 			continue
 		}
-		if _, err := st.Edit(m.layers[i], func(l *stack.Layer) { l.Target, l.Params = want.Target, want.Params }); err != nil {
+		if _, err := st.Edit(m.layers[i], func(l *stack.Layer) {
+			l.Effect, l.Preset = want.Effect, want.Preset
+			l.Target, l.Params = want.Target, want.Params
+		}); err != nil {
 			return fmt.Errorf("updating the calibration layer: %w", err)
 		}
 	}
