@@ -62,7 +62,9 @@ func renderChase(ctx *render.Context, out []color.Color) {
 			continue
 		}
 		w = min(w, p)
-		pos := float64(ctx.U[i]) - travel(speed, ctx.T, p)
+		// Reduce by the full colour cycle, so wrapping the phase does
+		// not change which colour belongs to a moving pulse.
+		pos := float64(ctx.U[i]) - travel(speed, ctx.T, p*float64(len(cols)))
 		x := wrap(pos, p)
 		pulse := math.Floor(pos / p) // which pulse's period this is
 
