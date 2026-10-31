@@ -13,7 +13,13 @@
 //     HTTP API, the WLED-compatible devices and the live map. Each runs
 //     in its own goroutine for the life of Run.
 //   - App.OnFrame: per-frame observers (the live map).
+//   - App.OnReload: told after a config reload replaced the layout.
+//   - App.Preview: a second stack for "try before applying" layers that
+//     only the live map renders.
 //   - Options.Effects: effect registration (default effects.Register).
+//
+// Brightness (App.SetMaster, App.SetZoneBrightness) and Reload are safe to
+// call from any goroutine; they take effect from the next frame.
 package app
 
 import (
@@ -64,7 +70,10 @@ type Options struct {
 	Log       *slog.Logger
 }
 
-// App is a running Glowstack. Its exported fields are read-only after New.
+// App is a running Glowstack. Its exported fields are read-only after New,
+// except that Reload replaces Config, Layout, Mappings, Palettes, Engine
+// and Compositor. Code on other goroutines that may run during a reload
+// should read those through Current.
 type App struct {
 	Config     *config.Config
 	Layout     *layout.Layout
@@ -80,6 +89,9 @@ type App struct {
 	Log        *slog.Logger
 	// Restored lists warnings from restoring state.json.
 	Restored []string
+	// Preview holds preview-only layers: validated like Stack's, never
+	// saved, and rendered only by the live map, not to the outputs.
+	Preview *stack.Stack
 
 	opts   Options
 	saver  *storage.Saver
@@ -90,8 +102,20 @@ type App struct {
 	active []stack.Active
 	layers []*render.Layer
 
+	// mu guards the fields Reload replaces (see Current) and gen.
+	mu       sync.RWMutex
+	gen      uint64     // increases on every reload
+	reloadMu sync.Mutex // one Reload at a time
+
+	levels levels
+	stats  stats
+	// Frame-loop state: the reload generation and brightness version the
+	// outputs and gains were last set up for.
+	outGen, gainGen, gainLevels uint64
+
 	obsMu     sync.RWMutex
 	observers []func(clock.Frame, *render.Buffer)
+	onReload  []func()
 }
 
 // New loads the config and data folders, solves the layout and mappings,
@@ -124,8 +148,12 @@ func New(opts Options) (*App, error) {
 	a.Engine.OnError = func(id string, err error) { a.Log.Error("layer can't be rendered", "layer", id, "err", err) }
 
 	s := a.Config.Settings
-	a.Stack = stack.New(a.Clock, stack.Fades{In: time.Duration(*s.Fade.In), Out: time.Duration(*s.Fade.Out)})
-	a.Stack.Validate = a.Engine.Check
+	fades := stack.Fades{In: time.Duration(*s.Fade.In), Out: time.Duration(*s.Fade.Out)}
+	a.Stack = stack.New(a.Clock, fades)
+	a.Preview = stack.New(a.Clock, fades)
+	// Validate through Current so a reload's new engine takes over.
+	validate := func(l *stack.Layer) error { return a.Current().Engine.Check(l) }
+	a.Stack.Validate, a.Preview.Validate = validate, validate
 	if opts.DataDir != "" {
 		a.Store = storage.Dir(opts.DataDir)
 	} else {
@@ -139,6 +167,9 @@ func New(opts Options) (*App, error) {
 	a.saver = storage.NewSaver(SaveInterval, func() error { return a.Stack.Save(a.Store) },
 		func(err error) { a.Log.Error("saving the stack", "err", err) })
 	a.Stack.OnChange(a.saver.Trigger)
+	if err := a.loadLevels(); err != nil {
+		return nil, err
+	}
 
 	a.sink = cmp.Or[output.Sink](opts.Sink, output.Discard{})
 	a.stage = cmp.Or[output.Stage](opts.Stage, output.Quantize{Layout: a.Layout})
@@ -161,21 +192,35 @@ func (a *App) OnFrame(fn func(clock.Frame, *render.Buffer)) {
 // RenderFrame renders, observes and sends one frame. Run calls it on each
 // tick; tests call it directly.
 func (a *App) RenderFrame(f clock.Frame) error {
+	start := time.Now()
+	// Take this frame's view; a concurrent Reload swaps in a new one for
+	// the next frame and never touches these.
+	a.mu.RLock()
+	gen, eng, comp, buf, frames, stage := a.gen, a.Engine, a.Compositor, a.buf, a.frames, a.stage
+	cfg, lay := a.Config, a.Layout
+	a.mu.RUnlock()
+	if gen != a.outGen {
+		a.outGen = gen
+		a.rebuildOutputs(stage, cfg, lay)
+	}
+	a.applyLevels(gen, comp, cfg, lay)
+
 	a.active = a.Stack.Frame(f.Time, a.active[:0])
-	a.layers = a.Engine.Resolve(a.active, a.layers[:0])
-	a.Compositor.Render(f, a.layers, a.buf)
+	a.layers = eng.Resolve(a.active, a.layers[:0])
+	comp.Render(f, a.layers, buf)
 	a.obsMu.RLock()
 	for _, fn := range a.observers {
-		fn(f, a.buf)
+		fn(f, buf)
 	}
 	a.obsMu.RUnlock()
-	a.stage.Process(f, a.buf, a.frames)
+	stage.Process(f, buf, frames)
 	var errs []error
-	for i := range a.frames {
-		if err := a.sink.Send(&a.frames[i]); err != nil {
+	for i := range frames {
+		if err := a.sink.Send(&frames[i]); err != nil {
 			errs = append(errs, err)
 		}
 	}
+	a.stats.record(start, time.Now())
 	return errors.Join(errs...)
 }
 
@@ -210,7 +255,7 @@ func (a *App) Run(ctx context.Context) error {
 
 // Close saves pending stack changes and closes the sink.
 func (a *App) Close() error {
-	return errors.Join(a.saver.Close(), a.sink.Close())
+	return errors.Join(a.saver.Close(), a.levels.saver.Close(), a.sink.Close())
 }
 
 // Summary writes a human-readable description of the installation.
