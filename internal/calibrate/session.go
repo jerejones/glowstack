@@ -690,6 +690,8 @@ func check(configDir, dataDir string, data []byte) error {
 		if err := os.WriteFile(filepath.Join(tmp, config.SavedPresetsFileName), saved, 0o644); err != nil {
 			return err
 		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("checking %s: %w", config.SavedPresetsFileName, err)
 	}
 	if err := os.WriteFile(filepath.Join(tmp, config.AnchorsFileName), data, 0o644); err != nil {
 		return err
