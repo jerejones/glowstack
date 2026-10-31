@@ -6,8 +6,9 @@ every pixel and streams each controller its frame. Lighting is organised into
 zones and areas that can be controlled independently from Home Assistant,
 because Glowstack presents itself as ordinary WLED devices.
 
-> **Status: planning.** No code yet. This README describes the design being
-> built.
+> **Status: early.** The core runs (config, layout solver, layer stack,
+> compositor, frame loop) but doesn't drive any LEDs yet. This README
+> describes the design being built; `docs/architecture.md` maps it to code.
 
 ## Why
 

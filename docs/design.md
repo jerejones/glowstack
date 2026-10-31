@@ -66,6 +66,7 @@ how often it changes:
 
 | File | Contents | Changes when |
 |---|---|---|
+| `glowstack.yaml` | Optional program settings: `fps`, `boot`, default `fade` times | Rarely |
 | `controllers.yaml` | Controllers, outputs, transport settings | Hardware or network changes |
 | `layout.yaml` | Runs, nodes, anchors, edges, plan coordinates | Strips are repaired, moved or measured |
 | `areas.yaml` | Areas and zones, virtual device identity | Grouping changes |
@@ -186,6 +187,8 @@ runs:
       - { node: shed-sw, index: 402 }
       - { node: shed-nw, index: 815 }
     plan: { svg: "plan.svg#eave", reverse: false }   # optional
+    lengths:                   # optional measured lengths between path nodes
+      - { from: shed-sw, to: shed-nw, length: 6.9 m }
 
   - id: tower
     controller: shed
@@ -205,8 +208,13 @@ dead:                          # pixels physically present but unlit or hidden
 - **Node at an arbitrary pixel.** A link may need a node partway along a run,
   like `shed-eave-mid`. Declare it with an extra anchor on that run.
 - **Edge length.** By default the length is pixel count × pitch. A measured
-  `length:` on an anchor-to-anchor stretch overrides it, for example where a
-  strip is cut and jumped around an obstacle.
+  length in the run's `lengths:` list overrides it for the stretch between
+  two consecutive path nodes, for example where a strip is cut and jumped
+  around an obstacle.
+- **Positions along a run.** Positions are measured in pixel cells: the run
+  starts at 0, pixel *k*'s centre is at *k* + ½ and the run ends at its
+  pixel count. An anchor puts its node at its pixel's centre. The run's two
+  end nodes sit at the run's ends, so they take no anchor.
 - **Plan coordinates.** Pixels are spaced evenly along an SVG path between
   anchors. Anchors can name SVG vertices so that corners land on corners.
   Anchors can be estimated from the drawing (see "Drawing first, measuring
@@ -227,8 +235,10 @@ drawing and refine from there:
 
 1. **Draw the runs.** Each run gets an SVG path on the plan, drawn in data
    direction from its first pixel, with a vertex at every corner and feature.
-   Vertices can carry node ids (`inkscape:label` or a `data-node`
-   attribute), so the path doubles as the run's node list.
+   Vertices can carry node ids: a `data-nodes` attribute on the path lists
+   one node id per drawn vertex, in order (empty entries leave a vertex
+   unlabelled), so the path doubles as the run's node list. The path itself
+   is found by its `id` or `inkscape:label`.
 2. **Estimate anchors.** Glowstack knows the run's pixel count and pitch,
    which give its true physical length. It scales the drawn path to that
    length and places each vertex at the index proportional to its distance
@@ -296,6 +306,8 @@ areas:
     include: [shed-eave, fence, wall]
   - id: porch
     include: [{ run: shed-eave, from: shed-nw, to: shed-ne }]  # by node or index
+  - id: everything
+    include: [{ area: front }, { area: porch }]               # other areas
 zones:
   - id: front
     area: front
@@ -426,6 +438,11 @@ palettes:
 - **White channel.** Colours may give white explicitly (`"#ff8000/40"` = RGB
   plus W). Otherwise the layer's `white` mode derives it: `none`, `brighter`
   or `accurate`, as in WLED's auto-white.
+- **Linear light.** Authored colours are perceptual, like WLED's. They're
+  decoded once to linear light with gamma 2.8 (WLED's default), and all
+  compositing, brightness and power maths happens in linear light. The
+  output stage therefore doesn't apply gamma again: linear values are LED
+  drive levels.
 
 ## Effects
 
@@ -464,6 +481,7 @@ how an overlay effect works.
 | `enum` | one of a declared list | |
 | `bool` | | |
 | `seed` | integer | Random effects are reproducible |
+| `int`, `number` | `3`, `0.25` | Plain counts and factors with no unit |
 | `list` of struct | e.g. bands `[{color, width}]` | |
 
 Every parameter has a default, so an effect with no parameters set still runs.
