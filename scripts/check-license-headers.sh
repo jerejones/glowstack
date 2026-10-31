@@ -41,7 +41,9 @@ missing=()
 for f in "${files[@]}"; do
   is_source "$f" || continue
   if [[ $mode == staged ]]; then
-    content=$(git show ":$f" | head -n "$HEAD_LINES")
+    # sed reads all its input; head would exit early and, with pipefail,
+    # fail the check when git show gets SIGPIPE on a larger file.
+    content=$(git show ":$f" | sed -n "1,${HEAD_LINES}p")
   else
     content=$(head -n "$HEAD_LINES" -- "$f")
   fi
