@@ -266,7 +266,10 @@ func (c *Cache) Resolve(p *Palette, colors []color.Color, t float64, dflt *Palet
 		slot := math.Floor(t / RandomCycle)
 		key = int64(slot) << 16
 		if t-slot*RandomCycle < RandomFade {
-			key |= 1 + int64((t-slot*RandomCycle)*100) // re-resolve every 10 ms while fading
+			// A fade is a function of the exact frame time. Coarse cache
+			// buckets would reuse whichever time this instance saw first,
+			// making a scrubbed preview disagree with the house.
+			key = int64(math.Float64bits(t))
 		}
 	}
 	var cols [3]color.Color
