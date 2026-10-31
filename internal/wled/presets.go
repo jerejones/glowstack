@@ -151,9 +151,7 @@ func (d *Devices) presetsModified(cfg *config.Config) int64 {
 		fmt.Fprintf(&b, "%d\x00%s\x00%s\x00%s\n", d.saved.Presets[p.ID], p.ID, p.Name, p.Effect)
 	}
 	if key := b.String(); key != d.pkey {
-		if d.pkey != "" {
-			d.pmt = max(d.pmt+1, time.Now().Unix())
-		}
+		d.pmt = max(d.pmt+1, time.Now().Unix())
 		d.pkey = key
 	}
 	return d.pmt
