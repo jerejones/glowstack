@@ -182,3 +182,23 @@ func TestWLEDOwner(t *testing.T) {
 		t.Errorf("by owner: %+v", got)
 	}
 }
+
+func TestPushReservesIDDuringFadeOut(t *testing.T) {
+	s, c := newStack()
+	l := Layer{ID: "chosen", Target: "porch", Effect: "solid"}
+	if _, err := s.Push(l); err != nil {
+		t.Fatal(err)
+	}
+	c.Advance(time.Second)
+	if err := s.Remove(l.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Push(l); err == nil {
+		t.Fatal("accepted an ID still used by a fading layer")
+	}
+	c.Advance(2 * time.Second)
+	s.Frame(c.Now(), nil)
+	if _, err := s.Push(l); err != nil {
+		t.Fatalf("ID should be available after the fade finishes: %v", err)
+	}
+}
