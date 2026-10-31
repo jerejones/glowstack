@@ -217,7 +217,7 @@ func (m *Map) inspect(v app.View, p int32) *PixelJSON {
 		out.Frame, out.Preview = s.Seq, s.Preview
 		out.RGB = fmt.Sprintf("#%02x%02x%02x", s.RGB[3*p], s.RGB[3*p+1], s.RGB[3*p+2])
 		if t := s.Top[p]; t >= 0 {
-			out.Showing = m.showing(s.Layers[t])
+			out.Showing = m.showing(s.Layers[t], s.Preview)
 		}
 	}
 	return out
@@ -225,10 +225,13 @@ func (m *Map) inspect(v app.View, p int32) *PixelJSON {
 
 // showing describes layer id from the preview stack or the house stack.
 // Preview layers are renamed in the preview pass (see previewName).
-func (m *Map) showing(id string) *ShowingJSON {
-	if pid, ok := strings.CutPrefix(id, previewIDPrefix); ok {
+func (m *Map) showing(id string, preview bool) *ShowingJSON {
+	if pid, ok := strings.CutPrefix(id, previewIDPrefix); preview && ok {
 		l, _ := m.app.Preview.Get(pid)
 		return &ShowingJSON{Layer: pid, Preview: true, Effect: l.Effect, Preset: l.Preset, Target: l.Target, Owner: l.Owner}
+	}
+	if preview {
+		id = strings.TrimPrefix(id, houseIDPrefix)
 	}
 	if l, ok := m.app.Stack.Get(id); ok {
 		return &ShowingJSON{Layer: id, Effect: l.Effect, Preset: l.Preset, Target: l.Target, Owner: l.Owner}

@@ -511,7 +511,7 @@ func TestPreviewRendersWithoutTouchingTheHouse(t *testing.T) {
 	}
 	// The brief house layer has ended at the preview's time; the porch
 	// shows the long-lived house layer.
-	if got := s.RGB[3*p : 3*p+3]; got[1] != 0 || got[2] != 255 || s.Layers[s.Top[p]] != house.ID {
+	if got := s.RGB[3*p : 3*p+3]; got[1] != 0 || got[2] != 255 || s.Layers[s.Top[p]] != houseIDPrefix+house.ID {
 		t.Errorf("porch %v top %v", got, s.Layers[s.Top[p]])
 	}
 	if sh := m.inspect(m.state().View, y).Showing; sh == nil || !sh.Preview || sh.Layer != pl.ID {

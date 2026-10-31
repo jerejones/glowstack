@@ -30,6 +30,10 @@ const OwnerPreview = "live-map"
 // Snapshot.Layers.
 const previewIDPrefix = "preview:"
 
+// House ids are also namespaced in the preview pass, since callers may
+// choose any id, including one beginning with previewIDPrefix.
+const houseIDPrefix = "house:"
+
 // PreviewState is the preview clock and layers as the page sees them.
 type PreviewState struct {
 	// Following: the preview clock is in step with the house, so with no

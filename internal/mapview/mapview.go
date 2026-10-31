@@ -287,6 +287,7 @@ func (m *Map) previewActive(now time.Time, dst []stack.Active) []stack.Active {
 	}
 	for _, l := range m.app.Stack.List() {
 		if live(l) {
+			l.ID = houseIDPrefix + l.ID
 			dst = append(dst, stack.Active{Layer: l, Fade: 1})
 		}
 	}
