@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -669,5 +670,47 @@ func TestSessionSurvivesTargetRemovedDuringStackChange(t *testing.T) {
 	}
 	if err := f.m.Keep(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestConfirmRollsBackIfReloadFailsAfterValidation(t *testing.T) {
+	f := newFixture(t, exampleDir+"/data", nil)
+	before := f.file()
+	f.ok(f.m.Select(Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-eave-mid"}))
+	f.ok(f.m.Nudge(-1, 1))
+	entered, resume := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	f.app.OnReload(func() { once.Do(func() { close(entered); <-resume }) })
+	reloaded := make(chan error, 1)
+	go func() { _, err := f.app.Reload(); reloaded <- err }()
+	<-entered
+	confirmed := make(chan error, 1)
+	go func() { _, err := f.m.Confirm(ConfirmOptions{}); confirmed <- err }()
+	// The old implementation writes while another reload is still in its
+	// observers. A transaction may instead wait before writing. Exercise
+	// both schedules, then change the config before Confirm's own reload.
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		b, err := os.ReadFile(filepath.Join(f.data, config.AnchorsFileName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != before {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := os.WriteFile(filepath.Join(f.config, config.SettingsFileName), []byte("schema: 999\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	close(resume)
+	if err := <-reloaded; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-confirmed; err == nil {
+		t.Fatal("confirm succeeded with invalid config")
+	}
+	if got := f.file(); got != before {
+		t.Errorf("failed reload changed anchors.yaml:\n%s", got)
 	}
 }
