@@ -210,3 +210,20 @@ func TestWhiteModes(t *testing.T) {
 func testPalettes() *palette.Registry {
 	return palette.NewRegistry(nil)
 }
+
+func TestSliderPreservesStructuredPhysicalMeasure(t *testing.T) {
+	d := bindingDef()
+	env := Env{Pitch: 0.1, Palettes: testPalettes()}
+	raw := map[string]any{"bands": []any{map[string]any{"width": map[string]any{"value": "3 m", "measure": "physical"}}}}
+	updated, err := d.SetWLED(raw, SliderIntensity, 128, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := Resolve(d.Params, updated, env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := v.List("bands")[0].Length("width").Measure; got != MeasurePhysical {
+		t.Fatalf("slider changed structured physical width to %q", got)
+	}
+}
