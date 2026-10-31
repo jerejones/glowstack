@@ -43,6 +43,7 @@ func TestCombinedBrightnessAndOn(t *testing.T) {
 		wantOn         bool
 	}{
 		{"master zero and on", `"bri":0,"on":true`, false, true},
+		{"master zero and toggle", `"bri":0,"on":"t"`, false, true},
 		{"segment zero and toggle", `"bri":0,"on":"t"`, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -58,6 +59,23 @@ func TestCombinedBrightnessAndOn(t *testing.T) {
 			}
 			if st["on"] != tc.wantOn || num(st["bri"]) != 100 {
 				t.Errorf("on/bri = %v/%v, want %v/100", st["on"], st["bri"], tc.wantOn)
+			}
+		})
+	}
+}
+
+func TestBrightnessRememberedWhileTurningOff(t *testing.T) {
+	for _, wasOn := range []bool{false, true} {
+		t.Run(fmt.Sprint(wasOn), func(t *testing.T) {
+			f := newFixture(t)
+			f.post(fmt.Sprintf(`{"bri":100,"on":%v}`, wasOn))
+			st := f.post(`{"bri":200,"on":false}`)
+			if st["on"] != false || num(st["bri"]) != 200 {
+				t.Errorf("off with bri=200 reports %v/%v", st["on"], st["bri"])
+			}
+			st = f.post(`{"on":true}`)
+			if st["on"] != true || num(st["bri"]) != 200 {
+				t.Errorf("on again reports %v/%v, want true/200", st["on"], st["bri"])
 			}
 		})
 	}
