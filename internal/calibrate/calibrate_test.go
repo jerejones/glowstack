@@ -613,3 +613,24 @@ func TestConfirmDoesNotWriteWhenSavedPresetsCannotBeRead(t *testing.T) {
 		t.Errorf("failed confirm changed anchors.yaml:\n%s", got)
 	}
 }
+
+func TestForgetRejectsInvalidTargets(t *testing.T) {
+	f := newFixture(t, exampleDir+"/data", nil)
+	for _, end := range []string{EndFirst, EndLast} {
+		f.ok(f.m.Select(Target{Kind: KindEnd, Run: "porch", End: end}))
+		f.ok(f.m.Confirm(ConfirmOptions{}))
+	}
+	before := f.file()
+	for _, target := range []Target{
+		{Kind: KindEnd, Run: "porch", End: "middle"},
+		{Kind: KindLink, From: "shed-sw", To: "shed-nw"}, // no link joins these anchors
+	} {
+		_, err := f.m.Forget(&target)
+		if err == nil {
+			t.Errorf("forgot invalid target %+v", target)
+		}
+		if got := f.file(); got != before {
+			t.Fatalf("invalid forget changed anchors.yaml:\n%s", got)
+		}
+	}
+}
