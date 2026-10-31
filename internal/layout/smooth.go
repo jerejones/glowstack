@@ -13,6 +13,7 @@ import "math"
 // keeps its own linear slope, so the curve never overshoots.
 func (s *flowSolver) smooth(m *Mapping) {
 	l, info := s.l, m.Flow
+	s.smoothStretch = map[int][2]float64{}
 	for ri := range l.Runs {
 		r := &l.Runs[ri]
 		var knotAnchor []int
@@ -67,6 +68,9 @@ func (s *flowSolver) smooth(m *Mapping) {
 			}
 			h, u0, u1, d0, d1 := ks[i+1]-ks[i], ku[i], ku[i+1], dRight[i], dLeft[i+1]
 			for j := knotAnchor[i]; j < knotAnchor[i+1]; j++ {
+				t0 := (r.Anchors[j].Dist - ks[i]) / h
+				t1 := (r.Anchors[j+1].Dist - ks[i]) / h
+				s.smoothStretch[r.Edges[j]] = splineStretchBounds(u0, u1, h, d0, d1, t0, t1)
 				for _, g := range l.Edges[r.Edges[j]].Pixels {
 					t := (float64(l.Pixels[g].RunDist) - ks[i]) / h
 					t2, t3 := t*t, t*t*t
@@ -78,4 +82,25 @@ func (s *flowSolver) smooth(m *Mapping) {
 			}
 		}
 	}
+}
+
+// splineStretchBounds gives exact dl/du extrema on a Hermite interval's
+// subspan. Its derivative is quadratic, so only endpoints and its vertex
+// can attain extrema; a zero derivative means infinite stretch.
+func splineStretchBounds(u0, u1, h, d0, d1, t0, t1 float64) [2]float64 {
+	a := 6*(u0-u1)/h + 3*(d0+d1)
+	b := -6*(u0-u1)/h - 4*d0 - 2*d1
+	du := func(t float64) float64 { return (a*t+b)*t + d0 }
+	lo, hi := math.Min(du(t0), du(t1)), math.Max(du(t0), du(t1))
+	if a != 0 {
+		t := -b / (2 * a)
+		if t > t0 && t < t1 {
+			lo, hi = math.Min(lo, du(t)), math.Max(hi, du(t))
+		}
+	}
+	minAbs, maxAbs := math.Min(math.Abs(lo), math.Abs(hi)), math.Max(math.Abs(lo), math.Abs(hi))
+	if lo <= 0 && hi >= 0 {
+		minAbs = 0
+	}
+	return [2]float64{1 / maxAbs, 1 / minAbs}
 }

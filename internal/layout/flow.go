@@ -88,10 +88,11 @@ type flowSolver struct {
 	chains  []flowChain
 	bundles []flowBundle
 
-	u       []float64 // per group
-	dist    []float64
-	root    []int
-	settled []bool
+	u             []float64 // per group
+	dist          []float64
+	root          []int
+	settled       []bool
+	smoothStretch map[int][2]float64 // per-edge local extrema after smoothing
 }
 
 type incidence struct {
@@ -579,6 +580,17 @@ func (s *flowSolver) fill(origin int) *Mapping {
 		for ci := range s.chains {
 			c := &s.chains[ci]
 			st := info.EdgeStretch[c.edges[0]]
+			// A smooth spline can exceed the limit between knots even when
+			// the chain's average stretch is within it.
+			for _, ei := range c.edges {
+				if bounds, ok := s.smoothStretch[ei]; ok {
+					if bounds[1] > s.f.MaxStretch*(1+1e-9) {
+						st = bounds[1]
+					} else if bounds[0] < 1/s.f.MaxStretch*(1-1e-9) {
+						st = bounds[0]
+					}
+				}
+			}
 			if math.IsNaN(st) || (st <= s.f.MaxStretch*(1+1e-9) && st >= 1/s.f.MaxStretch*(1-1e-9)) {
 				continue
 			}
