@@ -673,7 +673,7 @@ async function refreshSide() {
   const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
   const stageRow = (o) => `<div class="row"><span>${esc(o.controller)}${o.pin ? ' pin ' + o.pin : ' total'}</span>
       <span>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}${o.max_ma ? ' / ' + (o.max_ma / 1000).toFixed(1) + ' A' : ''}${o.need < 0.9995 ? ` · <b>×${o.need.toFixed(3)}</b>` : ''}</span></div>`;
-  const stage = st ? `<details class="stage"><summary>output stage (house, after limiting)</summary>${(st.outputs || []).map(stageRow).join('')}${(st.controllers || []).map(stageRow).join('')}</details>` : '';
+  const stage = st ? `<div class="stage"><div class="muted">output stage (house frames, after limiting)</div>${(st.outputs || []).map(stageRow).join('')}${(st.controllers || []).map(stageRow).join('')}</div>` : '';
   $('power').classList.toggle('muted', !pw.frame);
   $('power').innerHTML = pw.frame ? `${rows}<div class="muted">estimate totals: ${totals}</div><div>limit scale: <b>${scale}</b></div>${stage}` : 'No frame yet.';
 }

@@ -63,7 +63,8 @@ select, button, input, textarea {
 button { cursor: pointer; }
 button:hover, select:hover { border-color: #4a505a; }
 button.on { background: #3a2e1a; border-color: var(--accent); }
-textarea { width: 100%; font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+textarea { width: 100%; box-sizing: border-box; display: block; margin-top: 3px; font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+label.wide { display: block; white-space: normal; }
 input[type=range] { vertical-align: middle; padding: 0; }
 .speed input { width: 110px; }
 .scrub input { width: min(320px, 40vw); }
@@ -93,6 +94,8 @@ table.kv td { padding: 1px 0; word-break: break-word; }
 .pw .bar > span { display: block; height: 100%; background: #5ddc8a; }
 .pw .bar > span.hot { background: #ff7b47; }
 .pw .row { display: flex; justify-content: space-between; font-size: 12px; }
+.stage { margin-top: 6px; }
+.stage .row { display: flex; justify-content: space-between; font-size: 12px; }
 
 /* Phones: the panel becomes a bottom sheet over the map. */
 @media (max-width: 760px) {
