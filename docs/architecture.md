@@ -40,8 +40,12 @@ frame; everything up to the stack is built once at start.
 | `internal/engine` | Stack layers to render layers: presets, mapping precedence, params at the target's pitch, geometry, caching. |
 | `internal/storage` | `Store` (atomic file writes in the data folder, or memory) and the debounced `Saver`. |
 | `internal/output` | `Stage` and `Sink`, the controller `Frame`, `Quantize` (a placeholder stage), `Discard`, `Multi`. |
-| `internal/app` | Wiring, the frame loop, `Summary`, and the seams below. |
-| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`. |
+| `internal/app` | Wiring, the frame loop, `Summary`, master and zone brightness, config reload, frame stats, and the seams below. |
+| `internal/httpserver` | The one HTTP server. Features register routes through a `Mount`; it runs as an `app.Service` on `--http` and shuts down gracefully. `Authorize` is the auth hook (none for now: LAN only). |
+| `internal/api` | The native control API under `/api/v1/` (routes in the package doc). |
+| `internal/ctl` | The command-line client for the API: `glowstack ctl …` or `glowctl …`. |
+| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
+| `cmd/glowctl` | The client on its own. |
 
 ## Seams
 
@@ -69,6 +73,26 @@ change them in one place when they need to grow.
   (`App.Engine.Check`), the layout and the registries through the App.
 - **`app.App.OnFrame`.** Per-frame observer on the frame goroutine. It gets
   the linear buffer and must copy what it needs and return quickly.
+- **`app.App.Current` and `Reload`.** `Reload` re-reads the config and
+  data folders and swaps in a new config, layout, mappings, palettes and
+  engine between frames. Code on other goroutines reads those through
+  `Current()` (a consistent `View`), not the exported fields, which
+  `Reload` replaces. `OnReload` tells services afterwards. An output stage
+  or sink that depends on the layout implements `app.Rebuilder`; it's
+  called on the frame loop before the next frame.
+- **Brightness.** `App.SetMaster`, `App.SetZoneBrightness` and
+  `App.Brightness` are safe from any goroutine; the frame loop turns them
+  into `Compositor.Master` and `Compositor.Gain`. Don't set those
+  directly. The WLED devices should use these for `bri`.
+- **`app.App.Preview`.** A second stack for preview-only layers ("try
+  before applying"). It's validated like the real one and never saved or
+  sent to the lights; the live map renders it.
+- **`httpserver.Mount`.** `func(*app.App, *httpserver.Server) error`. A
+  feature registers its routes on the shared server (the API owns
+  `/api/v1/`, the live map `/map/` and `/api/map/`).
+- **`api.HealthReporter`.** An output sink or stage with `Health() any`
+  has its controller health shown by `/api/v1/status` and
+  `/api/v1/controllers`.
 - **`storage.Store`.** Everything Glowstack writes goes through it:
   `state.json` now, and `anchors.yaml` and `presets.saved.yaml` later.
 
@@ -119,7 +143,8 @@ These are choices the design left open, recorded so they can be revisited.
    index.
 10. **`int` and `number`** parameter types were added for unitless counts.
 11. **Zone brightness** is a per-pixel `Compositor.Gain` array, and master
-    brightness is `Compositor.Master`. The WLED device layer sets them.
+    brightness is `Compositor.Master`. The frame loop sets them from
+    `App.SetMaster` and `App.SetZoneBrightness`.
 12. **Areas may include other areas** with `{ area: id }`.
 13. **`local`, `index` and `plan`** are built-in mapping ids and are
     reserved.
@@ -132,6 +157,30 @@ These are choices the design left open, recorded so they can be revisited.
 17. **Layer pitch** (for `px` params) is the most common pitch among the
     target's runs.
 
+Decisions made while building the control API:
+
+18. **Reload re-solves everything** every time (it takes milliseconds), so
+    there's no separate "hot" path: palettes, presets and mappings change
+    in place, and layout, area and controller changes rebuild the pixel
+    table. Every layer is resolved again, so stateful effects restart.
+    Layers that no longer validate are dropped at once, without a fade.
+    The fps and default fades from `glowstack.yaml` are applied; the
+    effect registry is code and doesn't change.
+19. **Zone brightness multiplies** where zones overlap, and master and zone
+    brightness persist in `brightness.json` in the data folder.
+20. **Edits always change `Updated`**, even within one clock reading,
+    because the engine rebuilds a layer only when it changes.
+21. **Preview layers get ids `p1`, `p2`, …** when pushed through the API,
+    so they can't be mistaken for real layers.
+22. **API edits merge params**; `null` removes an override and `replace`
+    swaps the whole set. Switching effect in an edit drops the old
+    effect's parameters (common ones stay). In an edit, `for` counts from
+    now, not from the layer's creation.
+23. **`use`** in a push or edit names an effect or a preset; an effect
+    wins if both have the id. The CLI's `push <area> <name>` uses it.
+24. **No auth.** Glowstack is LAN-only for now; `httpserver.Server.Authorize`
+    is the hook for adding it.
+
 ## Work not in the core, and where it goes
 
 | Work | Package | Notes |
@@ -140,15 +189,13 @@ These are choices the design left open, recorded so they can be revisited.
 | Palettes: the WLED palette port | `internal/palette` | Append to `palette.Builtins` with WLED ids (`Palette.WLED`) and names. |
 | Output stage and DDP | `internal/output` (stage), `internal/output/ddp` (sink) | Replace `Quantize` with power limiting (per output and controller, limit groups, smoothing), white handling per controller, temporal dithering and quantising; channel order from config. The DDP sink sends per controller, splitting packets and respecting `max_fps`. Use loopback in tests. |
 | Live map | `internal/livemap` | An `app.Service` serving the page and a websocket. `App.OnFrame` gives frames. For "try before applying", run a second `engine.Engine` and `render.Compositor` on a `clock.Preview` (an engine's `Resolve` is single-goroutine). |
-| HTTP / CLI API | `internal/api`, CLI subcommands in `cmd/glowstack` or `cmd/glowctl` | An `app.Service`. Push, edit and remove go through `App.Stack`, which validates with `App.Engine.Check`. |
 | WLED-compatible devices | `internal/wled` | One `app.Service` per zone (its own IP, mDNS). Owners are `stack.WLEDOwner(zone, segment)`. Bindings come from `render.Def.WLED`. Test against `python-wled`. |
 | Calibration | `internal/calibrate` | Pushes a temporary top layer, then writes `anchors.yaml` through `storage.Store` (atomic). Needs a layout rebuild after writing. |
-| Saved presets | `internal/api` + `storage` | Write `presets.saved.yaml` through `storage.Store`. |
+| Saved presets | `internal/api` + `storage` | Write `presets.saved.yaml` through `storage.Store`, then `App.Reload`. |
 
 Not done in the core, and not assigned above:
 
 - Inline mappings in a layer's `mapping` param (only ids are accepted).
-- Config reload without a restart.
 - `max_stretch` and other flow diagnostics on the live map, beyond the
   values already stored in `layout.FlowInfo`.
 
@@ -158,5 +205,9 @@ Not done in the core, and not assigned above:
 go run ./cmd/glowstack --config examples/fictional/config \
   --data "$(mktemp -d)" --check     # print the summary and exit
 go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs
+go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs \
+  --http 127.0.0.1:8080              # the control API on /api/v1/
+go run ./cmd/glowstack ctl push porch solid color=#ff5a00 for=30s
+go run ./cmd/glowstack ctl layers    # or: glowctl layers; --server or $GLOWSTACK_URL
 go test ./...
 ```
