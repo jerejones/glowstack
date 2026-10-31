@@ -27,7 +27,7 @@ func Chase() *render.Def {
 			{Name: "width", Type: render.TLength, Default: "0.2 m"},
 			{Name: "spacing", Type: render.TLength, Default: "1 m", Doc: "from one pulse to the next"},
 			{Name: "speed", Type: render.TSpeed, Default: "0.5 m/s", Doc: "along u; negative moves backwards"},
-			{Name: "colors", Type: render.TColors, Default: []any{"#ffffff"}, Doc: "pulse colours, in turn"},
+			{Name: "colors", Type: render.TColors, Default: []any{"#ffffff"}, Doc: "pulse colors, in turn"},
 			{Name: "tail", Type: render.TLength, Default: "0 m", Doc: "fading trail behind each pulse"},
 			{Name: "background", Type: render.TColor, Default: "#000000"},
 			{Name: "overlay", Type: render.TBool, Default: false, Doc: "leave the gaps transparent instead of painting background"},
@@ -62,8 +62,8 @@ func renderChase(ctx *render.Context, out []color.Color) {
 			continue
 		}
 		w = min(w, p)
-		// Reduce by the full colour cycle, so wrapping the phase does
-		// not change which colour belongs to a moving pulse.
+		// Reduce by the full color cycle, so wrapping the phase does
+		// not change which color belongs to a moving pulse.
 		pos := float64(ctx.U[i]) - travel(speed, ctx.T, p*float64(len(cols)))
 		x := wrap(pos, p)
 		pulse := math.Floor(pos / p) // which pulse's period this is
@@ -73,9 +73,9 @@ func renderChase(ctx *render.Context, out []color.Color) {
 		if ctx.Smooth {
 			fw := footprint(ctx, i)
 			if fw > p*1e-6 {
-				// Average the coloured pulses over the whole footprint. A
+				// Average the colored pulses over the whole footprint. A
 				// pixel in the gap may cover the next pulse's head, and a
-				// compressed pattern may cover several differently coloured
+				// compressed pattern may cover several differently colored
 				// pulses in one pixel.
 				cycle := p * float64(len(cols))
 				cx := wrap(pos, cycle)

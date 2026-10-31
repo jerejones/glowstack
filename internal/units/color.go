@@ -10,12 +10,12 @@ import (
 	"strings"
 )
 
-// Color is an authored 8-bit colour, as written in config: "#rrggbb", or
+// Color is an authored 8-bit color, as written in config: "#rrggbb", or
 // "#rrggbb/ww" with an explicit white channel (ww is hex). HasW tells the
 // two apart, because a layer's `white` mode only derives W when it wasn't
 // given.
 //
-// These are authored (perceptual) values, like WLED colours. The renderer
+// These are authored (perceptual) values, like WLED colors. The renderer
 // converts them to linear light; see render.Linear.
 type Color struct {
 	R, G, B, W uint8
@@ -34,18 +34,18 @@ func ParseColor(s string) (Color, error) {
 		hex = string([]byte{hex[0], hex[0], hex[1], hex[1], hex[2], hex[2]})
 	}
 	if len(hex) != 6 || !strings.HasPrefix(in, "#") {
-		return Color{}, fmt.Errorf("bad colour %q: want #rrggbb or #rrggbb/ww", s)
+		return Color{}, fmt.Errorf("bad color %q: want #rrggbb or #rrggbb/ww", s)
 	}
 	rgb, err := strconv.ParseUint(hex, 16, 32)
 	if err != nil {
-		return Color{}, fmt.Errorf("bad colour %q: want hex digits", s)
+		return Color{}, fmt.Errorf("bad color %q: want hex digits", s)
 	}
 	c := Color{R: uint8(rgb >> 16), G: uint8(rgb >> 8), B: uint8(rgb)}
 	if hasW {
 		w = strings.TrimSpace(w)
 		wv, err := strconv.ParseUint(w, 16, 8)
 		if err != nil || len(w) != 2 {
-			return Color{}, fmt.Errorf("bad colour %q: white must be two hex digits", s)
+			return Color{}, fmt.Errorf("bad color %q: white must be two hex digits", s)
 		}
 		c.W, c.HasW = uint8(wv), true
 	}

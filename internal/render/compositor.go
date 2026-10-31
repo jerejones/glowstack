@@ -260,16 +260,16 @@ func shows(blend string, alpha, op float32) bool {
 
 // deriveWhite applies a layer's white mode (WLED auto-white):
 //
-//   - explicit: white only where colours give it ("#ff8000/40").
+//   - explicit: white only where colors give it ("#ff8000/40").
 //   - none: no white at all; W is dropped (for RGB-only looks on RGBW
 //     strips).
 //   - brighter: W = min(R, G, B) is added, as WLED's "Brighter".
 //   - accurate: W = min(R, G, B) replaces that much of R, G and B, as
 //     WLED's "Accurate".
 //
-// brighter and accurate leave colours that already carry white alone
+// brighter and accurate leave colors that already carry white alone
 // (like WLED's "Dual"), because an authored W is deliberate. The maths is
-// in linear light, where moving equal R, G and B into W keeps the colour.
+// in linear light, where moving equal R, G and B into W keeps the color.
 func deriveWhite(c color.Color, mode string) color.Color {
 	if mode == WhiteNone {
 		c.W = 0
@@ -289,7 +289,7 @@ func deriveWhite(c color.Color, mode string) color.Color {
 	return c
 }
 
-// blendInto blends colours onto dst at pixels pix. Colours carry straight
+// blendInto blends colors onto dst at pixels pix. Colors carry straight
 // alpha; op is the layer's opacity × fade.
 func blendInto(dst []color.Color, pix []int32, col []color.Color, mode string, op float32) {
 	for j, p := range pix {
@@ -299,7 +299,7 @@ func blendInto(dst []color.Color, pix []int32, col []color.Color, mode string, o
 
 // Blend blends one layer pixel s (straight alpha) onto d with a blend mode
 // and the layer's opacity op. d is an accumulation as in Buffer: its
-// colour is premultiplied by its coverage A, so a fresh transparent black
+// color is premultiplied by its coverage A, so a fresh transparent black
 // d works, and blending onto it is associative with blending what comes
 // out onto lower layers. Composite effects use it to blend their parts.
 func Blend(d, s color.Color, mode string, op float32) color.Color {

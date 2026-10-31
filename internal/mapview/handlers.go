@@ -139,9 +139,9 @@ type PixelJSON struct {
 	Run        string       `json:"run,omitempty"`
 	RunPixel   int          `json:"run_pixel"` // position along the run (0 = first pixel), -1 if none
 	Edge       string       `json:"edge,omitempty"`
-	Dist       float        `json:"dist"`     // metres along the edge
-	RunDist    float        `json:"run_dist"` // metres along the run
-	Dl         float        `json:"dl"`       // physical size, metres
+	Dist       float        `json:"dist"`     // meters along the edge
+	RunDist    float        `json:"run_dist"` // meters along the run
+	Dl         float        `json:"dl"`       // physical size, meters
 	X          float        `json:"x"`
 	Y          float        `json:"y"`
 	Dead       bool         `json:"dead,omitempty"`

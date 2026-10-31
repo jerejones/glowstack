@@ -15,8 +15,8 @@
 // The common layer parameters are handled outside the effects: mapping,
 // reverse and offset by the layer's geometry (Context.U), brightness,
 // opacity, blend and white by the compositor, fades by the stack. Effects
-// only honour `smooth` (Context.Smooth), drawing edges at sub-pixel
-// positions when it's on and point-sampling at pixel centres when it's
+// only honor `smooth` (Context.Smooth), drawing edges at sub-pixel
+// positions when it's on and point-sampling at pixel centers when it's
 // off.
 //
 // # Flow and physical quantities
@@ -25,7 +25,7 @@
 // flow: a pattern stretches with it and stays in sync. A length given as
 // "… physical" is converted at each pixel with its stretch, so it keeps
 // its physical size. Sparkle density uses each pixel's physical size dl,
-// so it's per metre of strip whatever the stretch.
+// so it's per meter of strip whatever the stretch.
 package effects
 
 import "github.com/jerejones/glowstack/internal/render"

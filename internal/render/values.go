@@ -75,7 +75,7 @@ func lookupPath(params []Param, path string) (paramPath, error) {
 				switch pp.leaf.Type {
 				case TColors:
 					if len(rest) != 1 {
-						return pp, fmt.Errorf("%s: a colour has no fields", path)
+						return pp, fmt.Errorf("%s: a color has no fields", path)
 					}
 					pp.leaf = Param{Name: pp.leaf.Name, Type: TColor, Default: "#000000"}
 					rest = nil

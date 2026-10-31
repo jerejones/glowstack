@@ -93,7 +93,7 @@ type State struct {
 	Label   string   `json:"label,omitempty"`
 	Cursors []Cursor `json:"cursors,omitempty"`
 	Side    int      `json:"side"`
-	// Length is a gap's current length in metres.
+	// Length is a gap's current length in meters.
 	Length *float64 `json:"length,omitempty"`
 	// Layers are the calibration layers on the stack, top first.
 	Layers []string `json:"layers,omitempty"`
@@ -363,7 +363,7 @@ func (m *Manager) SetSide(side int) (State, error) {
 // ConfirmOptions are optional for Confirm.
 type ConfirmOptions struct {
 	// Length is a gap's measured length ("1.25 m", "4 ft"; a bare number
-	// is metres).
+	// is meters).
 	Length string `json:"length,omitempty"`
 	// Next moves on to the next unmeasured anchor afterwards.
 	Next bool `json:"next,omitempty"`
@@ -411,7 +411,7 @@ func (m *Manager) Confirm(opts ConfirmOptions) (State, error) {
 				return err
 			}
 			ms.setGap(t.From, t.To, l)
-			what = fmt.Sprintf("%s measured at %s", t, formatMetres(l))
+			what = fmt.Sprintf("%s measured at %s", t, formatMeters(l))
 		case KindDead:
 			ms.addDead(t.Controller, cs[0].Index, cs[1].Index)
 			what = fmt.Sprintf("%s:%d–%d marked dead", t.Controller, cs[0].Index, cs[1].Index)
@@ -601,7 +601,7 @@ func (m *Manager) sync() error {
 	for i, s := range specs {
 		cur := top[i]
 		want := m.layer(s)
-		if cur.Effect == want.Effect && cur.Preset == want.Preset && cur.Target == want.Target && reflect.DeepEqual(normalise(cur.Params), normalise(want.Params)) {
+		if cur.Effect == want.Effect && cur.Preset == want.Preset && cur.Target == want.Target && reflect.DeepEqual(normalize(cur.Params), normalize(want.Params)) {
 			continue
 		}
 		if _, err := st.Edit(m.layers[i], func(l *stack.Layer) {
@@ -632,9 +632,9 @@ func (m *Manager) newID() string {
 	}
 }
 
-// normalise makes ints and float64s compare equal (params that went
+// normalize makes ints and float64s compare equal (params that went
 // through JSON, or a clone, are the same values).
-func normalise(p map[string]any) map[string]any {
+func normalize(p map[string]any) map[string]any {
 	out := make(map[string]any, len(p))
 	for k, v := range p {
 		if i, ok := v.(int); ok {
@@ -728,7 +728,7 @@ func configErr(err error) error {
 	return e
 }
 
-// parseLength reads "1.2 m", "4 ft" or a bare number of metres.
+// parseLength reads "1.2 m", "4 ft" or a bare number of meters.
 func parseLength(s string) (float64, error) {
 	if f, err := strconv.ParseFloat(s, 64); err == nil {
 		s = strconv.FormatFloat(f, 'g', -1, 64) + " m"
@@ -738,7 +738,7 @@ func parseLength(s string) (float64, error) {
 		return 0, invalidf("length: %v", err)
 	}
 	if l.PX || l.Value <= 0 {
-		return 0, invalidf("length: want a positive length in metres, feet, …")
+		return 0, invalidf("length: want a positive length in meters, feet, …")
 	}
 	return l.Value, nil
 }

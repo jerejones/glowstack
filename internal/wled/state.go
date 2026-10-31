@@ -483,8 +483,8 @@ func paletteNames(v *view) []any {
 }
 
 // fxData is /json/fxdata: per fx id, WLED's metadata string saying which
-// sliders, options and colours an effect uses and whether it takes a
-// palette, labelled with Glowstack's parameter names.
+// sliders, options and colors an effect uses and whether it takes a
+// palette, labeled with Glowstack's parameter names.
 func fxData(r *render.Registry) []string {
 	names := effects.WLEDEffectNames(r)
 	out := make([]string, len(names))

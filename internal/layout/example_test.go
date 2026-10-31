@@ -52,7 +52,7 @@ func TestExampleAnchors(t *testing.T) {
 	// Without the data folder: shed-sw is estimated from the drawing,
 	// piecewise between the run start and the measured shed-nw (305). It
 	// is 120 of the 200 drawn units to shed-nw, so cell 0.6 × 305.5 =
-	// 183.3, the centre of pixel 183.
+	// 183.3, the center of pixel 183.
 	_, l, _ := loadExample(t, "")
 	if a := anchorOf(t, l, "shed-eave", "shed-sw"); a.Index != 183 || a.Source != SourceEstimated {
 		t.Errorf("shed-sw = %+v", a)
@@ -132,7 +132,7 @@ func TestExampleAreas(t *testing.T) {
 	_, l, _ := loadExample(t, exampleData)
 	sizes := map[string]int{"shed": 602, "yard": 390, "porch": 90, "shed-north": 482 - 305, "everything": 1082,
 		// shed-sw is at 186 (data anchors.yaml) and shed-nw at 305; after
-		// and before leave the corner pixels to the neighbours.
+		// and before leave the corner pixels to the neighbors.
 		"shed-south": 187, "shed-west": 305 - 187}
 	for id, n := range sizes {
 		a, ok := l.Area(id)
@@ -272,7 +272,7 @@ func TestUnassignedPixelsWarn(t *testing.T) {
 func TestMeasuredEdgeLength(t *testing.T) {
 	// A strip cut and jumped round an obstacle: 10 pixels over 1.5 m.
 	g := newGraph(t).run("a", 20, "x", "m@9", "y")
-	g.cfg.Layout.Runs[0].Lengths = []config.EdgeLength{{From: "m", To: "y", Length: unitsMetres(1.5)}}
+	g.cfg.Layout.Runs[0].Lengths = []config.EdgeLength{{From: "m", To: "y", Length: unitsMeters(1.5)}}
 	l := g.build()
 	r := l.Runs[0]
 	if !approx(r.Length, 0.95+1.5) {
@@ -287,7 +287,7 @@ func TestMeasuredEdgeLength(t *testing.T) {
 func TestMeasuredLengthRejectsUnknownEndpoint(t *testing.T) {
 	g := newGraph(t).run("r", 10, "a", "b")
 	g.cfg.Controllers[0].Pixels = 10
-	g.cfg.Layout.Runs[0].Lengths = []config.EdgeLength{{From: "missing", To: "b", Length: unitsMetres(2)}}
+	g.cfg.Layout.Runs[0].Lengths = []config.EdgeLength{{From: "missing", To: "b", Length: unitsMeters(2)}}
 	if err := g.cfg.Validate(); err != nil {
 		t.Fatal(err)
 	}

@@ -117,7 +117,7 @@ func flattenArc(verts *[]vertex, p0 Point, rx, ry, rotDeg float64, large, sweep 
 		ry *= s
 	}
 
-	// F.6.5.2: centre in the aligned frame.
+	// F.6.5.2: center in the aligned frame.
 	numer := rx*rx*ry*ry - rx*rx*y1p*y1p - ry*ry*x1p*x1p
 	denom := rx*rx*y1p*y1p + ry*ry*x1p*x1p
 	if numer < 0 {
@@ -130,7 +130,7 @@ func flattenArc(verts *[]vertex, p0 Point, rx, ry, rotDeg float64, large, sweep 
 	cxp := co * rx * y1p / ry
 	cyp := -co * ry * x1p / rx
 
-	// F.6.5.3: centre in user space.
+	// F.6.5.3: center in user space.
 	cx := cosPhi*cxp - sinPhi*cyp + (p0.X+p1.X)/2
 	cy := sinPhi*cxp + cosPhi*cyp + (p0.Y+p1.Y)/2
 

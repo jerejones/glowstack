@@ -109,7 +109,7 @@ async def test_front(led: WLED, api: Native) -> None:
     check(dev.state.segments[0].on is False, "segment 0 reads back off")
     check(dev.state.on and dev.state.brightness == 200, "device on at 200")
 
-    # Effect, palette, colour, speed and intensity.
+    # Effect, palette, color, speed and intensity.
     await led.segment(1, effect="Palette", palette="Rainbow", color_primary=(255, 0, 0),
                       color_secondary=(0, 0, 255), speed=180, intensity=60)
     ls = api.layers(owner)
@@ -150,7 +150,7 @@ async def test_front(led: WLED, api: Native) -> None:
     await led.segment(1, color_primary=(10, 20, 30, 40))
     dev = await led.update()
     check(tuple(dev.state.segments[1].color.primary) == (10, 20, 30, 40), "RGBW segment color round-trips")
-    # Black is a colour: still a layer.
+    # Black is a color: still a layer.
     await led.segment(1, color_primary=(0, 0, 0))
     check(len(api.layers(owner)) == 1, "black keeps the layer")
     # Segment brightness.

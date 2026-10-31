@@ -12,7 +12,7 @@ import (
 	"github.com/jerejones/glowstack/internal/render"
 )
 
-// Noise colours pixels from a palette by smooth 3-D gradient noise over u
+// Noise colors pixels from a palette by smooth 3-D gradient noise over u
 // and time (`space: u`) or plan x, y and time (`space: xy`). WLED's
 // "Noise Pal" (fx 107).
 //
@@ -33,7 +33,7 @@ func Noise() *render.Def {
 		},
 		Params: []render.Param{
 			{Name: "palette", Type: render.TPalette, Default: "Default", Doc: "Default is Party"},
-			colorsParam("colours for the colour palettes (* Color 1, …)"),
+			colorsParam("colors for the color palettes (* Color 1, …)"),
 			{Name: "scale", Type: render.TLength, Default: "1 m", Measure: render.MeasurePhysical, Doc: "feature size"},
 			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "drift along u (or plan x)"},
 			{Name: "evolve", Type: render.TRate, Default: "0.2 /s", Doc: "how fast the pattern changes in place"},
@@ -45,7 +45,7 @@ func Noise() *render.Def {
 			// WLED's Scale: higher is finer.
 			{Slider: render.SliderIntensity, Param: "scale", Curve: render.CurveLog, Min: "5 m", Max: "0.1 m"},
 			{Slider: render.SliderPalette, Param: "palette"},
-		}, colourBindings("")...)},
+		}, colorBindings("")...)},
 		New: func() render.Effect { return &noise{} },
 	}
 }
@@ -66,7 +66,7 @@ func (n *noise) Render(ctx *render.Context, out []color.Color) {
 	for i := range out {
 		s := scale.InU(stretchAt(ctx, i))
 		if xy {
-			s = scale.Metres
+			s = scale.Meters
 		}
 		if s <= 0 {
 			out[i] = p.At(0)

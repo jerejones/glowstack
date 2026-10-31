@@ -2,7 +2,7 @@
 
 Glowstack drives a whole-building addressable LED installation from one
 program. Many WLED controllers become simple displays, and Glowstack draws
-every pixel and streams each controller its frame. Lighting is organised into
+every pixel and streams each controller its frame. Lighting is organized into
 zones and areas that can be controlled independently from Home Assistant,
 because Glowstack presents itself as ordinary WLED devices.
 
@@ -22,7 +22,7 @@ control surface.
 ## Design
 
 - **Per-pixel layer stack.** Every command creates a layer: a target (a zone,
-  an area, or any set of pixels) and a program (colour, effect, show). Each
+  an area, or any set of pixels) and a program (color, effect, show). Each
   pixel shows the topmost layer that covers it. Remove a layer and whatever
   was below shows through again, at the point it has reached by then. For
   example, a porch override sits on top of a yard-wide effect, and when the
@@ -127,9 +127,9 @@ zones:
    Settings → Devices & services → Add integration → WLED, and enter the
    device's IP.
 3. **Use them like WLED.** Each segment is a light; turning it on puts a
-   layer on its area, changing effect, palette, colours or sliders edits
+   layer on its area, changing effect, palette, colors or sliders edits
    that layer, and turning it off removes it so whatever is below shows
-   again (black is a colour, not off). The device's own switch and
+   again (black is a color, not off). The device's own switch and
    brightness are the zone's brightness: off darkens the zone without
    removing anything. Glowstack's presets are the device's presets, under
    ids that don't change.

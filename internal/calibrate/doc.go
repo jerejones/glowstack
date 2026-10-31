@@ -23,7 +23,7 @@
 // scratch copy is loaded and solved first, then the real file is written
 // atomically through storage), then App.Reload re-solves the layout: the
 // anchor becomes measured and the estimates on its run between measured
-// neighbours move with it. The live map follows the reload.
+// neighbors move with it. The live map follows the reload.
 //
 // Routes are listed on Manager.Routes; `glowstack ctl cal …` is the CLI.
 package calibrate

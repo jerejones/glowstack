@@ -29,12 +29,12 @@ health checks); the HTTP server carries the control API and the live map.
 
 | Package | What it holds |
 |---|---|
-| `internal/units` | Parsing and printing of lengths (`m cm mm ft in px`), speeds, durations, rates, densities, angles, fractions and `#rrggbb[/ww]` colours. `px` stays symbolic until a pitch is known. |
+| `internal/units` | Parsing and printing of lengths (`m cm mm ft in px`), speeds, durations, rates, densities, angles, fractions and `#rrggbb[/ww]` colors. `px` stays symbolic until a pitch is known. |
 | `internal/config` | The YAML schema for every config file plus the data-folder `anchors.yaml` and `presets.saved.yaml`; the loader; validation with defaults; `config.Errors` naming file and line. |
 | `internal/plan` | SVG plans: paths, polylines, polygons and lines flattened to polylines in plan units, with transforms and `data-nodes` vertex labels. |
 | `internal/layout` | The solver. `Layout` is the immutable pixel table (global id, controller, index, run, edge, distances, dl, plan x/y), runs with solved anchors, nodes, edges and areas. `Mapping` is per-pixel `u` and stretch. `SolveFlow` and `SolveSpatial` make them. |
 | `internal/clock` | `Source` (injectable time), `Manual` for tests, `Preview` (pause, seek, speed) for the live map, `Ticker` for pacing, `Frame`. |
-| `internal/color` | Linear-light RGBW with straight alpha; gamma decode of authored colours. |
+| `internal/color` | Linear-light RGBW with straight alpha; gamma decode of authored colors. |
 | `internal/palette` | Palettes, the palette registry and `Builtins`: WLED's 73 fixed palettes (`wled.go`, ported) and the special palettes 0–5 with `Resolve` and `Cache` (`special.go`). |
 | `internal/render` | The `Effect` interface, `Def` and registry, the typed parameter schema with WLED bindings and their curves (`SetWLED`, `GetWLED`), common layer params, `Layer` and `Geometry`, `Buffer`, `Blend` and the `Compositor` (with `Top`, the layer showing per pixel). |
 | `internal/effects` | Effect implementations, one file each: `solid`, `bands`, `gradient`, `sparkle`, `chase`, `noise`, `breathe`, and composites (`Composite`, built-in `glitter`, `RegisterComposites` for config). `WLEDEffects`/`WLEDEffectNames` give the `/json/eff` order. |
@@ -67,17 +67,17 @@ change them in one place when they need to grow.
   coordinates it reads (`CoordU`, `CoordXY`, `CoordIndex`), a parameter
   schema, whether it's stateful and an optional WLED binding. `Render(ctx,
   out)` gets aligned slices (`Pixels`, `U`, `X`, `Y`, `Dl`, `Stretch`,
-  `Index`) and writes one colour per pixel. Stateless effects may get any
+  `Index`) and writes one color per pixel. Stateless effects may get any
   subset of their target (pixels covered from above are skipped).
   Randomness must be hashed from seed, pixel id and time, never drawn from a
   generator. See the `render` package doc.
 - **`render.Def.WLED`.** Bindings from WLED controls to parameter paths,
   with curves. `Def.SetWLED` applies a control value (slider position,
-  option, colour or palette id) to a layer's raw params, and `Def.GetWLED`
+  option, color or palette id) to a layer's raw params, and `Def.GetWLED`
   reads one back. `effects.WLEDEffectNames` and `palette.Registry.WLEDList`
   give `/json/eff` and `/json/pal` order.
 - **`render.Param`.** Typed parameters. `Resolve` turns raw values into
-  metres, m/s and so on at the layer's pitch. `Length` keeps its `Measure`
+  meters, m/s and so on at the layer's pitch. `Length` keeps its `Measure`
   (`flow` = along u, `physical` = along the strip; convert with `InU`).
 - **`output.Stage` / `output.Sink`.** A stage turns the linear buffer into
   wire bytes per controller (power limiting, white, dithering,
@@ -137,16 +137,16 @@ change them in one place when they need to grow.
   Glowstack uses global ids, and per-controller indices appear only in
   config and output.
 - **Positions along a run** are in pixel cells: the run starts at 0, pixel
-  *k*'s centre is at *k* + ½, the run ends at its pixel count. Anchors sit
-  at pixel centres and run ends at run ends.
-- **Units inside the code** are SI: metres, seconds, radians. `u` is metres
+  *k*'s center is at *k* + ½, the run ends at its pixel count. Anchors sit
+  at pixel centers and run ends at run ends.
+- **Units inside the code** are SI: meters, seconds, radians. `u` is meters
   for flows and spatial mappings and 0–1 for `index`.
-- **Linear light.** Colours are decoded from authored hex with gamma 2.8
+- **Linear light.** Colors are decoded from authored hex with gamma 2.8
   (WLED's default), and compositing and brightness happen in linear light.
   The output stage must not apply gamma again.
 - **Time.** `Frame.T` is Unix seconds (float64), shared by every layer, so
   restarts continue patterns. Effects do phase maths in float64.
-- **Black is a colour.** A pixel inside a layer's target but outside its
+- **Black is a color.** A pixel inside a layer's target but outside its
   mapping's domain (for example `unreached: dark`) is painted opaque black.
 
 ## Decisions
@@ -160,12 +160,12 @@ list, numbered in the order they were made.
    `boot` (`restore` | `dark`) and default `fade: { in: 300 ms, out: 500 ms }`.
 2. **Explicit anchor indices are never moved**, whatever their `source`.
    Anchors without an index are estimated from the drawing piecewise
-   between explicit anchors, and only the drawing's labelled vertices are
+   between explicit anchors, and only the drawing's labeled vertices are
    used as knots. With neither an index nor a drawing, it's an error.
 3. **Measured lengths** go in a run-level `lengths:` list (`from`, `to`,
    `length`) for a stretch between consecutive path nodes.
 4. **Plan scale** is estimated as total pixel length ÷ total drawn length
-   when `scale` isn't given. Plan coordinates are stored in metres.
+   when `scale` isn't given. Plan coordinates are stored in meters.
 5. **`pace`** reconciles only parallel chains between the same two break
    points. `pace: reference` with no reference chain in a bundle falls back
    to `average`. Other cycles are handled by `loops`.
@@ -199,9 +199,9 @@ list, numbered in the order they were made.
 18. **Effects read u or x,y by parameter.** `Def.CoordsFor` lets `noise`
     choose with `space: u|xy`; the engine builds geometry from
     `Def.CoordsOf`.
-19. **Sub-pixel edges** are a box filter: a pixel's colour is the average
+19. **Sub-pixel edges** are a box filter: a pixel's color is the average
     of the pattern over its footprint along u (`dl / stretch`). `smooth:
-    false` samples the pixel centre.
+    false` samples the pixel center.
 20. **Sparkle** slots are one sparkle long, and counts per slot are
     Poisson-distributed (design.md "Randomness").
 21. **Perceptual fades.** Sparkle decay, chase tails and breathing fade
@@ -210,7 +210,7 @@ list, numbered in the order they were made.
     They're registered after the built-ins, from `presets.yaml`'s
     `composites:` (and `presets.saved.yaml`'s), and may nest.
 23. **WLED palettes** are ported with WLED's authored values and decoded
-    like any authored colour (gamma 2.8). WLED's main branch pre-corrects
+    like any authored color (gamma 2.8). WLED's main branch pre-corrects
     these palettes for its own 2.2 default, so they look a little deeper
     here than on a current WLED.
 24. **`white: none`** drops W; `explicit` keeps authored W only.
@@ -345,7 +345,7 @@ list, numbered in the order they were made.
     with the config in a scratch data folder (config, layout, mappings);
     only if that passes is it written through `storage.Dir` and the app
     reloaded. The measurement becomes a knot in the piecewise estimate,
-    so the reload re-estimates its neighbours; the map reloads when it
+    so the reload re-estimates its neighbors; the map reloads when it
     sees the new config generation.
 53. **`anchors.yaml` grew `ends`, `gaps` and `dead`**, applied by
     `config.Load` over `layout.yaml` with errors at their own lines. The
@@ -402,11 +402,11 @@ list, numbered in the order they were made.
   the stream; the server replies with the exact id ranges it will send.
   The default is every pixel at 20 fps. Slow clients skip frames rather
   than queue them.
-- **Display colour.** W is folded into RGB, and linear light is
-  re-encoded with the authored-colour gamma (`color.DecodeGamma`), so a
+- **Display color.** W is folded into RGB, and linear light is
+  re-encoded with the authored-color gamma (`color.DecodeGamma`), so a
   layer authored as `#ff8000` shows as `#ff8000`. It's what a designer
   expects to see, not a photometric model of the LEDs. Unlit pixels are
-  drawn dim grey so strips stay visible.
+  drawn dim gray so strips stay visible.
 - **House or preview.** While the preview clock follows the house and
   `App.Preview` is empty, the map streams the house's own frames
   (captured in `App.OnFrame` at up to the stream rate, only while someone

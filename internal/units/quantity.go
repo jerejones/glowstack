@@ -11,14 +11,14 @@ import (
 	"time"
 )
 
-// Length is a distance. Value is metres, or pitches when PX is set.
+// Length is a distance. Value is meters, or pitches when PX is set.
 type Length struct {
 	Value float64
 	PX    bool
 }
 
-// Metres resolves the length using pitch (metres per pixel) for px values.
-func (l Length) Metres(pitch float64) float64 {
+// Meters resolves the length using pitch (meters per pixel) for px values.
+func (l Length) Meters(pitch float64) float64 {
 	if l.PX {
 		return l.Value * pitch
 	}
@@ -59,15 +59,15 @@ func (l *Length) UnmarshalText(b []byte) (err error) {
 	return err
 }
 
-// Speed is a signed velocity. Value is metres per second, or pitches per
+// Speed is a signed velocity. Value is meters per second, or pitches per
 // second when PX is set. Negative means reverse.
 type Speed struct {
 	Value float64
 	PX    bool
 }
 
-// MetresPerSecond resolves the speed using pitch for px values.
-func (s Speed) MetresPerSecond(pitch float64) float64 {
+// MetersPerSecond resolves the speed using pitch for px values.
+func (s Speed) MetersPerSecond(pitch float64) float64 {
 	if s.PX {
 		return s.Value * pitch
 	}
@@ -223,15 +223,15 @@ func (r *Rate) UnmarshalText(b []byte) (err error) {
 	return err
 }
 
-// Density is events per length per second. Value is per metre per second, or
+// Density is events per length per second. Value is per meter per second, or
 // per pitch per second when PX is set.
 type Density struct {
 	Value float64
 	PX    bool
 }
 
-// PerMetreSecond resolves the density using pitch for px values.
-func (d Density) PerMetreSecond(pitch float64) float64 {
+// PerMeterSecond resolves the density using pitch for px values.
+func (d Density) PerMeterSecond(pitch float64) float64 {
 	if d.PX {
 		return d.Value / pitch
 	}

@@ -271,10 +271,10 @@ func TestSegmentOnOff(t *testing.T) {
 	}
 	// WLED's default: solid orange.
 	if c := seg(st, 1)["col"].([]any)[0].([]any); num(c[0]) != 255 || num(c[1]) != 170 || num(c[2]) != 0 {
-		t.Errorf("new segment colour %v, want 255,170,0", c)
+		t.Errorf("new segment color %v, want 255,170,0", c)
 	}
 
-	// Black is a colour: the layer stays.
+	// Black is a color: the layer stays.
 	st = f.post(`{"seg":{"id":1,"col":[[0,0,0]]}}`)
 	if f.layer("front", 1) == nil || !seg(st, 1)["on"].(bool) {
 		t.Fatal("black removed the layer")
@@ -392,7 +392,7 @@ func TestEffectControls(t *testing.T) {
 	if l := f.layer("front", 0); l.Params[render.ParamReverse] != true || l.Params[render.ParamBrightness] == nil {
 		t.Errorf("bri/rev params: %v", l.Params)
 	}
-	// Switching effect keeps the palette and colours.
+	// Switching effect keeps the palette and colors.
 	st = f.post(`{"seg":{"id":0,"fx":20}}`)
 	if s := seg(st, 0); num(s["fx"]) != 20 || num(s["pal"]) != 11 || num(s["bri"]) != 128 || !s["rev"].(bool) {
 		t.Errorf("after fx 20: %v", s)
@@ -583,7 +583,7 @@ func TestService(t *testing.T) {
 	}
 }
 
-func TestEffectSwitchColours(t *testing.T) {
+func TestEffectSwitchColors(t *testing.T) {
 	f := newFixture(t)
 	f.post(`{"seg":{"id":0,"on":true,"col":[[255,0,0]]}}`)
 	f.post(`{"seg":{"id":0,"fx":87}}`)

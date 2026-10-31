@@ -12,7 +12,7 @@ import (
 	"github.com/jerejones/glowstack/internal/render"
 )
 
-// WLED's default segment colours: orange, black, black.
+// WLED's default segment colors: orange, black, black.
 var wledColors = []any{"#ffa000", "#000000", "#000000"}
 
 // footprint is the length of pixel i along u: its physical size divided
@@ -114,13 +114,13 @@ func grow[T any](s []T, n int) []T {
 }
 
 // colorsParam is the `colors` parameter palette effects take: WLED's
-// three segment colours, used by the colour palettes ("* Color 1", …).
+// three segment colors, used by the color palettes ("* Color 1", …).
 func colorsParam(doc string) render.Param {
 	return render.Param{Name: "colors", Type: render.TColors, Default: wledColors, Doc: doc}
 }
 
-// colourBindings binds col0–col2 to colors.0–2.
-func colourBindings(prefix string) []render.Binding {
+// colorBindings binds col0–col2 to colors.0–2.
+func colorBindings(prefix string) []render.Binding {
 	return []render.Binding{
 		{Slider: render.SliderColor0, Param: prefix + "colors.0"},
 		{Slider: render.SliderColor1, Param: prefix + "colors.1"},

@@ -293,7 +293,7 @@ func TestMappingJSON(t *testing.T) {
 }
 
 func TestDisplayEncoding(t *testing.T) {
-	// Authored colours show as authored.
+	// Authored colors show as authored.
 	for _, v := range []uint8{0, 32, 64, 128, 200, 255} {
 		if got := display(color.Linear(units.Color{R: v}).R); got != v {
 			t.Errorf("display(%d) = %d", v, got)

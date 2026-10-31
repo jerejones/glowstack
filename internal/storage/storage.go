@@ -129,7 +129,7 @@ type Saver struct {
 	timer      *time.Timer
 	closed     bool
 	generation uint64     // identifies the currently scheduled callback
-	saving     sync.Mutex // serialises save calls
+	saving     sync.Mutex // serializes save calls
 }
 
 // NewSaver returns a Saver calling save at most once per interval. Errors

@@ -179,7 +179,7 @@ func (b *builder) runPath(cr *config.Run, r *Run) []pathAnchor {
 	anchors[0].at, anchors[0].source = 0, SourceEnd
 	anchors[last].at, anchors[last].source = float64(r.Count), SourceEnd
 	if pp != nil {
-		// The drawing's ends are the run's ends, labelled or not.
+		// The drawing's ends are the run's ends, labeled or not.
 		anchors[0].drawn, anchors[last].drawn = 0, pp.Length()
 	}
 	return anchors
@@ -298,7 +298,7 @@ func (b *builder) solveAnchors(cr *config.Run, r *Run, anchors []pathAnchor) boo
 		a.at, a.source, a.guess = float64(k)+0.5, SourceEstimated, true
 	}
 
-	// Estimates may collide with a neighbour after rounding; nudge them.
+	// Estimates may collide with a neighbor after rounding; nudge them.
 	for j := 1; j < len(anchors)-1; j++ {
 		a := &anchors[j]
 		if a.at > anchors[j-1].at {
@@ -310,7 +310,7 @@ func (b *builder) solveAnchors(cr *config.Run, r *Run, anchors []pathAnchor) boo
 		}
 		a.at = math.Floor(anchors[j-1].at) + 1.5
 		if a.at >= anchors[j+1].at {
-			b.errorf(cr.Pos, "run %s: no room for node %q between its neighbours; the run is too short for its path", cr.ID, b.l.Nodes[a.node].ID)
+			b.errorf(cr.Pos, "run %s: no room for node %q between its neighbors; the run is too short for its path", cr.ID, b.l.Nodes[a.node].ID)
 			return false
 		}
 	}
@@ -401,7 +401,7 @@ func (b *builder) placeRun(ri int) {
 		return
 	}
 	scale := b.l.Plans[r.Plan].Scale
-	// Knots: (cell position, drawn distance) for the ends and labelled nodes.
+	// Knots: (cell position, drawn distance) for the ends and labeled nodes.
 	var ats, ds []float64
 	for _, a := range r.Anchors {
 		var d float64
@@ -452,5 +452,5 @@ func (r *Run) LengthReport(l *Layout) string {
 	if l.Plans[r.Plan].ScaleEstimated {
 		note = " (plan scale estimated from pixel lengths)"
 	}
-	return fmt.Sprintf("%s: %.2f m of pixels, %.2f m drawn, %+.1f%%%s", r.ID, r.Length, r.DrawnMetres, r.LengthMismatch*100, note)
+	return fmt.Sprintf("%s: %.2f m of pixels, %.2f m drawn, %+.1f%%%s", r.ID, r.Length, r.DrawnMeters, r.LengthMismatch*100, note)
 }

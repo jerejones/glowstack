@@ -184,7 +184,7 @@ func (v *validator) controllers(cs []Controller) {
 func (v *validator) layout(c *Config) {
 	l := &c.Layout
 	if l.Pitch.PX || l.Pitch.Value <= 0 {
-		v.errorf(l.Pos, "pitch must be a positive length in metres, e.g. `pitch: 1/60 m`")
+		v.errorf(l.Pos, "pitch must be a positive length in meters, e.g. `pitch: 1/60 m`")
 	}
 	unique(v, "node", l.Nodes, func(n *Node) (string, Pos) { return n.ID, n.Pos })
 	unique(v, "run", l.Runs, func(r *Run) (string, Pos) { return r.ID, r.Pos })
@@ -192,7 +192,7 @@ func (v *validator) layout(c *Config) {
 		p := &l.Plans[i]
 		v.required(p.Pos, "svg", p.SVG)
 		if p.Scale != nil && (p.Scale.PX || p.Scale.Value <= 0) {
-			v.errorf(p.Pos, "plan scale must be a positive length in metres per plan unit")
+			v.errorf(p.Pos, "plan scale must be a positive length in meters per plan unit")
 		}
 	}
 	for i := range l.Runs {
@@ -209,13 +209,13 @@ func (v *validator) layout(c *Config) {
 			}
 		}
 		if r.Pitch != nil && (r.Pitch.PX || r.Pitch.Value <= 0) {
-			v.errorf(r.Pos, "run %q: pitch must be a positive length in metres", r.ID)
+			v.errorf(r.Pos, "run %q: pitch must be a positive length in meters", r.ID)
 		}
 		if len(r.Path) == 1 {
 			v.errorf(r.Pos, "run %q: path needs at least two nodes (its two ends)", r.ID)
 		}
 		if len(r.Path) == 0 && r.Plan == nil {
-			v.errorf(r.Pos, "run %q: give a path, or a plan whose vertices are labelled", r.ID)
+			v.errorf(r.Pos, "run %q: give a path, or a plan whose vertices are labeled", r.ID)
 		}
 		lo, hi := min(r.Indices[0], r.Indices[1]), max(r.Indices[0], r.Indices[1])
 		for j := range r.Anchors {
@@ -234,7 +234,7 @@ func (v *validator) layout(c *Config) {
 			v.required(e.Pos, "from", e.From)
 			v.required(e.Pos, "to", e.To)
 			if e.Length.PX || e.Length.Value <= 0 {
-				v.errorf(e.Pos, "length must be a positive length in metres")
+				v.errorf(e.Pos, "length must be a positive length in meters")
 			}
 		}
 		if r.Plan != nil {
@@ -248,7 +248,7 @@ func (v *validator) layout(c *Config) {
 		switch e.Kind {
 		case EdgeGap:
 			if e.Length.PX || e.Length.Value <= 0 {
-				v.errorf(e.Pos, "gap %s–%s needs a positive length in metres", e.From, e.To)
+				v.errorf(e.Pos, "gap %s–%s needs a positive length in meters", e.From, e.To)
 			}
 		case EdgeLink:
 			if e.Length.Value != 0 {
@@ -450,7 +450,7 @@ func (v *validator) flow(f *Flow) {
 	for _, p := range f.Pin {
 		v.required(p.Pos, "node", p.Node)
 		if p.U.PX {
-			v.errorf(p.Pos, "pin u must be in metres, not px")
+			v.errorf(p.Pos, "pin u must be in meters, not px")
 		}
 	}
 }

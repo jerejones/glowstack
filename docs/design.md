@@ -9,20 +9,20 @@ made-up installations only.
 
 1. **Flexibility first.** The installation's physical facts go in
    configuration: where pixels are and which ones meet. Everything about how a
-   look appears is a parameter chosen at run time: colour, palette, speed,
+   look appears is a parameter chosen at run time: color, palette, speed,
    direction, size, density and which coordinate system to use. Nothing about
    a look is compiled in.
 2. **Separate the house from the look.** House config describes hardware and
    geometry, and changes only when the hardware does. Looks are layers made of
    an effect, its parameters and a target. They change all the time.
-3. **Physical units.** Lengths are in metres, speeds in metres per second and
+3. **Physical units.** Lengths are in meters, speeds in meters per second and
    rates per second. A pattern is the same size on every strip, whatever the
    controller, segment length or frame rate. `px` is accepted as a unit and
    means one LED pitch on the run in question. The exception is deliberate
    stretching or compression, where a flow makes runs of different lengths
    stay in step.
 4. **Effects are functions of place and time.** Wherever possible a pixel's
-   colour is `f(coordinate, t, params, seed)`. That keeps controllers in sync
+   color is `f(coordinate, t, params, seed)`. That keeps controllers in sync
    for free, makes restarts seamless and lets the preview match the house
    exactly. Effects that need state, like fire or ripples, keep it inside
    their layer.
@@ -42,18 +42,18 @@ made-up installations only.
 | **Anchor** | A statement that a particular pixel sits at a node, for example "index 402 is at node `shed-sw`". Anchors split runs into edges. |
 | **Edge** | A connection between two nodes in the layout graph. A **strip edge** carries pixels. A **gap edge** has physical length but no pixels, like a gate or doorway. A **link edge** has zero length and no pixels, and ties two nodes that aren't physically connected but should line up. |
 | **Sync point** | A node where effects must line up. Any node can be one. A link edge makes two nodes one sync point. |
-| **Plan coordinates** | Optional 2-D positions on a floor plan, in metres. Used by the live map and by spatial mappings. |
+| **Plan coordinates** | Optional 2-D positions on a floor plan, in meters. Used by the live map and by spatial mappings. |
 | **Mapping** | A rule that gives every pixel a coordinate: flow distance, plan position, radius, or raw index. Effects read coordinates and never read indices. |
 | **Flow** | A mapping kind: position along the layout graph from an origin, with edge orientations. |
-| **Flow position (`u`)** | A pixel's coordinate in a flow. Measured in metres *of the reference path*, so it equals physical distance only where nothing is stretched. |
+| **Flow position (`u`)** | A pixel's coordinate in a flow. Measured in meters *of the reference path*, so it equals physical distance only where nothing is stretched. |
 | **Pinned node** | A node whose `u` is fixed before edges are filled in: by the reference path, by a link to another pinned node, or by an explicit value. |
-| **Stretch** | Physical metres per metre of flow position on an edge (`dl/du`). 1 means unchanged. Above 1 the run is longer than the reference, so the pattern is **stretched**: physically bigger, and it moves faster. Below 1 the run is shorter, so the pattern is **compressed**: physically smaller, and it moves slower. |
+| **Stretch** | Physical meters per meter of flow position on an edge (`dl/du`). 1 means unchanged. Above 1 the run is longer than the reference, so the pattern is **stretched**: physically bigger, and it moves faster. Below 1 the run is shorter, so the pattern is **compressed**: physically smaller, and it moves slower. |
 | **Reference path** | The path between two pinned nodes whose physical length defines the `u` distance between them. Other parallel paths stretch or compress to match. |
 | **Area** | A named set of pixels, defined as a union of runs or run sub-ranges. Areas may overlap. |
 | **Zone** | An area that Home Assistant sees as one virtual WLED device. |
 | **Segment** | A WLED-API term. It is one area within a zone's virtual device. |
-| **Effect** | Code that turns coordinates, time and parameters into colours. It declares a parameter schema. |
-| **Palette** | A named colour gradient: stops, an interpolation mode and wrapping. |
+| **Effect** | Code that turns coordinates, time and parameters into colors. It declares a parameter schema. |
+| **Palette** | A named color gradient: stops, an interpolation mode and wrapping. |
 | **Layer** | An effect, its parameter values, a target area, a mapping, a blend mode, an opacity and a lifetime. |
 | **Stack** | The ordered list of active layers. For each pixel, the top layer that covers it wins, subject to blending. Removing a layer reveals whatever is below. |
 | **Preset** | A saved, named layer specification (effect plus parameters), reusable on any area. |
@@ -218,8 +218,8 @@ dead:                          # pixels physically present but unlit or hidden
   two consecutive path nodes, for example where a strip is cut and jumped
   around an obstacle.
 - **Positions along a run.** Positions are measured in pixel cells: the run
-  starts at 0, pixel *k*'s centre is at *k* + ½ and the run ends at its
-  pixel count. An anchor puts its node at its pixel's centre. The run's two
+  starts at 0, pixel *k*'s center is at *k* + ½ and the run ends at its
+  pixel count. An anchor puts its node at its pixel's center. The run's two
   end nodes sit at the run's ends, so they take no anchor.
 - **Plan coordinates.** Pixels are spaced evenly along an SVG path between
   anchors. Anchors can name SVG vertices so that corners land on corners.
@@ -243,7 +243,7 @@ drawing and refine from there:
    direction from its first pixel, with a vertex at every corner and feature.
    Vertices can carry node ids: a `data-nodes` attribute on the path lists
    one node id per drawn vertex, in order (empty entries leave a vertex
-   unlabelled), so the path doubles as the run's node list. The path itself
+   unlabeled), so the path doubles as the run's node list. The path itself
    is found by its `id` or `inkscape:label`.
 2. **Estimate anchors.** Glowstack knows the run's pixel count and pitch,
    which give its true physical length. It scales the drawn path to that
@@ -265,7 +265,7 @@ drawing and refine from there:
 4. **Refine on site** with Glowstack's calibration mode (below). Each
    measured anchor fixes the run piecewise: unmeasured vertices between two
    measured anchors are re-estimated proportionally *within that stretch*,
-   so one measurement improves its neighbours too.
+   so one measurement improves its neighbors too.
 5. **Let the measurements correct the drawing.** Pixels are placed on the map
    piecewise between anchors, so a drawing with wrong proportions still shows
    corners on corners once they're measured. The drawing only needs the right
@@ -285,14 +285,14 @@ and the real lights together:
 - **Pick a node** on the live map, or step through the unmeasured ones in
   order.
 - **Light the guess.** Glowstack pushes a temporary top layer over the
-  area. It lights the estimated pixel in white, its neighbours as a
-  colour-coded ruler (every 10th pixel marked, for example), and everything
+  area. It lights the estimated pixel in white, its neighbors as a
+  color-coded ruler (every 10th pixel marked, for example), and everything
   else dim. Normal layers are untouched underneath and come back when
   calibration ends.
 - **Nudge** with buttons from a phone, standing outside: ±1, ±10. Then
   **confirm.** The anchor becomes `measured` and the rest of the run is
   re-estimated.
-- **Coarse pass.** A band view lights 100-pixel blocks in alternating colours
+- **Coarse pass.** A band view lights 100-pixel blocks in alternating colors
   for photographing a whole face at once.
 - **Other features** use the same flow: run ends, gap lengths (entered by
   hand), dead pixels, link points between floors.
@@ -320,7 +320,7 @@ How it works:
   session ends up underneath it within half a second.
 - **The ruler**: the cursor is white; every 10th pixel within 100 of it is
   red towards the run's start and green towards its end, with the cursor's
-  direct neighbours a dim red and green; the rest of the run is dim grey.
+  direct neighbors a dim red and green; the rest of the run is dim gray.
   A run end lights its whole controller, with pixels outside the run dark.
   A dead range lights its controller, with the ruler at the selected end and
   the range magenta. Bands are 100-pixel blocks, alternately orange and
@@ -330,7 +330,7 @@ How it works:
   first, the same way a reload checks config; if a measurement doesn't fit
   (say, out of order along the run) nothing is written and the error comes
   back with its line. Measured anchors are knots for the piecewise
-  estimate, so their neighbours move with them.
+  estimate, so their neighbors move with them.
 - **Output.** Calibration never widens `--output`. If a controller it lights
   isn't selected, the session says so; the live map still shows the pattern.
 
@@ -382,7 +382,7 @@ zones:
 
 A run range has a start and an end, each a node id or a pixel index.
 `from` and `to` include the pixel at that point; `after` and `before`
-exclude it, so two neighbouring areas can meet at a node without sharing
+exclude it, so two neighboring areas can meet at a node without sharing
 its pixel (`{to: shed-nw}` and `{after: shed-nw}`). Give at most one start
 (`from` or `after`) and one end (`to` or `before`); a missing one means the
 run's end. "After" and "before" are along the walk from the start to the
@@ -398,14 +398,14 @@ its pixel count changes, only `layout.yaml` changes.
 ### Mappings
 
 A mapping gives every pixel in its domain one or more coordinates. Coordinates
-are in metres unless the kind says otherwise. Effects say which coordinates
+are in meters unless the kind says otherwise. Effects say which coordinates
 they need, and a layer picks the mapping.
 
 | Kind | Coordinate(s) | Parameters |
 |---|---|---|
 | `flow` | `u`: graph distance from the origin | origin node, edge orientation overrides, conflict policy |
 | `axis` | `u`: plan position projected onto a direction | angle, or two reference points |
-| `radial` | `u`: plan distance from a point | centre node or point |
+| `radial` | `u`: plan distance from a point | center node or point |
 | `plan` | `x`, `y` | none (2-D effects) |
 | `local` | `u`: distance along each run separately | none. The "unsynced" fallback |
 | `index` | `u`: position within the target area, 0–1 | ordering of runs. Used for WLED-exact effects |
@@ -446,7 +446,7 @@ linked nodes forces the same `u`, so the run between them must cover the same
 `u` distance in a different physical length.
 
 - **Longer than the reference:** the pattern is stretched. Bands are wider and
-  move faster in metres per second, so they arrive at the next sync point at
+  move faster in meters per second, so they arrive at the next sync point at
   the same moment.
 - **Shorter than the reference:** the pattern is compressed. Bands are
   narrower and move slower.
@@ -470,7 +470,7 @@ linked nodes forces the same `u`, so the run between them must cover the same
 - **Loops** are the same mechanism. An edge pinned at both ends by different
   routes is stretched (`stretch`), split (`meet`), or rejected (`error`).
 
-The solver also stores each pixel's physical size `dl` (metres) and stretch
+The solver also stores each pixel's physical size `dl` (meters) and stretch
 `dl/du`. Effects use them to decide which quantities follow the flow and
 which stay physical (see "Flow versus physical quantities").
 
@@ -529,24 +529,24 @@ palettes:
   palettes keep their own stops. User palettes get WLED ids from 200
   downward (WLED's custom-palette numbering), or keep a built-in's id when
   they replace it.
-- **Special palettes.** WLED's palettes 0–5 have no colours of their own and
+- **Special palettes.** WLED's palettes 0–5 have no colors of their own and
   are resolved per layer:
   - `Default` (0) is the effect's own default (Rainbow for `gradient` and
-    glitter, the sparkle's colour for `sparkle`, Party otherwise).
+    glitter, the sparkle's color for `sparkle`, Party otherwise).
   - `* Random Cycle` (1) is four random hues that change every 5 s with a
     1 s cross-fade, a function of time only, so every layer agrees.
   - `* Color 1`, `* Colors 1&2`, `* Color Gradient` and `* Colors Only`
-    (2–5) are built from the effect's colours as WLED builds them from a
-    segment's three colours. Effects with palettes take a `colors`
+    (2–5) are built from the effect's colors as WLED builds them from a
+    segment's three colors. Effects with palettes take a `colors`
     parameter for this (bound to WLED's `col`), except `sparkle`, which
     uses its `color`.
-- **White channel.** Colours may give white explicitly (`"#ff8000/40"` = RGB
+- **White channel.** Colors may give white explicitly (`"#ff8000/40"` = RGB
   plus W). Otherwise the layer's `white` mode derives it, as in WLED's
   auto-white: `explicit` (the default) leaves W as authored, `brighter`
   adds W = min(R, G, B), `accurate` moves min(R, G, B) into W, and `none`
-  drops W altogether. `brighter` and `accurate` leave colours that already
+  drops W altogether. `brighter` and `accurate` leave colors that already
   carry white alone (like WLED's "Dual").
-- **Linear light.** Authored colours are perceptual, like WLED's. They're
+- **Linear light.** Authored colors are perceptual, like WLED's. They're
   decoded once to linear light with gamma 2.8 (WLED's default), and all
   compositing, brightness and power maths happens in linear light. The
   output stage therefore doesn't apply gamma again: linear values are LED
@@ -566,7 +566,7 @@ stateful                 bool. Most are not
 wled                     optional: fx id/name and slider bindings (below)
 ```
 
-Each frame it's asked for the colours of its target pixels, given their
+Each frame it's asked for the colors of its target pixels, given their
 coordinates, the frame time and its parameter values. It returns linear RGBW
 with an alpha channel. Alpha below 1 lets lower layers show through. That's
 how an overlay effect works.
@@ -575,11 +575,11 @@ how an overlay effect works.
 
 | Type | Example values | Notes |
 |---|---|---|
-| `length` | `0.5 m`, `20 px`, `3 ft` | Normalised to metres |
+| `length` | `0.5 m`, `20 px`, `3 ft` | Normalized to meters |
 | `speed` | `0.02 m/s`, `1 px/8s`, `-3 ft/min` | Signed. Negative means reverse |
 | `duration` | `250 ms`, `5 s` | |
 | `rate` | `2 /s` | Events per second |
-| `density` | `0.5 /m/s` | Events per metre per second. Sparkle rate independent of length and fps |
+| `density` | `0.5 /m/s` | Events per meter per second. Sparkle rate independent of length and fps |
 | `fraction` | `0.0`–`1.0` | Mix, intensity, probability |
 | `angle` | `90 deg` | |
 | `color` | `"#ff5a00"`, `"#ff5a00/20"` | RGB with optional W |
@@ -605,7 +605,7 @@ reverse      flip direction                        false
 offset       shift along u (length)                0
 brightness   layer brightness                      1.0
 opacity      blend amount                          1.0
-blend        replace | over | add | max | multiply over (honours alpha)
+blend        replace | over | add | max | multiply over (honors alpha)
 white        explicit | none | brighter | accurate  explicit
 smooth       sub-pixel rendering for slow motion   true
 fade_in, fade_out   transition durations           from config default
@@ -618,15 +618,15 @@ of them, or presets over them:
 
 | Primitive | What it draws | Key parameters |
 |---|---|---|
-| `solid` | One colour | `color` |
-| `bands` | A repeating sequence of coloured bands over `u` | `bands: [{color, width}]`, `speed`, `edge: hard\|soft` |
+| `solid` | One color | `color` |
+| `bands` | A repeating sequence of colored bands over `u` | `bands: [{color, width}]`, `speed`, `edge: hard\|soft` |
 | `gradient` | A palette stretched over `u`, optionally moving | `palette`, `span` (length of one full palette cycle), `speed`, `colors` |
 | `sparkle` | Random short-lived points over the base | `density`, `color` or `palette`, `lifetime`, `decay`, `seed` |
 | `chase` | Moving pulses | `width`, `spacing`, `speed`, `colors`, `tail`, `background`, `overlay` |
 | `noise` | Smooth noise over `u`/`x,y` and time | `palette`, `scale`, `speed`, `evolve`, `space: u\|xy`, `seed` |
 | `breathe` | Brightness over time | `color`, `background`, `period`, `min`, `max` |
 
-- **`bands`** with `edge: soft` blend linearly from each band's centre to
+- **`bands`** with `edge: soft` blend linearly from each band's center to
   the next.
 - **`sparkle`** paints only its sparkles, with alpha, so it overlays. Each
   is at full brightness for `lifetime` and then fades over `decay`.
@@ -660,7 +660,7 @@ composites:
   defaults to the effect id. Each part gets its own seed, derived from the
   layer's.
 - **Blending.** Parts are blended bottom first with the compositor's own
-  blend, and the composite outputs colour with alpha. With `blend: over`
+  blend, and the composite outputs color with alpha. With `blend: over`
   that's exactly the same as stacking the parts as layers. `add`, `max` and
   `multiply` parts act on the composite's own parts only.
 - **Nesting.** A part may be another composite, and its parameters get two
@@ -668,7 +668,7 @@ composites:
   cycle is a load error.
 - **WLED.** Config composites get fx ids from 240 up, `sx` bound to their
   first speed, `ix` to their first density, `pal` to their first palette
-  and `col` to their first colours. `glitter` is built in as WLED fx 87.
+  and `col` to their first colors. `glitter` is built in as WLED fx 87.
 
 ### Sub-pixel motion
 
@@ -682,9 +682,9 @@ Temporal dithering in the output stage hides 8-bit steps at low brightness.
 Under stretch, an effect must choose per quantity whether it follows `u` or
 stays physical:
 
-| Follows `u` (synced, scales with stretch) | Stays physical (per metre, ignores stretch) |
+| Follows `u` (synced, scales with stretch) | Stays physical (per meter, ignores stretch) |
 |---|---|
-| Positions of waves, bands, gradients, chases | Sparkle density (events per metre per second) |
+| Positions of waves, bands, gradients, chases | Sparkle density (events per meter per second) |
 | Pattern widths and spacing (by default) | Brightness and power |
 | Speed along the flow | Noise grain, when it should look the same everywhere |
 
@@ -698,13 +698,13 @@ effect declares a sensible default per parameter.
 Random effects hash `(seed, global pixel id, time slot)` instead of calling a
 stateful random number generator. The same seed gives the same sparkles in the
 house and in the preview. Sparkles stay in sync across controllers, and
-density stays per metre whatever the frame rate.
+density stays per meter whatever the frame rate.
 
 For `sparkle`, a time slot is as long as one sparkle lasts (`lifetime +
 decay`). The hash gives each pixel's number of sparkles starting in a slot,
 Poisson-distributed with mean `density × dl × slot`, and each one's start
-time and colour. A frame looks at the current and previous slots. Because
-`dl` is the pixel's physical size, density is per metre of strip whatever
+time and color. A frame looks at the current and previous slots. Because
+`dl` is the pixel's physical size, density is per meter of strip whatever
 the stretch.
 
 ### Presets
@@ -746,7 +746,7 @@ glowstack ctl rm-preset blue-porch
 ### WLED compatibility
 
 HA's WLED integration speaks in fx ids, palette ids, `sx`/`ix` sliders
-(0–255), `c1`–`c3`, `o1`–`o3` and three colours. Each effect that has a WLED
+(0–255), `c1`–`c3`, `o1`–`o3` and three colors. Each effect that has a WLED
 equivalent declares bindings:
 
 ```text
@@ -778,14 +778,14 @@ wled.fx: 87  "Glitter"
   doesn't implement, as WLED does.
 - **Bindings for the built-in effects:**
 
-  | Effect | WLED fx | `sx` | `ix` | Colours, palette |
+  | Effect | WLED fx | `sx` | `ix` | Colors, palette |
   |---|---|---|---|---|
   | `solid` | 0 Solid | | | col0 → `color` |
   | `breathe` | 2 Breathe | `period` 10 s → 0.5 s (log) | | col0 `color`, col1 `background` |
   | `sparkle` | 20 Sparkle | `decay` 2 s → 0.05 s (exp) | `density` 0 → 50 /m/s (exp) | col0 `color`, pal |
   | `chase` | 28 Chase | `speed` 0 → 5 m/s (exp) | `width` 1 px → 2 m (exp) | col0 `background`, col1–2 `colors` |
   | `gradient` | 65 Palette | `speed` 0 → 10 m/s (exp) | `span` 0.25 → 20 m (exp) | col0–2 `colors`, pal |
-  | `bands` | 83 Solid Pattern | first band's width 1 → 256 px | second band's width 1 → 256 px | col0–1 band colours |
+  | `bands` | 83 Solid Pattern | first band's width 1 → 256 px | second band's width 1 → 256 px | col0–1 band colors |
   | `glitter` | 87 Glitter | `gradient.speed` | `sparkle.density` | col0–1 `gradient.colors`, col2 `sparkle.color`, pal |
   | `noise` | 107 Noise Pal | `evolve` 0 → 3 /s (exp) | `scale` 5 → 0.1 m (log) | col0–2 `colors`, pal |
 - **WLED-exact mode.** For an effect that should look exactly like WLED, an
@@ -820,7 +820,7 @@ device: { name: "Glowstack Front", ip: 192.0.2.50, mac: "02:00:00:00:00:01", por
   `wled.json` in the data folder. A zone brightness set through the native
   API is what the device reports.
 - **Controls an effect doesn't bind** are remembered and reported back as
-  set. Switching effect keeps the colours and palette; the sliders start at
+  set. Switching effect keeps the colors and palette; the sliders start at
   the new effect's defaults.
 - **Transitions.** `transition` and `tt` are the fade-in of a pushed layer
   and the fade-out of a removed one. Edits and brightness are immediate.
@@ -833,7 +833,7 @@ device: { name: "Glowstack Front", ip: 192.0.2.50, mac: "02:00:00:00:00:01", por
 - **Palettes.** `/json/pal` lists every palette at its WLED id, user
   palettes by their own names (with nulls between), and reports no custom
   palettes; WLED would call ids 200 and down "Custom n".
-- **Ignored.** Nightlight, UDP sync, live override, per-LED colours and
+- **Ignored.** Nightlight, UDP sync, live override, per-LED colors and
   playlists are accepted, ignored and reported off.
 - **Discovery.** With `--mdns`, devices are advertised as `_wled._tcp` and
   `_http._tcp` with `mac=` in the TXT record, as WLED does.
@@ -859,10 +859,10 @@ layer:
   position. WLED-API changes to a segment that's already on are edits.
 - **Removing ("off").** The layer fades out and is dropped. Pixels it
   covered show the next layer down, or nothing if no layer is left.
-- **Black is a colour, not "off".** A layer showing black covers the pixels
+- **Black is a color, not "off".** A layer showing black covers the pixels
   below it and turns those LEDs off. Removing a layer reveals what's below.
   Through the WLED API, `on: false` removes the segment's layer, while
-  `on: true` with colour black keeps a layer that blacks out the area.
+  `on: true` with color black keeps a layer that blacks out the area.
 - **Persistence.** The stack is written to `state.json` on every change
   (debounced; see "Storage").
   What happens at start is configurable: `boot: restore` (reload the stack)
@@ -871,7 +871,7 @@ layer:
 - **Rendering.** Layers are evaluated top-down per pixel. Once accumulated
   alpha reaches 1 the rest are skipped, so covered pixels cost nothing.
 
-## Brightness and colour pipeline
+## Brightness and color pipeline
 
 Per frame, per pixel:
 
@@ -924,9 +924,9 @@ checked without going outside.
 - **Inspect.** Hover or tap a pixel for its controller, index, run, edge,
   areas, flow position `u`, stretch and which layer is showing.
 - **Diagnostic views** (overlays instead of the live frame):
-  - flow position as a colour ramp per mapping, with direction arrows
+  - flow position as a color ramp per mapping, with direction arrows
   - stretch per edge (blue compressed, red stretched)
-  - nodes, anchors, sync points and links, labelled
+  - nodes, anchors, sync points and links, labeled
   - areas and zones
   - estimated current per output and the active power-limit scale
 - **Time control** for designing effects: pause, step a frame, slow down or
@@ -971,7 +971,7 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
 
 ## Decisions made here
 
-- Units are metres internally. `px` is one pitch of the run in question.
+- Units are meters internally. `px` is one pitch of the run in question.
 - Effects read mapping coordinates, never indices (except the `index`
   mapping).
 - Direction is an effect parameter. Sync points, nodes and edges are layout.
@@ -988,11 +988,11 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
 - Storage is plain text files: hand-edited YAML config (read-only, in git)
   plus a writable data folder for anchors, saved presets and state. No
   database.
-- Black is an ordinary colour. "Off" means removing the layer.
+- Black is an ordinary color. "Off" means removing the layer.
 - Power limits are per output (and optional controller totals). Glowstack
   scales a whole limit group by the lowest required factor, global by
   default.
-- Boot behaviour and default mappings (zone, with segment override) are
+- Boot behavior and default mappings (zone, with segment override) are
   configurable.
 - Composites may nest, with cycles rejected at load.
 

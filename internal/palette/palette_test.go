@@ -87,7 +87,7 @@ func TestRandomPaletteCacheIndependentOfRenderHistory(t *testing.T) {
 	var house, preview Cache
 	house.Resolve(p, nil, base+0.001, nil)
 	// The house already rendered within this 10 ms window. A freshly
-	// scrubbed preview at the same time must still get the same colours.
+	// scrubbed preview at the same time must still get the same colors.
 	a := house.Resolve(p, nil, base+0.009, nil)
 	b := preview.Resolve(p, nil, base+0.009, nil)
 	for _, pos := range []float64{0, 0.25, 0.5, 0.75} {

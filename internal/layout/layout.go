@@ -10,18 +10,18 @@
 // # Positions along a run
 //
 // A run of N pixels is measured in pixel cells: position 0 is the outer end
-// of its first pixel, k+0.5 is the centre of pixel k (counting in run
+// of its first pixel, k+0.5 is the center of pixel k (counting in run
 // direction), and N is the outer end of its last pixel. The run's first path
 // node sits at 0 and its last at N, so a run's default physical length is
 // N × pitch, and a gap measured from strip end to strip end needs no
-// correction. An anchor puts its node at the centre of its pixel. Strip edges
+// correction. An anchor puts its node at the center of its pixel. Strip edges
 // span between consecutive path nodes; a measured `lengths:` entry rescales
 // one edge without moving its pixels.
 //
 // # Drawing first, measuring later
 //
 // Anchors without an index are estimated from the run's plan path: the
-// drawn path is scaled to the run's pixel span and each labelled vertex is
+// drawn path is scaled to the run's pixel span and each labeled vertex is
 // placed in proportion to its distance along it, piecewise between the run
 // ends and any anchors with explicit indices. Explicit indices (from
 // layout.yaml or the data folder's anchors.yaml) are never moved. Pixels get
@@ -43,7 +43,7 @@ import (
 // Layout is the solved, immutable pixel table and layout graph. Don't
 // modify it after Build; rebuild instead.
 type Layout struct {
-	Pitch       float64 // default pitch, metres
+	Pitch       float64 // default pitch, meters
 	Controllers []Controller
 	Pixels      []Pixel // indexed by global pixel id
 	Runs        []Run
@@ -74,10 +74,10 @@ type Pixel struct {
 	Index      int32   // index on the controller
 	Run        int32   // index into Layout.Runs, or -1
 	Edge       int32   // index into Layout.Edges, or -1
-	Dist       float32 // metres along the edge from Edge.From
-	RunDist    float32 // metres along the run from its start
-	Dl         float32 // physical size of the pixel, metres
-	X, Y       float32 // plan position, metres; NaN if unknown
+	Dist       float32 // meters along the edge from Edge.From
+	RunDist    float32 // meters along the run from its start
+	Dl         float32 // physical size of the pixel, meters
+	X, Y       float32 // plan position, meters; NaN if unknown
 	Plan       int16   // index into Layout.Plans, or -1
 	Dead       bool    // physically present but unlit or hidden
 }
@@ -93,8 +93,8 @@ type Run struct {
 	Last       int     // controller index of the last pixel
 	Step       int     // +1 or -1
 	Count      int     // pixels
-	Pitch      float64 // metres
-	Length     float64 // physical length, metres (sum of its strip edges)
+	Pitch      float64 // meters
+	Length     float64 // physical length, meters (sum of its strip edges)
 	Path       []int   // node indices in run order
 	Anchors    []Anchor
 	Edges      []int // strip edge indices in run order
@@ -102,8 +102,8 @@ type Run struct {
 	Plan           int // index into Layout.Plans, or -1
 	PlanPath       *plan.Path
 	DrawnLength    float64 // plan units, 0 without a drawing
-	DrawnMetres    float64 // DrawnLength × plan scale
-	LengthMismatch float64 // DrawnMetres / Length - 1; 0 without a drawing
+	DrawnMeters    float64 // DrawnLength × plan scale
+	LengthMismatch float64 // DrawnMeters / Length - 1; 0 without a drawing
 
 	Config *config.Run
 }
@@ -135,7 +135,7 @@ type Anchor struct {
 	Node   int
 	Index  int     // controller index of the pixel at the node (the end pixel for run ends)
 	At     float64 // position along the run in pixel cells (see package doc)
-	Dist   float64 // metres along the run
+	Dist   float64 // meters along the run
 	Source string  // measured | estimated | end
 	Pos    config.Pos
 }
@@ -146,7 +146,7 @@ type Node struct {
 	Label string
 	Sync  bool
 	Edges []int   // incident edges
-	X, Y  float64 // plan position in metres, NaN if unknown
+	X, Y  float64 // plan position in meters, NaN if unknown
 	Plan  int     // index into Layout.Plans, or -1
 }
 
@@ -167,12 +167,12 @@ func (k EdgeKind) String() string {
 type Edge struct {
 	Kind      EdgeKind
 	From, To  int     // node indices; strips run From→To in run direction
-	Length    float64 // metres
+	Length    float64 // meters
 	Measured  bool    // strip length came from a `lengths:` entry
 	Run       int     // strip: run index; otherwise -1
 	StartAt   float64 // strip: run cell position of From
 	EndAt     float64 // strip: run cell position of To
-	StartDist float64 // strip: metres along the run at From
+	StartDist float64 // strip: meters along the run at From
 	Pixels    []int32 // strip: global ids in From→To order
 	Pos       config.Pos
 }
@@ -195,7 +195,7 @@ type Area struct {
 // Plan is one plan SVG.
 type Plan struct {
 	SVG            string  // file name relative to the config dir
-	Scale          float64 // metres per plan unit
+	Scale          float64 // meters per plan unit
 	ScaleEstimated bool    // Scale came from pixel lengths, not config
 	Drawing        *plan.Drawing
 }
@@ -420,8 +420,8 @@ func (b *builder) estimatePlanScales() {
 	for ri := range b.l.Runs {
 		r := &b.l.Runs[ri]
 		if r.Plan >= 0 && r.DrawnLength > 0 {
-			r.DrawnMetres = r.DrawnLength * b.l.Plans[r.Plan].Scale
-			r.LengthMismatch = r.DrawnMetres/r.Length - 1
+			r.DrawnMeters = r.DrawnLength * b.l.Plans[r.Plan].Scale
+			r.LengthMismatch = r.DrawnMeters/r.Length - 1
 		}
 	}
 }

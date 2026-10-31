@@ -17,10 +17,10 @@ const EffectID = "calibration"
 // Pattern modes.
 const (
 	ModeRuler = "ruler" // one pixel white, a ruler around it, the rest dim
-	ModeBands = "bands" // 100-pixel blocks in alternating colours, every 10th white
+	ModeBands = "bands" // 100-pixel blocks in alternating colors, every 10th white
 )
 
-// Pattern colours, authored like any colour (decoded with the usual gamma).
+// Pattern colors, authored like any color (decoded with the usual gamma).
 var (
 	colFocus  = mustColor("#ffffff")
 	colBefore = mustColor("#ff0000") // ruler marks towards the run's start

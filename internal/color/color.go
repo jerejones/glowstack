@@ -2,13 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Package color is the renderer's colour type: linear-light RGBW with a
+// Package color is the renderer's color type: linear-light RGBW with a
 // straight (not premultiplied) alpha, as float32.
 //
 // # Linear light and gamma
 //
-// Colours are authored like WLED colours ("#ff8000"): perceptual 8-bit
-// values. Glowstack composites in linear light, so authored colours are
+// Colors are authored like WLED colors ("#ff8000"): perceptual 8-bit
+// values. Glowstack composites in linear light, so authored colors are
 // decoded once, when parsed, with DecodeGamma. The default of 2.8 matches
 // WLED's default gamma correction, so "#808080" ends up at the same LED
 // drive level (≈ 37/255) that WLED would send. Linear values map directly
@@ -29,7 +29,7 @@ var DecodeGamma = 2.8
 // Color is linear-light RGBW (nominally 0–1 each) plus alpha (0–1).
 type Color struct{ R, G, B, W, A float32 }
 
-// Common colours.
+// Common colors.
 var (
 	Black       = Color{A: 1}
 	Transparent = Color{}
@@ -46,19 +46,19 @@ func rebuildTable() {
 	}
 }
 
-// SetDecodeGamma changes DecodeGamma (call before parsing colours).
+// SetDecodeGamma changes DecodeGamma (call before parsing colors).
 func SetDecodeGamma(g float64) {
 	DecodeGamma = g
 	rebuildTable()
 }
 
-// Linear decodes an authored colour to linear light, opaque.
+// Linear decodes an authored color to linear light, opaque.
 func Linear(c units.Color) Color {
 	return Color{R: decodeTable[c.R], G: decodeTable[c.G], B: decodeTable[c.B], W: decodeTable[c.W], A: 1}
 }
 
 // Encode converts a linear channel value back to the authored 0–255 scale
-// (for reporting colours back through the WLED API).
+// (for reporting colors back through the WLED API).
 func Encode(v float32) uint8 {
 	if v <= 0 {
 		return 0
@@ -69,7 +69,7 @@ func Encode(v float32) uint8 {
 	return uint8(math.Round(math.Pow(float64(v), 1/DecodeGamma) * 255))
 }
 
-// Authored converts back to an authored colour (alpha dropped).
+// Authored converts back to an authored color (alpha dropped).
 func (c Color) Authored() units.Color {
 	return units.Color{R: Encode(c.R), G: Encode(c.G), B: Encode(c.B), W: Encode(c.W), HasW: c.W > 0}
 }
@@ -85,7 +85,7 @@ func Lerp(a, b Color, t float32) Color {
 	}
 }
 
-// Scale multiplies the colour channels (not alpha) by k.
+// Scale multiplies the color channels (not alpha) by k.
 func (c Color) Scale(k float32) Color {
 	return Color{R: c.R * k, G: c.G * k, B: c.B * k, W: c.W * k, A: c.A}
 }

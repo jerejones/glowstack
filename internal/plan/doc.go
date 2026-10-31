@@ -41,7 +41,7 @@
 //
 // # Transforms
 //
-// The transform attribute is honoured on the shape itself and on every
+// The transform attribute is honored on the shape itself and on every
 // ancestor element, composed outermost-ancestor first. Supported functions:
 // matrix(a b c d e f), translate(tx [ty]), scale(sx [sy]),
 // rotate(angle [cx cy]), skewX(angle) and skewY(angle), with any mix of
@@ -58,8 +58,8 @@
 // and A each contribute their endpoint; Z contributes the closing return to
 // the subpath start), every listed polyline/polygon point (including the
 // polygon's closing repeat) and both endpoints of a line. Points introduced
-// by curve flattening are never labelled. Empty entries leave a vertex
-// unlabelled; fewer entries than drawn vertices leave the rest unlabelled;
+// by curve flattening are never labeled. Empty entries leave a vertex
+// unlabeled; fewer entries than drawn vertices leave the rest unlabeled;
 // more entries than drawn vertices is an error, as is using the same label
 // twice on one shape.
 //

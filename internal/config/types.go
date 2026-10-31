@@ -114,7 +114,7 @@ type LayoutFile struct {
 // Layout describes runs, nodes, anchors and non-strip edges.
 type Layout struct {
 	Pos
-	Pitch units.Length `yaml:"pitch"` // default pitch; required, metres
+	Pitch units.Length `yaml:"pitch"` // default pitch; required, meters
 	Plans []Plan       `yaml:"plans"`
 	Nodes []Node       `yaml:"nodes"`
 	Runs  []Run        `yaml:"runs"`
@@ -127,7 +127,7 @@ type Layout struct {
 type Plan struct {
 	Pos
 	SVG   string        `yaml:"svg"`   // path relative to the config dir
-	Scale *units.Length `yaml:"scale"` // metres per plan unit
+	Scale *units.Length `yaml:"scale"` // meters per plan unit
 }
 
 // Node is an optional node declaration. Anchors and run paths create nodes
@@ -270,7 +270,7 @@ type Area struct {
 // The start is `from` (inclusive) or `after` (exclusive) and the end is
 // `to` (inclusive) or `before` (exclusive), each a node id or a pixel
 // index. Either end may be omitted, meaning the run's end. Exclusive ends
-// let neighbouring areas meet at a node without sharing its pixel:
+// let neighboring areas meet at a node without sharing its pixel:
 // `{to: shed-nw}` and `{after: shed-nw}`. "After" and "before" are along
 // the walk from the start to the end, so a range written against the run
 // direction works too.
@@ -484,7 +484,7 @@ type Mapping struct {
 	Order  []string     `yaml:"order"`  // index: run order (default: layout order)
 }
 
-// PointRef is a node id or a plan point `[x, y]` in metres.
+// PointRef is a node id or a plan point `[x, y]` in meters.
 type PointRef struct {
 	Pos
 	Node string
@@ -507,12 +507,12 @@ func (p *PointRef) unmarshalNode(d *decoder, n *yaml.Node) error {
 				return err
 			}
 			if l.PX {
-				return fmt.Errorf("plan points are in metres, not px")
+				return fmt.Errorf("plan points are in meters, not px")
 			}
 			*dst = l
 		}
 	default:
-		return fmt.Errorf("want a node id or an [x, y] point in metres")
+		return fmt.Errorf("want a node id or an [x, y] point in meters")
 	}
 	return nil
 }

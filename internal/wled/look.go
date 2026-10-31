@@ -134,7 +134,7 @@ func (d *Devices) segMem(v *view, i int) *segMem {
 	return sm
 }
 
-// defaultLook is solid in the default colour, or the first effect WLED can
+// defaultLook is solid in the default color, or the first effect WLED can
 // show if there's no solid.
 func (d *Devices) defaultLook(v *view, i int, sm *segMem) look {
 	id := "solid"

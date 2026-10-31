@@ -119,7 +119,7 @@ func Mismatches(t Target, info *Info, cfg *Cfg) []string {
 		}
 	}
 	if l.NoGC != nil && !*l.NoGC {
-		add("realtime gamma correction is on (no-gc off); Glowstack already sends drive levels, so colours would be gamma-corrected twice")
+		add("realtime gamma correction is on (no-gc off); Glowstack already sends drive levels, so colors would be gamma-corrected twice")
 	}
 	if l.MaxBri != nil && !*l.MaxBri {
 		add("\"Force max brightness\" is off; the controller's brightness would scale Glowstack's frames")

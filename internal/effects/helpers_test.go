@@ -30,7 +30,7 @@ func registry(t testing.TB) *render.Registry {
 }
 
 // strip is n pixels of size pitch along u from 0, all with the same
-// physical size and stretch: pixel k's centre is at (k + ½)·pitch.
+// physical size and stretch: pixel k's center is at (k + ½)·pitch.
 type strip struct {
 	pixels  []int32
 	u       []float32

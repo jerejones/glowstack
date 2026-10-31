@@ -20,7 +20,7 @@ func Gradient() *render.Def {
 		Coords: render.CoordU,
 		Params: []render.Param{
 			{Name: "palette", Type: render.TPalette, Default: "Default", Doc: "Default is Rainbow"},
-			colorsParam("colours for the colour palettes (* Color 1, …)"),
+			colorsParam("colors for the color palettes (* Color 1, …)"),
 			{Name: "span", Type: render.TLength, Default: "2 m", Doc: "length of one full palette cycle"},
 			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "along u; negative moves backwards"},
 		},
@@ -28,7 +28,7 @@ func Gradient() *render.Def {
 			{Slider: render.SliderSpeed, Param: "speed", Curve: render.CurveExp, Min: "0 m/s", Max: "10 m/s"},
 			{Slider: render.SliderIntensity, Param: "span", Curve: render.CurveExp, Min: "0.25 m", Max: "20 m"},
 			{Slider: render.SliderPalette, Param: "palette"},
-		}, colourBindings("")...)},
+		}, colorBindings("")...)},
 		New: func() render.Effect { return &gradient{} },
 	}
 }
@@ -42,7 +42,7 @@ func (g *gradient) Render(ctx *render.Context, out []color.Color) {
 	span := ctx.Params.Length("span")
 	speed := ctx.Params.Speed("speed")
 	physical := span.Measure == render.MeasurePhysical
-	s := span.Metres
+	s := span.Meters
 	shift := travel(speed, ctx.T, s)
 	for i := range out {
 		if physical {

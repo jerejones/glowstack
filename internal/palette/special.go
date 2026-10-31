@@ -17,7 +17,7 @@ import (
 	"github.com/jerejones/glowstack/internal/units"
 )
 
-// Special is one of WLED's palettes 0–5. They have no fixed colours.
+// Special is one of WLED's palettes 0–5. They have no fixed colors.
 //
 // How they resolve (Palette.Resolve):
 //
@@ -27,14 +27,14 @@ import (
 //     RandomCycle seconds, cross-fading over the first RandomFade seconds.
 //     It's a function of the frame time only, so every layer using it
 //     shows the same palette, as on a WLED device.
-//   - Color1 ("* Color 1", 2): the effect's first colour.
-//   - Colors12 ("* Colors 1&2", 3): first and second colours.
+//   - Color1 ("* Color 1", 2): the effect's first color.
+//   - Colors12 ("* Colors 1&2", 3): first and second colors.
 //   - ColorGradient ("* Color Gradient", 4): third → second → first.
-//   - ColorsOnly ("* Colors Only", 5): the colours in distinct blocks.
+//   - ColorsOnly ("* Colors Only", 5): the colors in distinct blocks.
 //
-// "The effect's colours" are what WLED calls the segment's three colours:
+// "The effect's colors" are what WLED calls the segment's three colors:
 // each effect says which of its parameters they are (see the effects
-// package). Missing colours count as black, as on WLED.
+// package). Missing colors count as black, as on WLED.
 type Special uint8
 
 const (
@@ -127,7 +127,7 @@ func slug(name string) string {
 }
 
 // Resolve returns the palette to sample for a layer: p itself unless it's
-// special. colors are the effect's colours (WLED's segment colours), t the
+// special. colors are the effect's colors (WLED's segment colors), t the
 // frame time, and dflt the effect's default palette (for "Default"). It
 // allocates for special palettes; effects that sample every frame should
 // use a Cache.
@@ -151,7 +151,7 @@ func (p *Palette) Resolve(colors []color.Color, t float64, dflt *Palette) *Palet
 	case SpecialColor1:
 		return fromLinear(p, []float64{0}, []color.Color{col(0)})
 	case SpecialColors12:
-		// CRGBPalette16(c1, c1, c2, c2): FastLED puts four colours at
+		// CRGBPalette16(c1, c1, c2, c2): FastLED puts four colors at
 		// entries 0, 5, 10 and 15 and wraps back to entry 0.
 		return fromLinear(p, []float64{0, 5. / 16, 10. / 16, 15. / 16}, []color.Color{col(0), col(0), col(1), col(1)})
 	case SpecialColorGradient:
@@ -177,7 +177,7 @@ func (p *Palette) Resolve(colors []color.Color, t float64, dflt *Palette) *Palet
 	return p
 }
 
-// fromLinear makes a wrapping palette from linear-light colours, named
+// fromLinear makes a wrapping palette from linear-light colors, named
 // after the special palette it resolves.
 func fromLinear(like *Palette, at []float64, cs []color.Color) *Palette {
 	q := &Palette{ID: like.ID, Name: like.Name, WLED: like.WLED, Wrap: true, linear: cs}
@@ -200,7 +200,7 @@ func randomPalette(t float64) *Palette {
 	return fromLinear(&Palette{ID: "random-cycle", Name: "* Random Cycle", WLED: 1}, []float64{0, 5. / 16, 10. / 16, 15. / 16}, cs)
 }
 
-// randomColors are slot k's four colours: hashed hues at full saturation
+// randomColors are slot k's four colors: hashed hues at full saturation
 // and brightness from half to full, like WLED's random palette.
 func randomColors(k int64) [4]color.Color {
 	var cs [4]color.Color
@@ -221,7 +221,7 @@ func mix(x uint64) uint64 {
 	return x ^ x>>31
 }
 
-// hsv converts hue (0–1), saturation and value to an authored colour.
+// hsv converts hue (0–1), saturation and value to an authored color.
 func hsv(h, s, v float64) units.Color {
 	h = (h - math.Floor(h)) * 6
 	i := math.Floor(h)

@@ -21,7 +21,7 @@ import (
 // For each pixel and slot, a hash of (seed, global pixel id, slot) gives
 // the number of sparkles starting in that slot, Poisson-distributed with
 // mean density × dl × slot length, and each one's start time and palette
-// position. dl is the pixel's physical size, so density is per metre of
+// position. dl is the pixel's physical size, so density is per meter of
 // strip whatever the stretch, and it doesn't depend on the frame rate:
 // rendering is a function of t, and every frame looks at the current and
 // previous slots.
@@ -34,12 +34,12 @@ func Sparkle() *render.Def {
 		Name:   "Sparkle",
 		Coords: render.CoordU,
 		Params: []render.Param{
-			{Name: "density", Type: render.TDensity, Default: "2 /m/s", Doc: "sparkles per metre of strip per second"},
+			{Name: "density", Type: render.TDensity, Default: "2 /m/s", Doc: "sparkles per meter of strip per second"},
 			{Name: "lifetime", Type: render.TDuration, Default: "80 ms", Doc: "time at full brightness"},
 			{Name: "decay", Type: render.TDuration, Default: "300 ms", Doc: "fade-out time"},
 			{Name: "color", Type: render.TColor, Default: "#ffffff"},
 			{Name: "palette", Type: render.TPalette, Default: "Default",
-				Doc: "pick each sparkle's colour from a palette; Default uses `color`"},
+				Doc: "pick each sparkle's color from a palette; Default uses `color`"},
 			{Name: "seed", Type: render.TSeed, Default: 0, Doc: "mixed with the layer's seed"},
 		},
 		WLED: &render.WLED{FX: 20, Name: "Sparkle", Bindings: []render.Binding{
@@ -52,7 +52,7 @@ func Sparkle() *render.Def {
 	}
 }
 
-// color1 is "* Color 1": Sparkle's Default palette, its own colour.
+// color1 is "* Color 1": Sparkle's Default palette, its own color.
 var color1 = builtinPalette("color-1")
 
 type sparkle struct {

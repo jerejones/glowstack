@@ -9,10 +9,10 @@
 // # Writing an effect
 //
 // An effect is a Def registered under a stable id. Each frame its Render
-// method is asked for the colours of some target pixels, given their
+// method is asked for the colors of some target pixels, given their
 // coordinates in the layer's mapping (Context.U, already reversed and
 // offset), plan positions, physical size and stretch, the shared frame
-// time and its parameter values. It writes one linear-light colour with
+// time and its parameter values. It writes one linear-light color with
 // alpha per pixel into out. Alpha below 1 lets lower layers show through.
 //
 // Effects should be functions of (coordinate, time, params, seed) wherever
@@ -95,13 +95,13 @@ type Context struct {
 	Frame  uint64  // frame sequence number
 	Seed   uint64  // the layer's seed
 	Params *Values
-	Pitch  float64 // metres per px for this layer (already applied to px parameters)
+	Pitch  float64 // meters per px for this layer (already applied to px parameters)
 	Smooth bool    // sub-pixel rendering wanted (common param `smooth`)
 
 	Pixels  []int32   // global pixel ids to render
-	U       []float32 // mapping coordinate (reverse and offset applied); metres, or 0–1 for index
-	X, Y    []float32 // plan position, metres (NaN if unknown); only with CoordXY
-	Dl      []float32 // physical size of each pixel, metres
+	U       []float32 // mapping coordinate (reverse and offset applied); meters, or 0–1 for index
+	X, Y    []float32 // plan position, meters (NaN if unknown); only with CoordXY
+	Dl      []float32 // physical size of each pixel, meters
 	Stretch []float32 // dl/du: >1 where the flow is stretched
 	Index   []int32   // rank in the layer's full target, in mapping order
 	Count   int       // size of the layer's full target
@@ -147,7 +147,7 @@ const (
 
 // Binding maps one WLED control to a parameter. For sliders, Min and Max
 // are the raw parameter values at 0 and 255 (e.g. "0 m/s", "2 m/s"). For
-// colours and palettes they're unused. See SetWLED and GetWLED.
+// colors and palettes they're unused. See SetWLED and GetWLED.
 type Binding struct {
 	Slider Slider
 	// Param is a parameter path: a name ("speed"), dotted for composites

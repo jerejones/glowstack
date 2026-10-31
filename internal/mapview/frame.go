@@ -51,8 +51,8 @@ const (
 )
 
 // displayLUT turns linear light into display bytes. The map shows the
-// colour as it was authored, so it re-encodes with the same gamma the
-// authored colours were decoded with (color.DecodeGamma): "#ff8000" on a
+// color as it was authored, so it re-encodes with the same gamma the
+// authored colors were decoded with (color.DecodeGamma): "#ff8000" on a
 // layer shows as #ff8000 on the map. That's what a designer expects to
 // see; it isn't a photometric simulation of the LEDs.
 var displayLUT = func() []byte {

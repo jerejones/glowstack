@@ -17,7 +17,7 @@ type Common struct {
 	Mapping    string                // mapping id; an inline mapping's is config.InlinePrefix + hash
 	Inline     *config.InlineMapping // set for an inline mapping
 	Reverse    bool
-	Offset     float64 // metres of u
+	Offset     float64 // meters of u
 	Brightness float32
 	Opacity    float32
 	Blend      string
@@ -37,7 +37,7 @@ func ResolveCommon(raw map[string]any, env Env) (Common, error) {
 		Mapping:    v.Mapping(ParamMapping),
 		Inline:     v.InlineMapping(ParamMapping),
 		Reverse:    v.Bool(ParamReverse),
-		Offset:     v.Length(ParamOffset).Metres,
+		Offset:     v.Length(ParamOffset).Meters,
 		Brightness: float32(v.Fraction(ParamBrightness)),
 		Opacity:    float32(v.Fraction(ParamOpacity)),
 		Blend:      v.Enum(ParamBlend),

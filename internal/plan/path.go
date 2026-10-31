@@ -15,7 +15,7 @@ import (
 type Path struct {
 	ID     string
 	Points []Point  // polyline vertices in order
-	Labels []string // len(Labels)==len(Points); node id at labelled vertices, "" elsewhere
+	Labels []string // len(Labels)==len(Points); node id at labeled vertices, "" elsewhere
 
 	cum []float64 // lazily computed by Cumulative
 }
@@ -84,7 +84,7 @@ func (p *Path) Reversed() *Path {
 	return &Path{ID: p.ID, Points: pts, Labels: labels}
 }
 
-// Vertex finds the vertex labelled label: its point index and distance
+// Vertex finds the vertex labeled label: its point index and distance
 // along the path. ok is false if no vertex carries the label.
 func (p *Path) Vertex(label string) (index int, dist float64, ok bool) {
 	if label == "" {

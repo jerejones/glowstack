@@ -14,13 +14,13 @@ import (
 
 // Mapping is a solved mapping: one coordinate per global pixel id.
 //
-// U is the mapping's coordinate, in metres except for `index` (0–1). Pixels
+// U is the mapping's coordinate, in meters except for `index` (0–1). Pixels
 // outside the mapping's domain have U = NaN; layers using this mapping paint them
 // black (see render). Plan positions (x, y)
 // are a property of the pixel, not the mapping: read them from
 // Layout.Pixels. A `plan` mapping's U is the plan x.
 //
-// Stretch is dl/du per pixel: physical metres per metre of u. It's 1
+// Stretch is dl/du per pixel: physical meters per meter of u. It's 1
 // everywhere except in flows. The pixel's physical size dl is in
 // Layout.Pixels.
 type Mapping struct {
@@ -210,7 +210,7 @@ func SolveSpatial(l *Layout, m *config.Mapping) (*Mapping, error) {
 	return out, nil
 }
 
-// point resolves a point reference to plan metres.
+// point resolves a point reference to plan meters.
 func (l *Layout) point(p *config.PointRef) (float64, float64, error) {
 	if p.Node == "" {
 		return p.X.Value, p.Y.Value, nil

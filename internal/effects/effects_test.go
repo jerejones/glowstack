@@ -119,12 +119,12 @@ func TestGradient(t *testing.T) {
 			t.Errorf("Default palette pixel %d = %+v, want rainbow %+v", k, out[k], want)
 		}
 	}
-	// "* Color 1" is the first of the gradient's colours.
+	// "* Color 1" is the first of the gradient's colors.
 	out = s.render(t, Gradient(), map[string]any{"palette": "* Color 1", "colors": []any{"#3366ff"}}, epoch)
 	if !near(out[40], lin("#3366ff"), 1e-6) {
 		t.Errorf("* Color 1 = %+v", out[40])
 	}
-	// Moving at 0.4 m/s, the colour at u reaches u + 0.2 m (10 pixels)
+	// Moving at 0.4 m/s, the color at u reaches u + 0.2 m (10 pixels)
 	// after 0.5 s.
 	raw := map[string]any{"palette": "Party", "span": "1 m", "speed": "0.4 m/s"}
 	a, b := s.render(t, Gradient(), raw, epoch), s.render(t, Gradient(), raw, epoch+0.5)
@@ -175,7 +175,7 @@ func TestNoise(t *testing.T) {
 		distinct[out[k]] = true
 	}
 	if maxStep > 0.2 || len(distinct) < 50 {
-		t.Errorf("noise isn't smooth and varied: max step %v, %d colours", maxStep, len(distinct))
+		t.Errorf("noise isn't smooth and varied: max step %v, %d colors", maxStep, len(distinct))
 	}
 	// It evolves in place.
 	later := s.render(t, Noise(), map[string]any{"scale": "0.5 m", "evolve": "1 /s"}, epoch+0.5)

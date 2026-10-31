@@ -140,7 +140,7 @@ func TestFlowParallelPace(t *testing.T) {
 			}
 			l, m := g().mustFlow(f)
 			checkNodes(t, l, m, map[string]float64{"p2": 0, "q": tt.du, "q2": tt.du})
-			// Pixel centres at 0.05 m on each run: u = 0.05 / stretch.
+			// Pixel centers at 0.05 m on each run: u = 0.05 / stretch.
 			checkPix(t, l, m, "lower", 0, 0.05/tt.lower, tt.lower)
 			checkPix(t, l, m, "upper", 0, 0.05/tt.upper, tt.upper)
 			// Upper's middle pixel (7, at 0.75 of 1.5 m) is halfway in u.
@@ -341,7 +341,7 @@ func TestFlowPinsCannotMoveOriginSyncGroup(t *testing.T) {
 	for _, node := range []string{"o", "linked"} {
 		t.Run(node, func(t *testing.T) {
 			_, _, _, err := newGraph(t).run("a", 10, "o", "x").run("b", 10, "linked", "y").link("o", "linked").flow(config.Flow{
-				ID: "f", Origin: "o", Pin: []config.Pin{{Node: node, U: unitsMetres(2)}},
+				ID: "f", Origin: "o", Pin: []config.Pin{{Node: node, U: unitsMeters(2)}},
 			})
 			errContains(t, err, "pinned at a different u")
 		})
@@ -358,7 +358,7 @@ func TestSmoothWarpEnforcesLocalStretchLimitsBothWays(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			g := func() *graph { return newGraph(t).run("r", 40, "o", "a@19", "e") }
-			f := config.Flow{ID: "f", Origin: "o", Pin: []config.Pin{{Node: "a", U: unitsMetres(tt.u)}}, Warp: config.WarpSmooth, MaxStretch: tt.limit}
+			f := config.Flow{ID: "f", Origin: "o", Pin: []config.Pin{{Node: "a", U: unitsMeters(tt.u)}}, Warp: config.WarpSmooth, MaxStretch: tt.limit}
 			_, m, warnings, err := g().flow(f)
 			if err != nil {
 				t.Fatal(err)

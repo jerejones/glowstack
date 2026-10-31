@@ -10,7 +10,7 @@ import (
 	"math"
 )
 
-// Bands is a repeating sequence of coloured bands over u, optionally
+// Bands is a repeating sequence of colored bands over u, optionally
 // moving. WLED's "Solid Pattern" (fx 83) is two bands.
 //
 // Widths follow the flow by default, so bands stretch and compress with
@@ -19,8 +19,8 @@ import (
 //
 // edge: hard bands have sharp edges, anti-aliased to a fraction of a
 // pixel when `smooth` is on (an edge part-way across a pixel mixes the two
-// colours in proportion). soft bands blend linearly from each band's
-// centre to the next one's.
+// colors in proportion). soft bands blend linearly from each band's
+// center to the next one's.
 func Bands() *render.Def {
 	return &render.Def{
 		ID:     "bands",
@@ -132,18 +132,18 @@ func (b *bands) at(x float64) int {
 	return 0
 }
 
-// soft blends between band centres.
+// soft blends between band centers.
 func (b *bands) soft(x, period float64) color.Color {
 	n := len(b.start)
-	centre := func(k int) float64 { return b.start[k] + b.w[k]/2 }
-	if x < centre(0) {
+	center := func(k int) float64 { return b.start[k] + b.w[k]/2 }
+	if x < center(0) {
 		x += period
 	}
 	for k := range n {
-		c0 := centre(k)
-		c1 := period + centre(0)
+		c0 := center(k)
+		c1 := period + center(0)
 		if k+1 < n {
-			c1 = centre(k + 1)
+			c1 = center(k + 1)
 		}
 		if x >= c0 && x < c1 || k == n-1 {
 			t := float32(0)
@@ -156,18 +156,18 @@ func (b *bands) soft(x, period float64) color.Color {
 	return b.cols[0]
 }
 
-// softAverage integrates the linear transitions between band centres.
-// Each transition contributes the areas under its two colour weights,
+// softAverage integrates the linear transitions between band centers.
+// Each transition contributes the areas under its two color weights,
 // including complete cycles when a pixel covers a compressed pattern.
 func (b *bands) softAverage(x, fw, period float64) color.Color {
-	centre := func(k int) float64 { return b.start[k] + b.w[k]/2 }
-	lo, hi := x-centre(0)-fw/2, x-centre(0)+fw/2
+	center := func(k int) float64 { return b.start[k] + b.w[k]/2 }
+	lo, hi := x-center(0)-fw/2, x-center(0)+fw/2
 	var c color.Color
 	for k := range b.cols {
-		start := centre(k) - centre(0)
+		start := center(k) - center(0)
 		end := period
 		if k+1 < len(b.cols) {
-			end = centre(k+1) - centre(0)
+			end = center(k+1) - center(0)
 		}
 		width := end - start
 		if width <= 0 {

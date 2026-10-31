@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // The Glowstack live map. Plain JS, no build step. World coordinates are
-// plan metres (y down, as in the SVG); the view maps them to the canvas.
+// plan meters (y down, as in the SVG); the view maps them to the canvas.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -22,7 +22,7 @@ const S = {
   mappingId: '',
   mappings: new Map(),  // id → mapping JSON (cached)
   pick: '',             // areas view: "area:<id>" or "zone:<id>"
-  overlay: null,        // Uint8Array colours for diagnostic views
+  overlay: null,        // Uint8Array colors for diagnostic views
   showNodes: false,
   showLabels: false,
   hover: -1,
@@ -59,7 +59,7 @@ function markDirty() {
   if (!S.dirty) { S.dirty = true; requestAnimationFrame(draw); }
 }
 
-// Colour ramps. turbo-ish for u, diverging blue-white-red for stretch.
+// Color ramps. turbo-ish for u, diverging blue-white-red for stretch.
 function ramp(t) {
   t = Math.min(1, Math.max(0, t));
   const h = 260 - 260 * t;
@@ -70,7 +70,7 @@ function hsl(h, s, l) {
   const f = (n) => { const k = (n + h / 30) % 12; return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); };
   return [f(0), f(8), f(4)].map((v) => Math.round(v * 255));
 }
-function stretchColour(s) {
+function stretchColor(s) {
   if (s === null || !(s > 0)) return [70, 70, 70];
   const x = Math.max(-1, Math.min(1, Math.log2(s) / Math.log2(1.5))); // ±1 at 1.5× / 1/1.5×
   const w = 235;
@@ -303,11 +303,11 @@ function drawStretchLabels() {
   }
 }
 
-function label(text, x, y, colour) {
+function label(text, x, y, color) {
   ctx.font = '11px system-ui, sans-serif';
   ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.8)';
   ctx.strokeText(text, x, y);
-  ctx.fillStyle = colour; ctx.fillText(text, x, y);
+  ctx.fillStyle = color; ctx.fillText(text, x, y);
 }
 
 // Nodes, anchors, sync points and links. Measured anchors are solid
@@ -372,7 +372,7 @@ async function setMode(mode) {
       if (mode === 'flow') {
         c = m.u[p] === null ? [70, 70, 70] : ramp((m.u[p] - m.min) / ((m.max - m.min) || 1));
       } else {
-        c = m.u[p] === null ? [70, 70, 70] : stretchColour(m.stretch[p]);
+        c = m.u[p] === null ? [70, 70, 70] : stretchColor(m.stretch[p]);
       }
       out.set(c, 3 * p);
     }
@@ -384,7 +384,7 @@ async function setMode(mode) {
         <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
         <div class="row"><span>${fmt(m.min, 2)}${unit}</span><span>${fmt(m.max, 2)}${unit}</span></div>`;
     } else {
-      const stops = [1 / 1.5, 1 / 1.2, 1, 1.2, 1.5].map((s) => `rgb(${stretchColour(s)})`).join(',');
+      const stops = [1 / 1.5, 1 / 1.2, 1, 1.2, 1.5].map((s) => `rgb(${stretchColor(s)})`).join(',');
       legend.innerHTML = `<div>stretch in <b>${esc(m.id)}</b>${m.flow ? '' : ' (not a flow: 1 everywhere)'}</div>
         <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
         <div class="row"><span>compressed ≤×0.67</span><span>1</span><span>stretched ≥×1.5</span></div>`;
@@ -593,7 +593,7 @@ async function inspect(p) {
     ${row('areas', esc(d.areas.join(', ') || '—'))}
     ${row('zones', esc(d.zones.join(', ') || '—'))}
     ${row('showing', layer)}
-    ${row('colour', d.rgb ? `<span class="chip" style="background:${d.rgb}"></span>${d.rgb}` : '—')}
+    ${row('color', d.rgb ? `<span class="chip" style="background:${d.rgb}"></span>${d.rgb}` : '—')}
     ${maps}
   </table>`;
 }

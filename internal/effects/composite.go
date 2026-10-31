@@ -170,7 +170,7 @@ func Glitter() *render.Def {
 		{Slider: render.SliderPalette, Param: "gradient.palette"},
 		{Slider: render.SliderColor0, Param: "gradient.colors.0"},
 		{Slider: render.SliderColor1, Param: "gradient.colors.1"},
-		// WLED's glitter colour is col2 (white when unset).
+		// WLED's glitter color is col2 (white when unset).
 		{Slider: render.SliderColor2, Param: "sparkle.color"},
 	}}
 	return d
@@ -253,7 +253,7 @@ func cmpOr(a, b string) string {
 
 // autoBindings binds a config composite's most useful parameters to WLED
 // controls: sx to its first speed, ix to its first density, pal to its
-// first palette, col0–col2 to its first three colours.
+// first palette, col0–col2 to its first three colors.
 func autoBindings(d *render.Def) []render.Binding {
 	var bs []render.Binding
 	first := func(t render.ParamType) (string, bool) {

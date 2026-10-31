@@ -87,7 +87,7 @@ type Cursor struct {
 // plan is a target resolved against the current layout.
 type plan struct {
 	cursors []Cursor
-	// gap: its current length in metres.
+	// gap: its current length in meters.
 	length float64
 }
 
@@ -354,7 +354,7 @@ type Item struct {
 	Index  *int     `json:"index,omitempty"`
 	Source string   `json:"source"` // measured | estimated (anchors); measured | configured (gaps); partial (links)
 	Done   bool     `json:"done"`
-	Length *float64 `json:"length,omitempty"` // gaps: metres
+	Length *float64 `json:"length,omitempty"` // gaps: meters
 }
 
 // progress lists every anchor in run order, then links and gaps.

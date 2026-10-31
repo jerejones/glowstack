@@ -141,9 +141,9 @@ func (f *fixture) must(want int, method, path string, body any) map[string]any {
 }
 
 // push pushes a solid layer with no fades and returns its id.
-func (f *fixture) push(target, colour string, extra map[string]any) string {
+func (f *fixture) push(target, color string, extra map[string]any) string {
 	f.t.Helper()
-	body := map[string]any{"target": target, "effect": "solid", "params": map[string]any{"color": colour},
+	body := map[string]any{"target": target, "effect": "solid", "params": map[string]any{"color": color},
 		"fade_in": "0s", "fade_out": "0s"}
 	for k, v := range extra {
 		body[k] = v
@@ -218,7 +218,7 @@ func TestStackSemantics(t *testing.T) {
 	f.expect(f.porch, "010", "porch after editing the lower layer")
 	f.expect(f.shed, "001", "shed after the edit")
 
-	// Black is a colour: a black layer covers the porch.
+	// Black is a color: a black layer covers the porch.
 	black := f.push("porch", "#000000", nil)
 	f.render(time.Second)
 	f.expect(f.porch, "000", "porch under a black layer")
@@ -659,6 +659,6 @@ func TestSwitchLookDropsOldEffectParameters(t *testing.T) {
 	f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"params":{"color":"#0000ff"}}`)
 	out = f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"effect":"solid","opacity":0.7}`)
 	if out["params"].(map[string]any)["color"] != "#0000ff" {
-		t.Errorf("same effect lost its colour: %v", out)
+		t.Errorf("same effect lost its color: %v", out)
 	}
 }

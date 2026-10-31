@@ -74,7 +74,7 @@ func TestWLEDPaletteData(t *testing.T) {
 	if c, want := rainbow.At(15.0/16+1.0/32), color.Lerp(lin(0xeb0072), lin(0xff0000), 0.5); !sameColor(c, want) {
 		t.Errorf("Rainbow wrapping 15 → 0 = %+v, want %+v", c, want)
 	}
-	// FastLED colour names: Cloud's entry 10 is SkyBlue.
+	// FastLED color names: Cloud's entry 10 is SkyBlue.
 	cloud, _ := r.Get("Cloud")
 	if c := cloud.At(10.0 / 16); !sameColor(c, lin(0x87ceeb)) {
 		t.Errorf("Cloud entry 10 = %+v", c)
@@ -106,10 +106,10 @@ func TestSpecialPalettes(t *testing.T) {
 	}
 	only := get("* Colors Only")
 	if c := only.Resolve(cols, 0, nil).At(11.0 / 16); !sameColor(c, blue) {
-		t.Errorf("* Colors Only with three colours: %+v", c)
+		t.Errorf("* Colors Only with three colors: %+v", c)
 	}
 	if c := only.Resolve(cols[:2], 0, nil).At(11.0 / 16); !sameColor(c, green) {
-		t.Errorf("* Colors Only without a third colour: %+v", c)
+		t.Errorf("* Colors Only without a third color: %+v", c)
 	}
 
 	def := get("Default")
@@ -149,7 +149,7 @@ func TestCache(t *testing.T) {
 		t.Error("cache didn't reuse an unchanged palette")
 	}
 	if b := c.Resolve(c1, blue, 10, nil); b == a || !sameColor(b.At(0), blue[0]) {
-		t.Error("cache didn't follow a colour change")
+		t.Error("cache didn't follow a color change")
 	}
 	rainbow, _ := r.Get("rainbow")
 	if c.Resolve(rainbow, red, 0, nil) != rainbow {

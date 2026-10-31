@@ -9,12 +9,12 @@ import (
 	"github.com/jerejones/glowstack/internal/render"
 )
 
-// Solid is one colour everywhere: WLED's fx 0.
+// Solid is one color everywhere: WLED's fx 0.
 func Solid() *render.Def {
 	return &render.Def{
 		ID:     "solid",
 		Name:   "Solid",
-		Params: []render.Param{{Name: "color", Type: render.TColor, Default: "#ffa000", Doc: "the colour"}},
+		Params: []render.Param{{Name: "color", Type: render.TColor, Default: "#ffa000", Doc: "the color"}},
 		WLED: &render.WLED{FX: 0, Name: "Solid", Bindings: []render.Binding{
 			{Slider: render.SliderColor0, Param: "color"},
 		}},

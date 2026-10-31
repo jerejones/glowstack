@@ -17,7 +17,7 @@ var redBlue = []any{
 }
 
 // atTravel returns a frame time near epoch at which a pattern moving at
-// speed has travelled d (mod period).
+// speed has traveled d (mod period).
 func atTravel(speed, period, d float64) float64 {
 	cycle := period / speed
 	return math.Floor(epoch/cycle)*cycle + d/speed
@@ -48,7 +48,7 @@ func TestBandEdgesSubPixel(t *testing.T) {
 			t.Errorf("pixel %d = %+v, want %+v", k, out[k], want)
 		}
 	}
-	// Every pixel's shares add up to one colour's worth.
+	// Every pixel's shares add up to one color's worth.
 	for k, c := range out {
 		if math.Abs(float64(c.R+c.B)-1) > 1e-5 || c.A != 1 {
 			t.Errorf("pixel %d = %+v", k, c)
@@ -59,7 +59,7 @@ func TestBandEdgesSubPixel(t *testing.T) {
 	if !near(later[10], mixed(0.4), 1e-4) {
 		t.Errorf("pixel 10 after 0.8 s = %+v", later[10])
 	}
-	// smooth: false point-samples pixel centres.
+	// smooth: false point-samples pixel centers.
 	v := resolve(t, Bands(), raw, s.pitch)
 	ctx := s.ctx(v, tm)
 	ctx.Smooth = false
@@ -91,8 +91,8 @@ func TestBandsFlowAndPhysical(t *testing.T) {
 func TestSoftBands(t *testing.T) {
 	s := newStrip(20, 0.1, 1)
 	out := s.render(t, Bands(), map[string]any{"bands": redBlue, "edge": "soft"}, epoch)
-	// Centres: red at 0.5, blue at 1.5. Pixel 4 is at 0.45 (just before
-	// red's centre), pixel 9 at 0.95 (nearly half way).
+	// Centers: red at 0.5, blue at 1.5. Pixel 4 is at 0.45 (just before
+	// red's center), pixel 9 at 0.95 (nearly half way).
 	if !near(out[9], color.Lerp(lin("#ff0000"), lin("#0000ff"), 0.45), 1e-5) {
 		t.Errorf("pixel 9 = %+v", out[9])
 	}
@@ -105,7 +105,7 @@ func TestSoftBandsAveragePixelFootprint(t *testing.T) {
 	d := Bands()
 	for _, tc := range []struct{ pitch, red float64 }{{0.2, 0.95}, {2, 0.5}} {
 		s := newStrip(1, tc.pitch, 1)
-		s.u[0] = 0.5 // red band centre, where the linear blend changes slope
+		s.u[0] = 0.5 // red band center, where the linear blend changes slope
 		v := resolve(t, d, map[string]any{"bands": redBlue, "edge": "soft"}, s.pitch)
 		ctx := s.ctx(v, epoch)
 		out := make([]color.Color, 1)
@@ -117,7 +117,7 @@ func TestSoftBandsAveragePixelFootprint(t *testing.T) {
 		ctx.Smooth = false
 		d.New().Render(ctx, out)
 		if !near(out[0], lin("#ff0000"), 1e-6) {
-			t.Errorf("centre sample: %+v", out[0])
+			t.Errorf("center sample: %+v", out[0])
 		}
 	}
 }

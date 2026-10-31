@@ -28,7 +28,7 @@ func TestSolid(t *testing.T) {
 	d.New().Render(&render.Context{Params: v, Pixels: []int32{0, 1, 2}}, out)
 	for _, c := range out {
 		if c != (color.Color{R: 1, G: 1, B: 1, W: 1, A: 1}) {
-			t.Errorf("colour = %+v", c)
+			t.Errorf("color = %+v", c)
 		}
 	}
 }

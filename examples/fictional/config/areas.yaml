@@ -11,7 +11,7 @@ areas:
   - id: everything
     include: [{ area: shed }, { area: yard }, { area: porch }]
   # from/to include the pixel at their node; after/before leave it out, so
-  # neighbouring areas can meet at a node without sharing its pixel. With
+  # neighboring areas can meet at a node without sharing its pixel. With
   # shed-north these split the eave into three faces with no overlap.
   - id: shed-south
     include: [{ run: shed-eave, to: shed-sw }]

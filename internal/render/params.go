@@ -66,7 +66,7 @@ type Param struct {
 
 // Length is a resolved length parameter.
 type Length struct {
-	Metres  float64
+	Meters  float64
 	Measure Measure
 }
 
@@ -75,14 +75,14 @@ type Length struct {
 // stretched.
 func (l Length) InU(stretch float32) float64 {
 	if l.Measure == MeasurePhysical && stretch > 0 {
-		return l.Metres / float64(stretch)
+		return l.Meters / float64(stretch)
 	}
-	return l.Metres
+	return l.Meters
 }
 
 // Env is what resolving parameters needs to know.
 type Env struct {
-	Pitch    float64           // metres per px for this layer's target
+	Pitch    float64           // meters per px for this layer's target
 	Palettes *palette.Registry // for palette ids
 }
 
@@ -120,10 +120,10 @@ func getAs[T any](v *Values, name string, t ParamType) T {
 	return x
 }
 
-// Length returns a length parameter in metres with its measure.
+// Length returns a length parameter in meters with its measure.
 func (v *Values) Length(name string) Length { return getAs[Length](v, name, TLength) }
 
-// Speed returns a speed in metres (of u) per second; negative is reverse.
+// Speed returns a speed in meters (of u) per second; negative is reverse.
 func (v *Values) Speed(name string) float64 { return getAs[float64](v, name, TSpeed) }
 
 // Duration returns a duration in seconds.
@@ -132,7 +132,7 @@ func (v *Values) Duration(name string) float64 { return getAs[float64](v, name, 
 // Rate returns events per second.
 func (v *Values) Rate(name string) float64 { return getAs[float64](v, name, TRate) }
 
-// Density returns events per metre per second.
+// Density returns events per meter per second.
 func (v *Values) Density(name string) float64 { return getAs[float64](v, name, TDensity) }
 
 // Fraction returns a value in 0–1.
@@ -141,10 +141,10 @@ func (v *Values) Fraction(name string) float64 { return getAs[float64](v, name, 
 // Angle returns radians.
 func (v *Values) Angle(name string) float64 { return getAs[float64](v, name, TAngle) }
 
-// Color returns a linear-light colour.
+// Color returns a linear-light color.
 func (v *Values) Color(name string) color.Color { return getAs[color.Color](v, name, TColor) }
 
-// Colors returns linear-light colours.
+// Colors returns linear-light colors.
 func (v *Values) Colors(name string) []color.Color { return getAs[[]color.Color](v, name, TColors) }
 
 // Palette returns a palette.
@@ -263,7 +263,7 @@ func resolveOne(p Param, x any, env Env) (any, error) {
 		return parseLength(x, p.Measure, env.Pitch)
 	case TSpeed:
 		s, err := quantity(x, units.ParseSpeed)
-		return s.MetresPerSecond(env.Pitch), err
+		return s.MetersPerSecond(env.Pitch), err
 	case TDuration:
 		d, err := quantity(x, units.ParseDuration)
 		return d.Seconds(), err
@@ -272,7 +272,7 @@ func resolveOne(p Param, x any, env Env) (any, error) {
 		return float64(r), err
 	case TDensity:
 		d, err := quantity(x, units.ParseDensity)
-		return d.PerMetreSecond(env.Pitch), err
+		return d.PerMeterSecond(env.Pitch), err
 	case TFraction:
 		if n, ok := number(x); ok {
 			if n < 0 || n > 1 {
@@ -294,7 +294,7 @@ func resolveOne(p Param, x any, env Env) (any, error) {
 	case TColors:
 		list, ok := x.([]any)
 		if !ok {
-			return nil, fmt.Errorf("want a list of colours")
+			return nil, fmt.Errorf("want a list of colors")
 		}
 		cs := make([]color.Color, len(list))
 		for i, e := range list {
@@ -415,7 +415,7 @@ func parseLength(x any, dflt Measure, pitch float64) (Length, error) {
 		return Length{}, fmt.Errorf("measure %q: want flow or physical", measure)
 	}
 	l, err := quantity(x, units.ParseLength)
-	return Length{Metres: l.Metres(pitch), Measure: measure}, err
+	return Length{Meters: l.Meters(pitch), Measure: measure}, err
 }
 
 func number(x any) (float64, bool) {

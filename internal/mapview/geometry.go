@@ -38,7 +38,7 @@ type Geometry struct {
 }
 
 // PixelColumns is the pixel table, one array per column, indexed by
-// global id. X and Y are plan metres (null where unknown); Plan, Run and
+// global id. X and Y are plan meters (null where unknown); Plan, Run and
 // Edge are indices (-1 for none).
 type PixelColumns struct {
 	Count      int     `json:"count"`
@@ -54,12 +54,12 @@ type PixelColumns struct {
 }
 
 // PlanJSON is one plan SVG. Pixel and node coordinates are plan units
-// times Scale, so the SVG's viewBox in metres is ViewBox × Scale.
+// times Scale, so the SVG's viewBox in meters is ViewBox × Scale.
 type PlanJSON struct {
 	URL            string     `json:"url"`
 	Name           string     `json:"name"`
 	ViewBox        [4]float64 `json:"view_box"` // min-x, min-y, width, height in plan units; zero if the SVG has none
-	Scale          float64    `json:"scale"`    // metres per plan unit
+	Scale          float64    `json:"scale"`    // meters per plan unit
 	ScaleEstimated bool       `json:"scale_estimated"`
 }
 
@@ -87,7 +87,7 @@ type RunJSON struct {
 	Pitch          float64      `json:"pitch"`
 	Length         float64      `json:"length"`
 	Plan           int          `json:"plan"` // -1: not drawn
-	DrawnMetres    float64      `json:"drawn_m,omitempty"`
+	DrawnMeters    float64      `json:"drawn_m,omitempty"`
 	LengthMismatch float64      `json:"length_mismatch,omitempty"`
 	Path           []int        `json:"path"`  // node indices
 	Edges          []int        `json:"edges"` // strip edge indices in run order
@@ -194,7 +194,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 		r := &l.Runs[i]
 		rj := RunJSON{
 			ID: r.ID, Controller: r.Controller, First: r.First, Last: r.Last, Count: r.Count,
-			Pitch: r.Pitch, Length: r.Length, Plan: r.Plan, DrawnMetres: r.DrawnMetres,
+			Pitch: r.Pitch, Length: r.Length, Plan: r.Plan, DrawnMeters: r.DrawnMeters,
 			LengthMismatch: r.LengthMismatch, Path: r.Path, Edges: r.Edges,
 		}
 		for _, an := range r.Anchors {
@@ -238,7 +238,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 }
 
 // float is a float64 that encodes NaN and infinities as null, rounded to
-// 6 significant digits (plenty for metres on a map).
+// 6 significant digits (plenty for meters on a map).
 type float float64
 
 func (f float) MarshalJSON() ([]byte, error) { return appendFloat(nil, float64(f)), nil }

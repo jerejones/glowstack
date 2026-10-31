@@ -4,12 +4,12 @@
 
 // Package units parses and formats the physical quantities used in config
 // and effect parameters: lengths, speeds, durations, rates, densities,
-// angles, fractions and colours.
+// angles, fractions and colors.
 //
-// Values are normalised to SI: metres, seconds, radians. A quantity given in
-// `px` (one LED pitch of the run in question) can't be normalised until the
+// Values are normalized to SI: meters, seconds, radians. A quantity given in
+// `px` (one LED pitch of the run in question) can't be normalized until the
 // pitch is known, so Length, Speed and Density keep a PX flag and convert
-// with Metres(pitch) and friends.
+// with Meters(pitch) and friends.
 //
 // Every type implements encoding.TextUnmarshaler and TextMarshaler, so it can
 // be used directly in YAML (gopkg.in/yaml.v3) and JSON structs.
@@ -26,7 +26,7 @@ import (
 	"unicode"
 )
 
-// Metre conversion factors for the accepted length units.
+// Meter conversion factors for the accepted length units.
 var lengthUnits = map[string]float64{
 	"m":  1,
 	"cm": 0.01,

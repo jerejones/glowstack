@@ -461,7 +461,7 @@ func ditherByte(v float32, r *float32) byte {
 }
 
 // ditherSeed spreads the starting error of each channel over [-0.5, 0.5)
-// so neighbouring pixels at the same level don't step in unison.
+// so neighboring pixels at the same level don't step in unison.
 func ditherSeed(i uint32) float32 {
 	i ^= i >> 16
 	i *= 0x7feb352d

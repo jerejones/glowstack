@@ -63,7 +63,7 @@ func (c *Config) applyMeasured() error {
 		}
 		seenGaps[key] = g.Pos
 		if g.Length.PX || g.Length.Value <= 0 {
-			v.errorf(g.Pos, "gap %s–%s needs a positive length in metres", g.From, g.To)
+			v.errorf(g.Pos, "gap %s–%s needs a positive length in meters", g.From, g.To)
 			continue
 		}
 		found := false

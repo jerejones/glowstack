@@ -128,7 +128,7 @@ func TestInkscapeLabelLookup(t *testing.T) {
 	</svg>`)
 	p = mustPath(t, d, "b")
 	if got := p.Length(); !within(got, 2, 1e-9) {
-		t.Errorf("Path(\"b\") picked the labelled shape; length = %g, want 2", got)
+		t.Errorf("Path(\"b\") picked the labeled shape; length = %g, want 2", got)
 	}
 	// With no id match, the first matching label wins.
 	p = mustPath(t, d, "a")
@@ -280,7 +280,7 @@ func TestDataNodesVariants(t *testing.T) {
 		wantErr    string
 	}{
 		{
-			"empty entries leave vertices unlabelled",
+			"empty entries leave vertices unlabeled",
 			`<svg><path id="p" d="M0 0 H10 V10" data-nodes="a,,c"/></svg>`,
 			"p", []string{"a", "", "c"}, "",
 		},
@@ -295,17 +295,17 @@ func TestDataNodesVariants(t *testing.T) {
 			"p", []string{"a", "b"}, "",
 		},
 		{
-			"Z vertex is labellable",
+			"Z vertex is labelable",
 			`<svg><path id="p" d="M0 0 H10 V10 Z" data-nodes="a,b,c,d"/></svg>`,
 			"p", []string{"a", "b", "c", "d"}, "",
 		},
 		{
-			"curve flattening points are not labellable",
+			"curve flattening points are not labelable",
 			`<svg><path id="p" d="M0 0 C0 10 10 10 10 0" data-nodes="a,b"/></svg>`,
 			"p", nil, "",
 		},
 		{
-			"polygon closing vertex is labellable",
+			"polygon closing vertex is labelable",
 			`<svg><polygon id="g" points="0,0 10,0 10,10" data-nodes="a,b,c,d"/></svg>`,
 			"g", []string{"a", "b", "c", "d"}, "",
 		},
@@ -344,7 +344,7 @@ func TestDataNodesVariants(t *testing.T) {
 			if tt.wantLabels != nil && !reflect.DeepEqual(p.Labels, tt.wantLabels) {
 				t.Errorf("Labels = %v, want %v", p.Labels, tt.wantLabels)
 			}
-			if tt.name == "curve flattening points are not labellable" {
+			if tt.name == "curve flattening points are not labelable" {
 				if p.Labels[0] != "a" || p.Labels[len(p.Labels)-1] != "b" {
 					t.Errorf("curve labels = first %q last %q, want a/b", p.Labels[0], p.Labels[len(p.Labels)-1])
 				}

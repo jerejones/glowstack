@@ -49,7 +49,7 @@ func ids(lo, hi int32) []int32 {
 }
 
 // recorder is an effect that remembers what it was asked for and paints
-// a fixed colour.
+// a fixed color.
 type recorder struct {
 	c       color.Color
 	pixels  []int32
@@ -168,7 +168,7 @@ func near(a, b float32) bool { return math.Abs(float64(a-b)) < 1e-5 }
 
 func TestBlendModes(t *testing.T) {
 	l, m := tenPixels(t)
-	grey := color.Color{R: 0.5, G: 0.5, B: 0.5, A: 1}
+	gray := color.Color{R: 0.5, G: 0.5, B: 0.5, A: 1}
 	half := color.Color{R: 1, G: 0, B: 0.25, A: 0.5}
 	tests := []struct {
 		blend   string
@@ -186,7 +186,7 @@ func TestBlendModes(t *testing.T) {
 	for _, tt := range tests {
 		layers := []*Layer{
 			layer(t, l, m, ids(0, 0), &recorder{c: half}, false, map[string]any{"blend": tt.blend, "opacity": tt.opacity}),
-			layer(t, l, m, ids(0, 0), &recorder{c: grey}, false, nil),
+			layer(t, l, m, ids(0, 0), &recorder{c: gray}, false, nil),
 		}
 		buf := NewBuffer(10)
 		NewCompositor(10).Render(frame, layers, buf)
@@ -285,10 +285,10 @@ func TestResolveParams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w := v.Length("width"); w.Metres != 0.5 || w.Measure != MeasurePhysical || !near(float32(w.InU(2)), 0.25) {
+	if w := v.Length("width"); w.Meters != 0.5 || w.Measure != MeasurePhysical || !near(float32(w.InU(2)), 0.25) {
 		t.Errorf("width = %+v", w)
 	}
-	if g := v.Length("grain"); !near(float32(g.Metres), 1) || g.Measure != MeasureFlow {
+	if g := v.Length("grain"); !near(float32(g.Meters), 1) || g.Measure != MeasureFlow {
 		t.Errorf("grain = %+v", g)
 	}
 	if s := v.Speed("speed"); !near(float32(s), 0.0125) {
@@ -298,7 +298,7 @@ func TestResolveParams(t *testing.T) {
 		t.Errorf("values = %+v", v.vals)
 	}
 	bands := v.List("bands")
-	if len(bands) != 2 || !near(float32(bands[0].Length("width").Metres), 2) || !near(float32(bands[1].Length("width").Metres), 0.1) {
+	if len(bands) != 2 || !near(float32(bands[0].Length("width").Meters), 2) || !near(float32(bands[1].Length("width").Meters), 0.1) {
 		t.Errorf("bands = %+v", bands)
 	}
 	if len(v.Colors("colors")) != 2 || v.Raw()["grain"] != "10 px flow" {

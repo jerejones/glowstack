@@ -122,7 +122,7 @@ func TestSliderKeepsSignAndMeasure(t *testing.T) {
 	}
 }
 
-func TestColourPaletteAndOptionBindings(t *testing.T) {
+func TestColorPaletteAndOptionBindings(t *testing.T) {
 	d := bindingDef()
 	env := Env{Pitch: 0.1, Palettes: testPalettes()}
 	raw := map[string]any{}

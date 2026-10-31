@@ -120,15 +120,15 @@ func TestVertex(t *testing.T) {
 	if _, _, ok := p.Vertex("nope"); ok {
 		t.Error("Vertex(nope) found a match")
 	}
-	// The empty string never matches an unlabelled vertex.
+	// The empty string never matches an unlabeled vertex.
 	u := &Path{Points: []Point{{0, 0}, {1, 0}}, Labels: []string{"", ""}}
 	if _, _, ok := u.Vertex(""); ok {
-		t.Error(`Vertex("") matched an unlabelled vertex`)
+		t.Error(`Vertex("") matched an unlabeled vertex`)
 	}
 }
 
 func TestEndToEndDistances(t *testing.T) {
-	// A labelled run through a transform: distances are in plan units.
+	// A labeled run through a transform: distances are in plan units.
 	d := parseSVG(t, `<svg viewBox="0 0 400 300">
 		<g transform="scale(2)">
 			<path id="porch" d="M0 0 H50 V30" data-nodes="porch-w,porch-e,porch-se"/>

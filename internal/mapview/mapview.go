@@ -120,9 +120,9 @@ type Map struct {
 	lastHouse      time.Time    // frame goroutine only
 
 	mu    sync.Mutex
-	house *Snapshot // latest house frame
-	prev  *Snapshot // latest preview frame; nil once the preview ends
-	seq   uint32    // shared by both feeds, so a client switching sees a new number
+	house *Snapshot     // latest house frame
+	prev  *Snapshot     // latest preview frame; nil once the preview ends
+	seq   uint32        // shared by both feeds, so a client switching sees a new number
 	ready chan struct{} // closed and replaced when a snapshot is published
 }
 

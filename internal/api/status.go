@@ -67,7 +67,7 @@ type Run struct {
 	Controller string  `json:"controller"`
 	Pixels     int     `json:"pixels"`
 	Length     float64 `json:"length_m"`
-	// Drawn is the run's length on the plan in metres (0 without a
+	// Drawn is the run's length on the plan in meters (0 without a
 	// drawing), and Mismatch drawn/physical − 1.
 	Drawn    float64 `json:"drawn_m,omitempty"`
 	Mismatch float64 `json:"mismatch,omitempty"`
@@ -104,7 +104,7 @@ func solve(v app.View) Solve {
 	for i := range l.Runs {
 		r := &l.Runs[i]
 		out := Run{ID: r.ID, Controller: l.Controllers[r.Controller].ID, Pixels: r.Count,
-			Length: round(r.Length, 3), Drawn: round(r.DrawnMetres, 3), Mismatch: round(r.LengthMismatch, 3)}
+			Length: round(r.Length, 3), Drawn: round(r.DrawnMeters, 3), Mismatch: round(r.LengthMismatch, 3)}
 		for _, an := range r.Anchors {
 			switch an.Source {
 			case layout.SourceMeasured:

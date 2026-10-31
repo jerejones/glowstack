@@ -16,7 +16,7 @@ import (
 )
 
 // graph builds small layouts in code: one controller "c", pitch 0.1 m, so
-// ten pixels make a metre and every number in the tests is hand-checkable.
+// ten pixels make a meter and every number in the tests is hand-checkable.
 type graph struct {
 	t    *testing.T
 	cfg  *config.Config
@@ -56,8 +56,8 @@ func (g *graph) run(id string, n int, path ...string) *graph {
 	return g
 }
 
-func (g *graph) gap(from, to string, metres float64) *graph {
-	g.cfg.Layout.Edges = append(g.cfg.Layout.Edges, config.Edge{Kind: config.EdgeGap, From: from, To: to, Length: units.Length{Value: metres}})
+func (g *graph) gap(from, to string, meters float64) *graph {
+	g.cfg.Layout.Edges = append(g.cfg.Layout.Edges, config.Edge{Kind: config.EdgeGap, From: from, To: to, Length: units.Length{Value: meters}})
 	return g
 }
 
@@ -158,4 +158,4 @@ func errContains(t *testing.T, err error, want string) {
 	}
 }
 
-func unitsMetres(v float64) units.Length { return units.Length{Value: v} }
+func unitsMeters(v float64) units.Length { return units.Length{Value: v} }

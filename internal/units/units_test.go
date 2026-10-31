@@ -46,8 +46,8 @@ func TestParseLength(t *testing.T) {
 			t.Errorf("ParseLength(%q): want error", bad)
 		}
 	}
-	if m := (Length{Value: 20, PX: true}).Metres(1.0 / 60); !near(m, 1.0/3) {
-		t.Errorf("Metres = %v", m)
+	if m := (Length{Value: 20, PX: true}).Meters(1.0 / 60); !near(m, 1.0/3) {
+		t.Errorf("Meters = %v", m)
 	}
 }
 
@@ -139,8 +139,8 @@ func TestParseRateDensity(t *testing.T) {
 			t.Errorf("ParseDensity(%q) = %+v, %v; want %+v", tt.in, got, err, tt.want)
 		}
 	}
-	if d := (Density{Value: 0.01, PX: true}).PerMetreSecond(0.01); !near(d, 1) {
-		t.Errorf("PerMetreSecond = %v", d)
+	if d := (Density{Value: 0.01, PX: true}).PerMeterSecond(0.01); !near(d, 1) {
+		t.Errorf("PerMeterSecond = %v", d)
 	}
 	for _, bad := range []string{"0.5 /m", "0.5 m/s", "0.5 /x/s"} {
 		if _, err := ParseDensity(bad); err == nil {

@@ -40,12 +40,12 @@ func TestSparkleEventCount(t *testing.T) {
 
 // TestSparkleCoverage renders sparkle over 50 m of strip at two frame
 // rates and two stretches, with different pixel sizes, and checks the
-// time-averaged number of lit sparkles per metre (weighted by alpha)
+// time-averaged number of lit sparkles per meter (weighted by alpha)
 // against density × the average lit time of one sparkle.
 func TestSparkleCoverage(t *testing.T) {
 	raw := map[string]any{"density": "2 /m/s", "lifetime": "80 ms", "decay": "300 ms"}
 	gamma := color.DecodeGamma
-	want := 2 * (0.08 + 0.3/(gamma+1)) // sparkles lit at once, per metre
+	want := 2 * (0.08 + 0.3/(gamma+1)) // sparkles lit at once, per meter
 	for _, tc := range []struct {
 		pixels         int
 		pitch, stretch float64
@@ -72,7 +72,7 @@ func TestSparkleCoverage(t *testing.T) {
 		got := lit / float64(frames) / (float64(tc.pixels) * tc.pitch)
 		t.Logf("%+v: %.4f (want %.4f)", tc, got, want)
 		if math.Abs(got-want)/want > 0.1 {
-			t.Errorf("%+v: %.4f lit per metre, want %.4f", tc, got, want)
+			t.Errorf("%+v: %.4f lit per meter, want %.4f", tc, got, want)
 		}
 	}
 }
@@ -95,7 +95,7 @@ func TestSparkleIgnoresStretch(t *testing.T) {
 	}
 }
 
-func TestSparkleColours(t *testing.T) {
+func TestSparkleColors(t *testing.T) {
 	s := newStrip(2000, 0.02, 1)
 	out := s.render(t, Sparkle(), map[string]any{"density": "50 /m/s", "color": "#00ff00"}, epoch)
 	green := lin("#00ff00")
@@ -112,6 +112,6 @@ func TestSparkleColours(t *testing.T) {
 		}
 	}
 	if len(hues) < 10 {
-		t.Errorf("palette sparkles: only %d colours", len(hues))
+		t.Errorf("palette sparkles: only %d colors", len(hues))
 	}
 }

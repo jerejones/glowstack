@@ -33,7 +33,7 @@
 // fx, sx, ix, c1–c3, o1–o3, pal and col go through the effect's
 // render.Def.WLED bindings; segment bri is the layer's brightness and rev
 // its reverse. Controls an effect doesn't bind are remembered and reported
-// back unchanged. Switching effect keeps the colours and palette; sliders
+// back unchanged. Switching effect keeps the colors and palette; sliders
 // start at the new effect's defaults (their physical meaning changes).
 //
 // The device's own `on` and `bri` are the zone brightness (App.SetZoneBrightness):
@@ -49,7 +49,7 @@
 // copies it into the layer), `psave` saves the main segment's look with
 // App.SavePreset and `pdel` deletes a saved preset. Glowstack presets get
 // WLED preset ids 1–250 in order of first sight, kept in wled.json so they
-// don't move. Nightlight, UDP sync, live override and per-LED colours are
+// don't move. Nightlight, UDP sync, live override and per-LED colors are
 // accepted and ignored, and reported as off.
 //
 // Home Assistant only talks to port 80 on the device's address, so a real
@@ -93,7 +93,7 @@ type Devices struct {
 	log     *slog.Logger
 	started time.Time
 
-	// mu serialises changes and guards the remembered state below.
+	// mu serializes changes and guards the remembered state below.
 	mu    sync.Mutex
 	segs  map[string]*segMem // by owner
 	zones map[string]*zoneMem

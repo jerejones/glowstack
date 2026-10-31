@@ -114,7 +114,7 @@ func (d *Def) GetWLED(v *Values, s Slider, env Env) (value any, ok bool, err err
 	case SliderColor0, SliderColor1, SliderColor2:
 		c, isColor := x.(color.Color)
 		if !isColor {
-			return nil, false, fmt.Errorf("effect %s: %s is not a colour", d.ID, b.Param)
+			return nil, false, fmt.Errorf("effect %s: %s is not a color", d.ID, b.Param)
 		}
 		return c.Authored(), true, nil
 	case SliderPalette:
@@ -245,7 +245,7 @@ func (b Binding) bounds(leaf Param, env Env) (lo, hi float64, err error) {
 func scalar(x any) (float64, bool) {
 	switch v := x.(type) {
 	case Length:
-		return v.Metres, true
+		return v.Meters, true
 	case float64:
 		return v, true
 	case int:

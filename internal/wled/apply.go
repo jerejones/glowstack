@@ -315,8 +315,8 @@ func (d *Devices) applySegment(v *view, i int, s *segReq, fade int) {
 	if fx, ok := getVal(s.FX, rep.fx, 0, 255); ok && fx != rep.fx {
 		if def, found := d.a.Effects.ByWLED(fx); found && !def.Internal {
 			// A new effect: its own defaults, the common params kept, and
-			// the colours and palette carried over. A black second or third
-			// colour is WLED's "unset" (its Glitter sparkles white then), so
+			// the colors and palette carried over. A black second or third
+			// color is WLED's "unset" (its Glitter sparkles white then), so
 			// those keep the new effect's defaults.
 			_, params, err := v.Engine.Expand(e.lk.layer(sv))
 			if err != nil {
@@ -521,7 +521,7 @@ func getBool(raw json.RawMessage, cur bool) (bool, bool) {
 // parseColor reads one entry of a segment's "col": [r,g,b] or [r,g,b,w]
 // (missing channels are 0), "RRGGBB" or "RRGGBBWW" hex, {r,g,b,w} (missing
 // channels keep cur's), or 0 for black. A Kelvin temperature or "r" isn't
-// a fixed colour and is ignored, as is an empty array.
+// a fixed color and is ignored, as is an empty array.
 func parseColor(raw json.RawMessage, cur units.Color) (units.Color, bool) {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 {

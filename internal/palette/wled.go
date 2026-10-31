@@ -39,7 +39,7 @@ package palette
 
 // wledPalette is one of WLED's fixed palettes as WLED stores it: either 16
 // evenly spaced entries (a FastLED CRGBPalette16) or a gradient of
-// (position 0–255, r, g, b) quadruples. Colours are WLED's authored values.
+// (position 0–255, r, g, b) quadruples. Colors are WLED's authored values.
 type wledPalette struct {
 	WLED     int
 	Name     string

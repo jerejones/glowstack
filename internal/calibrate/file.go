@@ -239,7 +239,7 @@ func (m *measurements) format(l *layout.Layout) []byte {
 	if len(gaps) > 0 {
 		b.WriteString("gaps:\n")
 		for _, g := range gaps {
-			fmt.Fprintf(&b, "  - { from: %s, to: %s, length: %s }\n", yamlString(g.From), yamlString(g.To), formatMetres(g.Length.Value))
+			fmt.Fprintf(&b, "  - { from: %s, to: %s, length: %s }\n", yamlString(g.From), yamlString(g.To), formatMeters(g.Length.Value))
 		}
 	}
 	if len(dead) > 0 {
@@ -251,8 +251,8 @@ func (m *measurements) format(l *layout.Layout) []byte {
 	return []byte(b.String())
 }
 
-// formatMetres prints a length in metres, as briefly as it reads back.
-func formatMetres(v float64) string {
+// formatMeters prints a length in meters, as briefly as it reads back.
+func formatMeters(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64) + " m"
 }
 

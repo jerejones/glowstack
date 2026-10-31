@@ -10,7 +10,7 @@ import (
 	"github.com/jerejones/glowstack/internal/color"
 )
 
-func TestChaseKeepsMovingPulseColour(t *testing.T) {
+func TestChaseKeepsMovingPulseColor(t *testing.T) {
 	s := newStrip(1, 0.1, 1)
 	s.u[0] = 0.25
 	d := Chase()
@@ -21,7 +21,7 @@ func TestChaseKeepsMovingPulseColour(t *testing.T) {
 				"colors": []any{"#ff0000", "#0000ff"},
 			}, s.pitch)
 			// At this fixed position, moving by one spacing brings the other
-			// coloured pulse into view. Two spacings complete the colour cycle.
+			// colored pulse into view. Two spacings complete the color cycle.
 			for j, want := range []color.Color{lin("#ff0000"), lin("#0000ff"), lin("#ff0000")} {
 				out := make([]color.Color, 1)
 				ctx := s.ctx(v, epoch+float64(j))
@@ -35,7 +35,7 @@ func TestChaseKeepsMovingPulseColour(t *testing.T) {
 	}
 }
 
-func TestChaseSubpixelColours(t *testing.T) {
+func TestChaseSubpixelColors(t *testing.T) {
 	d := Chase()
 	for _, tc := range []struct {
 		name     string

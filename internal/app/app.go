@@ -311,7 +311,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	var lastErr time.Time
 	// The loop only ends when ctx is done; that's a normal stop unless a
-	// service failed and cancelled it.
+	// service failed and canceled it.
 	_ = a.Ticker.Run(ctx, func(f clock.Frame) {
 		if err := a.RenderFrame(f); err != nil && f.Time.Sub(lastErr) > 10*time.Second {
 			lastErr = f.Time

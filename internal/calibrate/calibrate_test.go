@@ -162,7 +162,7 @@ func unmeasureNW(dir string) {
 	_ = os.WriteFile(p, []byte(s), 0o644)
 }
 
-func TestConfirmWritesAnchorsAndReestimatesNeighbours(t *testing.T) {
+func TestConfirmWritesAnchorsAndReestimatesNeighbors(t *testing.T) {
 	f := newFixture(t, "", unmeasureNW)
 	nw := f.anchor("shed-eave", "shed-nw")
 	sw := f.anchor("shed-eave", "shed-sw")

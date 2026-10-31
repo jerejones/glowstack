@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// Package palette holds named colour gradients: built-ins (WLED's palettes,
+// Package palette holds named color gradients: built-ins (WLED's palettes,
 // under their WLED ids and names) and user palettes from palettes.yaml.
 //
 // # WLED palettes
@@ -14,7 +14,7 @@
 // downward, WLED's numbering for custom palettes; a user palette that
 // replaces a built-in keeps the built-in's id.
 //
-// Palettes 0–5 are special: they have no colours of their own and are
+// Palettes 0–5 are special: they have no colors of their own and are
 // resolved per layer with Resolve. See Special.
 package palette
 
@@ -36,23 +36,23 @@ type Stop struct {
 	Color units.Color // as authored
 }
 
-// Palette is a colour gradient over 0–1.
+// Palette is a color gradient over 0–1.
 type Palette struct {
 	ID    string
 	Name  string
 	WLED  int // WLED palette id, or -1
 	Stops []Stop
-	Step  bool // hold each stop's colour until the next instead of blending
+	Step  bool // hold each stop's color until the next instead of blending
 	Wrap  bool // positions wrap modulo 1 (and the last stop blends into the first)
 	// Special marks WLED's palettes 0–5, which are made per layer from the
-	// effect's default palette, its colours or the time. Effects call
+	// effect's default palette, its colors or the time. Effects call
 	// Resolve (or a Cache) before sampling. Their own Stops are a fallback.
 	Special Special
 
 	linear []color.Color
 }
 
-// New builds a palette, sorting stops and decoding colours.
+// New builds a palette, sorting stops and decoding colors.
 func New(id, name string, stops []Stop, step, wrap bool) *Palette {
 	p := &Palette{ID: id, Name: name, WLED: -1, Stops: slices.Clone(stops), Step: step, Wrap: wrap}
 	sort.SliceStable(p.Stops, func(i, j int) bool { return p.Stops[i].At < p.Stops[j].At })
