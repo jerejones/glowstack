@@ -170,6 +170,26 @@ function fit() {
 
 // ---------- drawing ----------
 
+// planLayer returns the plan drawn for the current view, cached until the
+// view or canvas changes. Plans are black hairlines on white, nearly
+// invisible on the dark map, so the lightness is inverted (hues kept) and
+// the plan drawn twice to thicken the antialiased lines.
+function planLayer(r, k, tx, ty) {
+  const dpr = devicePixelRatio || 1;
+  const w = canvas.width, h = canvas.height;
+  const key = [S.plan, k, tx, ty, w, h, dpr].join();
+  const c = S.planCache;
+  if (c && c.key === key && c.img === S.planImg) return c.canvas;
+  const off = c?.canvas || document.createElement('canvas');
+  off.width = w; off.height = h;
+  const o = off.getContext('2d');
+  o.setTransform(dpr, 0, 0, dpr, 0, 0);
+  o.filter = 'invert(1) hue-rotate(180deg)';
+  for (let i = 0; i < 2; i++) o.drawImage(S.planImg, r.x * k + tx, r.y * k + ty, r.w * k, r.h * k);
+  S.planCache = { key, img: S.planImg, canvas: off };
+  return off;
+}
+
 function draw() {
   S.dirty = false;
   const dpr = devicePixelRatio || 1;
@@ -182,9 +202,7 @@ function draw() {
 
   const r = planRect();
   if (S.planImg && r) {
-    ctx.globalAlpha = 0.45;
-    ctx.drawImage(S.planImg, r.x * k + tx, r.y * k + ty, r.w * k, r.h * k);
-    ctx.globalAlpha = 1;
+    ctx.drawImage(planLayer(r, k, tx, ty), 0, 0, canvas.clientWidth, canvas.clientHeight);
   }
 
   // Pixels: squares sized to their physical pitch, at least 2 CSS px.
