@@ -84,8 +84,10 @@ bin/glowstack ctl status                        # frame rate and controller heal
 `glowctl` is the same client on its own. The map's side panel shows each
 output's estimated current, the output stage's figures after power
 limiting and the limit scale; it also has preview controls (pause, scrub,
-speed) and a form for preview-only layers. Without fakes, use
-`--output=none` to render without sending anything.
+speed) and a form for preview-only layers. By default Glowstack sends
+nothing (`--output=none`); real controllers only receive frames with
+`--output=all` or `--output=<ids>`. `--loopback` defaults to all, because it
+only reaches local fakes.
 
 ## Requirements (planned)
 

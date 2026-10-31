@@ -52,7 +52,7 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/api` | The native control API under `/api/v1/` (routes in the package doc). |
 | `internal/ctl` | The command-line client for the API: `glowstack ctl …` or `glowctl …`. |
 | `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS, no build step), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
-| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids), `--loopback=PORT`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
+| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids; default `none`, or `all` with `--loopback`), `--loopback=PORT`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
 | `cmd/glowctl` | The client on its own. |
 | `cmd/fakewled` | Fake controllers on loopback, from flags, a YAML list or a Glowstack config folder. |
 
@@ -285,8 +285,9 @@ list, numbered in the order they were made.
     adding a controller shifts the ones after it (as `fakewled
     --from-config` does).
 44. **`--output=none` still makes a `wire.Outputs`**, with no targets.
-    The default is `all`, so a plain `glowstack` sends to the configured
-    controllers; use `--output=none` or `--loopback` when testing.
+    The default is `none`: sending to real controllers takes over their
+    lights, so it needs an explicit `--output=all` or `--output=<ids>`.
+    With `--loopback` (local fakes only) the default is `all`.
 45. **The ticker's wall clock is injectable** (unexported), so the
     late-frame test runs on a fake clock and doesn't depend on load.
 

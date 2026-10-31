@@ -45,9 +45,16 @@ func main() {
 	fps := flag.Float64("fps", 0, "frame rate (default: glowstack.yaml's fps, else 40)")
 	check := flag.Bool("check", false, "load, solve and print the summary, then exit")
 	httpAddr := flag.String("http", ":8080", `HTTP listen address for the control API (/api/v1/) and live map (/map/); "" for none`)
-	outputs := flag.String("output", "all", "controllers to send to: all, none, or comma-separated ids")
+	outputs := flag.String("output", "none", "controllers to send to: all, none, or comma-separated ids (default none; with --loopback, default all)")
 	loopback := flag.Int("loopback", 0, "send controller i to 127.0.0.1:PORT+i (DDP and health checks), for cmd/fakewled")
 	flag.Parse()
+	// Sending to real controllers takes over their lights, so it must be asked
+	// for explicitly. --loopback only reaches local fakes, so it defaults to all.
+	outputSet := false
+	flag.Visit(func(f *flag.Flag) { outputSet = outputSet || f.Name == "output" })
+	if !outputSet && *loopback > 0 {
+		*outputs = "all"
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	var out *wire.Outputs
