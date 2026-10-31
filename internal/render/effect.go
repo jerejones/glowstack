@@ -41,6 +41,9 @@ const (
 	CoordU     Coords = 1 << iota // Context.U from the layer's mapping
 	CoordXY                       // Context.X, Context.Y plan positions
 	CoordIndex                    // Context.Index/Count (WLED-exact effects; use with the index mapping)
+	// CoordPixel reads global pixel ids directly, including pixels outside
+	// the mapping's domain. Calibration must reach unassigned pixels too.
+	CoordPixel
 )
 
 // Effect renders one layer. Implementations hold per-layer state, if any.

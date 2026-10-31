@@ -56,10 +56,13 @@ type Rebuilder interface {
 
 // ReloadResult says what a reload changed.
 type ReloadResult struct {
-	Pixels     int      `json:"pixels"`      // pixels in the new layout
-	PixelsWere int      `json:"pixels_were"` // pixels before the reload
-	Dropped    []string `json:"dropped"`     // layers dropped because they no longer validate
-	Warnings   []string `json:"warnings"`    // layout and mapping warnings
+	// Config is the immutable config published by this reload. Another
+	// transaction may have replaced Current by the time a caller replies.
+	Config     *config.Config `json:"-"`
+	Pixels     int            `json:"pixels"`      // pixels in the new layout
+	PixelsWere int            `json:"pixels_were"` // pixels before the reload
+	Dropped    []string       `json:"dropped"`     // layers dropped because they no longer validate
+	Warnings   []string       `json:"warnings"`    // layout and mapping warnings
 }
 
 // Reload re-reads the config and data folders and swaps in a new layout,
@@ -77,6 +80,15 @@ type ReloadResult struct {
 // sink are told through Rebuilder (the default output.Pipeline implements
 // it), on the frame loop before the next frame is processed.
 func (a *App) Reload() (*ReloadResult, error) {
+	// Data config writes include their reload and any rollback. A competing
+	// reload must never publish a file that has not committed yet.
+	a.presetMu.Lock()
+	defer a.presetMu.Unlock()
+	return a.reload()
+}
+
+// reload is called with presetMu held, including by writeConfig.
+func (a *App) reload() (*ReloadResult, error) {
 	a.reloadMu.Lock()
 	defer a.reloadMu.Unlock()
 	cfg, err := config.Load(a.opts.ConfigDir, a.opts.DataDir)
@@ -99,7 +111,7 @@ func (a *App) Reload() (*ReloadResult, error) {
 	pw := a.checkPresets(View{Config: cfg, Layout: lay, Mappings: ms, Palettes: pal, Engine: eng})
 
 	a.mu.Lock()
-	res := &ReloadResult{Pixels: n, PixelsWere: len(a.Layout.Pixels)}
+	res := &ReloadResult{Config: cfg, Pixels: n, PixelsWere: len(a.Layout.Pixels)}
 	a.Config, a.Layout, a.Mappings, a.Palettes, a.Engine = cfg, lay, ms, pal, eng
 	a.presetWarnings = pw
 	a.Compositor = render.NewCompositor(n)

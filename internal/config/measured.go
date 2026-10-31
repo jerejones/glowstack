@@ -44,6 +44,9 @@ func (c *Config) applyMeasured() error {
 		if e.Last != nil {
 			r.Indices[1] = *e.Last
 		}
+		// Subsequent validation and solving must name the measurement that
+		// supplied these indices, rather than the overridden layout entry.
+		r.Pos = e.Pos
 		if r.Indices[0] == r.Indices[1] {
 			v.errorf(e.Pos, "ends for run %q: first and last are both %d", e.Run, r.Indices[0])
 		}

@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jerejones/glowstack/internal/config"
@@ -143,4 +145,31 @@ func TestSavedPresetShadowsConfig(t *testing.T) {
 	if now := del["now"].(map[string]any); now["source"] != SourceConfig {
 		t.Errorf("after delete %v", del)
 	}
+}
+
+func TestConcurrentPresetSaveAndDelete(t *testing.T) {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
+	f := newFixture(t, nil)
+	var wg sync.WaitGroup
+	for worker := range 8 {
+		wg.Go(func() {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("concurrent preset request panicked: %v", p)
+				}
+			}()
+			for range 50 {
+				method, body := "DELETE", any(nil)
+				if worker%2 == 0 {
+					method, body = "PUT", map[string]any{"effect": "solid"}
+				}
+				code, reply := f.do(method, "/api/v1/presets/concurrent", body)
+				if code != http.StatusOK && !(method == "PUT" && code == http.StatusCreated) && !(method == "DELETE" && code == http.StatusNotFound) {
+					t.Errorf("%s: %d %v", method, code, reply)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
 }

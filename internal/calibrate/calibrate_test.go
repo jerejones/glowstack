@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -540,5 +541,176 @@ func TestEffectIsInternal(t *testing.T) {
 		if d.ID == EffectID {
 			t.Error("listed by All")
 		}
+	}
+}
+
+func TestCalibrationIgnoresMappingDomain(t *testing.T) {
+	f := newFixture(t, "", func(dir string) {
+		p := filepath.Join(dir, config.MappingsFileName)
+		b, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(strings.Replace(string(b), "default: front-sweep", "default: from-gate", 1)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	})
+	// The porch is outside the default flow's domain. Calibration still
+	// needs to identify its physical pixels.
+	f.ok(f.m.Select(Target{Kind: KindEnd, Run: "porch", End: EndLast}))
+	f.frame()
+	if got := f.px("yard", 390); !same(got, colFocus) {
+		t.Errorf("unreached run's cursor = %v, want white", got)
+	}
+	// Index 482 has no run or mapping coordinate. A run-end cursor must
+	// reach it so an underestimated run can be extended.
+	f.ok(f.m.Select(Target{Kind: KindEnd, Run: "shed-eave", End: EndLast}))
+	f.ok(f.m.Set(-1, 482))
+	f.frame()
+	if got := f.px("shed", 482); !same(got, colFocus) {
+		t.Errorf("unassigned pixel's cursor = %v, want white", got)
+	}
+	f.ok(f.m.Select(Target{Kind: KindBands, Controller: "shed"}))
+	f.frame()
+	if got := f.px("shed", 482); !same(got, colBlockA) {
+		t.Errorf("unassigned pixel's band = %v, want %v", got, colBlockA)
+	}
+}
+
+func TestKeepRestoresEditedCalibrationEffect(t *testing.T) {
+	f := newFixture(t, "", nil)
+	st := f.ok(f.m.Start(nil))
+	// A normal layer edit can switch effects. The stay-on-top tick must
+	// restore the calibration pattern as well as its target and params.
+	if _, err := f.app.Stack.Edit(st.Layers[0], func(l *stack.Layer) {
+		l.Effect = "solid"
+		l.Params = map[string]any{"color": "#ff0000"}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.m.Keep(); err != nil {
+		t.Fatal(err)
+	}
+	f.frame()
+	if got := f.px(st.Cursors[0].Controller, st.Cursors[0].Index); !same(got, colFocus) {
+		t.Errorf("cursor after keep = %v, want white", got)
+	}
+}
+
+func TestConfirmDoesNotWriteWhenSavedPresetsCannotBeRead(t *testing.T) {
+	f := newFixture(t, exampleDir+"/data", nil)
+	before := f.file()
+	f.ok(f.m.Select(Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-eave-mid"}))
+	f.ok(f.m.Nudge(-1, 1))
+	// The real reload will reject an unreadable saved-presets path. The
+	// scratch validation must reject it before replacing anchors.yaml.
+	if err := os.Mkdir(filepath.Join(f.data, config.SavedPresetsFileName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.m.Confirm(ConfirmOptions{}); err == nil {
+		t.Fatal("confirmed with unreadable saved presets")
+	}
+	if got := f.file(); got != before {
+		t.Errorf("failed confirm changed anchors.yaml:\n%s", got)
+	}
+}
+
+func TestForgetRejectsInvalidTargets(t *testing.T) {
+	f := newFixture(t, exampleDir+"/data", nil)
+	for _, end := range []string{EndFirst, EndLast} {
+		f.ok(f.m.Select(Target{Kind: KindEnd, Run: "porch", End: end}))
+		f.ok(f.m.Confirm(ConfirmOptions{}))
+	}
+	before := f.file()
+	for _, target := range []Target{
+		{Kind: KindEnd, Run: "porch", End: "middle"},
+		{Kind: KindLink, From: "shed-sw", To: "shed-nw"}, // no link joins these anchors
+	} {
+		_, err := f.m.Forget(&target)
+		if err == nil {
+			t.Errorf("forgot invalid target %+v", target)
+		}
+		if got := f.file(); got != before {
+			t.Fatalf("invalid forget changed anchors.yaml:\n%s", got)
+		}
+	}
+}
+
+func TestSessionSurvivesTargetRemovedDuringStackChange(t *testing.T) {
+	f := newFixture(t, "", nil)
+	reloaded := false
+	f.app.Stack.OnChange(func() {
+		if reloaded {
+			return
+		}
+		reloaded = true
+		// Reload can run while Push has released the stack lock to notify
+		// observers. Rename the selected run and all references to it.
+		entries, err := os.ReadDir(f.config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			p := filepath.Join(f.config, e.Name())
+			b, err := os.ReadFile(p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(strings.ReplaceAll(string(b), "shed-eave", "upper-eave")), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := f.app.Reload(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	st := f.ok(f.m.Start(&Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-sw"}))
+	if st.Target != nil {
+		t.Errorf("removed target still selected: %+v", st.Target)
+	}
+	if err := f.m.Keep(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConfirmRollsBackIfReloadFailsAfterValidation(t *testing.T) {
+	f := newFixture(t, exampleDir+"/data", nil)
+	before := f.file()
+	f.ok(f.m.Select(Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-eave-mid"}))
+	f.ok(f.m.Nudge(-1, 1))
+	entered, resume := make(chan struct{}), make(chan struct{})
+	var once sync.Once
+	f.app.OnReload(func() { once.Do(func() { close(entered); <-resume }) })
+	reloaded := make(chan error, 1)
+	go func() { _, err := f.app.Reload(); reloaded <- err }()
+	<-entered
+	confirmed := make(chan error, 1)
+	go func() { _, err := f.m.Confirm(ConfirmOptions{}); confirmed <- err }()
+	// The old implementation writes while another reload is still in its
+	// observers. A transaction may instead wait before writing. Exercise
+	// both schedules, then change the config before Confirm's own reload.
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		b, err := os.ReadFile(filepath.Join(f.data, config.AnchorsFileName))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(b) != before {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if err := os.WriteFile(filepath.Join(f.config, config.SettingsFileName), []byte("schema: 999\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	close(resume)
+	if err := <-reloaded; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-confirmed; err == nil {
+		t.Fatal("confirm succeeded with invalid config")
+	}
+	if got := f.file(); got != before {
+		t.Errorf("failed reload changed anchors.yaml:\n%s", got)
 	}
 }

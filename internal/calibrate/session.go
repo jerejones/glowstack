@@ -20,7 +20,6 @@ import (
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/layout"
 	"github.com/jerejones/glowstack/internal/stack"
-	"github.com/jerejones/glowstack/internal/storage"
 	"github.com/jerejones/glowstack/internal/units"
 )
 
@@ -72,8 +71,8 @@ type Manager struct {
 	side    int
 	layers  []string // ids of our layers on the stack, top first
 	seq     int
-	gen     uint64 // reload generation the plan was resolved against
-	message string // what the last action did
+	view    app.View // config generation the plan was resolved against
+	message string   // what the last action did
 
 	reloaded atomic.Bool
 }
@@ -82,7 +81,7 @@ type Manager struct {
 // be registered in the App's effects (see Register).
 func New(a *app.App) *Manager {
 	m := &Manager{app: a}
-	m.gen = a.Current().Gen
+	m.view = a.Current()
 	a.OnReload(func() { m.reloaded.Store(true) })
 	return m
 }
@@ -126,7 +125,8 @@ func (m *Manager) State() State {
 }
 
 func (m *Manager) state() State {
-	v := m.app.Current()
+	m.refresh()
+	v := m.view
 	st := State{Active: m.active, Side: m.side, Layers: slices.Clone(m.layers), Message: m.message}
 	if m.target != nil && m.plan != nil {
 		t := *m.target
@@ -221,7 +221,7 @@ func (m *Manager) selectLocked(t Target) error {
 	if err != nil {
 		return err
 	}
-	m.target, m.plan, m.gen = &t, p, v.Gen
+	m.target, m.plan, m.view = &t, p, v
 	m.side = 0
 	for i, c := range p.cursors {
 		if !c.Fixed {
@@ -302,7 +302,7 @@ func (m *Manager) step(c *Cursor) int {
 	if c.Run == "" {
 		return 1
 	}
-	if r, err := findRun(m.app.Current().Layout, c.Run); err == nil {
+	if r, err := findRun(m.view.Layout, c.Run); err == nil {
 		return r.Step
 	}
 	return 1
@@ -455,6 +455,10 @@ func (m *Manager) Forget(t *Target) (State, error) {
 		t = &cur
 	}
 	tt := *t
+	v := m.app.Current()
+	if _, err := resolve(v.Layout, v.Config, tt); err != nil {
+		return State{}, err
+	}
 	err := m.change(func(ms *measurements) error {
 		found := false
 		switch tt.Kind {
@@ -520,11 +524,12 @@ func (m *Manager) Keep() error {
 // refresh re-resolves the target after a config reload, keeping cursors
 // that were nudged where they are (if the target still exists).
 func (m *Manager) refresh() {
-	if !m.reloaded.Swap(false) && m.gen == m.app.Current().Gen {
+	v := m.app.Current()
+	if !m.reloaded.Swap(false) && m.view.Gen == v.Gen {
 		return
 	}
 	if m.target == nil {
-		m.gen = m.app.Current().Gen
+		m.view = v
 		return
 	}
 	old := m.plan
@@ -553,6 +558,7 @@ func (m *Manager) reselect() {
 	if err := m.selectLocked(t); err != nil {
 		m.message = fmt.Sprintf("%s: %v; pick another target", t, err)
 		m.target, m.plan = nil, nil
+		m.view = m.app.Current()
 		return
 	}
 	if side < len(m.plan.cursors) && !m.plan.cursors[side].Fixed {
@@ -563,9 +569,10 @@ func (m *Manager) reselect() {
 // sync makes the stack's calibration layers match the session: the
 // session's layers must be the top of the stack, else they're pushed again.
 func (m *Manager) sync() error {
+	m.refresh()
 	var specs []spec
 	if m.active && m.target != nil {
-		specs = layers(m.app.Current().Layout, *m.target, m.plan.cursors, m.side)
+		specs = layers(m.view.Layout, *m.target, m.plan.cursors, m.side)
 	}
 	st := m.app.Stack
 	top := st.List()
@@ -594,10 +601,13 @@ func (m *Manager) sync() error {
 	for i, s := range specs {
 		cur := top[i]
 		want := m.layer(s)
-		if cur.Target == want.Target && reflect.DeepEqual(normalise(cur.Params), normalise(want.Params)) {
+		if cur.Effect == want.Effect && cur.Preset == want.Preset && cur.Target == want.Target && reflect.DeepEqual(normalise(cur.Params), normalise(want.Params)) {
 			continue
 		}
-		if _, err := st.Edit(m.layers[i], func(l *stack.Layer) { l.Target, l.Params = want.Target, want.Params }); err != nil {
+		if _, err := st.Edit(m.layers[i], func(l *stack.Layer) {
+			l.Effect, l.Preset = want.Effect, want.Preset
+			l.Target, l.Params = want.Target, want.Params
+		}); err != nil {
 			return fmt.Errorf("updating the calibration layer: %w", err)
 		}
 	}
@@ -664,13 +674,9 @@ func (m *Manager) change(fn func(*measurements) error) error {
 	if err := check(v.Config.Dir, v.Config.DataDir, data); err != nil {
 		return err
 	}
-	if err := storage.Dir(v.Config.DataDir).Write(config.AnchorsFileName, data); err != nil {
-		return fmt.Errorf("writing %s: %w", config.AnchorsFileName, err)
-	}
-	if _, err := m.app.Reload(); err != nil {
+	if _, err := m.app.WriteDataConfig(config.AnchorsFileName, data); err != nil {
 		return configErr(err)
 	}
-	m.gen = m.app.Current().Gen
 	m.reloaded.Store(false)
 	return nil
 }
@@ -687,6 +693,8 @@ func check(configDir, dataDir string, data []byte) error {
 		if err := os.WriteFile(filepath.Join(tmp, config.SavedPresetsFileName), saved, 0o644); err != nil {
 			return err
 		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("checking %s: %w", config.SavedPresetsFileName, err)
 	}
 	if err := os.WriteFile(filepath.Join(tmp, config.AnchorsFileName), data, 0o644); err != nil {
 		return err

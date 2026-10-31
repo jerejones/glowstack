@@ -11,13 +11,27 @@
 (() => {
   const BASE = '/api/v1/calibration';
   const C = { st: null, tapped: -1, error: '', details: [], next: true };
+  // Confirm reloads the map's geometry. Keep the user's choice for this
+  // tab across that reload, including when browser storage is unavailable.
+  try { C.next = sessionStorage.getItem('calNext') !== 'false'; } catch (_) {}
   const box = $('cal');
 
-  // call sends one request and shows the state it returns, or the error.
+  // Keep actions in tap order: confirming must wait for earlier nudges.
+  // Polls wait until all pending actions finish so they can't regress the UI.
+  let actions = Promise.resolve(), pending = 0;
+  function call(path, body) {
+    if (body === undefined) return pending ? Promise.resolve() : send(path, body);
+    pending++;
+    const action = actions.then(() => send(path, body)).finally(() => { pending--; });
+    actions = action.catch(() => {});
+    return action;
+  }
+
+  // send shows the state a request returns, or the error.
   // A poll (path '') that a button press overtook is dropped, and an
   // unchanged state isn't redrawn, so a finger mid-tap keeps its button.
   let seq = 0, last = '';
-  async function call(path, body) {
+  async function send(path, body) {
     const my = ++seq, polling = body === undefined;
     try {
       const r = await fetch(BASE + path, polling ? {} : {
@@ -139,7 +153,10 @@
       if (a.fn) b.onclick = (e) => { e.preventDefault(); a.fn(); };
     }
     const nx = $('calNext');
-    if (nx) nx.onchange = () => { C.next = nx.checked; };
+    if (nx) nx.onchange = () => {
+      C.next = nx.checked;
+      try { sessionStorage.setItem('calNext', String(C.next)); } catch (_) {}
+    };
     for (const f of box.querySelectorAll('form[data-form]')) {
       f.onsubmit = (e) => {
         e.preventDefault();

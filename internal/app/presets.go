@@ -114,18 +114,5 @@ func (a *App) writeSaved(f *config.PresetsFile, old []byte) (*ReloadResult, erro
 	if err != nil {
 		return nil, err
 	}
-	if err := a.Store.Write(config.SavedPresetsFileName, data); err != nil {
-		return nil, err
-	}
-	res, err := a.Reload()
-	if err == nil {
-		return res, nil
-	}
-	if old == nil {
-		old, _ = config.EncodePresetsFile(&config.PresetsFile{Schema: 1})
-	}
-	if werr := a.Store.Write(config.SavedPresetsFileName, old); werr != nil {
-		a.Log.Error("restoring "+config.SavedPresetsFileName, "err", werr)
-	}
-	return nil, err
+	return a.writeConfig(config.SavedPresetsFileName, data, old)
 }

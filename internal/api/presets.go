@@ -160,7 +160,7 @@ func (api *API) savePreset(w http.ResponseWriter, r *http.Request) error {
 	if created {
 		status = http.StatusCreated
 	}
-	cfg := api.app.Current().Config
+	cfg := res.Config
 	saved, _ := cfg.Preset(id)
 	return writeJSON(w, status, SavedPreset{Preset: toPreset(cfg, *saved), Dropped: res.Dropped})
 }
@@ -173,7 +173,7 @@ func (api *API) deletePreset(w http.ResponseWriter, r *http.Request) error {
 	}
 	out := map[string]any{"deleted": id, "dropped": nonNil(res.Dropped)}
 	// A configured preset with the same id is in effect again.
-	cfg := api.app.Current().Config
+	cfg := res.Config
 	if p, ok := cfg.Preset(id); ok {
 		out["now"] = toPreset(cfg, *p)
 	}
