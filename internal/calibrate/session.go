@@ -455,6 +455,10 @@ func (m *Manager) Forget(t *Target) (State, error) {
 		t = &cur
 	}
 	tt := *t
+	v := m.app.Current()
+	if _, err := resolve(v.Layout, v.Config, tt); err != nil {
+		return State{}, err
+	}
 	err := m.change(func(ms *measurements) error {
 		found := false
 		switch tt.Kind {
