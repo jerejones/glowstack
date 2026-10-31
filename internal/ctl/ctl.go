@@ -18,9 +18,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -763,14 +765,71 @@ func (c *client) status() error {
 		for _, warn := range v.Warnings {
 			fmt.Fprintf(w, "warning: %s\n", warn)
 		}
-		if s.Health == nil {
-			fmt.Fprintln(w, "controller health: not reported")
-		} else {
-			b, _ := json.MarshalIndent(s.Health, "", "  ")
-			fmt.Fprintf(w, "controller health: %s\n", b)
-		}
+		c.showHealth(s.Health)
 	})
 	return nil
+}
+
+// controllerHealth is one controller in the health report of glowstack's
+// own output (internal/output/wire).
+type controllerHealth struct {
+	Addr       string   `json:"addr"`
+	Reachable  bool     `json:"reachable"`
+	Checked    string   `json:"checked"`
+	Version    string   `json:"version"`
+	Count      int      `json:"led_count"`
+	Reboots    int      `json:"reboots"`
+	Mismatches []string `json:"mismatches"`
+	Err        string   `json:"error"`
+	Frames     uint64   `json:"frames"`
+	Errors     uint64   `json:"send_errors"`
+	LastError  string   `json:"last_send_error"`
+}
+
+// showHealth prints the health report as a table when it's the usual
+// shape (a map by controller id), else as JSON.
+func (c *client) showHealth(h any) {
+	w := c.out
+	if h == nil {
+		fmt.Fprintln(w, "controller health: not reported")
+		return
+	}
+	b, _ := json.Marshal(h)
+	var m map[string]controllerHealth
+	if json.Unmarshal(b, &m) != nil || len(m) == 0 {
+		b, _ = json.MarshalIndent(h, "", "  ")
+		fmt.Fprintf(w, "controller health: %s\n", b)
+		return
+	}
+	t := c.table()
+	fmt.Fprintln(t, "CONTROLLER\tADDR\tSTATE\tVERSION\tLEDS\tREBOOTS\tFRAMES\tSEND ERRORS\tPROBLEMS")
+	for _, id := range slices.Sorted(maps.Keys(m)) {
+		h := m[id]
+		state := "reachable"
+		switch {
+		case h.Checked == "":
+			state = "not checked yet"
+		case !h.Reachable:
+			state = "unreachable"
+		}
+		problems := slices.Clone(h.Mismatches)
+		if h.Err != "" {
+			problems = append(problems, h.Err)
+		}
+		if h.LastError != "" {
+			problems = append(problems, "send: "+h.LastError)
+		}
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%s\n", id, h.Addr, state, dash(h.Version), h.Count,
+			h.Reboots, h.Frames, h.Errors, dash(strings.Join(problems, "; ")))
+	}
+	t.Flush()
+}
+
+func dash(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
 }
 
 func (c *client) reload() error {

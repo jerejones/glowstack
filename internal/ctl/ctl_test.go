@@ -158,3 +158,33 @@ func TestBody(t *testing.T) {
 		t.Errorf("edit removal %v", body)
 	}
 }
+
+func TestShowHealth(t *testing.T) {
+	var out bytes.Buffer
+	c := &client{out: &out}
+	c.showHealth(map[string]any{
+		"shed": map[string]any{"addr": "127.0.0.1:40481", "reachable": true, "checked": "2026-01-01T18:00:00Z",
+			"version": "0.15.0-fake", "led_count": 604, "frames": 12},
+		"yard": map[string]any{"addr": "192.0.2.22:4048", "checked": "2026-01-01T18:00:00Z",
+			"error": "connection refused", "send_errors": 3},
+	})
+	got := out.String()
+	for _, want := range []string{"CONTROLLER", "shed", "reachable", "0.15.0-fake", "604", "yard", "unreachable", "connection refused"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("health table lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Index(got, "shed") > strings.Index(got, "yard") {
+		t.Errorf("not sorted:\n%s", got)
+	}
+	out.Reset()
+	c.showHealth([]any{"odd"})
+	if !strings.Contains(out.String(), `"odd"`) {
+		t.Errorf("fallback: %s", out.String())
+	}
+	out.Reset()
+	c.showHealth(nil)
+	if !strings.Contains(out.String(), "not reported") {
+		t.Errorf("nil: %s", out.String())
+	}
+}
