@@ -46,7 +46,7 @@ func TestAppToFakes(t *testing.T) {
 	}
 	waitFor(t, yard, want)
 	waitFor(t, shed, make([]byte, 604*4))
-	if p, ok := a.Stage.(output.PowerReporter); !ok || p.Power().Scale != 1 {
+	if p, ok := a.Stage().(output.PowerReporter); !ok || p.Power().Scale != 1 {
 		t.Error("power report")
 	}
 }

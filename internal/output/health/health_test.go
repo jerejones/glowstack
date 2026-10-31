@@ -121,3 +121,23 @@ func TestRebootAndUnreachable(t *testing.T) {
 		t.Errorf("closed server still reachable: %+v", st)
 	}
 }
+
+func TestSetTargets(t *testing.T) {
+	a := server(t, fakewled.Config{Name: "shed", Pixels: 10, Channels: "rgb"})
+	b := server(t, fakewled.Config{Name: "tower", Pixels: 20, Channels: "rgb"})
+	m := &health.Monitor{Log: quiet(), Targets: []health.Target{
+		{ID: "shed", URL: a.URL, Pixels: 10, Channels: "rgb", White: "explicit"},
+	}}
+	m.Check(t.Context())
+	m.SetTargets([]health.Target{
+		{ID: "shed", URL: a.URL, Pixels: 10, Channels: "rgb", White: "explicit"},
+		{ID: "tower", URL: b.URL, Pixels: 20, Channels: "rgb", White: "explicit"},
+	})
+	if st := m.Status(); len(st) != 2 || !st[0].Reachable || st[1].Reachable || !st[1].Checked.IsZero() {
+		t.Fatalf("before the next check: %+v", st)
+	}
+	m.Check(t.Context())
+	if st := m.Status(); !st[1].Reachable || st[1].Count != 20 {
+		t.Errorf("after: %+v", st)
+	}
+}

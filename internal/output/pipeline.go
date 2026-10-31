@@ -47,7 +47,18 @@ const (
 //
 // Process runs on the frame goroutine. Power may be called from any
 // goroutine.
+//
+// Rebuild replaces the layout and settings after a config reload (it
+// implements app.Rebuilder); power smoothing and dither state restart.
 type Pipeline struct {
+	pipe
+
+	mu     sync.Mutex
+	report PowerReport
+}
+
+// pipe is the Pipeline state only the frame goroutine touches.
+type pipe struct {
 	l       *layout.Layout
 	release float64 // seconds; 0 = recover at once
 	dither  bool
@@ -65,9 +76,6 @@ type Pipeline struct {
 	residual  []float32    // dither error per wire channel
 	pixMA     []float32    // per global pixel: channel current at full scale, mA
 	lastT     float64
-
-	mu     sync.Mutex
-	report PowerReport
 }
 
 // meter estimates the current of one output or one controller total.
@@ -117,7 +125,7 @@ type PowerReporter interface {
 // NewPipeline builds the stage for l with the settings and zones in cfg.
 func NewPipeline(l *layout.Layout, cfg *config.Config) (*Pipeline, error) {
 	s := cfg.Settings
-	p := &Pipeline{l: l, group: s.Power.Group, dither: s.Dither == nil || *s.Dither}
+	p := &Pipeline{pipe: pipe{l: l, group: s.Power.Group, dither: s.Dither == nil || *s.Dither}}
 	if p.group == "" {
 		p.group = GroupGlobal
 	}
@@ -183,6 +191,20 @@ func NewPipeline(l *layout.Layout, cfg *config.Config) (*Pipeline, error) {
 		}
 	}
 	return p, nil
+}
+
+// Rebuild switches p to a new layout and settings. Like Process, it must
+// run on the frame goroutine.
+func (p *Pipeline) Rebuild(cfg *config.Config, l *layout.Layout) error {
+	q, err := NewPipeline(l, cfg)
+	if err != nil {
+		return err
+	}
+	p.pipe = q.pipe
+	p.mu.Lock()
+	p.report = q.report
+	p.mu.Unlock()
+	return nil
 }
 
 // buildClasses works out, for every pixel, which limits constrain it:

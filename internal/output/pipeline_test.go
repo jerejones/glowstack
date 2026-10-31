@@ -342,3 +342,40 @@ func BenchmarkPipeline(b *testing.B) {
 		p.Process(clock.Frame{Seq: uint64(i), T: float64(i) / 40, Dt: 0.025}, buf, out)
 	}
 }
+
+func TestPipelineRebuild(t *testing.T) {
+	l := twoControllers()
+	l.Controllers[0].Config.Outputs[0].MaxMA = 50
+	p, err := NewPipeline(l, settings(GroupGlobal, 0, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	red := color.Color{R: 1, A: 1}
+	buf := render.NewBuffer(len(l.Pixels))
+	fill(buf, red)
+	run(t, p, l, buf, 1, 100)
+	if r := p.Power(); r.Scale != 0.5 || len(r.Outputs) != 3 {
+		t.Fatalf("before: %+v", r)
+	}
+
+	// The reload drops yard and lifts shed's limit.
+	ma := &config.Power{LedMA: config.LedMA{R: 10, G: 10, B: 10}}
+	l2 := testLayout(config.Controller{ID: "shed", Pixels: 20, Channels: "rgb", Power: ma, Outputs: []config.Output{
+		{Pin: 1, Start: 0, Count: 20},
+	}})
+	if err := p.Rebuild(settings(GroupGlobal, 0, false), l2); err != nil {
+		t.Fatal(err)
+	}
+	if r := p.Power(); len(r.Outputs) != 1 || len(r.Controllers) != 1 {
+		t.Fatalf("report not rebuilt: %+v", r)
+	}
+	buf = render.NewBuffer(len(l2.Pixels))
+	fill(buf, red)
+	out := run(t, p, l2, buf, 2, 100.025)
+	if len(out) != 1 || out[0].Data[0] != 255 || out[0].Data[19*3] != 255 {
+		t.Errorf("after rebuild: %v", out[0].Data[:6])
+	}
+	if r := p.Power(); r.Scale != 1 || r.Outputs[0].RequestedMA != 200 {
+		t.Errorf("after: %+v", r)
+	}
+}

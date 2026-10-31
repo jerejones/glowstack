@@ -148,7 +148,8 @@ func Mismatches(t Target, info *Info, cfg *Cfg) []string {
 	return out
 }
 
-// Monitor checks a set of controllers.
+// Monitor checks a set of controllers. Set Targets before Run, or call
+// SetTargets at any time.
 type Monitor struct {
 	Targets  []Target
 	Client   *http.Client // nil = 5 s timeout client
@@ -158,6 +159,23 @@ type Monitor struct {
 	mu     sync.Mutex
 	status map[string]*Status
 	cfgs   map[string]*Cfg // read since the last reboot; nil = read it next time
+	kick   chan struct{}
+}
+
+// SetTargets replaces the controllers to check, for a config reload.
+// Controllers that stay keep their status; Run checks the new set at once.
+func (m *Monitor) SetTargets(ts []Target) {
+	m.mu.Lock()
+	m.Targets = slices.Clone(ts)
+	if m.kick == nil {
+		m.kick = make(chan struct{}, 1)
+	}
+	kick := m.kick
+	m.mu.Unlock()
+	select {
+	case kick <- struct{}{}:
+	default:
+	}
 }
 
 // Run checks every target now and then every Interval until ctx is done.
@@ -167,6 +185,12 @@ func (m *Monitor) Run(ctx context.Context) error {
 	if interval <= 0 {
 		interval = DefaultInterval
 	}
+	m.mu.Lock()
+	if m.kick == nil {
+		m.kick = make(chan struct{}, 1)
+	}
+	kick := m.kick
+	m.mu.Unlock()
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
@@ -175,6 +199,7 @@ func (m *Monitor) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-t.C:
+		case <-kick:
 		}
 	}
 }
@@ -184,13 +209,16 @@ func (m *Monitor) Check(ctx context.Context) {
 	m.mu.Lock()
 	if m.status == nil {
 		m.status, m.cfgs = map[string]*Status{}, map[string]*Cfg{}
-		for _, t := range m.Targets {
+	}
+	targets := slices.Clone(m.Targets)
+	for _, t := range targets {
+		if m.status[t.ID] == nil {
 			m.status[t.ID] = &Status{ID: t.ID}
 		}
 	}
 	m.mu.Unlock()
 	var wg sync.WaitGroup
-	for _, t := range m.Targets {
+	for _, t := range targets {
 		wg.Go(func() { m.check(ctx, t) })
 	}
 	wg.Wait()

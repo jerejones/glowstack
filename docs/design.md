@@ -82,6 +82,7 @@ hand-edited ones:
 | `anchors.yaml` | Measured anchors from calibration; overrides `layout.yaml` | Calibration |
 | `presets.saved.yaml` | Presets saved through the API or HA; adds to `presets.yaml` | Saved from HA |
 | `state.json` | The current stack | Every change (debounced) |
+| `brightness.json` | Master and zone brightness, so a restart doesn't jump to full | Every change (debounced) |
 
 All of these are site data. They're mounted into the container and are never
 committed to this repo. `examples/` will hold a fictional installation.
@@ -729,7 +730,8 @@ Per frame, per pixel:
 
 1. Composite the layers in linear float RGBW.
 2. Multiply by layer brightness, then zone brightness (the WLED device `bri`),
-   then the global master.
+   then the global master. Zones may overlap; a pixel in several zones is
+   multiplied by each of their brightnesses.
 3. Power limit:
    - Estimate each output's current from the frame and `led_ma`.
    - For each output over `max_ma`, compute the scale that brings it under.

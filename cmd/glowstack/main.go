@@ -4,12 +4,16 @@
 
 // Command glowstack loads an installation's config and data folders,
 // solves the layout, prints a summary and runs the frame loop, sending
-// frames to the controllers over DDP.
+// frames to the controllers over DDP and serving the control API on
+// --http.
 //
 // --output chooses the controllers to send to: all (default), none, or a
 // comma-separated list of ids. --loopback=PORT sends controller i to
 // 127.0.0.1:PORT+i instead of its configured address, for testing with
 // cmd/fakewled; health checks then go there too.
+//
+// `glowstack ctl …` is the control API's command-line client instead (see
+// internal/ctl).
 package main
 
 import (
@@ -18,55 +22,52 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
+	"github.com/jerejones/glowstack/internal/api"
 	"github.com/jerejones/glowstack/internal/app"
 	"github.com/jerejones/glowstack/internal/config"
-	"github.com/jerejones/glowstack/internal/layout"
+	"github.com/jerejones/glowstack/internal/ctl"
+	"github.com/jerejones/glowstack/internal/httpserver"
 	"github.com/jerejones/glowstack/internal/output"
-	"github.com/jerejones/glowstack/internal/output/ddp"
-	"github.com/jerejones/glowstack/internal/output/health"
+	"github.com/jerejones/glowstack/internal/output/wire"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "ctl" {
+		os.Exit(ctl.Main(os.Args[2:], os.Stdout, os.Stderr))
+	}
 	configDir := flag.String("config", "/config", "config folder (read-only)")
 	dataDir := flag.String("data", "/data", "data folder (writable): state.json, anchors.yaml, presets.saved.yaml")
 	fps := flag.Float64("fps", 0, "frame rate (default: glowstack.yaml's fps, else 40)")
 	check := flag.Bool("check", false, "load, solve and print the summary, then exit")
+	httpAddr := flag.String("http", ":8080", "HTTP listen address for the control API (empty: no HTTP server)")
 	outputs := flag.String("output", "all", "controllers to send to: all, none, or comma-separated ids")
 	loopback := flag.Int("loopback", 0, "send controller i to 127.0.0.1:PORT+i (DDP and health checks), for cmd/fakewled")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	var monitor *health.Monitor
+	var out *wire.Outputs
 	opts := app.Options{ConfigDir: *configDir, DataDir: *dataDir, FPS: *fps, Log: log}
 	opts.NewSink = func(a *app.App) (output.Sink, error) {
-		sel, err := output.Select(a.Layout, *outputs)
-		if err != nil || len(sel) == 0 || *check {
-			return nil, err
+		if *check {
+			return nil, nil
 		}
-		var targets []ddp.Target
-		monitor = &health.Monitor{Log: log}
-		for _, i := range sel {
-			c := a.Layout.Controllers[i]
-			ddpAddr, httpAddr := endpoints(c, i, *loopback)
-			targets = append(targets, ddp.Target{ID: c.ID, Addr: ddpAddr, MaxFPS: c.Config.MaxFPS})
-			monitor.Targets = append(monitor.Targets, health.Target{ID: c.ID, URL: "http://" + httpAddr,
-				Pixels: c.Pixels, Channels: c.Config.Channels, White: c.Config.White})
-			log.Info("output", "controller", c.ID, "ddp", ddpAddr)
-		}
-		return ddp.New(targets, ddp.Options{}), nil
+		var err error
+		out, err = wire.New(a.Layout, wire.Options{Select: *outputs, Loopback: *loopback, Log: log})
+		return out, err
 	}
 	opts.Services = append(opts.Services, func(ctx context.Context, a *app.App) error {
-		if monitor == nil {
+		if out == nil {
 			return nil
 		}
-		return monitor.Run(ctx)
+		return out.Run(ctx)
 	})
+	if *httpAddr != "" {
+		opts.Services = append(opts.Services, httpserver.New(*httpAddr, api.Mount).Service())
+	}
 	a, err := app.New(opts)
 	if err != nil {
 		var errs config.Errors
@@ -93,21 +94,20 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// SIGHUP reloads the config, like POST /api/v1/reload.
+	hup := make(chan os.Signal, 1)
+	signal.Notify(hup, syscall.SIGHUP)
+	go func() {
+		for range hup {
+			if _, err := a.Reload(); err != nil {
+				log.Error("reload failed; keeping the old config", "err", err)
+			}
+		}
+	}()
 	log.Info("running", "fps", a.Ticker.FPS())
 	if err := a.Run(ctx); err != nil {
 		log.Error("stopped", "err", err)
 		os.Exit(1)
 	}
 	log.Info("stopped", "late_frames", a.Ticker.Late())
-}
-
-// endpoints gives controller c's DDP and HTTP addresses: as configured, or
-// on loopback for fakes.
-func endpoints(c layout.Controller, i, loopback int) (ddpAddr, httpAddr string) {
-	if loopback > 0 {
-		a := net.JoinHostPort("127.0.0.1", strconv.Itoa(loopback+i))
-		return a, a
-	}
-	return net.JoinHostPort(c.Config.Host, strconv.Itoa(c.Config.Port)),
-		net.JoinHostPort(c.Config.Host, strconv.Itoa(c.Config.HTTPPort))
 }
