@@ -194,11 +194,10 @@ func (s *Saver) Flush() error {
 
 // Close flushes and stops further saves.
 func (s *Saver) Close() error {
-	err := s.Flush()
 	s.mu.Lock()
 	s.closed = true
 	s.mu.Unlock()
-	return err
+	return s.Flush()
 }
 
 // IsNotExist reports whether err means the file doesn't exist yet.
