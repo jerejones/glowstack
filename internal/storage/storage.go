@@ -123,12 +123,13 @@ type Saver struct {
 	save     func() error
 	onError  func(error)
 
-	mu     sync.Mutex
-	dirty  bool
-	last   time.Time
-	timer  *time.Timer
-	closed bool
-	saving sync.Mutex // serialises save calls
+	mu         sync.Mutex
+	dirty      bool
+	last       time.Time
+	timer      *time.Timer
+	closed     bool
+	generation uint64     // identifies the currently scheduled callback
+	saving     sync.Mutex // serialises save calls
 }
 
 // NewSaver returns a Saver calling save at most once per interval. Errors
@@ -150,19 +151,32 @@ func (s *Saver) Trigger() {
 		return
 	}
 	wait := max(0, s.interval-time.Since(s.last))
+	s.generation++
+	generation := s.generation
 	s.timer = time.AfterFunc(wait, func() {
-		if err := s.run(); err != nil && s.onError != nil {
+		if err := s.runPending(generation); err != nil && s.onError != nil {
 			s.onError(err)
 		}
 	})
 }
 
 // run saves if dirty.
-func (s *Saver) run() error {
+func (s *Saver) run() error { return s.runPending(0) }
+
+// runPending serializes both timer and foreground saves. Generation zero
+// is a Flush; a stopped timer must never consume a newer timer's change.
+func (s *Saver) runPending(generation uint64) error {
 	s.saving.Lock()
 	defer s.saving.Unlock()
 	s.mu.Lock()
-	s.timer = nil
+	if generation != 0 && (s.closed || s.timer == nil || generation != s.generation) {
+		s.mu.Unlock()
+		return nil
+	}
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
 	dirty := s.dirty
 	s.dirty = false
 	if dirty {
