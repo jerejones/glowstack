@@ -200,7 +200,16 @@ func (d *decoder) decodeStruct(n *yaml.Node, v reflect.Value) {
 			continue
 		}
 		seen[k.Value] = true
+		if val.Tag == "!!null" && strings.HasSuffix(v.Type().FieldByIndex(idx).Tag.Get("yaml"), ",required") {
+			d.errorf(val, "missing %s", k.Value)
+			continue
+		}
 		d.decode(val, v.FieldByIndex(idx))
+	}
+	for name, idx := range fields {
+		if !seen[name] && strings.HasSuffix(v.Type().FieldByIndex(idx).Tag.Get("yaml"), ",required") {
+			d.errorf(n, "missing %s", name)
+		}
 	}
 }
 
