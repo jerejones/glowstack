@@ -575,3 +575,23 @@ func TestCalibrationIgnoresMappingDomain(t *testing.T) {
 		t.Errorf("unassigned pixel's band = %v, want %v", got, colBlockA)
 	}
 }
+
+func TestKeepRestoresEditedCalibrationEffect(t *testing.T) {
+	f := newFixture(t, "", nil)
+	st := f.ok(f.m.Start(nil))
+	// A normal layer edit can switch effects. The stay-on-top tick must
+	// restore the calibration pattern as well as its target and params.
+	if _, err := f.app.Stack.Edit(st.Layers[0], func(l *stack.Layer) {
+		l.Effect = "solid"
+		l.Params = map[string]any{"color": "#ff0000"}
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.m.Keep(); err != nil {
+		t.Fatal(err)
+	}
+	f.frame()
+	if got := f.px(st.Cursors[0].Controller, st.Cursors[0].Index); !same(got, colFocus) {
+		t.Errorf("cursor after keep = %v, want white", got)
+	}
+}
