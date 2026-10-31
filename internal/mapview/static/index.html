@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<!--
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at https://mozilla.org/MPL/2.0/.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#111">
+<title>Glowstack live map</title>
+<link rel="stylesheet" href="map.css">
+</head>
+<body>
+<header id="bar">
+  <strong class="brand">Glowstack</strong>
+  <span id="badge" class="badge">connecting…</span>
+  <label>View
+    <select id="view">
+      <option value="live">Live</option>
+      <option value="flow">Flow position (u)</option>
+      <option value="stretch">Stretch</option>
+      <option value="areas">Areas &amp; zones</option>
+    </select>
+  </label>
+  <label id="mappingWrap" hidden>Mapping <select id="mapping"></select></label>
+  <label id="areaWrap" hidden>Show <select id="areaPick"></select></label>
+  <label id="planWrap" hidden>Plan <select id="plan"></select></label>
+  <label class="check"><input type="checkbox" id="showNodes"> Nodes</label>
+  <label class="check"><input type="checkbox" id="showLabels"> Labels</label>
+  <span class="grow"></span>
+  <button id="fit" title="Fit to screen">Fit</button>
+  <button id="panelToggle" title="Panel">☰</button>
+</header>
+
+<main>
+  <canvas id="map"></canvas>
+  <div id="legend"></div>
+</main>
+
+<aside id="panel">
+  <section id="inspect">
+    <h2>Inspect <small id="pinHint">hover or tap a pixel</small></h2>
+    <div id="inspectBody" class="muted">Nothing selected.</div>
+  </section>
+
+  <section id="powerSec">
+    <h2>Power <small>estimate before limiting</small></h2>
+    <div id="power" class="muted">No frame yet.</div>
+  </section>
+
+  <section id="previewSec">
+    <h2>Preview layers <small>map only, never sent to the lights</small></h2>
+    <form id="pushForm">
+      <label>Area <select id="pTarget"></select></label>
+      <label>Look <select id="pLook"></select></label>
+      <label class="wide">Params (JSON)
+        <textarea id="pParams" rows="3" spellcheck="false" placeholder='{"color": "#ff5a00"}'></textarea>
+      </label>
+      <button type="submit">Push to preview</button>
+      <button type="button" id="pClear">Clear all</button>
+      <div id="pError" class="error"></div>
+    </form>
+    <ul id="pLayers"></ul>
+  </section>
+
+  <section id="streamSec">
+    <h2>Stream</h2>
+    <label>Rate <select id="fps">
+      <option value="0">max</option><option value="10">10 fps</option>
+      <option value="5">5 fps</option><option value="1">1 fps</option>
+    </select></label>
+    <label>Only <select id="streamArea"><option value="">all pixels</option></select></label>
+    <div id="streamInfo" class="muted"></div>
+  </section>
+
+  <section id="undrawnSec">
+    <h2>Not on the plan</h2>
+    <ul id="undrawn" class="muted"></ul>
+  </section>
+</aside>
+
+<footer id="clock">
+  <button id="playPause" title="Pause / resume the preview clock">⏸</button>
+  <button id="stepBack" title="Step back one frame">⏮</button>
+  <button id="stepFwd" title="Step forward one frame">⏭</button>
+  <label class="speed">Speed <input type="range" id="speed" min="-1" max="1" step="0.01" value="0"><output id="speedOut">1×</output></label>
+  <label class="scrub">Scrub <input type="range" id="scrub" min="-30" max="30" step="0.02" value="0"></label>
+  <button id="live" title="Back to the house clock">Live</button>
+  <span id="clockText" class="muted"></span>
+</footer>
+
+<script src="map.js"></script>
+</body>
+</html>
