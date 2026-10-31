@@ -3,10 +3,12 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Command glowstack loads an installation's config and data folders,
-// solves the layout, prints a summary and runs the frame loop.
+// solves the layout, prints a summary and runs the frame loop, with the
+// live map on --http (default :8080, at /map/).
 //
 // Output isn't wired yet: frames are rendered and discarded until the
-// output stage and DDP senders exist (see docs/architecture.md).
+// output stage and DDP senders exist (see docs/architecture.md), so
+// --output only accepts "none" for now.
 package main
 
 import (
@@ -21,6 +23,8 @@ import (
 
 	"github.com/jerejones/glowstack/internal/app"
 	"github.com/jerejones/glowstack/internal/config"
+	"github.com/jerejones/glowstack/internal/httpserver"
+	"github.com/jerejones/glowstack/internal/mapview"
 )
 
 func main() {
@@ -28,10 +32,24 @@ func main() {
 	dataDir := flag.String("data", "/data", "data folder (writable): state.json, anchors.yaml, presets.saved.yaml")
 	fps := flag.Float64("fps", 0, "frame rate (default: glowstack.yaml's fps, else 40)")
 	check := flag.Bool("check", false, "load, solve and print the summary, then exit")
+	httpAddr := flag.String("http", ":8080", `HTTP listen address for the live map (/map/) and APIs; "" for none`)
+	outputs := flag.String("output", "none", `where to send frames: "none" (DDP output isn't built yet)`)
 	flag.Parse()
+	if *outputs != "none" {
+		fmt.Fprintln(os.Stderr, "--output: only \"none\" is supported until DDP output exists")
+		os.Exit(2)
+	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	a, err := app.New(app.Options{ConfigDir: *configDir, DataDir: *dataDir, FPS: *fps, Log: log})
+	var services []app.Service
+	if *httpAddr != "" {
+		srv := httpserver.New(*httpAddr, log)
+		services = append(services,
+			func(ctx context.Context, _ *app.App) error { return srv.Run(ctx) },
+			mapview.Service(srv, mapview.Options{}),
+		)
+	}
+	a, err := app.New(app.Options{ConfigDir: *configDir, DataDir: *dataDir, FPS: *fps, Log: log, Services: services})
 	if err != nil {
 		var errs config.Errors
 		if errors.As(err, &errs) {

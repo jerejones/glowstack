@@ -41,7 +41,9 @@ frame; everything up to the stack is built once at start.
 | `internal/storage` | `Store` (atomic file writes in the data folder, or memory) and the debounced `Saver`. |
 | `internal/output` | `Stage` and `Sink`, the controller `Frame`, `Quantize` (a placeholder stage), `Discard`, `Multi`. |
 | `internal/app` | Wiring, the frame loop, `Summary`, and the seams below. |
-| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`. |
+| `internal/httpserver` | The one shared HTTP listener. Services register their routes on it under their own prefixes. |
+| `internal/mapview` | The live map: the embedded page (`static/`, plain JS, no build step), geometry and inspect JSON, the websocket frame stream, the preview clock and preview-only layers. |
+| `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (only `none` so far). |
 
 ## Seams
 
@@ -69,6 +71,18 @@ change them in one place when they need to grow.
   (`App.Engine.Check`), the layout and the registries through the App.
 - **`app.App.OnFrame`.** Per-frame observer on the frame goroutine. It gets
   the linear buffer and must copy what it needs and return quickly.
+- **`httpserver.Server`.** One listener for everything. Route prefixes
+  are owned: the live map has `/map/` and `/api/map/`, the control API
+  `/api/v1/`. Register with `Handle` (Go 1.22 patterns) when the service
+  starts.
+- **`render.Compositor.Top`.** Which layer is showing at each pixel after
+  the last `Render`, for the live map's inspect. Call it on the rendering
+  goroutine (an `OnFrame` observer).
+- **`mapview.PowerReport`.** What the output stage knows about power
+  limiting (the active scale, per group, and its own per-output figures).
+  The program passes a func returning the latest one as
+  `mapview.Options.Power`. Until the stage provides it, the map shows its
+  own pre-limiting estimate from `led_ma` and "n/a" for the scale.
 - **`storage.Store`.** Everything Glowstack writes goes through it:
   `state.json` now, and `anchors.yaml` and `presets.saved.yaml` later.
 
@@ -139,7 +153,6 @@ These are choices the design left open, recorded so they can be revisited.
 | Effects beyond `solid` (`bands`, `gradient`, `sparkle`, `wave`, `noise`, `fire`, composites, WLED-exact ports) | `internal/effects` | One file per effect; add to `Register`. Keep WLED fx ids and names. Ported WLED code keeps WLED's copyright notice (see AGENTS.md). |
 | Palettes: the WLED palette port | `internal/palette` | Append to `palette.Builtins` with WLED ids (`Palette.WLED`) and names. |
 | Output stage and DDP | `internal/output` (stage), `internal/output/ddp` (sink) | Replace `Quantize` with power limiting (per output and controller, limit groups, smoothing), white handling per controller, temporal dithering and quantising; channel order from config. The DDP sink sends per controller, splitting packets and respecting `max_fps`. Use loopback in tests. |
-| Live map | `internal/livemap` | An `app.Service` serving the page and a websocket. `App.OnFrame` gives frames. For "try before applying", run a second `engine.Engine` and `render.Compositor` on a `clock.Preview` (an engine's `Resolve` is single-goroutine). |
 | HTTP / CLI API | `internal/api`, CLI subcommands in `cmd/glowstack` or `cmd/glowctl` | An `app.Service`. Push, edit and remove go through `App.Stack`, which validates with `App.Engine.Check`. |
 | WLED-compatible devices | `internal/wled` | One `app.Service` per zone (its own IP, mDNS). Owners are `stack.WLEDOwner(zone, segment)`. Bindings come from `render.Def.WLED`. Test against `python-wled`. |
 | Calibration | `internal/calibrate` | Pushes a temporary top layer, then writes `anchors.yaml` through `storage.Store` (atomic). Needs a layout rebuild after writing. |
@@ -152,11 +165,40 @@ Not done in the core, and not assigned above:
 - `max_stretch` and other flow diagnostics on the live map, beyond the
   values already stored in `layout.FlowInfo`.
 
+## Live map
+
+`internal/mapview`, at `/map/`. The routes are listed in its package doc.
+
+- **Frames.** One binary websocket message per frame: a 16-byte header
+  (version, flags for preview and paused, frame number, Unix time as f64,
+  little-endian), then RGB per pixel for the client's subscribed ranges.
+  A client sends `{"fps": 5, "areas": ["porch"]}` to slow down or narrow
+  the stream; the server replies with the exact id ranges it will send.
+  The default is every pixel at 20 fps. Slow clients skip frames rather
+  than queue them.
+- **Display colour.** W is folded into RGB, and linear light is
+  re-encoded with the authored-colour gamma (`color.DecodeGamma`), so a
+  layer authored as `#ff8000` shows as `#ff8000`. It's what a designer
+  expects to see, not a photometric model of the LEDs. Unlit pixels are
+  drawn dim grey so strips stay visible.
+- **House or preview.** While the preview clock follows the house and
+  there are no preview layers, the map streams the house's own frames
+  (captured in `App.OnFrame` at up to the stream rate, only while someone
+  is watching). Otherwise it renders its own frames with a second engine
+  and compositor on a `clock.Preview`: the preview layers on top of the
+  house stack's live layers. It reads the house with `Stack.List`, never
+  `Stack.Frame`, so scrubbing can't expire house layers. House layers
+  show at full fade there, and zone and master brightness aren't applied.
+- **One preview** per Glowstack, shared by every open map. It's a design
+  tool, and sharing keeps a phone outside and a laptop inside in step.
+- **Speed** is 0.1×–10×, forwards only. Scrubbing pauses and seeks.
+
 ## Running
 
 ```sh
 go run ./cmd/glowstack --config examples/fictional/config \
   --data "$(mktemp -d)" --check     # print the summary and exit
-go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs
+go run ./cmd/glowstack --config examples/fictional/config --data /tmp/gs \
+  --http :8080 --output=none   # then open http://localhost:8080/map/
 go test ./...
 ```
