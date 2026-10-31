@@ -645,3 +645,20 @@ func TestRequestRejectsTrailingClosingDelimiter(t *testing.T) {
 		t.Fatalf("invalid requests pushed %d layers", n)
 	}
 }
+
+func TestSwitchLookDropsOldEffectParameters(t *testing.T) {
+	f := newFixture(t, nil)
+	out := f.must(http.StatusCreated, "POST", "/api/v1/layers", `{"target":"porch","effect":"breathe","params":{"color":"#ff0000","opacity":0.5}}`)
+	id := out["id"].(string)
+	out = f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"effect":"solid"}`)
+	params := out["params"].(map[string]any)
+	if params["color"] != nil || params["opacity"] != 0.5 {
+		t.Errorf("switch retained old effect parameters or lost common ones: %v", params)
+	}
+	// An edit naming the current effect still merges its parameters.
+	f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"params":{"color":"#0000ff"}}`)
+	out = f.must(http.StatusOK, "PATCH", "/api/v1/layers/"+id, `{"effect":"solid","opacity":0.7}`)
+	if out["params"].(map[string]any)["color"] != "#0000ff" {
+		t.Errorf("same effect lost its colour: %v", out)
+	}
+}
