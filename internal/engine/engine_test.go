@@ -163,3 +163,36 @@ func TestResolveEditsWithoutClockAdvance(t *testing.T) {
 		}
 	}
 }
+
+func TestPresetFadesApplyThroughStackAndRestore(t *testing.T) {
+	e, s, c := setup(t)
+	e.cfg.Presets = append(e.cfg.Presets, config.Preset{ID: "fading", Effect: "solid", Params: map[string]any{"fade_in": "2s", "fade_out": "4s"}})
+	l, err := s.Push(stack.Layer{Target: "porch", Preset: "fading"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Advance(time.Second)
+	if got := s.Frame(c.Now(), nil)[0].Fade; got != 0.5 {
+		t.Errorf("preset fade-in = %v, want 0.5", got)
+	}
+	data, err := s.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warnings, err := s.Restore(data); err != nil || len(warnings) != 0 {
+		t.Fatalf("restore: %v, %v", warnings, err)
+	}
+	c.Advance(time.Second)
+	if got := s.Frame(c.Now(), nil)[0].Fade; got != 0.5 {
+		t.Errorf("restored preset fade-in = %v, want 0.5", got)
+	}
+	c.Advance(time.Second)
+	if err := s.Remove(l.ID); err != nil {
+		t.Fatal(err)
+	}
+	c.Advance(2 * time.Second)
+	active := s.Frame(c.Now(), nil)
+	if len(active) != 1 || active[0].Fade != 0.5 {
+		t.Fatalf("preset fade-out = %+v, want one layer at 0.5", active)
+	}
+}
