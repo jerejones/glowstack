@@ -77,6 +77,15 @@ type ReloadResult struct {
 // sink are told through Rebuilder (the default output.Pipeline implements
 // it), on the frame loop before the next frame is processed.
 func (a *App) Reload() (*ReloadResult, error) {
+	// Preset writes include their reload and any rollback. A competing
+	// reload must never publish a file that has not committed yet.
+	a.presetMu.Lock()
+	defer a.presetMu.Unlock()
+	return a.reload()
+}
+
+// reload is called with presetMu held, including by writeSaved.
+func (a *App) reload() (*ReloadResult, error) {
 	a.reloadMu.Lock()
 	defer a.reloadMu.Unlock()
 	cfg, err := config.Load(a.opts.ConfigDir, a.opts.DataDir)
