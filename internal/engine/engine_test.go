@@ -81,7 +81,7 @@ func TestCheck(t *testing.T) {
 		l    stack.Layer
 		want string
 	}{
-		{stack.Layer{Target: "garage", Effect: "solid"}, `no area "garage"`},
+		{stack.Layer{Target: "barn", Effect: "solid"}, `no area "barn"`},
 		{stack.Layer{Target: "yard", Effect: "fire"}, `no effect "fire"`},
 		{stack.Layer{Target: "yard", Preset: "nope"}, `no preset "nope"`},
 		{stack.Layer{Target: "yard", Preset: "slow-crawl"}, `no effect "bands"`},

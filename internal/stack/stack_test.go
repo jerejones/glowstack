@@ -110,7 +110,7 @@ func TestValidation(t *testing.T) {
 		return nil
 	}
 	for _, l := range []Layer{
-		{Target: "garage", Effect: "solid"},
+		{Target: "barn", Effect: "solid"},
 		{Target: "fence"},
 		{Target: "fence", Effect: "solid", Preset: "warm"},
 		{Target: "fence", Effect: "solid", Params: map[string]any{"fade_in": "soon"}},
@@ -123,7 +123,7 @@ func TestValidation(t *testing.T) {
 	if _, err := s.Push(Layer{ID: "front", Target: "fence", Preset: "warm"}); err == nil {
 		t.Error("duplicate id")
 	}
-	if _, err := s.Edit("front", func(l *Layer) { l.Target = "garage" }); err == nil {
+	if _, err := s.Edit("front", func(l *Layer) { l.Target = "barn" }); err == nil {
 		t.Error("edit skipped validation")
 	}
 	if l, _ := s.Get("front"); l.Target != "fence" {

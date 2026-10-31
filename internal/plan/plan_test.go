@@ -116,8 +116,8 @@ func TestInkscapeLabelLookup(t *testing.T) {
 	}
 
 	// Literal inkscape:label without a namespace declaration.
-	d = parseSVG(t, `<svg><path inkscape:label="garage" d="M0 0 H5"/></svg>`)
-	if _, err := d.Path("garage"); err != nil {
+	d = parseSVG(t, `<svg><path inkscape:label="barn" d="M0 0 H5"/></svg>`)
+	if _, err := d.Path("barn"); err != nil {
 		t.Errorf("lookup by literal inkscape:label: %v", err)
 	}
 
