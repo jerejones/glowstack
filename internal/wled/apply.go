@@ -144,22 +144,24 @@ func (d *Devices) applyMaster(v *view, zm *zoneMem, onRaw, briRaw json.RawMessag
 		bri = b
 		on = bri > 0 // WLED: setting a brightness turns the light on
 	}
-	if b, ok := getBool(onRaw, wasOn); ok {
+	toggleFrom := wasOn
+	if wasOn {
+		toggleFrom = on
+	}
+	if b, ok := getBool(onRaw, toggleFrom); ok {
 		on = b
 	}
 	if bri == 0 {
 		bri = oldBri
 	}
-	if on == wasOn && (!on || bri == oldBri) {
+	if on == wasOn && bri == oldBri {
 		return
 	}
 	level := 0.0
 	if on {
 		level = float64(bri) / 255
-		d.setLastBri(zone, zm, bri)
-	} else if wasOn {
-		d.setLastBri(zone, zm, oldBri)
 	}
+	d.setLastBri(zone, zm, bri)
 	if err := d.a.SetZoneBrightness(zone, level); err != nil {
 		d.log.Warn("setting zone brightness", "zone", zone, "err", err)
 	}
