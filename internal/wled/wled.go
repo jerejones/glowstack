@@ -250,27 +250,45 @@ func cmpOr(v, def int) int {
 // sync starts, stops and restarts devices to match the config.
 func (d *Devices) sync(ctx context.Context) {
 	cfg := d.a.Current().Config
-	want := map[string]bool{}
+	type wanted struct {
+		zone *config.Zone
+		addr string
+	}
+	var order []wanted
+	want := map[string]wanted{}
 	for i, z := range deviceZones(cfg) {
-		want[z.ID] = true
 		addr, err := d.listenAddr(i, &z.Device)
 		if err != nil {
 			d.log.Error("wled device not started", "zone", z.ID, "err", err)
 			continue
 		}
+		w := wanted{z, addr}
+		want[z.ID] = w
+		order = append(order, w)
+	}
+	// Release every removed or moved listener first: a new address may
+	// still belong to another device in the previous config.
+	d.devMu.Lock()
+	var gone []*device
+	for z, dev := range d.devices {
+		w, ok := want[z]
+		if !ok || !sameDevice(&dev.cfg, &w.zone.Device) || dev.addr != w.addr {
+			gone = append(gone, dev)
+			delete(d.devices, z)
+		}
+	}
+	d.devMu.Unlock()
+	for _, dev := range gone {
+		dev.stop()
+		d.log.Info("wled device stopped", "zone", dev.zone)
+	}
+	for _, w := range order {
+		z, addr := w.zone, w.addr
 		d.devMu.Lock()
 		old := d.devices[z.ID]
 		d.devMu.Unlock()
 		if old != nil {
-			// Same identity and address: keep it (a device on a free port
-			// keeps the port it got).
-			if sameDevice(&old.cfg, &z.Device) && old.addr == addr {
-				continue
-			}
-			old.stop()
-			d.devMu.Lock()
-			delete(d.devices, z.ID)
-			d.devMu.Unlock()
+			continue // unchanged; keep a free port assigned at startup
 		}
 		dev, err := d.start(ctx, z.ID, z.Device, addr)
 		if err != nil {
@@ -281,19 +299,6 @@ func (d *Devices) sync(ctx context.Context) {
 		d.devices[z.ID] = dev
 		d.devMu.Unlock()
 		d.log.Info("wled device listening", "zone", z.ID, "name", z.Device.Name, "mac", z.Device.MAC, "addr", dev.ln.Addr().String())
-	}
-	d.devMu.Lock()
-	var gone []*device
-	for z, dev := range d.devices {
-		if !want[z] {
-			gone = append(gone, dev)
-			delete(d.devices, z)
-		}
-	}
-	d.devMu.Unlock()
-	for _, dev := range gone {
-		dev.stop()
-		d.log.Info("wled device stopped", "zone", dev.zone)
 	}
 }
 
