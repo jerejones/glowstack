@@ -68,11 +68,29 @@ func renderChase(ctx *render.Context, out []color.Color) {
 		x := wrap(pos, p)
 		pulse := math.Floor(pos / p) // which pulse's period this is
 
+		c := cols[int(mod(int64(pulse), int64(len(cols))))]
 		var level float64
 		if ctx.Smooth {
 			fw := footprint(ctx, i)
 			if fw > p*1e-6 {
-				level = (covered(x+fw/2, 0, w, p) - covered(x-fw/2, 0, w, p)) / fw
+				// Average the coloured pulses over the whole footprint. A
+				// pixel in the gap may cover the next pulse's head, and a
+				// compressed pattern may cover several differently coloured
+				// pulses in one pixel.
+				cycle := p * float64(len(cols))
+				cx := wrap(pos, cycle)
+				var sum color.Color
+				for j, col := range cols {
+					start := float64(j) * p
+					share := (covered(cx+fw/2, start, w, cycle) - covered(cx-fw/2, start, w, cycle)) / fw
+					if share > 0 {
+						level += share
+						sum = add(sum, col, float32(share))
+					}
+				}
+				if level > 0 {
+					c = sum.Scale(1 / float32(level)).WithAlpha(1)
+				}
 			} else if x < w {
 				level = 1
 			}
@@ -93,11 +111,10 @@ func renderChase(ctx *render.Context, out []color.Color) {
 			if behind > 0 && behind < tl {
 				if t := float64(perceived(1 - behind/tl)); t > level {
 					level = t
-					pulse = owner
+					c = cols[int(mod(int64(owner), int64(len(cols))))]
 				}
 			}
 		}
-		c := cols[int(mod(int64(pulse), int64(len(cols))))]
 		switch {
 		case overlay:
 			out[i] = c.WithAlpha(float32(level))
