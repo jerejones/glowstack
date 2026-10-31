@@ -35,3 +35,30 @@ func TestPresetCommonControls(t *testing.T) {
 		})
 	}
 }
+
+func TestCombinedBrightnessAndOn(t *testing.T) {
+	for _, tc := range []struct {
+		name, controls string
+		segment        bool
+		wantOn         bool
+	}{
+		{"master zero and on", `"bri":0,"on":true`, false, true},
+		{"segment zero and toggle", `"bri":0,"on":"t"`, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			f.post(`{"bri":100,"seg":{"id":0,"on":true,"bri":100}}`)
+			body := "{" + tc.controls + "}"
+			if tc.segment {
+				body = `{"seg":{"id":0,` + tc.controls + `}}`
+			}
+			st := f.post(body)
+			if tc.segment {
+				st = seg(st, 0)
+			}
+			if st["on"] != tc.wantOn || num(st["bri"]) != 100 {
+				t.Errorf("on/bri = %v/%v, want %v/100", st["on"], st["bri"], tc.wantOn)
+			}
+		})
+	}
+}
