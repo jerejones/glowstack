@@ -7,6 +7,7 @@ package config
 import (
 	"encoding"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -176,6 +177,10 @@ func (d *decoder) decode(n *yaml.Node, v reflect.Value) {
 		}
 		if err := n.Decode(v.Addr().Interface()); err != nil {
 			d.errorf(n, "%s", cleanYAMLError(err))
+		} else if v.Kind() == reflect.Float32 || v.Kind() == reflect.Float64 {
+			if f := v.Float(); math.IsNaN(f) || math.IsInf(f, 0) {
+				d.errorf(n, "want a finite number, got %q", n.Value)
+			}
 		}
 	}
 }
@@ -200,7 +205,16 @@ func (d *decoder) decodeStruct(n *yaml.Node, v reflect.Value) {
 			continue
 		}
 		seen[k.Value] = true
+		if val.Tag == "!!null" && v.Type().FieldByIndex(idx).Tag.Get("required") == "true" {
+			d.errorf(val, "missing %s", k.Value)
+			continue
+		}
 		d.decode(val, v.FieldByIndex(idx))
+	}
+	for name, idx := range fields {
+		if !seen[name] && v.Type().FieldByIndex(idx).Tag.Get("required") == "true" {
+			d.errorf(n, "missing %s", name)
+		}
 	}
 }
 

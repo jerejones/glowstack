@@ -280,3 +280,27 @@ func TestMeasuredEdgeLength(t *testing.T) {
 		t.Errorf("pixel = %+v", p)
 	}
 }
+
+func TestMeasuredLengthRejectsUnknownEndpoint(t *testing.T) {
+	g := newGraph(t).run("r", 10, "a", "b")
+	g.cfg.Controllers[0].Pixels = 10
+	g.cfg.Layout.Runs[0].Lengths = []config.EdgeLength{{From: "missing", To: "b", Length: unitsMetres(2)}}
+	if err := g.cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	_, err := BuildWith(g.cfg, nil)
+	errContains(t, err, `"missing"`)
+}
+
+func TestDrawingLabelsMustFollowMeasuredAnchorOrder(t *testing.T) {
+	g := newGraph(t).run("r", 40, "a", "b@9", "c@29", "d")
+	g.cfg.Controllers[0].Pixels = 40
+	g.cfg.Layout.Runs[0].Plan = &config.RunPlan{SVG: "p.svg#r"}
+	if err := g.cfg.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	_, err := BuildWith(g.cfg, svgLoader(map[string]string{
+		"p.svg": `<svg><path id="r" d="M0 0 H10 H30 H40" data-nodes="a,c,b,d"/></svg>`,
+	}))
+	errContains(t, err, "out of order")
+}

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const exampleDir = "../../examples/fictional"
@@ -154,5 +156,72 @@ func TestSavedPresetShadows(t *testing.T) {
 	}
 	if p, _ := c.Preset("p"); p.Effect != "bands" || !p.Saved {
 		t.Errorf("preset = %+v", p)
+	}
+}
+
+func TestAnchorOverridesRejectUnknownRunsAndDuplicates(t *testing.T) {
+	for _, tt := range []struct{ name, body, want string }{
+		{"unknown run", "  - {run: missing, node: corner, index: 5}\n", `unknown run "missing"`},
+		{"duplicate", "  - {run: a, node: corner, index: 5}\n  - {run: a, node: corner, index: 6}\n", "duplicate anchor"},
+		{"outside run", "  - {run: a, node: corner, index: 100}\n", "outside run"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := writeConfig(t, nil)
+			data := t.TempDir()
+			if err := os.WriteFile(filepath.Join(data, AnchorsFileName), []byte("schema: 1\nanchors:\n"+tt.body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Load(dir, data)
+			if err == nil || !strings.Contains(err.Error(), "anchors.yaml:") || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("error = %v, want anchors.yaml file:line and %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestRequiredPixelIndicesCannotDefaultToZero(t *testing.T) {
+	body := "schema: 1\npitch: 1 cm\nruns:\n  - {id: a, controller: shed, path: [x, y]}\n"
+	_, err := Load(writeConfig(t, map[string]string{LayoutFileName: body}), "")
+	if err == nil || !strings.Contains(err.Error(), "layout.yaml:4: missing indices") {
+		t.Fatalf("missing run indices: %v", err)
+	}
+	for _, field := range []string{"", ", index: null"} {
+		dir := writeConfig(t, nil)
+		data := t.TempDir()
+		if err := os.WriteFile(filepath.Join(data, AnchorsFileName), []byte("schema: 1\nanchors:\n  - {run: a, node: corner"+field+"}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		_, err := Load(dir, data)
+		if err == nil || !strings.Contains(err.Error(), "anchors.yaml:3: missing index") {
+			t.Fatalf("missing override index (%q): %v", field, err)
+		}
+	}
+}
+
+func TestRejectNonFiniteConfigNumbers(t *testing.T) {
+	for _, tt := range []struct{ file, body, location string }{
+		{SettingsFileName, "schema: 1\nfps: .nan\n", "glowstack.yaml:2:"},
+		{ControllersFileName, "schema: 1\ncontrollers:\n  - {id: shed, host: 192.0.2.1, pixels: 100, max_fps: .inf}\n", "controllers.yaml:3:"},
+		{MappingsFileName, "schema: 1\nflows:\n  - {id: f, origin: x, max_stretch: .nan}\n", "mappings.yaml:3:"},
+	} {
+		_, err := Load(writeConfig(t, map[string]string{tt.file: tt.body}), "")
+		if err == nil || !strings.Contains(err.Error(), tt.location) {
+			t.Errorf("non-finite value in %s: %v, want file:line error", tt.file, err)
+		}
+	}
+}
+
+func TestRequiredIndicesStillMarshalAsYAML(t *testing.T) {
+	for _, value := range []any{
+		AnchorsFile{Schema: 1, Anchors: []AnchorOverride{{Run: "a", Node: "corner", Index: 5}}},
+		LayoutFile{Schema: 1, Layout: Layout{Runs: []Run{{ID: "a", Indices: [2]int{0, 9}}}}},
+	} {
+		data, err := yaml.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "index:") && !strings.Contains(string(data), "indices:") {
+			t.Fatalf("missing pixel indices in YAML: %s", data)
+		}
 	}
 }

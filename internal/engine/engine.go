@@ -44,8 +44,9 @@ type Engine struct {
 }
 
 type cached struct {
-	updated time.Time
-	layer   *render.Layer
+	revision uint64
+	updated  time.Time
+	layer    *render.Layer
 }
 
 // New returns an engine.
@@ -61,8 +62,18 @@ func New(cfg *config.Config, l *layout.Layout, ms *layout.Mappings, effects *ren
 // Check validates a stack layer: its area, effect or preset, params and
 // mapping. Install it as stack.Stack.Validate.
 func (e *Engine) Check(l *stack.Layer) error {
-	_, err := e.build(l, nil, false)
-	return err
+	resolved, err := e.build(l, nil, false)
+	if err != nil {
+		return err
+	}
+	l.ResolvedFades = &stack.Fades{In: -1, Out: -1}
+	if resolved.Common.FadeIn >= 0 {
+		l.ResolvedFades.In = time.Duration(resolved.Common.FadeIn * float64(time.Second))
+	}
+	if resolved.Common.FadeOut >= 0 {
+		l.ResolvedFades.Out = time.Duration(resolved.Common.FadeOut * float64(time.Second))
+	}
+	return nil
 }
 
 // Resolve turns the stack's active layers (top first) into render layers,
@@ -73,7 +84,7 @@ func (e *Engine) Resolve(active []stack.Active, dst []*render.Layer) []*render.L
 		a := &active[i]
 		e.seen[a.ID] = true
 		c := e.cache[a.ID]
-		if c == nil || !c.updated.Equal(a.Updated) {
+		if c == nil || c.revision != a.Revision || !c.updated.Equal(a.Updated) {
 			var prev *render.Layer
 			if c != nil {
 				prev = c.layer
@@ -83,10 +94,10 @@ func (e *Engine) Resolve(active []stack.Active, dst []*render.Layer) []*render.L
 				if e.OnError != nil && (c == nil || c.layer != nil) {
 					e.OnError(a.ID, err)
 				}
-				e.cache[a.ID] = &cached{updated: a.Updated}
+				e.cache[a.ID] = &cached{revision: a.Revision, updated: a.Updated}
 				continue
 			}
-			c = &cached{updated: a.Updated, layer: L}
+			c = &cached{revision: a.Revision, updated: a.Updated, layer: L}
 			e.cache[a.ID] = c
 		}
 		if c.layer == nil {

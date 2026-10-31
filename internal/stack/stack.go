@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"math/rand/v2"
 	"slices"
 	"strconv"
@@ -55,6 +54,12 @@ type Layer struct {
 	Seed     uint64         `json:"seed"`
 	Created  time.Time      `json:"created"`
 	Updated  time.Time      `json:"updated"`
+	// Revision identifies a mutation independently of clock precision.
+	Revision uint64 `json:"-"`
+	// ResolvedFades is filled by Validate after preset expansion. A negative
+	// duration uses the stack default. It is recalculated on every change
+	// and restore, so persisted Params remain the caller's overrides.
+	ResolvedFades *Fades `json:"-"`
 }
 
 // Lifetime says when a layer removes itself. The zero value means "until
@@ -153,19 +158,20 @@ func (s *Stack) Push(l Layer) (Layer, error) {
 	defer s.mu.Unlock()
 	now := s.clock.Now()
 	if l.ID == "" {
-		for s.find(strconv.Itoa(s.nextID)) >= 0 {
+		for s.hasID(strconv.Itoa(s.nextID)) {
 			s.nextID++
 		}
 		l.ID = strconv.Itoa(s.nextID)
 		s.nextID++
-	} else if s.find(l.ID) >= 0 {
+	} else if s.hasID(l.ID) {
 		return Layer{}, fmt.Errorf("layer %q already exists", l.ID)
 	}
 	if l.Seed == 0 {
 		l.Seed = rand.Uint64() | 1
 	}
-	l.Params = maps.Clone(l.Params)
+	l.Params = cloneParams(l.Params)
 	l.Created, l.Updated = now, now
+	l.Revision = s.version + 1
 	if err := s.check(&l, now); err != nil {
 		return Layer{}, err
 	}
@@ -190,7 +196,7 @@ func (s *Stack) Edit(id string, fn func(*Layer)) (Layer, error) {
 	}
 	e := s.entries[i]
 	l := e.Layer
-	l.Params = maps.Clone(l.Params)
+	l.Params = cloneParams(l.Params)
 	if l.Params == nil {
 		l.Params = map[string]any{}
 	}
@@ -198,6 +204,7 @@ func (s *Stack) Edit(id string, fn func(*Layer)) (Layer, error) {
 	l.ID, l.Owner, l.Seed, l.Created = e.ID, e.Owner, e.Seed, e.Created
 	now := s.clock.Now()
 	l.Updated = now
+	l.Revision = s.version + 1
 	if err := s.check(&l, now); err != nil {
 		return Layer{}, err
 	}
@@ -328,11 +335,17 @@ func ramp(elapsed, d time.Duration) float32 {
 	return float32(elapsed.Seconds() / d.Seconds())
 }
 
+// hasID includes removed layers until their fade-out has finished.
+func (s *Stack) hasID(id string) bool {
+	return slices.ContainsFunc(s.entries, func(e *entry) bool { return e.ID == id })
+}
+
 func (s *Stack) find(id string) int {
 	return slices.IndexFunc(s.entries, func(e *entry) bool { return e.ID == id && e.removedAt.IsZero() })
 }
 
 func (s *Stack) check(l *Layer, now time.Time) error {
+	l.ResolvedFades = nil
 	if l.Target == "" {
 		return errors.New("layer needs a target area")
 	}
@@ -359,7 +372,18 @@ func (s *Stack) setFades(e *entry) error {
 		return err
 	}
 	e.fadeOut, err = durationParam(e.Params, "fade_out", s.fades.Out)
-	return err
+	if err != nil {
+		return err
+	}
+	if f := e.ResolvedFades; f != nil {
+		if f.In >= 0 {
+			e.fadeIn = f.In
+		}
+		if f.Out >= 0 {
+			e.fadeOut = f.Out
+		}
+	}
+	return nil
 }
 
 func durationParam(params map[string]any, name string, def time.Duration) (time.Duration, error) {
@@ -386,6 +410,34 @@ func durationParam(params map[string]any, name string, def time.Duration) (time.
 		return 0, fmt.Errorf("%s: negative duration", name)
 	}
 	return d, nil
+}
+
+// cloneParams copies the raw YAML/JSON tree, so editing a nested list or
+// mapping cannot mutate an active layer before validation succeeds.
+func cloneParams(params map[string]any) map[string]any {
+	if params == nil {
+		return nil
+	}
+	out := make(map[string]any, len(params))
+	for k, v := range params {
+		out[k] = cloneParam(v)
+	}
+	return out
+}
+
+func cloneParam(v any) any {
+	switch v := v.(type) {
+	case map[string]any:
+		return cloneParams(v)
+	case []any:
+		out := make([]any, len(v))
+		for i, item := range v {
+			out[i] = cloneParam(item)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // SchemaVersion is the state.json schema.
@@ -439,6 +491,7 @@ func (s *Stack) Restore(data []byte) (warnings []string, err error) {
 			warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", l.ID, err))
 			continue
 		}
+		l.Revision = s.version + 1
 		e := &entry{Layer: l, shown: now}
 		if err := s.setFades(e); err != nil {
 			warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", l.ID, err))

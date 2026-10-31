@@ -182,3 +182,49 @@ func TestWLEDOwner(t *testing.T) {
 		t.Errorf("by owner: %+v", got)
 	}
 }
+
+func TestPushReservesIDDuringFadeOut(t *testing.T) {
+	s, c := newStack()
+	l := Layer{ID: "chosen", Target: "porch", Effect: "solid"}
+	if _, err := s.Push(l); err != nil {
+		t.Fatal(err)
+	}
+	c.Advance(time.Second)
+	if err := s.Remove(l.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Push(l); err == nil {
+		t.Fatal("accepted an ID still used by a fading layer")
+	}
+	c.Advance(2 * time.Second)
+	s.Frame(c.Now(), nil)
+	if _, err := s.Push(l); err != nil {
+		t.Fatalf("ID should be available after the fade finishes: %v", err)
+	}
+}
+
+func TestRejectedEditCannotMutateNestedParams(t *testing.T) {
+	s, _ := newStack()
+	s.Validate = func(l *Layer) error {
+		band := l.Params["bands"].([]any)[0].(map[string]any)
+		if band["width"] == "invalid" {
+			return errors.New("invalid width")
+		}
+		return nil
+	}
+	l, err := s.Push(Layer{Target: "porch", Effect: "bands", Params: map[string]any{
+		"bands": []any{map[string]any{"width": "1 m"}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Edit(l.ID, func(l *Layer) {
+		l.Params["bands"].([]any)[0].(map[string]any)["width"] = "invalid"
+	}); err == nil {
+		t.Fatal("expected edit to fail validation")
+	}
+	got, _ := s.Get(l.ID)
+	if width := got.Params["bands"].([]any)[0].(map[string]any)["width"]; width != "1 m" {
+		t.Fatalf("rejected edit changed live nested parameters to %v", width)
+	}
+}

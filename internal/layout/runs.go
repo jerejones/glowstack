@@ -242,6 +242,21 @@ func (b *builder) solveAnchors(cr *config.Run, r *Run, anchors []pathAnchor) boo
 		prev = j
 	}
 
+	// Drawn knots must follow run order even when every index is measured.
+	// Otherwise plan placement doubles back between otherwise valid anchors.
+	prevDrawn := 0
+	for j := 1; j < len(anchors); j++ {
+		if math.IsNaN(anchors[j].drawn) {
+			continue
+		}
+		if anchors[j].drawn <= anchors[prevDrawn].drawn {
+			b.errorf(cr.Plan.Pos, "run %s: the drawing labels %q out of order relative to %q", cr.ID,
+				b.l.Nodes[anchors[j].node].ID, b.l.Nodes[anchors[prevDrawn].node].ID)
+			return false
+		}
+		prevDrawn = j
+	}
+
 	// Estimate the rest, piecewise between known anchors that the drawing
 	// also labels.
 	for j := 1; j < len(anchors)-1; j++ {
@@ -317,7 +332,11 @@ func (b *builder) stripEdges(cr *config.Run, ri int, anchors []pathAnchor) {
 	for j := 0; j+1 < len(anchors); j++ {
 		key := [2]int{anchors[j].node, anchors[j+1].node}
 		for li, el := range cr.Lengths {
-			from, to := b.l.nodeByID[el.From], b.l.nodeByID[el.To]
+			from, okFrom := b.l.nodeByID[el.From]
+			to, okTo := b.l.nodeByID[el.To]
+			if !okFrom || !okTo {
+				continue
+			}
 			if (from == key[0] && to == key[1]) || (from == key[1] && to == key[0]) {
 				lengths[key] = el.Length.Value
 				usedLength[li] = true

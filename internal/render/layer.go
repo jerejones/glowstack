@@ -91,7 +91,6 @@ type Geometry struct {
 // order (reversed by `reverse`).
 func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords Coords, c Common) *Geometry {
 	g := &Geometry{}
-	needU := coords&(CoordU|CoordIndex) != 0
 	needXY := coords&CoordXY != 0
 	type entry struct {
 		p   int32
@@ -104,12 +103,9 @@ func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords C
 	entries := make([]entry, 0, len(target))
 	for _, p := range target {
 		u := float64(m.U[p])
-		if needU && math.IsNaN(u) || needXY && !l.Pixels[p].HasPlan() {
+		if math.IsNaN(u) || needXY && !l.Pixels[p].HasPlan() {
 			g.Dark = append(g.Dark, p)
 			continue
-		}
-		if math.IsNaN(u) {
-			u = 0
 		}
 		entries = append(entries, entry{p, sign * u})
 	}
