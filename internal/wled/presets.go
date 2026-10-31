@@ -235,6 +235,13 @@ func (d *Devices) psave(v *view, n int, name string) error {
 		return fmt.Errorf("psave %d: %w", n, err)
 	}
 	if !existing {
+		// An explicit save reassigns this slot, including any reservation
+		// for a previously deleted preset. It must have only one owner.
+		for old, slot := range d.saved.Presets {
+			if slot == n {
+				delete(d.saved.Presets, old)
+			}
+		}
 		d.saved.Presets[id] = n
 		d.writeSaved()
 	}
