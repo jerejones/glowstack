@@ -208,10 +208,24 @@ func covers(blend string, alpha, op float32) bool {
 	return false
 }
 
-// deriveWhite applies a layer's white mode (WLED auto-white) to pixels
-// that don't already carry white.
+// deriveWhite applies a layer's white mode (WLED auto-white):
+//
+//   - explicit: white only where colours give it ("#ff8000/40").
+//   - none: no white at all; W is dropped (for RGB-only looks on RGBW
+//     strips).
+//   - brighter: W = min(R, G, B) is added, as WLED's "Brighter".
+//   - accurate: W = min(R, G, B) replaces that much of R, G and B, as
+//     WLED's "Accurate".
+//
+// brighter and accurate leave colours that already carry white alone
+// (like WLED's "Dual"), because an authored W is deliberate. The maths is
+// in linear light, where moving equal R, G and B into W keeps the colour.
 func deriveWhite(c color.Color, mode string) color.Color {
-	if c.W > 0 || mode == WhiteExplicit || mode == WhiteNone {
+	if mode == WhiteNone {
+		c.W = 0
+		return c
+	}
+	if c.W > 0 || mode == WhiteExplicit {
 		return c
 	}
 	m := min(c.R, c.G, c.B)
@@ -229,32 +243,40 @@ func deriveWhite(c color.Color, mode string) color.Color {
 // alpha; op is the layer's opacity × fade.
 func blendInto(dst []color.Color, pix []int32, col []color.Color, mode string, op float32) {
 	for j, p := range pix {
-		d, s := dst[p], col[j]
-		a := s.A * op
-		var out color.Color
-		switch mode {
-		case BlendReplace:
-			// Replace ignores the effect's alpha: it replaces even
-			// transparent output, scaled only by opacity.
-			out = color.Lerp(d, s.WithAlpha(1), op)
-		case BlendAdd:
-			out = color.Color{R: d.R + s.R*a, G: d.G + s.G*a, B: d.B + s.B*a, W: d.W + s.W*a, A: d.A + a*(1-d.A)}
-		case BlendMax:
-			m := color.Color{R: max(d.R, s.R), G: max(d.G, s.G), B: max(d.B, s.B), W: max(d.W, s.W), A: 1}
-			out = color.Lerp(d, m, a)
-		case BlendMultiply:
-			m := color.Color{R: d.R * s.R, G: d.G * s.G, B: d.B * s.B, W: d.W * s.W, A: 1}
-			out = color.Lerp(d, m, a)
-		default: // over
-			out = color.Lerp(d, s.WithAlpha(1), a)
-		}
-		// Coverage accumulates like alpha "over".
-		if mode != BlendAdd {
-			out.A = d.A + a*(1-d.A)
-			if mode == BlendReplace {
-				out.A = d.A + op*(1-d.A)
-			}
-		}
-		dst[p] = out
+		dst[p] = Blend(dst[p], col[j], mode, op)
 	}
+}
+
+// Blend blends one layer pixel s (straight alpha) onto d with a blend mode
+// and the layer's opacity op. d is an accumulation as in Buffer: its
+// colour is premultiplied by its coverage A, so a fresh transparent black
+// d works, and blending onto it is associative with blending what comes
+// out onto lower layers. Composite effects use it to blend their parts.
+func Blend(d, s color.Color, mode string, op float32) color.Color {
+	a := s.A * op
+	var out color.Color
+	switch mode {
+	case BlendReplace:
+		// Replace ignores the effect's alpha: it replaces even
+		// transparent output, scaled only by opacity.
+		out = color.Lerp(d, s.WithAlpha(1), op)
+	case BlendAdd:
+		out = color.Color{R: d.R + s.R*a, G: d.G + s.G*a, B: d.B + s.B*a, W: d.W + s.W*a, A: d.A + a*(1-d.A)}
+	case BlendMax:
+		m := color.Color{R: max(d.R, s.R), G: max(d.G, s.G), B: max(d.B, s.B), W: max(d.W, s.W), A: 1}
+		out = color.Lerp(d, m, a)
+	case BlendMultiply:
+		m := color.Color{R: d.R * s.R, G: d.G * s.G, B: d.B * s.B, W: d.W * s.W, A: 1}
+		out = color.Lerp(d, m, a)
+	default: // over
+		out = color.Lerp(d, s.WithAlpha(1), a)
+	}
+	// Coverage accumulates like alpha "over".
+	if mode != BlendAdd {
+		out.A = d.A + a*(1-d.A)
+		if mode == BlendReplace {
+			out.A = d.A + op*(1-d.A)
+		}
+	}
+	return out
 }

@@ -217,7 +217,7 @@ func (e *Engine) build(l *stack.Layer, prev *render.Layer, full bool) (*render.L
 	if !full {
 		return L, nil
 	}
-	L.Geometry = render.BuildGeometry(e.layout, m, area.Pixels, def.Coords, common)
+	L.Geometry = render.BuildGeometry(e.layout, m, area.Pixels, def.CoordsOf(values), common)
 	if prev != nil && prev.Def == def {
 		L.Effect = prev.Effect
 	} else {
