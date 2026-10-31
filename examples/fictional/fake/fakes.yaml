@@ -1,0 +1,12 @@
+# Fake controllers for the fictional installation, for cmd/fakewled.
+# Same pixel counts and ports as `fakewled --from-config
+# examples/fictional/config --base-port 40481`, but the yard fake is
+# deliberately misconfigured so glowstack's health check has something to
+# report. Run glowstack with --loopback=40481 to send to these.
+devices:
+  - { name: shed, listen: 127.0.0.1:40481, pixels: 604, channels: rgbw }
+  - name: yard
+    listen: 127.0.0.1:40482
+    pixels: 480
+    channels: rgb
+    live: { en: true, timeout: 25, maxbri: false, no-gc: false }   # replaces all the defaults
