@@ -122,9 +122,34 @@ async def test_front(led: WLED, api: Native) -> None:
     check(abs(int(seg.intensity) - 60) <= 2, f"intensity reads back {seg.intensity}")
     check(tuple(seg.color.primary[:3]) == (255, 0, 0), f"primary {seg.color.primary}")
 
+    # HA's number and palette select entities send separate partial updates.
+    await led.segment(1, speed=31)
+    await led.segment(1, intensity=219)
+    await led.segment(1, palette="Ember")
+    dev = await led.update()
+    seg = dev.state.segments[1]
+    check(abs(int(seg.speed) - 31) <= 2, f"speed number reads back {seg.speed}")
+    check(abs(int(seg.intensity) - 219) <= 2, f"intensity number reads back {seg.intensity}")
+    check(dev.palettes[int(seg.palette_id)].name == "Ember", "palette select reads back a user palette by name")
+    check(dev.state.segments[0].on is False, "partial number/select writes leave segment 0 alone")
+
+    # Controls can be prepared while the segment is off without pushing it.
+    await led.segment(2, speed=37)
+    await led.segment(2, intensity=221)
+    await led.segment(2, palette="Rainbow")
+    dev = await led.update()
+    seg = dev.state.segments[2]
+    check(not seg.on and int(seg.speed) == 37 and int(seg.intensity) == 221,
+          "number writes on an off segment are remembered without a layer")
+    check(dev.palettes[int(seg.palette_id)].name == "Rainbow", "off segment remembers its palette select")
+    check(api.layers("wled-device:front/2") == [], "off segment controls do not push a layer")
+
     await led.segment(1, effect="Solid", color_primary=(0, 255, 0))
     ls = api.layers(owner)
     check(ls[0]["effect"] == "solid", "effect Solid")
+    await led.segment(1, color_primary=(10, 20, 30, 40))
+    dev = await led.update()
+    check(tuple(dev.state.segments[1].color.primary) == (10, 20, 30, 40), "RGBW segment color round-trips")
     # Black is a colour: still a layer.
     await led.segment(1, color_primary=(0, 0, 0))
     check(len(api.layers(owner)) == 1, "black keeps the layer")
@@ -146,15 +171,37 @@ async def test_front(led: WLED, api: Native) -> None:
     await led.segment(1, on=False)
     check(api.layers(owner) == [], "segment off removes the layer")
 
+    # A preset's common parameters must be editable by HA's segment light
+    # and reverse switch, including resetting them to their default values.
+    api.send("PUT", "/api/v1/presets/dim-reversed", {
+        "name": "Dim reversed", "effect": "solid",
+        "params": {"brightness": 0.25, "reverse": True},
+    })
+    dev = await led.update()
+    check(any(p.name == "Dim reversed" for p in dev.presets.values()), "preset select sees a native saved preset")
+    await led.preset("Dim reversed")
+    await led.segment(0, brightness=255)
+    await led.segment(0, reverse=False)
+    dev = await led.update()
+    check(dev.state.segments[0].brightness == 255 and not dev.state.segments[0].reverse,
+          "segment light and reverse switch reset preset common parameters")
+
     # Presets.
     dev = await led.update()
     glitter = next(p for p in dev.presets.values() if p.name == "Glitter")
-    await led.preset(glitter)
+    await led.preset("Glitter")
     ls = api.layers("wled-device:front/0")
     check(len(ls) == 1 and ls[0].get("preset") == "glitter", "preset Glitter on the main segment")
     dev = await led.update()
     check(dev.state.preset_id == glitter.preset_id, f"state ps {dev.state.preset_id}")
     check(dev.effects[int(dev.state.segments[0].effect_id)].name == "Glitter", "preset shows effect Glitter")
+    await led.request("/json/state", method="POST", data={"mainseg": 1})
+    await led.preset("Glitter")
+    dev = await led.update()
+    check(dev.state.preset_id == glitter.preset_id and bool(api.layers(owner)),
+          "preset select targets the configured main segment")
+    await led.segment(1, on=False)
+    await led.request("/json/state", method="POST", data={"mainseg": 0})
 
     # Pushes over the websocket, for changes made outside the device too.
     await led.connect()
