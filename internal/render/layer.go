@@ -105,6 +105,9 @@ func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords C
 	entries := make([]entry, 0, len(target))
 	for _, p := range target {
 		u := float64(m.U[p])
+		if coords&CoordPixel != 0 {
+			u = 0 // physical pixel ids do not depend on mapping coordinates
+		}
 		if math.IsNaN(u) || needXY && !l.Pixels[p].HasPlan() {
 			g.Dark = append(g.Dark, p)
 			continue

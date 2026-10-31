@@ -67,6 +67,7 @@ func Effect() *render.Def {
 	return &render.Def{
 		ID:       EffectID,
 		Name:     "Calibration",
+		Coords:   render.CoordPixel,
 		Internal: true,
 		Params: []render.Param{
 			{Name: "mode", Type: render.TEnum, Default: ModeRuler, Enum: []string{ModeRuler, ModeBands}},
