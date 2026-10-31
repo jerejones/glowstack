@@ -44,8 +44,9 @@ type Engine struct {
 }
 
 type cached struct {
-	updated time.Time
-	layer   *render.Layer
+	revision uint64
+	updated  time.Time
+	layer    *render.Layer
 }
 
 // New returns an engine.
@@ -73,7 +74,7 @@ func (e *Engine) Resolve(active []stack.Active, dst []*render.Layer) []*render.L
 		a := &active[i]
 		e.seen[a.ID] = true
 		c := e.cache[a.ID]
-		if c == nil || !c.updated.Equal(a.Updated) {
+		if c == nil || c.revision != a.Revision || !c.updated.Equal(a.Updated) {
 			var prev *render.Layer
 			if c != nil {
 				prev = c.layer
@@ -83,10 +84,10 @@ func (e *Engine) Resolve(active []stack.Active, dst []*render.Layer) []*render.L
 				if e.OnError != nil && (c == nil || c.layer != nil) {
 					e.OnError(a.ID, err)
 				}
-				e.cache[a.ID] = &cached{updated: a.Updated}
+				e.cache[a.ID] = &cached{revision: a.Revision, updated: a.Updated}
 				continue
 			}
-			c = &cached{updated: a.Updated, layer: L}
+			c = &cached{revision: a.Revision, updated: a.Updated, layer: L}
 			e.cache[a.ID] = c
 		}
 		if c.layer == nil {

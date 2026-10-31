@@ -55,6 +55,8 @@ type Layer struct {
 	Seed     uint64         `json:"seed"`
 	Created  time.Time      `json:"created"`
 	Updated  time.Time      `json:"updated"`
+	// Revision identifies a mutation independently of clock precision.
+	Revision uint64 `json:"-"`
 }
 
 // Lifetime says when a layer removes itself. The zero value means "until
@@ -166,6 +168,7 @@ func (s *Stack) Push(l Layer) (Layer, error) {
 	}
 	l.Params = maps.Clone(l.Params)
 	l.Created, l.Updated = now, now
+	l.Revision = s.version + 1
 	if err := s.check(&l, now); err != nil {
 		return Layer{}, err
 	}
@@ -198,6 +201,7 @@ func (s *Stack) Edit(id string, fn func(*Layer)) (Layer, error) {
 	l.ID, l.Owner, l.Seed, l.Created = e.ID, e.Owner, e.Seed, e.Created
 	now := s.clock.Now()
 	l.Updated = now
+	l.Revision = s.version + 1
 	if err := s.check(&l, now); err != nil {
 		return Layer{}, err
 	}
@@ -439,6 +443,7 @@ func (s *Stack) Restore(data []byte) (warnings []string, err error) {
 			warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", l.ID, err))
 			continue
 		}
+		l.Revision = s.version + 1
 		e := &entry{Layer: l, shown: now}
 		if err := s.setFades(e); err != nil {
 			warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", l.ID, err))
