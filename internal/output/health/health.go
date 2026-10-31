@@ -254,7 +254,9 @@ func (m *Monitor) check(ctx context.Context, t Target) {
 	st.Reachable, st.Err = true, ""
 	st.Version, st.Count = info.Ver, info.Leds.Count
 	up := time.Duration(info.Uptime) * time.Second
-	rebooted := prev.Reachable && up < prev.Uptime
+	// An offline poll preserves the last successful uptime. A reboot
+	// commonly causes that outage, so compare even after a failed poll.
+	rebooted := up < prev.Uptime
 	if rebooted {
 		st.Reboots++
 		m.cfgs[t.ID] = nil
