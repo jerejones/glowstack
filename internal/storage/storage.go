@@ -76,10 +76,14 @@ func WriteFileAtomic(path string, data []byte, perm fs.FileMode) (err error) {
 	if err = os.Rename(tmp, path); err != nil {
 		return err
 	}
-	// Best effort: some filesystems can't sync a directory.
-	if d, derr := os.Open(dir); derr == nil {
-		d.Sync()
-		d.Close()
+	// The rename is only durable once the directory entry is synced.
+	d, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("open directory for sync: %w", err)
+	}
+	defer d.Close()
+	if err := d.Sync(); err != nil {
+		return fmt.Errorf("sync directory: %w", err)
 	}
 	return nil
 }
