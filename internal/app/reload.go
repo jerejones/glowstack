@@ -56,10 +56,13 @@ type Rebuilder interface {
 
 // ReloadResult says what a reload changed.
 type ReloadResult struct {
-	Pixels     int      `json:"pixels"`      // pixels in the new layout
-	PixelsWere int      `json:"pixels_were"` // pixels before the reload
-	Dropped    []string `json:"dropped"`     // layers dropped because they no longer validate
-	Warnings   []string `json:"warnings"`    // layout and mapping warnings
+	// Config is the immutable config published by this reload. Another
+	// transaction may have replaced Current by the time a caller replies.
+	Config     *config.Config `json:"-"`
+	Pixels     int            `json:"pixels"`      // pixels in the new layout
+	PixelsWere int            `json:"pixels_were"` // pixels before the reload
+	Dropped    []string       `json:"dropped"`     // layers dropped because they no longer validate
+	Warnings   []string       `json:"warnings"`    // layout and mapping warnings
 }
 
 // Reload re-reads the config and data folders and swaps in a new layout,
@@ -108,7 +111,7 @@ func (a *App) reload() (*ReloadResult, error) {
 	pw := a.checkPresets(View{Config: cfg, Layout: lay, Mappings: ms, Palettes: pal, Engine: eng})
 
 	a.mu.Lock()
-	res := &ReloadResult{Pixels: n, PixelsWere: len(a.Layout.Pixels)}
+	res := &ReloadResult{Config: cfg, Pixels: n, PixelsWere: len(a.Layout.Pixels)}
 	a.Config, a.Layout, a.Mappings, a.Palettes, a.Engine = cfg, lay, ms, pal, eng
 	a.presetWarnings = pw
 	a.Compositor = render.NewCompositor(n)
