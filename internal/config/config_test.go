@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const exampleDir = "../../examples/fictional"
@@ -205,6 +207,21 @@ func TestRejectNonFiniteConfigNumbers(t *testing.T) {
 		_, err := Load(writeConfig(t, map[string]string{tt.file: tt.body}), "")
 		if err == nil || !strings.Contains(err.Error(), tt.location) {
 			t.Errorf("non-finite value in %s: %v, want file:line error", tt.file, err)
+		}
+	}
+}
+
+func TestRequiredIndicesStillMarshalAsYAML(t *testing.T) {
+	for _, value := range []any{
+		AnchorsFile{Schema: 1, Anchors: []AnchorOverride{{Run: "a", Node: "corner", Index: 5}}},
+		LayoutFile{Schema: 1, Layout: Layout{Runs: []Run{{ID: "a", Indices: [2]int{0, 9}}}}},
+	} {
+		data, err := yaml.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "index") {
+			t.Fatalf("missing pixel indices in YAML: %s", data)
 		}
 	}
 }
