@@ -1021,10 +1021,10 @@ checked without going outside.
   config folder for reference and for drawing new runs.
 - **Output optional.** `--output=none` renders without sending DDP, so the
   map works with no controllers. `--output=<controller,…>` sends to some
-  (the default is `all`). `--loopback=PORT` sends to fake controllers on
+  (the default is `none`, or `all` with `--loopback`). `--loopback=PORT` sends to fake controllers on
   this machine instead (`cmd/fakewled`).
 - **Area geometry.** `/api/map/geometry` includes each area's `id`, pixel
-  `count`, global pixel `ranges` (half-open `[start, end]` pairs), `includes`
+  `count`, global pixel `ranges` (inclusive `[start, end]` pairs), `includes`
   (directly included area ids), and `runs` (directly referenced run ids,
   including partial runs). Both lists follow config order; `runs` is
   deduplicated. Empty lists are `[]`. The graph preserves direct references
@@ -1054,6 +1054,43 @@ checked without going outside.
   nothing is previewed) or live, what the lights show, even while someone
   else is previewing.
 - **Later:** embedded in HA as a dashboard panel (iframe or custom card).
+
+## Controller health API
+
+`GET /api/v1/status` includes a stable `health.controllers` map keyed by
+controller id. Every configured controller appears, including with
+`--output=none`. `GET /api/v1/controllers` has the same top-level `health`
+wrapper and the same per-controller object under each entry's `health`:
+
+```json
+{"health":{"controllers":{"shed":{"reachable":null,"last_seen":null,"send_errors":0,"last_error":"","sending":false,"reboots":0,"frames":0,"packets":0,"bytes":0,"coalesced":0}}}}
+```
+
+- `sending`: selected by `--output`, regardless of current reachability.
+  False with output disabled or for an unselected controller.
+- `reachable`: the latest read-only `/json/info` check's result; `null`
+  until checked, including when output is disabled. Successful UDP sends
+  alone do not establish reachability. Selected controllers are checked
+  immediately and then every minute by default.
+- `last_seen`: last successful `/json/info` check, as an RFC3339 timestamp,
+  or `null` if none. A failed check preserves the last successful time.
+- `send_errors`: DDP address lookup and write failures. `last_error` is the
+  current health-check error, otherwise the latest send error, or `""`.
+  Send errors remain recorded after later successful sends.
+- `reboots`: observed decreases in the controller's reported uptime.
+  `frames`, `packets`, and `bytes` count DDP traffic (bytes excludes packet
+  headers); `coalesced` counts queued frames superseded by newer frames.
+  All of these counters are present even when zero. There is no measured
+  per-controller FPS counter.
+- Optional details: `checked` (last HTTP check, successful or failed),
+  `version`, `uptime_s`, `led_count`, `mismatches` (setting warnings),
+  `error` (current HTTP check error), `last_send_error` and
+  `last_send_error_at`. Timestamps use RFC3339. Empty or zero optional
+  details are omitted.
+
+Health history lasts for the monitor's lifetime and resets when its endpoint
+changes. DDP counters last for the sender's lifetime; a reload that rebuilds
+the selected targets resets them. Disabling output does not poll controllers.
 
 ## Runtime components
 

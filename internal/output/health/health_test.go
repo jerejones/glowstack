@@ -130,9 +130,13 @@ func TestRebootAndUnreachable(t *testing.T) {
 	if st := m.Status()[0]; st.Reboots != 1 || cfgReads.Load() != 2 || len(st.Mismatches) != 0 {
 		t.Errorf("after reboot: %+v, cfg reads %d", st, cfgReads.Load())
 	}
+	seen := m.Status()[0].LastSeen
+	if seen.IsZero() {
+		t.Fatal("successful check did not record last seen")
+	}
 	srv.Close()
 	m.Check(t.Context())
-	if st := m.Status()[0]; st.Reachable || st.Err == "" {
+	if st := m.Status()[0]; st.Reachable || st.Err == "" || !st.LastSeen.Equal(seen) {
 		t.Errorf("closed server still reachable: %+v", st)
 	}
 }

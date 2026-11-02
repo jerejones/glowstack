@@ -55,6 +55,7 @@ import (
 	"github.com/jerejones/glowstack/internal/app"
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/httpserver"
+	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/stack"
 )
 
@@ -64,13 +65,8 @@ const Prefix = "/api/v1/"
 // MaxBody is the largest request body accepted.
 const MaxBody = 1 << 20
 
-// HealthReporter is implemented by an output sink or stage that tracks
-// controller health (reachability, reboots, send errors). The status and
-// controllers endpoints include what it reports. The value must encode as
-// JSON; a map keyed by controller id is expected.
-type HealthReporter interface {
-	Health() any
-}
+// HealthReporter supplies typed controller health from an output sink or stage.
+type HealthReporter = output.HealthReporter
 
 // API serves the control API for one App.
 type API struct {

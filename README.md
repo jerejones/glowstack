@@ -92,6 +92,11 @@ curl -s 127.0.0.1:40081/json/state -d '{"seg":[{"id":0,"on":true,"fx":87}]}'
 bin/glowstack ctl layers                        # owner wled-device:porch/0
 ```
 
+Controller health is available as `health.controllers` in `/api/v1/status`
+and as `health` on each `/api/v1/controllers` entry. Every configured
+controller appears; disabled output has `sending: false` and
+`reachable: null`. See [the health API contract](docs/design.md#controller-health-api).
+
 `glowctl` is the same client on its own. The map's side panel shows each
 output's estimated current, the output stage's figures after power
 limiting and the limit scale; it also has preview controls (pause, scrub,

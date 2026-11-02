@@ -24,6 +24,7 @@ import (
 	"os"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -785,9 +786,8 @@ func (c *client) status() error {
 // controllerHealth is one controller in the health report of glowstack's
 // own output (internal/output/wire).
 type controllerHealth struct {
-	Addr       string   `json:"addr"`
-	Reachable  bool     `json:"reachable"`
-	Checked    string   `json:"checked"`
+	Sending    bool     `json:"sending"`
+	Reachable  *bool    `json:"reachable"`
 	Version    string   `json:"version"`
 	Count      int      `json:"led_count"`
 	Reboots    int      `json:"reboots"`
@@ -799,7 +799,7 @@ type controllerHealth struct {
 }
 
 // showHealth prints the health report as a table when it's the usual
-// shape (a map by controller id), else as JSON.
+// shape (controllers keyed by id), else as JSON.
 func (c *client) showHealth(h any) {
 	w := c.out
 	if h == nil {
@@ -807,21 +807,26 @@ func (c *client) showHealth(h any) {
 		return
 	}
 	b, _ := json.Marshal(h)
-	var m map[string]controllerHealth
-	if json.Unmarshal(b, &m) != nil || len(m) == 0 {
+	var report struct {
+		Controllers map[string]controllerHealth `json:"controllers"`
+	}
+	if json.Unmarshal(b, &report) != nil || len(report.Controllers) == 0 {
 		b, _ = json.MarshalIndent(h, "", "  ")
 		fmt.Fprintf(w, "controller health: %s\n", b)
 		return
 	}
+	m := report.Controllers
 	t := c.table()
-	fmt.Fprintln(t, "CONTROLLER\tADDR\tSTATE\tVERSION\tLEDS\tREBOOTS\tFRAMES\tSEND ERRORS\tPROBLEMS")
+	fmt.Fprintln(t, "CONTROLLER\tSENDING\tSTATE\tVERSION\tLEDS\tREBOOTS\tFRAMES\tSEND ERRORS\tPROBLEMS")
 	for _, id := range slices.Sorted(maps.Keys(m)) {
 		h := m[id]
 		state := "reachable"
 		switch {
-		case h.Checked == "":
+		case !h.Sending:
+			state = "output disabled"
+		case h.Reachable == nil:
 			state = "not checked yet"
-		case !h.Reachable:
+		case !*h.Reachable:
 			state = "unreachable"
 		}
 		problems := slices.Clone(h.Mismatches)
@@ -831,7 +836,7 @@ func (c *client) showHealth(h any) {
 		if h.LastError != "" {
 			problems = append(problems, "send: "+h.LastError)
 		}
-		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%s\n", id, h.Addr, state, dash(h.Version), h.Count,
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%s\n", id, strconv.FormatBool(h.Sending), state, dash(h.Version), h.Count,
 			h.Reboots, h.Frames, h.Errors, dash(strings.Join(problems, "; ")))
 	}
 	t.Flush()

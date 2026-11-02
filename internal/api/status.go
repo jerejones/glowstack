@@ -35,9 +35,8 @@ type Status struct {
 	PreviewLayers int            `json:"preview_layers"`
 	Brightness    app.Brightness `json:"brightness"`
 	Solve         Solve          `json:"solve"`
-	// Health is controller health from the output stage, when it reports
-	// it; null otherwise.
-	Health any `json:"health"`
+	// Health includes every configured controller, even with output disabled.
+	Health Health `json:"health"`
 	// ConfigGen counts config reloads.
 	ConfigGen uint64 `json:"config_gen"`
 }
@@ -91,7 +90,7 @@ func (api *API) status(w http.ResponseWriter, r *http.Request) error {
 		PreviewLayers: len(a.Preview.List()),
 		Brightness:    a.Brightness(),
 		Solve:         solve(v),
-		Health:        api.health(),
+		Health:        api.health(v),
 		ConfigGen:     v.Gen,
 	}
 	return writeJSON(w, http.StatusOK, s)
