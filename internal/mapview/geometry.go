@@ -82,9 +82,10 @@ type MapJSON struct {
 
 // ViewJSON is a camera in meters, Z up.
 type ViewJSON struct {
-	From []float64 `json:"from"`
-	To   []float64 `json:"to"`
-	FOV  float64   `json:"fov"`
+	From      []float64 `json:"from,omitempty"`
+	Direction []float64 `json:"direction,omitempty"`
+	To        []float64 `json:"to,omitempty"`
+	FOV       float64   `json:"fov"`
 }
 
 // MapLayerJSON styles one scene layer; empty fields take the default.
@@ -331,7 +332,7 @@ func edgeName(l *layout.Layout, e int32) string {
 func mapJSON(m *config.MapSettings) MapJSON {
 	out := MapJSON{AutoRotate: m.AutoRotate, Layers: []MapLayerJSON{}}
 	if w := m.View; w != nil {
-		out.View = &ViewJSON{From: w.From, To: w.To, FOV: w.FOV}
+		out.View = &ViewJSON{From: w.From, Direction: w.Direction, To: w.To, FOV: w.FOV}
 	}
 	names := make([]string, 0, len(m.Layers))
 	for name := range m.Layers {

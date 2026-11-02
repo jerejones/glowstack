@@ -994,15 +994,21 @@ checked without going outside.
   - Scene layers can be toggled; the choice is kept in the browser. Their look is site config in
     `glowstack.yaml`, keyed by scene node name; unlisted layers get a
     default. The default camera is set there too, so a site picks the view
-    it opens on. A **copy view** button puts the current camera, as YAML,
+    it opens on. A **Copy view** button puts the current camera direction and target, as YAML,
     on the clipboard for pasting into config (over plain http, where
     browsers block the clipboard API, it falls back to a dialog to copy
     from). Without a `view`, the map frames the model from an elevated
-    three-quarter angle:
+    three-quarter angle. Prefer `direction`: a non-zero vector pointing from
+    the target toward the camera, with Z up (any length; normalized on
+    load). The client fits the distance to the pixel bounds for each screen,
+    including portrait screens. `to` is optional and defaults to the center
+    of those bounds. The absolute form `from: [x, y, z]` remains supported
+    with a required `to`, both in meters. Give exactly one of `from` or
+    `direction`; `fov` defaults to 40 degrees (range 1–170):
 
     ```yaml
     map:
-      view: { from: [-6, -14, 9], to: [8, 6, 2], fov: 40 }   # meters, Z up
+      view: { direction: [-2, -3, 1], fov: 40 }   # target-to-camera, Z up
       auto_rotate: false
       layers:
         walls lines:  { color: "#cfe3ff", opacity: 0.55 }
