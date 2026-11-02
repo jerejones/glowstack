@@ -39,8 +39,10 @@ control surface.
 - **Area map in YAML.** It maps zones and areas to pixel ranges on each
   controller, including corners, gaps and jumpers, so effects line up and
   move at an even speed.
-- **Live map.** A web page draws your floor plans with live LED dots, for a
-  Home Assistant dashboard or for testing effects without going outside.
+- **Live map.** A web page draws your site, as a 3-D model or as floor
+  plans, with live LED dots. It works on a phone in the yard as well as at a
+  desk: try looks on the map before they reach the lights, inspect any
+  pixel, and calibrate. Later, a Home Assistant dashboard.
 - **Runs as one container.** Deployment is a single static Go binary in a
   Docker image. Site config (area map, addresses, floor plans) is mounted at
   runtime and never built into the image.
@@ -92,11 +94,14 @@ curl -s 127.0.0.1:40081/json/state -d '{"seg":[{"id":0,"on":true,"fx":87}]}'
 bin/glowstack ctl layers                        # owner wled-device:porch/0
 ```
 
-`glowctl` is the same client on its own. The map's side panel shows each
-output's estimated current, the output stage's figures after power
-limiting and the limit scale; it also has preview controls (pause, scrub,
-speed), a form for preview-only layers, and a Calibrate panel with
-big nudge and confirm buttons for a phone. By default Glowstack sends
+`glowctl` is the same client on its own. The map's panel (a bottom sheet
+on a phone, a side panel on wider screens) has three tabs. *Looks* tries
+presets and effects on the map, with the preview clock (pause, scrub,
+speed), before **Apply to lights** sends them. *Setup* has the overlays,
+the camera and Calibrate, which on a phone fills the screen with big
+nudge and confirm buttons. *Status* shows frame timing, controller health,
+each output's estimated current, the output stage's figures after power
+limiting and the limit scale. By default Glowstack sends
 nothing (`--output=none`); real controllers only receive frames with
 `--output=all` or `--output=<ids>`. `--loopback` defaults to all, because it
 only reaches local fakes.

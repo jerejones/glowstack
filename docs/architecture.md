@@ -54,7 +54,7 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/ctl` | The command-line client for the API: `glowstack ctl …` or `glowctl …`. |
 | `internal/calibrate` | Calibration mode: the session `Manager` (targets, cursors, the calibration layers), the internal `calibration` effect, `anchors.yaml` reads and writes, and its API under `/api/v1/calibration/` (routes in `http.go`). |
 | `internal/wled` | The zones' WLED devices for Home Assistant: one HTTP server per `device:` (WLED's JSON API and `/ws`, routes in the package doc), mapping segments to layers owned by `stack.WLEDOwner`, device `on`/`bri` to zone brightness, presets to stable WLED ids (`wled.json`), and the optional mDNS responder. |
-| `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS, no build step; the 3-D view of a scene model is `scene.js` on three.js, vendored in `static/third_party/three/`), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
+| `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS modules, no build step: `app.js` boots it, `scene.js` is the 3-D view of a scene model on three.js, vendored in `static/third_party/three/`, `plan.js` the 2-D plan, `sheet.js` the panel's frame and `panel/` its tabs), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
 | `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids; default `none`, or `all` with `--loopback`), `--loopback=PORT`, `--wled-bind` (move the WLED devices, e.g. `127.0.0.1:0`; `off` for none), `--mdns`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
 | `cmd/glowctl` | The client on its own. |
 | `cmd/fakewled` | Fake controllers on loopback, from flags, a YAML list or a Glowstack config folder. |
@@ -413,7 +413,7 @@ list, numbered in the order they were made.
   re-encoded with the authored-color gamma (`color.DecodeGamma`), so a
   layer authored as `#ff8000` shows as `#ff8000`. It's what a designer
   expects to see, not a photometric model of the LEDs. Unlit pixels are
-  drawn dim gray so strips stay visible.
+  drawn dim blue so strips stay visible.
 - **House or preview.** While the preview clock follows the house and
   `App.Preview` is empty, the map streams the house's own frames
   (captured in `App.OnFrame` at up to the stream rate, only while someone

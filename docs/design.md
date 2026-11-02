@@ -970,9 +970,11 @@ apply theirs a second time (see Controllers).
 ## Live map
 
 A web page served by Glowstack that draws every pixel on the site's scene
-model (or, without one, its floor plan) and updates as it renders. It is a development tool first and an HA dashboard
-later. It comes early in the build because it lets layouts and effects be
-checked without going outside.
+model (or, without one, its floor plan) and updates as it renders. It is a
+development tool first and an HA dashboard later. It comes early in the
+build because it lets layouts and effects be checked without going outside,
+and it is built to be used on a phone standing in the yard as much as at a
+desk.
 
 - **Server.** Built into Glowstack. Static page plus a websocket that streams
   frames: 8-bit RGB per pixel in global-id order (W folded into RGB for
@@ -981,28 +983,48 @@ checked without going outside.
 - **Background.** The scene model or plan SVGs are site data, mounted with
   the config and never committed. Pixels are drawn at their positions from
   the layout solver. Runs with no position are listed but not drawn.
+- **Layout by width.** One page, arranged for the screen:
+  - Under 700 px wide, the map fills the screen and the panel is a bottom
+    sheet with three detents: *peek* (just the tabs), *half* (45% of the
+    height) and *full* (a 120 px strip of map stays above it, framing the
+    selection). Drag or flick the handle between them, or tap it. The
+    camera chips float over the map.
+  - From 700 to 1100 px, and on a phone held sideways, a 300 px side panel
+    that folds to an icon rail.
+  - Over 1100 px, a 360 px side panel, always open.
+
+  The map frames its content in the part of the screen the panel and chips
+  leave free, so the whole house shows above a peeking sheet.
+- **Touch and pointer.** A tap selects (a finger may drift 6 px); a long
+  press (450 ms) pins a pixel's inspect card; a double tap fits. With a
+  mouse, hovering shows the card. On touch screens every control is at
+  least 44 px and text is 15 px; with a mouse, controls are about 28 px and
+  text 13 px.
 - **3-D view.** With a scene model, the map is a 3-D view (WebGL, three.js
   vendored with its license):
-  - The building draws as see-through lines over faint surfaces, without
-    depth writes, so pixels on the far side of a wall stay visible.
-  - Each pixel is a dot at its position in its live color, sized by its
-    pitch and distance, drawn far to near. An unlit pixel shows as a dim
-    blue dot, so runs still read when everything is off.
-  - Orbit, pan and zoom. Nodes, arrows and labels draw through the same
-    camera, and inspect and calibration pick the pixel nearest the pointer
-    on screen. Fit returns to the default view.
-  - Scene layers can be toggled; the choice is kept in the browser. Their look is site config in
-    `glowstack.yaml`, keyed by scene node name; unlisted layers get a
-    default. The default camera is set there too, so a site picks the view
-    it opens on. A **copy view** button puts the current camera, as YAML,
-    on the clipboard for pasting into config (over plain http, where
-    browsers block the clipboard API, it falls back to a dialog to copy
-    from). Without a `view`, the map frames the model from an elevated
-    three-quarter angle:
+  - The building draws as see-through lines over faint surfaces. The
+    surfaces also go into the depth buffer, so a pixel on the far side of a
+    wall shows dimmed and one in front of it shows fully.
+  - The pixels are one point cloud (one color buffer, updated in place
+    each frame), each a dot at its position in its live color, sized by its
+    pitch and distance. An unlit pixel shows as a dim blue dot, so runs
+    still read when everything is off; a dead pixel is a gray ring, and a
+    pixel whose controller can't be reached is gray.
+  - Orbit, pan and zoom. Three named views: **Street** (the site's view),
+    **Overhead** (straight down, north up) and **Free** (where you last left
+    the camera, kept per device). **Fit** frames all the pixels from where
+    the camera is looking; **Default** forgets this device's camera. Named
+    views and Fit reframe themselves when the screen or the panel changes
+    size.
+  - Nodes, arrows and labels draw through the same camera, and inspect and
+    calibration pick the pixel nearest the pointer on screen.
+  - Scene layers can be toggled; the choice is kept in the browser. Their
+    look is site config in `glowstack.yaml`, keyed by scene node name;
+    unlisted layers get a default. The site's view is set there too:
 
     ```yaml
     map:
-      view: { from: [-6, -14, 9], to: [8, 6, 2], fov: 40 }   # meters, Z up
+      view: { direction: [-0.4, -0.8, 0.45], to: [8, 6, 2], fov: 40 }   # Z up
       auto_rotate: false
       layers:
         walls lines:  { color: "#cfe3ff", opacity: 0.55 }
@@ -1010,15 +1032,45 @@ checked without going outside.
         site lines:   { color: "#5b6b7a", opacity: 0.35, visible: true }
     ```
 
+    `direction` points from what the camera looks at toward the camera, and
+    the map works out the distance so the model fits whatever the screen's
+    shape. `to` is optional (the middle of the pixels otherwise). The older
+    `{ from, to, fov }` form still works: its camera is used unless the
+    house wouldn't fit. Without a `view`, the map frames the model from an
+    elevated three-quarter angle. **Copy view** puts the current camera on
+    the clipboard in the direction form, for pasting into config (over plain
+    http, where browsers block the clipboard API, it falls back to a dialog
+    to copy from).
 - **2-D view.** Without a scene model, the map draws the floor plans as
-  before. A site with a model doesn't show its plans; they stay in its
-  config folder for reference and for drawing new runs.
+  before, with the same selection, ribbons and inspect. A site with a model
+  doesn't show its plans; they stay in its config folder for reference and
+  for drawing new runs.
+- **Selection.** Tapping a run selects the smallest area around it; tapping
+  it again climbs to the next larger area, then the zone. A breadcrumb over
+  the map shows the chain and jumps along it. The selection is where looks
+  go. With **Layer ribbons** on (in Setup), each layer the map shows draws
+  a thin ribbon beside its pixels in its card's accent color, lane after
+  lane outward; tapping a ribbon also picks out the layer's card.
+- **Panel tabs.** Looks, Setup and Status; the open one is remembered per
+  device.
+  - *Looks*: where looks go, presets first and then effects, the preview
+    (a card per layer with its brightness, **Tweak**, **Apply to lights**
+    and Remove), what is on the lights, and the preview clock. Tweaking a
+    layer that is on the lights edits a preview copy; applying the copy
+    replaces the original.
+  - *Setup*: calibration, the overlays and their legend, the model's layers
+    or the plan, the camera, the stream rate, ribbons, and the runs the
+    plan or model doesn't draw.
+  - *Status*: render rate and frame time, controllers (reachability, errors
+    and last contact, as far as the server reports them), each run's drawn
+    against measured length, and power per output.
 - **Output optional.** `--output=none` renders without sending DDP, so the
   map works with no controllers. `--output=<controller,…>` sends to some
   (the default is `all`). `--loopback=PORT` sends to fake controllers on
   this machine instead (`cmd/fakewled`).
-- **Inspect.** Hover or tap a pixel for its controller, index, output, run, edge,
-  areas, flow position `u`, stretch and which layer is showing.
+- **Inspect.** Hover (mouse) or long-press (touch) a pixel for its
+  controller, index, output, run, edge, areas, flow position `u`, stretch
+  and which layer is showing.
 - **Diagnostic views** (overlays instead of the live frame):
   - flow position as a color ramp per mapping, with direction arrows
   - stretch per edge (blue compressed, red stretched)
@@ -1036,10 +1088,21 @@ checked without going outside.
   map's panel and the API (`preview: true`); it's never saved or sent to
   the lights. Once it looks right, **push to live** moves preview layers
   (one, or all in order) onto the house stack with the same look and seed.
+  Applying is always a separate, green button; nothing on the map applies
+  by itself.
 - **Preview or live.** Each viewer picks what its map shows: the preview
   (preview layers and clock over the house; the house's own frames when
   nothing is previewed) or live, what the lights show, even while someone
   else is previewing.
+- **Calibration mode.** On a phone, calibration (see "Calibration mode"
+  above) takes the screen below a strip of map that keeps the cursor in
+  view: what is being measured and Stop at the top, nudges and Confirm in
+  the thumb zone. Wider screens show it in place of the panel.
+- **Light on the device.** The map draws only when a frame arrives or the
+  camera moves, and the stream drops to 10 fps while the page is hidden or
+  the device runs on battery. Messages share one toast area. Escape unpins
+  the inspect card, then clears the selection, then lowers the sheet; Space
+  pauses or resumes the preview clock.
 - **Later:** embedded in HA as a dashboard panel (iframe or custom card).
 
 ## Runtime components
