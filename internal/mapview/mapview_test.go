@@ -254,8 +254,19 @@ func TestGeometryJSON(t *testing.T) {
 	}
 	body, _ = io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode != 200 || !bytes.Contains(body, []byte("map.js")) {
+	if resp.StatusCode != 200 || !bytes.Contains(body, []byte("app.js")) {
 		t.Errorf("page: %s", resp.Status)
+	}
+	// So are its modules.
+	for _, path := range []string{"/map/app.js", "/map/ui.css"} {
+		resp, err := http.Get(f.srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Errorf("%s: %s", path, resp.Status)
+		}
 	}
 }
 

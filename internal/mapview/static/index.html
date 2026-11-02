@@ -4,14 +4,19 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 -->
+<!--
+The live map's page: the map (a WebGL canvas for a scene model, a 2-D
+canvas above it for the plan view and overlay items), the floating chip
+bar, and one panel that is a bottom sheet on phones and a side panel on
+wider screens. app.js fills it in.
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#111">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0e10">
 <title>Glowstack live map</title>
-<link rel="stylesheet" href="map.css">
-<link rel="stylesheet" href="calibrate.css">
+<link rel="stylesheet" href="ui.css">
 <script type="importmap">
 { "imports": {
   "three": "./third_party/three/build/three.module.min.js",
@@ -20,105 +25,44 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 </script>
 </head>
 <body>
-<header id="bar">
-  <strong class="brand">Glowstack</strong>
-  <span id="badge" class="badge">connecting…</span>
-  <span class="seg" id="showSeg" title="Preview: your preview layers and clock. Live: what the lights show.">
-    <button type="button" data-show="">Preview</button><button type="button" data-show="house">Live</button>
-  </span>
-  <label>View
-    <select id="view">
-      <option value="live">Colors</option>
-      <option value="flow">Flow position (u)</option>
-      <option value="stretch">Stretch</option>
-      <option value="areas">Areas &amp; zones</option>
-      <option value="outputs">Controllers &amp; outputs</option>
-    </select>
-  </label>
-  <label id="mappingWrap" hidden>Mapping <select id="mapping"></select></label>
-  <label id="areaWrap" hidden>Show <select id="areaPick"></select></label>
-  <label id="outputWrap" hidden>Show <select id="outputPick"><option value="">all controllers</option></select></label>
-  <label id="planWrap" hidden>Plan <select id="plan"></select></label>
-  <label class="check"><input type="checkbox" id="showNodes"> Nodes</label>
-  <label class="check"><input type="checkbox" id="showLabels"> Labels</label>
-  <span class="grow"></span>
-  <button id="copyView" hidden title="Copy this camera as glowstack.yaml map: view">Copy view</button>
-  <button id="fit" title="Fit to screen">Fit</button>
-  <button id="calToggle" title="Calibration">Calibrate</button>
-  <button id="panelToggle" title="Panel">☰</button>
-</header>
-
-<main>
-  <canvas id="gl"></canvas>
+<main id="stage">
+  <canvas id="gl" hidden></canvas>
   <canvas id="map"></canvas>
-  <div id="legend"></div>
+  <div id="chips" class="chipbar">
+    <span class="brand" title="Glowstack live map"><i class="dot"></i><b>Glowstack</b></span>
+    <span id="badge" class="badge">connecting…</span>
+    <span class="seg" id="showSeg" role="group" aria-label="What the map shows">
+      <button type="button" data-show="" title="Your preview layers, on the map only">Preview</button><button type="button" data-show="house" title="What the lights show">Lights</button>
+    </span>
+    <span class="seg views" id="viewChips" role="group" aria-label="Camera" hidden>
+      <button type="button" data-view="street" title="The site's view">Street</button><button type="button" data-view="overhead" title="From above, north up">Overhead</button><button type="button" data-view="free" title="Where you last left the camera">Free</button>
+    </span>
+    <button type="button" id="fitBtn" class="chip" title="Fit the house to the screen (double-tap the map)">Fit</button>
+  </div>
+  <nav id="crumbs" class="crumbs" aria-label="Selection" hidden></nav>
+  <div id="legend" class="legend" hidden></div>
+  <div id="inspectCard" class="inspect card" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
 </main>
 
-<aside id="panel">
-  <section id="calSec">
-    <h2>Calibration <small>drives the real lights</small></h2>
-    <div id="cal" class="muted">Loading…</div>
-  </section>
-
-  <section id="inspect">
-    <h2>Inspect <small id="pinHint">hover or tap a pixel</small></h2>
-    <div id="inspectBody" class="muted">Nothing selected.</div>
-  </section>
-
-  <section id="powerSec">
-    <h2>Power <small>estimate before limiting</small></h2>
-    <div id="power" class="muted">No frame yet.</div>
-  </section>
-
-  <section id="previewSec">
-    <h2>Preview layers <small>map only, never sent to the lights</small></h2>
-    <form id="pushForm">
-      <label>Area <select id="pTarget"></select></label>
-      <label>Look <select id="pLook"></select></label>
-      <label class="wide">Params (JSON)
-        <textarea id="pParams" rows="3" spellcheck="false" placeholder='{"color": "#ff5a00"}'></textarea>
-      </label>
-      <button type="submit">Push to preview</button>
-      <button type="button" id="pPromote" class="golive" title="Move every preview layer onto the lights">Push all to live</button>
-      <button type="button" id="pClear">Clear all</button>
-      <div id="pError" class="error"></div>
-    </form>
-    <ul id="pLayers"></ul>
-  </section>
-
-  <section id="streamSec">
-    <h2>Stream</h2>
-    <label>Rate <select id="fps">
-      <option value="0">max</option><option value="10">10 fps</option>
-      <option value="5">5 fps</option><option value="1">1 fps</option>
-    </select></label>
-    <label>Only <select id="streamArea"><option value="">all pixels</option></select></label>
-    <div id="streamInfo" class="muted"></div>
-  </section>
-
-  <section id="layersSec" hidden>
-    <h2>Model layers</h2>
-    <div id="layers" class="layers"></div>
-  </section>
-
-  <section id="undrawnSec">
-    <h2 id="undrawnTitle">Not on the plan</h2>
-    <ul id="undrawn" class="muted"></ul>
-  </section>
+<aside id="panel" class="panel">
+  <div id="handle" class="handle" aria-hidden="true"><i></i></div>
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="looks" title="Looks"><span class="ico" aria-hidden="true">✦</span><span class="lbl">Looks</span></button>
+    <button type="button" role="tab" data-tab="setup" title="Setup"><span class="ico" aria-hidden="true">⚙</span><span class="lbl">Setup</span></button>
+    <button type="button" role="tab" data-tab="status" title="Status"><span class="ico" aria-hidden="true">◉</span><span class="lbl">Status</span></button>
+    <button type="button" id="railToggle" class="rail-toggle" title="Collapse the panel" aria-label="Collapse the panel"><span class="ico" aria-hidden="true">⇥</span></button>
+  </div>
+  <div id="content" class="content">
+    <div id="inspectRow" class="inspect row" hidden></div>
+    <section id="tab-looks" class="tab" role="tabpanel"></section>
+    <section id="tab-setup" class="tab" role="tabpanel" hidden></section>
+    <section id="tab-status" class="tab" role="tabpanel" hidden></section>
+  </div>
 </aside>
 
-<footer id="clock">
-  <button id="playPause" title="Pause / resume the preview clock">⏸</button>
-  <button id="stepBack" title="Step back one frame">⏮</button>
-  <button id="stepFwd" title="Step forward one frame">⏭</button>
-  <label class="speed">Speed <input type="range" id="speed" min="-1" max="1" step="0.01" value="0"><output id="speedOut">1×</output></label>
-  <label class="scrub">Scrub <input type="range" id="scrub" min="-30" max="30" step="0.02" value="0"></label>
-  <button id="live" title="Back to the house clock">Now</button>
-  <span id="clockText" class="muted"></span>
-</footer>
+<section id="calibrate" class="calibrate" hidden></section>
 
-<script src="map.js"></script>
-<script src="calibrate.js"></script>
-<script type="module" src="scene.js"></script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
