@@ -5,7 +5,7 @@
 // The Setup tab: how the map is drawn and set up. Calibration (with how
 // many anchors are measured), the overlay chips and their legend, the
 // model's drawing layers, the plan, the camera (named views, Default,
-// Copy view), the stream rate, layer ribbons, and the runs the plan or
+// Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
 import { $, api, esc, copyText, save, press } from '../util.js';
 import { MODES } from '../overlay.js';
@@ -27,7 +27,6 @@ export function createSetup(S, root) {
     <div class="chips" style="margin-top:6px">
       <button type="button" id="suNodes" title="Nodes, links, gaps and anchors">Nodes</button>
       <button type="button" id="suLabels" title="Names on nodes and gaps">Labels</button>
-      <button type="button" id="suRibbons" title="A colored ribbon beside each layer's pixels">Layer ribbons</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
     <div id="suModel" hidden><h2>Model layers</h2><div class="chips" id="suLayers"></div></div>
@@ -83,19 +82,12 @@ export function createSetup(S, root) {
     $$('#suZone').value = ov.st.zone;
     press($$('#suNodes'), ov.st.nodes);
     press($$('#suLabels'), ov.st.labels);
-    press($$('#suRibbons'), S.ribbons);
   }
   for (const b of $$('#suModes').children) b.onclick = () => setMode(b.dataset.mode);
   $$('#suMapping').onchange = (e) => { ov.st.mapping = e.target.value; refreshLegend(); };
   $$('#suZone').onchange = (e) => { ov.st.zone = e.target.value; refreshLegend(); };
   $$('#suNodes').onclick = () => { ov.st.nodes = !ov.st.nodes; renderOverlay(); refreshLegend(); };
   $$('#suLabels').onclick = () => { ov.st.labels = !ov.st.labels; renderOverlay(); S.markDirty(); };
-  $$('#suRibbons').onclick = () => {
-    S.ribbons = !S.ribbons;
-    save('glowstack.ribbons', S.ribbons);
-    renderOverlay();
-    S.applyRibbons();
-  };
 
   // ---------- model, plan, camera ----------
   function renderView() {

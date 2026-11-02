@@ -246,12 +246,6 @@ export function eachInRanges(rs, cb) {
 
 // ---------- picking ----------
 
-// Layer ribbons run beside the pixels, lane 1 nearest. laneCenter is
-// how far a lane's middle sits from the middle of a pixel drawn r CSS
-// px in radius; scene.js's ribbon shader does the same sum.
-export const LANE = { gap: 1.5, step: 5, width: 4.5 };
-export const laneCenter = (r, lane) => r + LANE.gap + (lane - 0.5) * LANE.step;
-
 // segDist is the distance from (px, py) to the segment a–b.
 export function segDist(px, py, ax, ay, bx, by) {
   const dx = bx - ax, dy = by - ay;

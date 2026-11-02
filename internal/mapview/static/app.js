@@ -6,13 +6,13 @@
 // share. That is the geometry and the live frame (the websocket), the
 // map view (scene.js for a model, plan.js for an SVG plan) and the draw
 // loop, the chip bar, input on the map (tap, long press, hover,
-// double-tap), the selection with its breadcrumb and ribbons, the
+// double-tap), the selection with its breadcrumb and halo, the
 // inspect card, toasts and the keyboard. Plain JS modules, no build
 // step.
-import { $, api, esc, fmt, load, save, press, accentFor, inRanges, laneCenter, LANE } from './util.js';
+import { $, api, esc, fmt, load, save, press } from './util.js';
 import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
-import { buildTree, nodeName, nodeKinds, targetRanges, lanes } from './select.js';
+import { buildTree, nodeName, nodeKinds } from './select.js';
 import { openPlan } from './plan.js';
 import { createLooks } from './panel/looks.js';
 import { createSetup } from './panel/setup.js';
@@ -22,7 +22,6 @@ import { createCalibrate } from './panel/calibrate.js';
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
 const RATE = 'glowstack.fps';
-const RIBBONS = 'glowstack.ribbons';
 const LONG_PRESS = 450; // ms
 const TAP_SLOP = 6;     // px a tap may move
 
@@ -46,9 +45,6 @@ const S = {
   sel: null,           // { node, chain }
   hover: -1,
   pinned: -1,
-  focus: '',           // layer id whose card a ribbon tap picked
-  ribbons: load(RIBBONS, true),
-  ribbonList: [],
   cal: null,           // calibration session state
   calibrating: false,
   gray: new Set(),     // controller indices shown gray (unreachable)
@@ -159,7 +155,7 @@ async function openView(i) {
   }
   resize();
   S.view.restore();
-  applyRibbons();
+  applySelection();
   S.emit('view');
 }
 
@@ -172,15 +168,14 @@ function cameraChanged(st) {
   S.emit('camera', st);
 }
 
-// ---------- selection and ribbons ----------
+// ---------- selection ----------
 
 // select makes a tree node the selection; chain is the breadcrumb (top
 // first), by default the node's ancestors.
 function select(node, chain) {
   if (!node) { S.sel = null; } else S.sel = { node, chain: chain || S.tree.chain(node) };
-  S.focus = '';
   renderCrumbs();
-  applyRibbons();
+  applySelection();
   S.emit('select', S.sel);
   if (S.panel.detent() === 'full') frameSelection();
 }
@@ -209,26 +204,11 @@ function placeCrumbs() {
   $('crumbs').style.top = (full ? 6 : $('chips').getBoundingClientRect().bottom - stage.top + 6) + 'px';
 }
 
-// layersShown are the layers the map shows: the preview stack over the
-// lights' stack, or just the lights' stack.
-S.layersShown = () => {
-  const house = S.house.filter((l) => !l.ephemeral).map((l) => ({ ...l, lane: 'house' }));
-  if (S.show === 'house') return house;
-  return [...(S.preview ? S.preview.layers : []).map((l) => ({ ...l, lane: 'preview' })), ...house];
-};
-
-function applyRibbons() {
+// applySelection draws the halo along the selected pixels.
+function applySelection() {
   if (!S.view) return;
-  let list = [];
-  if (S.ribbons) {
-    const ls = S.layersShown().map((l) => ({ key: l.id, lane: l.lane, ranges: targetRanges(S.geo, S.tree, l.target) }));
-    const ln = lanes(ls);
-    list = ls.filter((l) => l.ranges).map((l) => ({ key: l.key, ranges: l.ranges, color: accentFor(l.key), lane: ln[ls.indexOf(l)] }));
-  }
-  S.ribbonList = list;
-  S.view.setRibbons(list, S.sel ? S.sel.node.ranges : null);
+  S.view.setSelection(S.sel ? S.sel.node.ranges : null);
 }
-S.applyRibbons = applyRibbons;
 
 function frameSelection() {
   if (!S.sel) return;
@@ -238,34 +218,6 @@ function frameSelection() {
 }
 
 // ---------- input on the map ----------
-
-// pickRibbon finds the layer ribbon under (x, y): ribbons run beside
-// the pixels, lane by lane, so only a tap past the pixel's own dot
-// counts.
-function pickRibbon(x, y) {
-  if (!S.ribbonList.length) return '';
-  const px = S.geo.pixels;
-  const p = S.view.pickPixel(x, y, 40);
-  if (p < 0) return '';
-  const q = S.view.screenOf(p);
-  const nb = (d) => (px.run[p + d] === px.run[p] ? S.view.screenOf(p + d) : null);
-  const a = nb(-1) || q, b = nb(1) || q;
-  if (!q) return '';
-  let dx = b[0] - a[0], dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy);
-  if (!len) return '';
-  dx /= len; dy /= len;
-  const off = (x - q[0]) * dy - (y - q[1]) * dx;
-  const radius = S.view.pixelRadius(p);
-  if (off < radius + LANE.gap) return '';
-  let best = '', bd = LANE.step / 2 + (S.coarse ? 3 : 1);
-  for (const r of S.ribbonList) {
-    if (!inRanges(r.ranges, p)) continue;
-    const d = Math.abs(off - laneCenter(radius, r.lane));
-    if (d <= bd) { bd = d; best = r.key; }
-  }
-  return best;
-}
 
 function tapAt(x, y) {
   const radius = S.coarse ? 24 : 12;
@@ -280,17 +232,9 @@ function tapAt(x, y) {
     else if (S.sel) select(null);
     return;
   }
-  const lay = pickRibbon(x, y);
   const nd = S.tree.climb(ri, S.sel && S.sel.node);
   const chain = S.tree.chain(S.tree.runNode(ri));
   select(nd, chain.includes(nd) ? chain : null);
-  // A tap on a layer's ribbon also picks the layer's card; a collapsed
-  // panel stays collapsed, so taps meant for the run aren't hijacked.
-  if (lay) {
-    S.focus = lay;
-    if (!S.panel.collapsed()) S.panel.openTab('looks');
-    S.emit('focus', lay);
-  }
 }
 
 function pin(p) {
@@ -381,6 +325,28 @@ async function inspect(p) {
 }
 S.inspect = inspect;
 
+// liveHex is pixel p's color in the live frame, as #rrggbb.
+function liveHex(p) {
+  const i = 3 * p;
+  return '#' + [S.rgb[i], S.rgb[i + 1], S.rgb[i + 2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+// refreshInspectColor keeps the card's color row on the live frame, so
+// an inspected pixel shows its color changing.
+let inspectColor = '';
+function refreshInspectColor() {
+  const d = inspected;
+  if (!d) return;
+  const hex = liveHex(d.id);
+  if (hex === inspectColor) return;
+  inspectColor = hex;
+  const el = S.panel.layout() === 'sheet' ? $('inspectRow') : $('inspectCard');
+  const chip = el.querySelector('[data-color-chip]'), text = el.querySelector('[data-color-text]');
+  if (!chip) return;
+  chip.style.background = hex;
+  text.textContent = hex;
+}
+
 function renderInspect() {
   const d = inspected;
   const card = $('inspectCard'), row = $('inspectRow');
@@ -396,7 +362,7 @@ function renderInspect() {
   const maps = d.mappings.map((m) => r(esc(m.id), `u ${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`)).join('');
   const html = `<div class="head"><b>#${d.id} · ${esc(d.controller)}:${d.index}${d.dead ? ' (dead)' : ''}</b>${pinned ? '<button type="button" class="quiet" data-unpin aria-label="Unpin">✕</button>' : ''}</div>
     <table>
-    ${r('color', d.rgb ? `<span class="chip-color" style="background:${d.rgb}"></span>${d.rgb}` : '—')}
+    ${r('color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
     ${r('showing', layer)}
     ${r('run', d.run ? `${esc(d.run)} · pixel ${d.run_pixel}` : '<span class="muted">none</span>')}
     ${r('output', o ? `${esc(o.controller)} pin ${o.pin} · ${d.id - o.first + 1} of ${o.count}` : '<span class="muted">none</span>')}
@@ -411,6 +377,7 @@ function renderInspect() {
   el.innerHTML = html;
   const b = el.querySelector('[data-unpin]');
   if (b) b.onclick = unpin;
+  inspectColor = '';
   if (sheet && pinned && !row.hidden) row.scrollIntoView({ block: 'nearest' });
   placeCard();
 }
@@ -465,6 +432,7 @@ function connect() {
     }
     if (was.preview !== S.frame.preview || was.paused !== S.frame.paused || !badgeShown) badge();
     S.view.frameArrived();
+    refreshInspectColor();
     if (S.overlay.st.mode === 'live') markDirty();
     note(perf.ws, performance.now() - t0);
   };
@@ -506,7 +474,6 @@ function setShow(v) {
   for (const b of $('showSeg').querySelectorAll('button')) press(b, b.dataset.show === v);
   subscribe();
   badge();
-  applyRibbons();
   if (S.pinned >= 0) inspect(S.pinned);
   S.emit('show', v);
 }
@@ -519,7 +486,6 @@ async function pollPreview() {
     const st = await api('/api/map/preview');
     const changed = !S.preview || JSON.stringify(st.layers) !== JSON.stringify(S.preview.layers);
     S.preview = st;
-    if (changed) applyRibbons();
     S.emit('preview', st);
     badge();
   } catch (e) { /* offline: the badge says so */ }
@@ -529,7 +495,7 @@ async function pollHouse() {
     const { layers } = await api('/api/v1/layers');
     const changed = JSON.stringify(layers) !== JSON.stringify(S.house);
     S.house = layers;
-    if (changed) { applyRibbons(); S.emit('house', layers); }
+    if (changed) S.emit('house', layers);
   } catch (e) { /* offline */ }
 }
 // refresh reloads the stacks now, after a change.

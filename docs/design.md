@@ -1007,9 +1007,9 @@ desk.
     wall shows dimmed and one in front of it shows fully.
   - The pixels are one point cloud (one color buffer, updated in place
     each frame), each a dot at its position in its live color, sized by its
-    pitch and distance. An unlit pixel shows as a dim blue dot, so runs
-    still read when everything is off; a dead pixel is a gray ring, and a
-    pixel whose controller can't be reached is gray.
+    pitch and distance. An unlit pixel is a black dot, like the LED; a
+    dead pixel is a gray ring, and a pixel whose controller can't be
+    reached is gray.
   - Orbit, pan and zoom. Three named views: **Street** (the site's view),
     **Overhead** (straight down, north up) and **Free** (where you last left
     the camera, kept per device). **Fit** frames all the pixels from where
@@ -1042,15 +1042,13 @@ desk.
     http, where browsers block the clipboard API, it falls back to a dialog
     to copy from).
 - **2-D view.** Without a scene model, the map draws the floor plans as
-  before, with the same selection, ribbons and inspect. A site with a model
+  before, with the same selection and inspect. A site with a model
   doesn't show its plans; they stay in its config folder for reference and
   for drawing new runs.
 - **Selection.** Tapping a run selects the smallest area around it; tapping
   it again climbs to the next larger area, then the zone. A breadcrumb over
   the map shows the chain and jumps along it. The selection is where looks
-  go. With **Layer ribbons** on (in Setup), each layer the map shows draws
-  a thin ribbon beside its pixels in its card's accent color, lane after
-  lane outward; tapping a ribbon also picks out the layer's card.
+  go; a soft white halo marks its pixels on the map.
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
   - *Looks*: where looks go, presets first and then effects, the preview
@@ -1059,7 +1057,7 @@ desk.
     layer that is on the lights edits a preview copy; applying the copy
     replaces the original.
   - *Setup*: calibration, the overlays and their legend, the model's layers
-    or the plan, the camera, the stream rate, ribbons, and the runs the
+    or the plan, the camera, the stream rate, and the runs the
     plan or model doesn't draw.
   - *Status*: render rate and frame time, controllers (reachability, errors
     and last contact, as far as the server reports them), each run's drawn

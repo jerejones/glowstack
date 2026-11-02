@@ -10,7 +10,7 @@
 // applying the copy promotes it and then removes the original, in that
 // order, so the lights are never without the look. The preview clock
 // is a line at the bottom that opens to its controls.
-import { api, post, del, esc, accentFor, save, load, parseQty, press } from '../util.js';
+import { api, post, del, esc, accentFor, save, load, parseQty, press, covers, sameSet } from '../util.js';
 import { nodeName, nodeTarget, targetRanges } from '../select.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip } from '../form.js';
 
@@ -72,7 +72,7 @@ export function createLooks(S, root) {
     target = targetSel.value;
     if (S.sel && targetSel.value !== nodeTarget(S.sel.node)) S.select(null);
   };
-  S.on('select', fillTargets);
+  S.on('select', () => { fillTargets(); renderLanes(); });
 
   // ---------- presets and effects ----------
 
@@ -116,6 +116,27 @@ export function createLooks(S, root) {
   }
   const briOf = (l) => { const v = parseQty('fraction', valuesFor(S, l).brightness ?? 1); return Number.isFinite(v) ? v : 1; };
 
+  // removeScope says what Remove does to layer l given the selection:
+  // '' removes the whole layer; a target id means the selection is a
+  // proper part of the layer's target, so Remove covers just that part
+  // with black (the stack's way to turn off part of a layer; the rest
+  // of the layer stays).
+  function removeScope(l) {
+    if (!S.sel) return '';
+    const sel = S.sel.node.ranges, all = targetRanges(g, S.tree, l.target);
+    if (!all || !sel.length || sameSet(sel, all) || !covers(all, sel)) return '';
+    return nodeTarget(S.sel.node);
+  }
+  // remove takes layer l (lane base) off, or just the selected part of it.
+  async function remove(c, base) {
+    const part = removeScope(c.layer);
+    try {
+      if (part) await post(base, { target: part, effect: 'solid', params: { color: '#000000' } });
+      else { await del(base + '/' + encodeURIComponent(c.id)); if (c.lane === 'preview') forget(c.id); }
+      await S.refresh();
+    } catch (e) { S.toast(e); }
+  }
+
   function makeCard(lane, l) {
     const el = document.createElement('div');
     el.className = 'layer';
@@ -135,17 +156,12 @@ export function createLooks(S, root) {
     el.querySelector('.tweak').onclick = () => tweak(c);
     const acts = el.querySelector('.acts');
     if (lane === 'preview') {
-      acts.innerHTML = `<button type="button" class="go" data-a="apply">Apply to lights</button><button type="button" data-a="remove" title="Remove from the preview">Remove</button>`;
+      acts.innerHTML = `<button type="button" class="go" data-a="apply">Apply to lights</button><button type="button" data-a="remove">Remove</button>`;
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
-      acts.querySelector('[data-a=remove]').onclick = async () => {
-        try { await del('/api/map/preview/layers/' + encodeURIComponent(c.id)); forget(c.id); await S.refresh(); } catch (e) { S.toast(e); }
-      };
+      acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/map/preview/layers');
     } else {
-      acts.innerHTML = `<button type="button" class="danger" data-a="remove" title="Take this layer off the lights">Remove…</button>`;
-      acts.querySelector('[data-a=remove]').onclick = async () => {
-        if (!confirm(`Take “${layerName(S, c.layer)}” on ${c.layer.target} off the lights?`)) return;
-        try { await del('/api/v1/layers/' + encodeURIComponent(c.id)); await S.refresh(); } catch (e) { S.toast(e); }
-      };
+      acts.innerHTML = `<button type="button" class="danger" data-a="remove">Remove</button>`;
+      acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/v1/layers');
     }
     return c;
   }
@@ -155,7 +171,6 @@ export function createLooks(S, root) {
     const el = c.el;
     const acc = accentFor(l.id);
     el.style.setProperty('--acc', `rgb(${acc})`);
-    el.classList.toggle('sel', S.focus === l.id);
     el.querySelector('.what b').textContent = layerName(S, l);
     const bits = ['on ' + l.target];
     if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
@@ -173,6 +188,9 @@ export function createLooks(S, root) {
     note.className = orig ? 'copy-note' : 'note';
     note.textContent = orig ? `A copy of layer ${orig} on the lights: Apply to lights replaces it.` : '';
     if (c.lane === 'preview') el.querySelector('[data-a=apply]').textContent = orig ? 'Apply to lights (replace)' : 'Apply to lights';
+    const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
+    rm.textContent = part ? `Remove from ${nodeName(S.sel.node)}` : 'Remove';
+    rm.title = part ? `Turn off ${part} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
   }
 
@@ -348,11 +366,6 @@ export function createLooks(S, root) {
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);
-  S.on('focus', (id) => {
-    for (const c of cards.values()) c.el.classList.toggle('sel', c.id === id);
-    const c = cards.get('preview:' + id) || cards.get('house:' + id);
-    if (c) setTimeout(() => c.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60);
-  });
   api('/api/v1/palettes').then((r) => { S.palettes = r.palettes; renderCatalog(); renderLanes(); }).catch(() => {});
   S.palettes = S.palettes || [];
   fillTargets();

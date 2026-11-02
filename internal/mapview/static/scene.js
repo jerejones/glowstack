@@ -5,8 +5,8 @@
 // The live map's 3-D view of a scene model (.glb), on three.js. It owns
 // the WebGL canvas: the building (see-through lines over faint
 // surfaces), every pixel as one Points object whose color buffer is
-// updated per frame, translucent ribbons along selected and layered
-// pixels, and the camera: computed framing, named views and the camera
+// updated per frame, a translucent halo along the selected pixels,
+// and the camera: computed framing, named views and the camera
 // remembered per device. Picking is on demand: pixels and runs are
 // projected to the screen only when a tap or hover asks.
 //
@@ -15,7 +15,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { load, save, clamp, nearestRun, LANE } from './util.js';
+import { load, save, clamp, nearestRun } from './util.js';
 
 const DEFAULTS = {
   lines: { color: '#cfe3ff', opacity: 0.45 },
@@ -35,9 +35,9 @@ const fromThree = (v) => [v.x, -v.z, v.y];
 // Glowstack positions directly.
 const zUp = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1);
 
-// Pixels: a dot sized by its pitch and distance (2–14 CSS px). flags:
+// Pixels: a dot sized by its pitch and distance (3–21 CSS px). flags:
 // 1 dead (a gray ring), 2 gray (its controller is unreachable), 4 not
-// drawn. Unlit pixels show dim blue so the runs read when all is off.
+// drawn. An unlit pixel is black, like the LED.
 const PIXEL_VS = `
 attribute vec3 rgb;
 attribute float dl;
@@ -52,11 +52,10 @@ void main() {
   if (flags >= 4.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 1.0; return; }
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
-  float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 0.9;
-  gl_PointSize = clamp(s, 2.0 * uDpr, 14.0 * uDpr);
+  float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 1.35;
+  gl_PointSize = clamp(s, 3.0 * uDpr, 21.0 * uDpr);
 }`;
 const PIXEL_FS = `
-uniform vec3 uUnlit;
 uniform float uAlpha;
 varying vec3 vColor;
 varying float vFlags;
@@ -70,46 +69,28 @@ void main() {
   if (mod(f, 2.0) > 0.5) {
     if (r < 0.4) discard;
     col = vec3(0.42);
-  } else if (col.r + col.g + col.b < 0.094) {
-    col = uUnlit;
   }
   if (gray) col = vec3(0.22 + 0.25 * dot(col, vec3(0.3, 0.59, 0.11)));
   gl_FragColor = vec4(col, uAlpha);
 }`;
 
-// Ribbons: wide translucent dots along a set of pixels. The selection's
-// is centered on them and grows with them (uGrow); a layer's keeps its
-// width and runs beside them in lane uLane, clear of the pixel's dot
-// (laneCenter in util.js), so overlapping layers stack. The stencil lets
-// each ribbon cover a screen pixel once, so overlapping dots don't build
-// up.
-const RIBBON_VS = `
-attribute vec3 dir;
+// The selection halo: wide translucent dots centered on the selected
+// pixels, growing with them (uGrow). The stencil lets it cover a screen
+// pixel once, so overlapping dots don't build up.
+const HALO_VS = `
 attribute float dl;
 uniform float uHalfH;
-uniform vec2 uView;
 uniform float uSize;
-uniform float uLane;
-uniform float uGap;
-uniform float uStep;
 uniform float uDpr;
 uniform float uGrow;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  vec4 c = projectionMatrix * mv;
-  vec4 c2 = projectionMatrix * (modelViewMatrix * vec4(position + dir * 0.05, 1.0));
-  vec2 a = c.xy / c.w * uView, b = c2.xy / c2.w * uView;
-  vec2 d = b - a;
-  float len = length(d);
-  vec2 n = len > 1e-6 ? vec2(-d.y, d.x) / len : vec2(0.0, 1.0);
-  float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 0.9;
-  float ps = clamp(s, 2.0 * uDpr, 14.0 * uDpr);
-  float off = uLane > 0.5 ? ps * 0.5 + uGap + (uLane - 0.5) * uStep : 0.0;
-  c.xy += n * off / uView * c.w;
-  gl_Position = c;
+  gl_Position = projectionMatrix * mv;
+  float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 1.35;
+  float ps = clamp(s, 3.0 * uDpr, 21.0 * uDpr);
   gl_PointSize = max(uSize, ps * uGrow);
 }`;
-const RIBBON_FS = `
+const HALO_FS = `
 uniform vec3 uColor;
 uniform float uAlpha;
 void main() {
@@ -119,10 +100,10 @@ void main() {
 }`;
 
 // Draw order, all in three's transparent pass: model surfaces and lines
-// (no depth test, see-through), ribbons, every pixel dimmed with no depth
+// (no depth test, see-through), the halo, every pixel dimmed with no depth
 // test, then the pixels again tested against the surfaces' depth. So a
 // pixel behind a wall shows dimmed and one in front shows fully.
-const ORDER = { surfaces: 0, lines: 1, ribbons: 2, dim: 3, pixels: 4 };
+const ORDER = { surfaces: 0, lines: 1, halo: 2, dim: 3, pixels: 4 };
 
 // open loads the model and returns the view. Orbit controls listen on
 // input (the overlay canvas above); drawing is on glCanvas. opts:
@@ -221,7 +202,6 @@ export async function open(glCanvas, input, opts) {
   geom.setAttribute('rgb', colorAttr);
   const pixelUniforms = () => ({
     uHalfH: { value: 1 }, uDpr: { value: 1 }, uAlpha: { value: 1 },
-    uUnlit: { value: new THREE.Vector3(45 / 255, 82 / 255, 175 / 255) },
   });
   const dimMat = new THREE.ShaderMaterial({
     uniforms: pixelUniforms(), vertexShader: PIXEL_VS, fragmentShader: PIXEL_FS,
@@ -239,58 +219,44 @@ export async function open(glCanvas, input, opts) {
     scene.add(pts);
   }
 
-  // ----- ribbons -----
-  // dir is each pixel's direction along its run, for the sideways offset.
-  const dirOf = (p, out) => {
-    const run = px.run[p];
-    const a = p > 0 && px.run[p - 1] === run && drawn(p - 1) ? p - 1 : p;
-    const b = p + 1 < n && px.run[p + 1] === run && drawn(p + 1) ? p + 1 : p;
-    out[0] = pos[3 * b] - pos[3 * a]; out[1] = pos[3 * b + 1] - pos[3 * a + 1]; out[2] = pos[3 * b + 2] - pos[3 * a + 2];
-    const len = Math.hypot(out[0], out[1], out[2]) || 1;
-    out[0] /= len; out[1] /= len; out[2] /= len;
-  };
-  const ribbonGroup = new THREE.Group();
-  scene.add(ribbonGroup);
-  let ribbonKey = '';
-  function ribbonObject(ranges, color, alpha, sizeCss, lane, grow, ref) {
+  // ----- selection halo -----
+  const haloGroup = new THREE.Group();
+  scene.add(haloGroup);
+  let haloKey = '';
+  const HALO_CSS = 15; // the halo's least width, CSS px
+  function haloObject(ranges) {
     let k = 0;
     for (const [a, b] of ranges) for (let p = a; p <= b; p++) if (drawn(p)) k++;
-    const rp = new Float32Array(3 * k), rd = new Float32Array(3 * k), rl = new Float32Array(k), d = [0, 0, 0];
+    const rp = new Float32Array(3 * k), rl = new Float32Array(k);
     let i = 0;
     for (const [a, b] of ranges) {
       for (let p = a; p <= b; p++) {
         if (!drawn(p)) continue;
         rp.set(pos.subarray(3 * p, 3 * p + 3), 3 * i);
-        dirOf(p, d);
-        rd.set(d, 3 * i);
         rl[i] = dl[p];
         i++;
       }
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(rp, 3));
-    g.setAttribute('dir', new THREE.BufferAttribute(rd, 3));
     g.setAttribute('dl', new THREE.BufferAttribute(rl, 1));
     const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uHalfH: { value: 1 }, uView: { value: new THREE.Vector2(1, 1) }, uSize: { value: sizeCss },
-        uLane: { value: lane }, uGap: { value: 1 }, uStep: { value: 1 }, uDpr: { value: 1 }, uGrow: { value: grow },
-        uColor: { value: new THREE.Color(color[0] / 255, color[1] / 255, color[2] / 255) },
-        uAlpha: { value: alpha },
+        uHalfH: { value: 1 }, uSize: { value: HALO_CSS }, uDpr: { value: 1 }, uGrow: { value: 1.6 },
+        uColor: { value: new THREE.Color(1, 1, 1) }, uAlpha: { value: 0.26 },
       },
-      vertexShader: RIBBON_VS, fragmentShader: RIBBON_FS,
+      vertexShader: HALO_VS, fragmentShader: HALO_FS,
       transparent: true, depthTest: false, depthWrite: false,
-      stencilWrite: true, stencilRef: ref, stencilFunc: THREE.NotEqualStencilFunc,
+      stencilWrite: true, stencilRef: 250, stencilFunc: THREE.NotEqualStencilFunc,
       stencilZPass: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilFail: THREE.KeepStencilOp,
     });
-    mat.userData.css = { size: sizeCss };
     const obj = new THREE.Points(g, mat);
     obj.frustumCulled = false;
-    obj.renderOrder = ORDER.ribbons;
+    obj.renderOrder = ORDER.halo;
     return obj;
   }
-  function clearRibbons() {
-    for (const o of [...ribbonGroup.children]) { o.geometry.dispose(); o.material.dispose(); ribbonGroup.remove(o); }
+  function clearHalo() {
+    for (const o of [...haloGroup.children]) { o.geometry.dispose(); o.material.dispose(); haloGroup.remove(o); }
   }
 
   // ----- camera -----
@@ -511,31 +477,27 @@ export async function open(glCanvas, input, opts) {
       flagAttr.needsUpdate = true;
       changed();
     },
-    // setRibbons draws [{key, ranges, color, lane}] for layers and an
-    // optional selection (ranges), rebuilding only when they change.
-    setRibbons(list, selection) {
-      const key = JSON.stringify([list.map((r) => [r.key, r.ranges, r.color, r.lane]), selection]);
-      if (key === ribbonKey) return;
-      ribbonKey = key;
-      clearRibbons();
-      if (selection && selection.length) ribbonGroup.add(ribbonObject(selection, [255, 255, 255], 0.26, 15, 0, 1.6, 250));
-      list.forEach((r, i) => ribbonGroup.add(ribbonObject(r.ranges, r.color, 0.6, LANE.width, r.lane, 0, 1 + (i % 240))));
-      for (const o of ribbonGroup.children) this.sizeRibbon(o);
+    // setSelection draws the halo along the selected pixels (ranges, or
+    // null), rebuilding only when they change.
+    setSelection(selection) {
+      const key = JSON.stringify(selection);
+      if (key === haloKey) return;
+      haloKey = key;
+      clearHalo();
+      if (selection && selection.length) haloGroup.add(haloObject(selection));
+      for (const o of haloGroup.children) this.sizeHalo(o);
       changed();
     },
-    sizeRibbon(o) {
-      const u = o.material.uniforms, css = o.material.userData.css;
+    sizeHalo(o) {
+      const u = o.material.uniforms;
       u.uHalfH.value = H * dpr / 2;
-      u.uView.value.set(W * dpr / 2, H * dpr / 2);
-      u.uSize.value = css.size * dpr;
-      u.uGap.value = LANE.gap * dpr;
-      u.uStep.value = LANE.step * dpr;
+      u.uSize.value = HALO_CSS * dpr;
       u.uDpr.value = dpr;
     },
     // render draws if anything changed; returns whether it did.
     render() {
       if (!glDirty) return false;
-      for (const o of ribbonGroup.children) this.sizeRibbon(o);
+      for (const o of haloGroup.children) this.sizeHalo(o);
       renderer.render(scene, camera);
       glDirty = false;
       return true;
@@ -581,8 +543,8 @@ export async function open(glCanvas, input, opts) {
     // pixelRadius is the radius pixel p is drawn at, in CSS px.
     pixelRadius(p) {
       const v = new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]).applyMatrix4(camera.matrixWorldInverse);
-      const s = dl[p] * camera.projectionMatrix.elements[5] * H / 2 / Math.max(-v.z, 1e-3) * 0.9;
-      return clamp(s, 2, 14) / 2;
+      const s = dl[p] * camera.projectionMatrix.elements[5] * H / 2 / Math.max(-v.z, 1e-3) * 1.35;
+      return clamp(s, 3, 21) / 2;
     },
     // screenOf is a pixel's last projected screen position (for pinned
     // cards), or null.

@@ -132,31 +132,3 @@ export function targetRanges(geo, tree, target) {
   const a = geo.areas.find((a) => a.id === target);
   return a ? normRanges(a.ranges) : null;
 }
-
-// lanes gives each layer a lane so overlapping ribbons sit side by
-// side: bottom layers nearest the pixels. layers are top first, each
-// with ranges; returns lane numbers from 1.
-export function lanes(layers) {
-  const out = new Array(layers.length).fill(1);
-  const placed = [];
-  for (let i = layers.length - 1; i >= 0; i--) {
-    const rs = layers[i].ranges;
-    if (!rs) continue;
-    const used = new Set(placed.filter((p) => overlaps(p.ranges, rs)).map((p) => p.lane));
-    let lane = 1;
-    while (used.has(lane)) lane++;
-    out[i] = lane;
-    placed.push({ ranges: rs, lane });
-  }
-  return out;
-}
-
-function overlaps(a, b) {
-  let i = 0, j = 0;
-  while (i < a.length && j < b.length) {
-    if (a[i][1] < b[j][0]) i++;
-    else if (b[j][1] < a[i][0]) j++;
-    else return true;
-  }
-  return false;
-}

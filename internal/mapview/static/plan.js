@@ -5,12 +5,11 @@
 // The live map's 2-D view of an SVG plan, with the same interface as
 // scene.js so app.js and overlay.js don't care which one is open. It
 // draws on the map canvas: the plan (inverted, as plans are black on
-// white), ribbons, then the pixels as squares sized by their pitch. It
+// white), the selection halo, then the pixels as squares sized by their
+// pitch. It
 // pans and zooms with a finger, two fingers or the wheel. World units
 // are plan meters, y down as in the SVG.
-import { clamp, nearestRun, LANE, laneCenter } from './util.js';
-
-const UNLIT = [45, 82, 175];
+import { clamp, nearestRun } from './util.js';
 
 // openPlan returns the view for plan (the geometry's plan entry, index
 // planIndex). opts: px, rgb (live frame, 3 bytes per pixel), onChange,
@@ -21,7 +20,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
   let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0;
   const v = { k: 50, tx: 0, ty: 0 };
   let auto = true, version = 0;
-  let colors = null, gray = new Set(), ribbons = [], selection = null;
+  let colors = null, gray = new Set(), selection = null;
   let img = null, cache = null;
 
   const drawn = [];
@@ -136,24 +135,19 @@ export function openPlan(canvas, plan, planIndex, opts) {
   }
 
   // sizeOf is the side of pixel p's square, in CSS px.
-  const sizeOf = (p) => clamp((px.dl[p] || 0.03) * v.k * 0.85, 3, 16);
+  const sizeOf = (p) => clamp((px.dl[p] || 0.03) * v.k * 1.275, 4, 24);
 
-  // ribbonPath strokes a set of pixels as one path (so its translucency
-  // doesn't build up where it overlaps itself), offset sideways by
-  // off(p) CSS px.
-  function ribbonPath(ctx, ranges, off) {
+  // haloPath strokes a set of pixels as one path, so its translucency
+  // doesn't build up where it overlaps itself.
+  function haloPath(ctx, ranges) {
     ctx.beginPath();
     for (const [a, b] of ranges) {
       let seq = [];
       const flush = () => {
         if (!seq.length) return;
         for (let i = 0; i < seq.length; i++) {
-          const p = seq[i], pa = seq[Math.max(0, i - 1)], pb = seq[Math.min(seq.length - 1, i + 1)];
-          let dx = px.x[pb] - px.x[pa], dy = px.y[pb] - px.y[pa];
-          const len = Math.hypot(dx, dy) || 1;
-          dx /= len; dy /= len;
-          const o = off(p);
-          const x = px.x[p] * v.k + v.tx + dy * o, y = px.y[p] * v.k + v.ty - dx * o;
+          const p = seq[i];
+          const x = px.x[p] * v.k + v.tx, y = px.y[p] * v.k + v.ty;
           if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         if (seq.length === 1) ctx.lineTo(px.x[seq[0]] * v.k + v.tx + 0.1, px.y[seq[0]] * v.k + v.ty);
@@ -178,12 +172,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (selection && selection.length) {
       ctx.globalAlpha = 0.26; ctx.strokeStyle = '#fff';
-      ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 0.85, 3, 16));
-      ribbonPath(ctx, selection, () => 0); ctx.stroke();
-    }
-    for (const rb of ribbons) {
-      ctx.globalAlpha = 0.6; ctx.strokeStyle = `rgb(${rb.color})`; ctx.lineWidth = LANE.width;
-      ribbonPath(ctx, rb.ranges, (p) => laneCenter(sizeOf(p) / 2, rb.lane)); ctx.stroke();
+      ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
+      haloPath(ctx, selection); ctx.stroke();
     }
     ctx.globalAlpha = 1;
 
@@ -198,7 +188,6 @@ export function openPlan(canvas, plan, planIndex, opts) {
         continue;
       }
       let cr = col[3 * p], cg = col[3 * p + 1], cb = col[3 * p + 2];
-      if (cr + cg + cb < 24) [cr, cg, cb] = UNLIT;
       if (gray.has(px.controller[p])) { const l = Math.round(56 + 0.25 * (0.3 * cr + 0.59 * cg + 0.11 * cb)); cr = cg = cb = l; }
       ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
       ctx.fillRect(x - s / 2, y - s / 2, s, s);
@@ -224,7 +213,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
     setColors(arr) { colors = arr; changed(); },
     frameArrived() {},
     setGray(ctrls) { gray = ctrls; changed(); },
-    setRibbons(list, sel) { ribbons = list; selection = sel; changed(); },
+    setSelection(sel) { selection = sel; changed(); },
     render,
     tick: () => false,
     toScreen: (x, y) => [x * v.k + v.tx, y * v.k + v.ty, 1],
