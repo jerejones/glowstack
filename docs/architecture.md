@@ -32,7 +32,8 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/units` | Parsing and printing of lengths (`m cm mm ft in px`), speeds, durations, rates, densities, angles, fractions and `#rrggbb[/ww]` colors. `px` stays symbolic until a pitch is known. |
 | `internal/config` | The YAML schema for every config file plus the data-folder `anchors.yaml` and `presets.saved.yaml`; the loader; validation with defaults; `config.Errors` naming file and line. |
 | `internal/plan` | SVG plans: paths, polylines, polygons and lines flattened to polylines in plan units, with transforms and `data-nodes` vertex labels. |
-| `internal/layout` | The solver. `Layout` is the immutable pixel table (global id, controller, index, run, edge, distances, dl, plan x/y), runs with solved anchors, nodes, edges and areas. `Mapping` is per-pixel `u` and stretch. `SolveFlow` and `SolveSpatial` make them. |
+| `internal/scene` | The scene model: reads a `.glb`'s JSON chunk, checks its stated frame, and returns each run's shape (`glowstack_run` extras, converted to meters with Z up) and the drawing layers. Mesh data is left to the live map. |
+| `internal/layout` | The solver. `Layout` is the immutable pixel table (global id, controller, index, run, edge, distances, dl, position x/y/z), runs with solved anchors, nodes, edges and areas. `Mapping` is per-pixel `u` and stretch. `SolveFlow` and `SolveSpatial` make them. |
 | `internal/clock` | `Source` (injectable time), `Manual` for tests, `Preview` (pause, seek, speed) for the live map, `Ticker` for pacing, `Frame`. |
 | `internal/color` | Linear-light RGBW with straight alpha; gamma decode of authored colors. |
 | `internal/palette` | Palettes, the palette registry and `Builtins`: WLED's 73 fixed palettes (`wled.go`, ported) and the special palettes 0–5 with `Resolve` and `Cache` (`special.go`). |
@@ -53,7 +54,7 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/ctl` | The command-line client for the API: `glowstack ctl …` or `glowctl …`. |
 | `internal/calibrate` | Calibration mode: the session `Manager` (targets, cursors, the calibration layers), the internal `calibration` effect, `anchors.yaml` reads and writes, and its API under `/api/v1/calibration/` (routes in `http.go`). |
 | `internal/wled` | The zones' WLED devices for Home Assistant: one HTTP server per `device:` (WLED's JSON API and `/ws`, routes in the package doc), mapping segments to layers owned by `stack.WLEDOwner`, device `on`/`bri` to zone brightness, presets to stable WLED ids (`wled.json`), and the optional mDNS responder. |
-| `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS, no build step), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
+| `internal/mapview` | The live map at `/map/`: the embedded page (`static/`, plain JS, no build step; the 3-D view of a scene model is `scene.js` on three.js, vendored in `static/third_party/three/`), geometry and inspect JSON under `/api/map/`, the websocket frame stream, the preview clock, power figures. |
 | `cmd/glowstack` | The program: `--config`, `--data`, `--fps`, `--check`, `--http` (default `:8080`), `--output` (`all`, `none` or ids; default `none`, or `all` with `--loopback`), `--loopback=PORT`, `--wled-bind` (move the WLED devices, e.g. `127.0.0.1:0`; `off` for none), `--mdns`; `glowstack ctl …` runs the client. SIGHUP reloads the config. |
 | `cmd/glowctl` | The client on its own. |
 | `cmd/fakewled` | Fake controllers on loopback, from flags, a YAML list or a Glowstack config folder. |
@@ -390,6 +391,12 @@ list, numbered in the order they were made.
     lifetime and seed) and only then removes it from the preview, so a
     failure part-way leaves nothing lost. A `for` lifetime restarts, since
     the house layer is new.
+61. **The scene is a drawing.** It takes slot 0 of `Layout.Plans` with
+    scale 1, so pixels, runs and nodes keep pointing at their drawing by
+    index and the solver is unchanged. With a scene, `plans:` and runs'
+    `plan:` aren't loaded at all. `plan.Point` gained `Z`; SVG points have
+    `Z = 0` and pixels on a plan get the plan's `z:`. A scene run that no
+    `model:` names is a warning, since it usually means a renamed run.
 
 ## Live map
 

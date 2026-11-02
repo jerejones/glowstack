@@ -67,20 +67,20 @@ func TestBasicShapes(t *testing.T) {
 	</svg>`)
 
 	run := mustPath(t, d, "run")
-	checkPoints(t, run.Points, []Point{{0, 0}, {10, 0}, {10, 10}})
+	checkPoints(t, run.Points, []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}})
 	if got := run.Length(); !within(got, 20, 1e-9) {
 		t.Errorf("polyline length = %g, want 20", got)
 	}
 
 	tri := mustPath(t, d, "tri")
-	checkPoints(t, tri.Points, []Point{{0, 0}, {10, 0}, {0, 10}, {0, 0}})
+	checkPoints(t, tri.Points, []Point{{0, 0, 0}, {10, 0, 0}, {0, 10, 0}, {0, 0, 0}})
 	want := 20 + math.Sqrt(200)
 	if got := tri.Length(); !within(got, want, 1e-9) {
 		t.Errorf("polygon length = %g, want %g (closing segment included)", got, want)
 	}
 
 	seg := mustPath(t, d, "seg")
-	checkPoints(t, seg.Points, []Point{{1, 2}, {4, 6}})
+	checkPoints(t, seg.Points, []Point{{1, 2, 0}, {4, 6, 0}})
 	if got := seg.Length(); !within(got, 5, 1e-9) {
 		t.Errorf("line length = %g, want 5", got)
 	}
@@ -158,55 +158,55 @@ func TestTransforms(t *testing.T) {
 				<path id="p" transform="rotate(90)" d="M0 0 L10 0"/>
 			</g></g></svg>`,
 			"p",
-			[]Point{{10, 20}, {10, 40}},
+			[]Point{{10, 20, 0}, {10, 40, 0}},
 		},
 		{
 			"matrix",
 			`<svg><path id="m" transform="matrix(0 1 -1 0 10 0)" d="M10 0 L10 5"/></svg>`,
 			"m",
-			[]Point{{10, 10}, {5, 10}},
+			[]Point{{10, 10, 0}, {5, 10, 0}},
 		},
 		{
 			"rotate about a point",
 			`<svg><path id="r" transform="rotate(90 10 10)" d="M10 0 L10 10"/></svg>`,
 			"r",
-			[]Point{{20, 10}, {10, 10}},
+			[]Point{{20, 10, 0}, {10, 10, 0}},
 		},
 		{
 			"multiple functions, comma separators",
 			`<svg><path id="c" transform="translate(10), scale(2)" d="M1 1 L2 1"/></svg>`,
 			"c",
-			[]Point{{12, 2}, {14, 2}},
+			[]Point{{12, 2, 0}, {14, 2, 0}},
 		},
 		{
 			"translate single arg means ty=0",
 			`<svg><g transform="translate(5)"><line id="l" x1="0" y1="0" x2="1" y2="0"/></g></svg>`,
 			"l",
-			[]Point{{5, 0}, {6, 0}},
+			[]Point{{5, 0, 0}, {6, 0, 0}},
 		},
 		{
 			"scale single arg is uniform",
 			`<svg><g transform="scale(3)"><line id="l" x1="1" y1="2" x2="2" y2="2"/></g></svg>`,
 			"l",
-			[]Point{{3, 6}, {6, 6}},
+			[]Point{{3, 6, 0}, {6, 6, 0}},
 		},
 		{
 			"skewX",
 			`<svg><path id="s" transform="skewX(45)" d="M0 10 L1 10"/></svg>`,
 			"s",
-			[]Point{{10, 10}, {11, 10}},
+			[]Point{{10, 10, 0}, {11, 10, 0}},
 		},
 		{
 			"skewY",
 			`<svg><path id="s" transform="skewY(45)" d="M10 0 L10 1"/></svg>`,
 			"s",
-			[]Point{{10, 10}, {10, 11}},
+			[]Point{{10, 10, 0}, {10, 11, 0}},
 		},
 		{
 			"transform applies to polyline too",
 			`<svg><g transform="translate(1,1)"><polyline id="pl" points="0,0 2,0"/></g></svg>`,
 			"pl",
-			[]Point{{1, 1}, {3, 1}},
+			[]Point{{1, 1, 0}, {3, 1, 0}},
 		},
 	}
 	for _, tt := range tests {
@@ -250,7 +250,7 @@ func TestScaledArcStaysAccurate(t *testing.T) {
 		t.Errorf("length = %g, want %g within 0.1%%", got, want)
 	}
 	last := p.Points[len(p.Points)-1]
-	if !pointNear(last, Point{0, 10}, 1e-9) {
+	if !pointNear(last, Point{0, 10, 0}, 1e-9) {
 		t.Errorf("endpoint = %v, want (0,10)", last)
 	}
 }
@@ -363,7 +363,7 @@ func TestZeroLengthSegmentDedup(t *testing.T) {
 	// The duplicate is dropped and the surviving point keeps the label.
 	d := parseSVG(t, `<svg><path id="p" d="M0 0 H10 H0 Z" data-nodes="a,b,,z"/></svg>`)
 	p := mustPath(t, d, "p")
-	checkPoints(t, p.Points, []Point{{0, 0}, {10, 0}, {0, 0}})
+	checkPoints(t, p.Points, []Point{{0, 0, 0}, {10, 0, 0}, {0, 0, 0}})
 	if !reflect.DeepEqual(p.Labels, []string{"a", "b", "z"}) {
 		t.Errorf("Labels = %v, want [a b z]", p.Labels)
 	}
@@ -385,7 +385,7 @@ func TestZeroLengthSegmentDedup(t *testing.T) {
 	// A repeated point mid-path is also collapsed.
 	d = parseSVG(t, `<svg><path id="p" d="M0 0 L5 0 L5 0 L10 0"/></svg>`)
 	p = mustPath(t, d, "p")
-	checkPoints(t, p.Points, []Point{{0, 0}, {5, 0}, {10, 0}})
+	checkPoints(t, p.Points, []Point{{0, 0, 0}, {5, 0, 0}, {10, 0, 0}})
 }
 
 func TestParseFile(t *testing.T) {
@@ -405,7 +405,7 @@ func TestParseFile(t *testing.T) {
 		t.Fatalf("ParseFile: %v", err)
 	}
 	p := mustPath(t, d, "eave")
-	checkPoints(t, p.Points, []Point{{220, 180}, {100, 180}, {100, 100}, {160, 100}, {220, 100}})
+	checkPoints(t, p.Points, []Point{{220, 180, 0}, {100, 180, 0}, {100, 100, 0}, {160, 100, 0}, {220, 100, 0}})
 	if d.ViewBox != [4]float64{0, 0, 300, 200} {
 		t.Errorf("ViewBox = %v", d.ViewBox)
 	}

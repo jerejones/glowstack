@@ -21,8 +21,9 @@ const inkscapeNS = "http://www.inkscape.org/namespaces/inkscape"
 // considered duplicates (zero-length segments) and merged.
 const dedupEps = 1e-9
 
-// Point is a 2-D point in plan units.
-type Point struct{ X, Y float64 }
+// Point is a point in plan units. Z is 0 for SVG drawings; scene models
+// (package scene) supply it.
+type Point struct{ X, Y, Z float64 }
 
 type shapeEntry struct {
 	path  *Path // ID is id, falling back to label

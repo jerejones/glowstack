@@ -14,7 +14,7 @@ func testPath() *Path {
 	// An L-shaped run: 10 right, 10 down. Total length 20.
 	return &Path{
 		ID:     "ell",
-		Points: []Point{{0, 0}, {10, 0}, {10, 10}},
+		Points: []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}},
 		Labels: []string{"start", "corner", "end"},
 	}
 }
@@ -51,25 +51,25 @@ func TestAt(t *testing.T) {
 		dist float64
 		want Point
 	}{
-		{-5, Point{0, 0}},  // clamped low
-		{0, Point{0, 0}},   // start
-		{5, Point{5, 0}},   // mid first segment
-		{10, Point{10, 0}}, // exactly at the corner
-		{15, Point{10, 5}}, // mid second segment (overall midpoint is the corner at 10)
-		{20, Point{10, 10}},
-		{100, Point{10, 10}}, // clamped high
+		{-5, Point{0, 0, 0}},  // clamped low
+		{0, Point{0, 0, 0}},   // start
+		{5, Point{5, 0, 0}},   // mid first segment
+		{10, Point{10, 0, 0}}, // exactly at the corner
+		{15, Point{10, 5, 0}}, // mid second segment (overall midpoint is the corner at 10)
+		{20, Point{10, 10, 0}},
+		{100, Point{10, 10, 0}}, // clamped high
 	}
 	for _, tt := range tests {
 		if got := p.At(tt.dist); !pointNear(got, tt.want, 1e-12) {
 			t.Errorf("At(%g) = %v, want %v", tt.dist, got, tt.want)
 		}
 	}
-	if got := p.At(p.Length() / 2); !pointNear(got, Point{10, 0}, 1e-12) {
+	if got := p.At(p.Length() / 2); !pointNear(got, Point{10, 0, 0}, 1e-12) {
 		t.Errorf("At(midpoint) = %v, want the corner (10,0)", got)
 	}
 
-	single := &Path{Points: []Point{{3, 4}}, Labels: []string{""}}
-	if got := single.At(7); got != (Point{3, 4}) {
+	single := &Path{Points: []Point{{3, 4, 0}}, Labels: []string{""}}
+	if got := single.At(7); got != (Point{3, 4, 0}) {
 		t.Errorf("single-point At = %v, want (3,4)", got)
 	}
 	empty := &Path{}
@@ -84,7 +84,7 @@ func TestReversed(t *testing.T) {
 	if r == p {
 		t.Fatal("Reversed must return a new Path")
 	}
-	checkPoints(t, r.Points, []Point{{10, 10}, {10, 0}, {0, 0}})
+	checkPoints(t, r.Points, []Point{{10, 10, 0}, {10, 0, 0}, {0, 0, 0}})
 	if !reflect.DeepEqual(r.Labels, []string{"end", "corner", "start"}) {
 		t.Errorf("reversed Labels = %v", r.Labels)
 	}
@@ -100,11 +100,11 @@ func TestReversed(t *testing.T) {
 	if !ok || !rok || !within(rd, p.Length()-d, 1e-12) {
 		t.Errorf("corner at %g reversed to %g, want %g", d, rd, p.Length()-d)
 	}
-	if got := r.At(0); !pointNear(got, Point{10, 10}, 1e-12) {
+	if got := r.At(0); !pointNear(got, Point{10, 10, 0}, 1e-12) {
 		t.Errorf("reversed At(0) = %v, want old end", got)
 	}
 	// The original is untouched.
-	checkPoints(t, p.Points, []Point{{0, 0}, {10, 0}, {10, 10}})
+	checkPoints(t, p.Points, []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}})
 }
 
 func TestVertex(t *testing.T) {
@@ -121,7 +121,7 @@ func TestVertex(t *testing.T) {
 		t.Error("Vertex(nope) found a match")
 	}
 	// The empty string never matches an unlabeled vertex.
-	u := &Path{Points: []Point{{0, 0}, {1, 0}}, Labels: []string{"", ""}}
+	u := &Path{Points: []Point{{0, 0, 0}, {1, 0, 0}}, Labels: []string{"", ""}}
 	if _, _, ok := u.Vertex(""); ok {
 		t.Error(`Vertex("") matched an unlabeled vertex`)
 	}
@@ -142,7 +142,7 @@ func TestEndToEndDistances(t *testing.T) {
 	if !ok || idx != 1 || !within(dist, 100, 1e-9) {
 		t.Errorf("Vertex(porch-e) = (%d, %g, %v), want (1, 100, true)", idx, dist, ok)
 	}
-	if got := p.At(130); !pointNear(got, Point{100, 30}, 1e-9) {
+	if got := p.At(130); !pointNear(got, Point{100, 30, 0}, 1e-9) {
 		t.Errorf("At(130) = %v, want (100,30)", got)
 	}
 	if got := math.Abs(p.At(1e9).X - 100); got > 1e-9 {

@@ -21,7 +21,7 @@ readonly URL='mozilla.org/MPL/2.0/'
 # Paths that are source code and need the notice.
 is_source() {
   case "$1" in
-    vendor/* | third_party/* | testdata/*) return 1 ;;
+    vendor/* | third_party/* | testdata/* | */vendor/* | */third_party/* | */testdata/*) return 1 ;;
     *.go | *.sh | *.bash | *.js | *.mjs | *.ts | *.css | *.html | *.py) return 0 ;;
     Dockerfile | */Dockerfile | Dockerfile.* | */Dockerfile.*) return 0 ;;
     Makefile | */Makefile | .githooks/*) return 0 ;;

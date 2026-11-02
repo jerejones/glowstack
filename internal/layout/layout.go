@@ -27,6 +27,13 @@
 // layout.yaml or the data folder's anchors.yaml) are never moved. Pixels get
 // plan positions by the same piecewise mapping, so corners land on drawn
 // corners even when the drawing's proportions are off.
+//
+// # Drawings
+//
+// A run's shape comes from a plan SVG or from the scene model. With a
+// `scene:`, the scene is the only drawing: run shapes come from `model:`,
+// and `plans:` and runs' `plan:` are not loaded. Positions are meters with
+// Z up; a plan's pixels sit at the plan's elevation.
 package layout
 
 import (
@@ -38,6 +45,7 @@ import (
 
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/plan"
+	"github.com/jerejones/glowstack/internal/scene"
 )
 
 // Layout is the solved, immutable pixel table and layout graph. Don't
@@ -77,12 +85,12 @@ type Pixel struct {
 	Dist       float32 // meters along the edge from Edge.From
 	RunDist    float32 // meters along the run from its start
 	Dl         float32 // physical size of the pixel, meters
-	X, Y       float32 // plan position, meters; NaN if unknown
-	Plan       int16   // index into Layout.Plans, or -1
+	X, Y, Z    float32 // position, meters, Z up; NaN if unknown
+	Plan       int16   // index into Layout.Plans (the drawing), or -1
 	Dead       bool    // physically present but unlit or hidden
 }
 
-// HasPlan reports whether the pixel has a plan position.
+// HasPlan reports whether the pixel has a position.
 func (p *Pixel) HasPlan() bool { return p.Plan >= 0 }
 
 // Run is a solved run.
@@ -99,11 +107,11 @@ type Run struct {
 	Anchors    []Anchor
 	Edges      []int // strip edge indices in run order
 
-	Plan           int // index into Layout.Plans, or -1
-	PlanPath       *plan.Path
-	DrawnLength    float64 // plan units, 0 without a drawing
-	DrawnMeters    float64 // DrawnLength × plan scale
-	LengthMismatch float64 // DrawnMeters / Length - 1; 0 without a drawing
+	Plan           int        // index into Layout.Plans (the drawing), or -1
+	PlanPath       *plan.Path // the run's shape, in the drawing's units
+	DrawnLength    float64    // drawing units, 0 without a drawing
+	DrawnMeters    float64    // DrawnLength × plan scale
+	LengthMismatch float64    // DrawnMeters / Length - 1; 0 without a drawing
 
 	Config *config.Run
 }
@@ -146,8 +154,9 @@ type Node struct {
 	Label string
 	Sync  bool
 	Edges []int   // incident edges
-	X, Y  float64 // plan position in meters, NaN if unknown
-	Plan  int     // index into Layout.Plans, or -1
+	X, Y  float64 // position in meters, NaN if unknown
+	Z     float64
+	Plan  int // index into Layout.Plans, or -1
 }
 
 // EdgeKind is strip, gap or link.
@@ -192,29 +201,48 @@ type Area struct {
 	Pixels []int32 // global ids, sorted, unique
 }
 
-// Plan is one plan SVG.
+// Plan is one drawing: a plan SVG, or the scene model (GLB set, Scale 1).
 type Plan struct {
-	SVG            string  // file name relative to the config dir
-	Scale          float64 // meters per plan unit
+	SVG            string  // file name relative to the config dir; "" for the scene
+	GLB            string  // the scene model's file name; "" for a plan
+	Scale          float64 // meters per drawing unit
 	ScaleEstimated bool    // Scale came from pixel lengths, not config
+	Z              float64 // elevation of a plan, meters
 	Drawing        *plan.Drawing
+	Scene          *scene.Scene
 }
+
+// IsScene reports whether the drawing is the scene model.
+func (p *Plan) IsScene() bool { return p.Scene != nil }
 
 // PlanLoader loads a plan SVG by its config-relative file name.
 type PlanLoader func(name string) (*plan.Drawing, error)
 
-// Build solves the layout, loading plan SVGs from cfg.Dir.
+// SceneLoader loads a scene model by its config-relative file name.
+type SceneLoader func(name string) (*scene.Scene, error)
+
+// Build solves the layout, loading plan SVGs and the scene from cfg.Dir.
 func Build(cfg *config.Config) (*Layout, error) {
 	return BuildWith(cfg, func(name string) (*plan.Drawing, error) {
 		return plan.ParseFile(filepath.Join(cfg.Dir, name))
 	})
 }
 
-// BuildWith solves the layout with a custom plan loader.
+// BuildWith solves the layout with a custom plan loader. The scene, if
+// any, is loaded from cfg.Dir.
 func BuildWith(cfg *config.Config, load PlanLoader) (*Layout, error) {
+	return BuildWithLoaders(cfg, load, func(name string) (*scene.Scene, error) {
+		return scene.ParseFile(filepath.Join(cfg.Dir, name))
+	})
+}
+
+// BuildWithLoaders solves the layout with custom plan and scene loaders.
+func BuildWithLoaders(cfg *config.Config, load PlanLoader, loadScene SceneLoader) (*Layout, error) {
 	b := &builder{
-		cfg:  cfg,
-		load: load,
+		cfg:       cfg,
+		load:      load,
+		loadScene: loadScene,
+		scene:     -1,
 		l: &Layout{
 			Pitch:    cfg.Layout.Pitch.Value,
 			nodeByID: map[string]int{},
@@ -230,6 +258,7 @@ func BuildWith(cfg *config.Config, load PlanLoader) (*Layout, error) {
 	for i := range cfg.Layout.Runs {
 		b.run(&cfg.Layout.Runs[i])
 	}
+	b.unusedSceneRuns()
 	if len(b.errs) == 0 {
 		b.estimatePlanScales()
 		for i := range b.l.Runs {
@@ -317,6 +346,8 @@ func (l *Layout) Describe(p int32) string {
 type builder struct {
 	cfg        *config.Config
 	load       PlanLoader
+	loadScene  SceneLoader
+	scene      int // index of the scene in l.Plans, or -1
 	l          *Layout
 	errs       config.Errors
 	planByFile map[string]int
@@ -345,7 +376,7 @@ func (b *builder) controllers() {
 	for ci, c := range b.l.Controllers {
 		for k := range c.Pixels {
 			b.l.Pixels[c.Base+int32(k)] = Pixel{
-				Controller: int16(ci), Index: int32(k), Run: -1, Edge: -1, X: nan, Y: nan, Plan: -1,
+				Controller: int16(ci), Index: int32(k), Run: -1, Edge: -1, X: nan, Y: nan, Z: nan, Plan: -1,
 			}
 			b.owner[c.Base+int32(k)] = -1
 		}
@@ -357,7 +388,7 @@ func (b *builder) node(id string) int {
 	if i, ok := b.l.nodeByID[id]; ok {
 		return i
 	}
-	b.l.Nodes = append(b.l.Nodes, Node{ID: id, X: math.NaN(), Y: math.NaN(), Plan: -1})
+	b.l.Nodes = append(b.l.Nodes, Node{ID: id, X: math.NaN(), Y: math.NaN(), Z: math.NaN(), Plan: -1})
 	b.l.nodeByID[id] = len(b.l.Nodes) - 1
 	return len(b.l.Nodes) - 1
 }
@@ -370,10 +401,46 @@ func (b *builder) nodes() {
 }
 
 func (b *builder) plans() {
+	if sc := b.cfg.Layout.Scene; sc != nil {
+		s, err := b.loadScene(sc.GLB)
+		if err != nil {
+			b.errorf(sc.Pos, "scene %s: %v", sc.GLB, err)
+			return
+		}
+		b.l.Plans = append(b.l.Plans, Plan{GLB: sc.GLB, Scale: 1, Scene: s})
+		b.scene = 0
+		return // the scene replaces the plans
+	}
 	for _, p := range b.cfg.Layout.Plans {
 		i := b.plan(p.SVG, p.Pos)
-		if i >= 0 && p.Scale != nil {
+		if i < 0 {
+			continue
+		}
+		if p.Scale != nil {
 			b.l.Plans[i].Scale = p.Scale.Value
+		}
+		if p.Z != nil {
+			b.l.Plans[i].Z = p.Z.Value
+		}
+	}
+}
+
+// unusedSceneRuns warns about runs in the scene that no run's `model:`
+// names, which usually means a renamed run.
+func (b *builder) unusedSceneRuns() {
+	if b.scene < 0 {
+		return
+	}
+	used := map[string]bool{}
+	for _, r := range b.cfg.Layout.Runs {
+		if r.Model != nil {
+			_, id, _ := strings.Cut(r.Model.GLB, "#")
+			used[id] = true
+		}
+	}
+	for _, id := range b.l.Plans[b.scene].Scene.RunIDs() {
+		if !used[id] {
+			b.warnf(b.cfg.Layout.Scene.Pos, "scene %s: run %q isn't used by any run's `model:`", b.cfg.Layout.Scene.GLB, id)
 		}
 	}
 }

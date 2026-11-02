@@ -9,8 +9,8 @@
 // It serves, on the shared HTTP server:
 //
 //	GET  /map/                        the page (embedded; no build step)
-//	GET  /api/map/geometry            pixel table, runs, nodes, edges, areas, zones, plans
-//	GET  /api/map/plans/{n}           plan SVG n, the map's background
+//	GET  /api/map/geometry            pixel table, runs, nodes, edges, areas, zones, plans, map settings
+//	GET  /api/map/plans/{n}           plan SVG n, or the scene model (.glb), the map's background
 //	GET  /api/map/mappings/{id}       per-pixel u and stretch, plus flow diagnostics
 //	GET  /api/map/pixels/{id}         inspect one pixel
 //	GET  /api/map/power               estimated current per output, limit scale

@@ -75,7 +75,7 @@ type Layer struct {
 type Geometry struct {
 	Pixels  []int32   // target pixels inside the mapping's domain, in mapping order
 	U       []float32 // aligned with Pixels
-	X, Y    []float32 // aligned with Pixels; nil unless the effect reads plan positions
+	X, Y, Z []float32 // aligned with Pixels; nil unless the effect reads positions
 	Dl      []float32
 	Stretch []float32
 	Index   []int32 // rank in mapping order (i.e. 0, 1, 2, …)
@@ -123,7 +123,7 @@ func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords C
 	n := len(entries)
 	g.Pixels, g.U, g.Dl, g.Stretch, g.Index = make([]int32, n), make([]float32, n), make([]float32, n), make([]float32, n), make([]int32, n)
 	if needXY {
-		g.X, g.Y = make([]float32, n), make([]float32, n)
+		g.X, g.Y, g.Z = make([]float32, n), make([]float32, n), make([]float32, n)
 	}
 	for i, e := range entries {
 		px := &l.Pixels[e.p]
@@ -135,7 +135,7 @@ func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords C
 			g.U[i] = float32(e.key - c.Offset)
 		}
 		if needXY {
-			g.X[i], g.Y[i] = px.X, px.Y
+			g.X[i], g.Y[i], g.Z[i] = px.X, px.Y, px.Z
 		}
 	}
 	return g

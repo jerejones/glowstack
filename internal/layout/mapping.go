@@ -167,41 +167,56 @@ func SolveSpatial(l *Layout, m *config.Mapping) (*Mapping, error) {
 			out.U[i] = l.Pixels[i].X
 		}
 	case config.KindAxis:
-		var x0, y0, dx, dy float64
+		var o vec
 		if m.From != nil {
 			var err error
-			if x0, y0, err = l.point(m.From); err != nil {
+			if o, _, err = l.point(m.From); err != nil {
 				return nil, err
 			}
 		}
-		if m.Angle != nil {
+		var d vec
+		switch {
+		case m.Angle != nil:
 			a := float64(*m.Angle)
-			dx, dy = math.Cos(a), -math.Sin(a) // plan y points down
-		} else {
-			x1, y1, err := l.point(m.To)
+			d = vec{math.Cos(a), math.Sin(a), 0}
+			if !l.HasScene() {
+				d[1] = -d[1] // plan y points down
+			}
+		case m.Direction != nil:
+			d = vec{m.Direction[0], m.Direction[1], m.Direction[2]}
+		default:
+			to, toZ, err := l.point(m.To)
 			if err != nil {
 				return nil, err
 			}
-			dx, dy = x1-x0, y1-y0
-			d := math.Hypot(dx, dy)
-			if d == 0 {
+			_, fromZ, _ := l.point(m.From)
+			d = to.sub(o)
+			if !fromZ || !toZ {
+				d[2] = 0 // a point without height gives a horizontal direction
+			}
+			if d.len() == 0 {
 				return nil, config.Errorf(m.Pos, "axis mapping %s: from and to are the same point", m.ID)
 			}
-			dx, dy = dx/d, dy/d
 		}
+		d = d.scale(1 / d.len())
 		for i := range l.Pixels {
 			if px := &l.Pixels[i]; px.HasPlan() {
-				out.U[i] = float32((float64(px.X)-x0)*dx + (float64(px.Y)-y0)*dy)
+				out.U[i] = float32(px.pos().sub(o).dot(d))
 			}
 		}
 	case config.KindRadial:
-		cx, cy, err := l.point(m.Center)
+		c, cz, err := l.point(m.Center)
 		if err != nil {
 			return nil, err
 		}
+		flat := m.Horizontal || !cz
 		for i := range l.Pixels {
 			if px := &l.Pixels[i]; px.HasPlan() {
-				out.U[i] = float32(math.Hypot(float64(px.X)-cx, float64(px.Y)-cy))
+				r := px.pos().sub(c)
+				if flat {
+					r[2] = 0
+				}
+				out.U[i] = float32(r.len())
 			}
 		}
 	default:
@@ -210,20 +225,33 @@ func SolveSpatial(l *Layout, m *config.Mapping) (*Mapping, error) {
 	return out, nil
 }
 
-// point resolves a point reference to plan meters.
-func (l *Layout) point(p *config.PointRef) (float64, float64, error) {
+// vec is a position or direction in meters, Z up.
+type vec [3]float64
+
+func (a vec) sub(b vec) vec       { return vec{a[0] - b[0], a[1] - b[1], a[2] - b[2]} }
+func (a vec) dot(b vec) float64   { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] }
+func (a vec) scale(k float64) vec { return vec{a[0] * k, a[1] * k, a[2] * k} }
+func (a vec) len() float64        { return math.Sqrt(a.dot(a)) }
+func (p *Pixel) pos() vec         { return vec{float64(p.X), float64(p.Y), float64(p.Z)} }
+
+// HasScene reports whether positions come from a scene model.
+func (l *Layout) HasScene() bool { return len(l.Plans) > 0 && l.Plans[0].IsScene() }
+
+// point resolves a point reference to meters. hasZ is false for an
+// explicit [x, y] point, which has no height.
+func (l *Layout) point(p *config.PointRef) (v vec, hasZ bool, err error) {
 	if p.Node == "" {
-		return p.X.Value, p.Y.Value, nil
+		return vec{p.X.Value, p.Y.Value, p.Z.Value}, p.HasZ, nil
 	}
 	ni, ok := l.nodeByID[p.Node]
 	if !ok {
-		return 0, 0, config.Errorf(p.Pos, "unknown node %q", p.Node)
+		return v, false, config.Errorf(p.Pos, "unknown node %q", p.Node)
 	}
 	n := &l.Nodes[ni]
 	if n.Plan < 0 {
-		return 0, 0, config.Errorf(p.Pos, "node %q has no plan position (no drawn run passes it)", p.Node)
+		return v, false, config.Errorf(p.Pos, "node %q has no position (no drawn run passes it)", p.Node)
 	}
-	return n.X, n.Y, nil
+	return vec{n.X, n.Y, n.Z}, true, nil
 }
 
 // Describe summarises the mapping for logs.

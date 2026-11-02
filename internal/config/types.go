@@ -32,6 +32,34 @@ type Settings struct {
 	Power PowerPolicy `yaml:"power"`
 	// Dither turns temporal dithering to 8 bits on or off; default on.
 	Dither *bool `yaml:"dither"`
+	// Map is how the live map presents the scene model.
+	Map MapSettings `yaml:"map"`
+}
+
+// MapSettings are the live map's 3-D presentation: where the camera opens
+// and how each scene layer looks. Layers are keyed by scene node name;
+// unlisted layers get a default by kind.
+type MapSettings struct {
+	Pos
+	View       *MapView            `yaml:"view"`
+	AutoRotate bool                `yaml:"auto_rotate"`
+	Layers     map[string]MapLayer `yaml:"layers"`
+}
+
+// MapView is a camera: positions in meters, Z up.
+type MapView struct {
+	Pos
+	From []float64 `yaml:"from"` // camera position [x, y, z]
+	To   []float64 `yaml:"to"`   // the point it looks at and orbits
+	FOV  float64   `yaml:"fov"`  // vertical field of view, degrees; default 40
+}
+
+// MapLayer styles one scene layer.
+type MapLayer struct {
+	Pos
+	Color   string   `yaml:"color"`   // #rrggbb
+	Opacity *float64 `yaml:"opacity"` // 0–1
+	Visible *bool    `yaml:"visible"` // shown when the map opens; default true
 }
 
 // PowerPolicy says how power-limit scales are shared and smoothed.
@@ -115,11 +143,19 @@ type LayoutFile struct {
 type Layout struct {
 	Pos
 	Pitch units.Length `yaml:"pitch"` // default pitch; required, meters
+	Scene *Scene       `yaml:"scene"`
 	Plans []Plan       `yaml:"plans"`
 	Nodes []Node       `yaml:"nodes"`
 	Runs  []Run        `yaml:"runs"`
 	Edges []Edge       `yaml:"edges"`
 	Dead  []Dead       `yaml:"dead"`
+}
+
+// Scene declares the site's scene model. With a scene, run positions come
+// from `model:` shapes and `plan:` shapes are ignored.
+type Scene struct {
+	Pos
+	GLB string `yaml:"glb"` // path relative to the config dir
 }
 
 // Plan declares a plan SVG and, optionally, its scale. Runs may also name
@@ -128,6 +164,7 @@ type Plan struct {
 	Pos
 	SVG   string        `yaml:"svg"`   // path relative to the config dir
 	Scale *units.Length `yaml:"scale"` // meters per plan unit
+	Z     *units.Length `yaml:"z"`     // elevation of the plan, meters; default 0
 }
 
 // Node is an optional node declaration. Anchors and run paths create nodes
@@ -146,10 +183,11 @@ type Run struct {
 	Controller string        `yaml:"controller"`
 	Indices    [2]int        `yaml:"indices" required:"true"` // inclusive; order = direction along path
 	Pitch      *units.Length `yaml:"pitch"`                   // overrides the layout pitch
-	Path       []string      `yaml:"path"`                    // node sequence; may be omitted if Plan labels vertices
+	Path       []string      `yaml:"path"`                    // node sequence; may be omitted if the shape labels vertices
 	Anchors    []Anchor      `yaml:"anchors"`
 	Lengths    []EdgeLength  `yaml:"lengths"` // measured lengths overriding count × pitch
 	Plan       *RunPlan      `yaml:"plan"`
+	Model      *RunModel     `yaml:"model"`
 }
 
 // Anchor sources.
@@ -181,6 +219,13 @@ type RunPlan struct {
 	Pos
 	SVG     string `yaml:"svg"`
 	Reverse bool   `yaml:"reverse"` // the drawing runs from the last pixel to the first
+}
+
+// RunModel points a run at its shape in the scene model:
+// "file.glb#run-id", naming the node by its glowstack_run extra.
+type RunModel struct {
+	Pos
+	GLB string `yaml:"glb"`
 }
 
 // Edge kinds.
@@ -475,20 +520,24 @@ const (
 // Mapping is a non-flow mapping.
 type Mapping struct {
 	Pos
-	ID     string       `yaml:"id"`
-	Kind   string       `yaml:"kind"`   // local | index | axis | radial | plan
-	Angle  *units.Angle `yaml:"angle"`  // axis: direction, 0 = +x, counter-clockwise on the plan as drawn
-	From   *PointRef    `yaml:"from"`   // axis: u = 0 here (default plan origin); with To, sets direction
-	To     *PointRef    `yaml:"to"`     // axis: direction from From
-	Center *PointRef    `yaml:"center"` // radial
-	Order  []string     `yaml:"order"`  // index: run order (default: layout order)
+	ID         string       `yaml:"id"`
+	Kind       string       `yaml:"kind"`       // local | index | axis | radial | plan
+	Angle      *units.Angle `yaml:"angle"`      // axis: horizontal direction, 0 = +x, counter-clockwise seen from above
+	Direction  []float64    `yaml:"direction"`  // axis: 3-D direction [x, y, z], Z up; [0, 0, 1] is up
+	From       *PointRef    `yaml:"from"`       // axis: u = 0 here (default origin); with To, sets direction
+	To         *PointRef    `yaml:"to"`         // axis: direction from From
+	Center     *PointRef    `yaml:"center"`     // radial
+	Horizontal bool         `yaml:"horizontal"` // radial: ignore height
+	Order      []string     `yaml:"order"`      // index: run order (default: layout order)
 }
 
-// PointRef is a node id or a plan point `[x, y]` in meters.
+// PointRef is a node id or a point `[x, y]` or `[x, y, z]` in meters. A
+// point without z has no height: distances to it are horizontal.
 type PointRef struct {
 	Pos
-	Node string
-	X, Y units.Length
+	Node    string
+	X, Y, Z units.Length
+	HasZ    bool
 }
 
 func (p *PointRef) unmarshalNode(d *decoder, n *yaml.Node) error {
@@ -496,8 +545,9 @@ func (p *PointRef) unmarshalNode(d *decoder, n *yaml.Node) error {
 	switch {
 	case n.Kind == yaml.ScalarNode:
 		p.Node = n.Value
-	case n.Kind == yaml.SequenceNode && len(n.Content) == 2:
-		for i, dst := range []*units.Length{&p.X, &p.Y} {
+	case n.Kind == yaml.SequenceNode && (len(n.Content) == 2 || len(n.Content) == 3):
+		p.HasZ = len(n.Content) == 3
+		for i, dst := range []*units.Length{&p.X, &p.Y, &p.Z}[:len(n.Content)] {
 			v := n.Content[i].Value
 			if n.Content[i].Tag == "!!int" || n.Content[i].Tag == "!!float" {
 				v += " m"
@@ -507,12 +557,12 @@ func (p *PointRef) unmarshalNode(d *decoder, n *yaml.Node) error {
 				return err
 			}
 			if l.PX {
-				return fmt.Errorf("plan points are in meters, not px")
+				return fmt.Errorf("points are in meters, not px")
 			}
 			*dst = l
 		}
 	default:
-		return fmt.Errorf("want a node id or an [x, y] point in meters")
+		return fmt.Errorf("want a node id or an [x, y] or [x, y, z] point in meters")
 	}
 	return nil
 }

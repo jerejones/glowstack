@@ -50,23 +50,23 @@ func TestPathDataLineCommands(t *testing.T) {
 		d    string
 		want []Point
 	}{
-		{"absolute L", "M0 0 L10 0 L10 10", []Point{{0, 0}, {10, 0}, {10, 10}}},
-		{"relative l", "m2 3 l10 0 l0 10", []Point{{2, 3}, {12, 3}, {12, 13}}},
-		{"implicit L repeat", "M0 0 L10 0 20 0", []Point{{0, 0}, {10, 0}, {20, 0}}},
-		{"implicit lineto after M", "M0 0 10 0 20 5", []Point{{0, 0}, {10, 0}, {20, 5}}},
-		{"implicit lineto after m is relative", "m5 5 5 0 0 5", []Point{{5, 5}, {10, 5}, {10, 10}}},
-		{"H V absolute", "M220 180 H100 V100", []Point{{220, 180}, {100, 180}, {100, 100}}},
-		{"h v relative", "M10 10 h5 v-5", []Point{{10, 10}, {15, 10}, {15, 5}}},
-		{"h repeat accumulates", "M0 0 h1 1 1", []Point{{0, 0}, {1, 0}, {2, 0}, {3, 0}}},
-		{"Z closes to subpath start", "M0 0 H10 V10 Z", []Point{{0, 0}, {10, 0}, {10, 10}, {0, 0}}},
-		{"z lowercase", "M1 1 L2 1 L2 2 z", []Point{{1, 1}, {2, 1}, {2, 2}, {1, 1}}},
-		{"multiple subpaths continue the polyline", "M0 0 L10 0 M20 0 L30 0", []Point{{0, 0}, {10, 0}, {20, 0}, {30, 0}}},
-		{"relative after Z is relative to subpath start", "M0 0 H10 V10 Z l5 5", []Point{{0, 0}, {10, 0}, {10, 10}, {0, 0}, {5, 5}}},
-		{"compact decimals", "M1.5.5L-1-2", []Point{{1.5, 0.5}, {-1, -2}}},
-		{"exponent", "M0 0L1e-3 0", []Point{{0, 0}, {0.001, 0}}},
-		{"commas and whitespace", "M 0,0 , 10 ,0,10,10", []Point{{0, 0}, {10, 0}, {10, 10}}},
+		{"absolute L", "M0 0 L10 0 L10 10", []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}}},
+		{"relative l", "m2 3 l10 0 l0 10", []Point{{2, 3, 0}, {12, 3, 0}, {12, 13, 0}}},
+		{"implicit L repeat", "M0 0 L10 0 20 0", []Point{{0, 0, 0}, {10, 0, 0}, {20, 0, 0}}},
+		{"implicit lineto after M", "M0 0 10 0 20 5", []Point{{0, 0, 0}, {10, 0, 0}, {20, 5, 0}}},
+		{"implicit lineto after m is relative", "m5 5 5 0 0 5", []Point{{5, 5, 0}, {10, 5, 0}, {10, 10, 0}}},
+		{"H V absolute", "M220 180 H100 V100", []Point{{220, 180, 0}, {100, 180, 0}, {100, 100, 0}}},
+		{"h v relative", "M10 10 h5 v-5", []Point{{10, 10, 0}, {15, 10, 0}, {15, 5, 0}}},
+		{"h repeat accumulates", "M0 0 h1 1 1", []Point{{0, 0, 0}, {1, 0, 0}, {2, 0, 0}, {3, 0, 0}}},
+		{"Z closes to subpath start", "M0 0 H10 V10 Z", []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}, {0, 0, 0}}},
+		{"z lowercase", "M1 1 L2 1 L2 2 z", []Point{{1, 1, 0}, {2, 1, 0}, {2, 2, 0}, {1, 1, 0}}},
+		{"multiple subpaths continue the polyline", "M0 0 L10 0 M20 0 L30 0", []Point{{0, 0, 0}, {10, 0, 0}, {20, 0, 0}, {30, 0, 0}}},
+		{"relative after Z is relative to subpath start", "M0 0 H10 V10 Z l5 5", []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}, {0, 0, 0}, {5, 5, 0}}},
+		{"compact decimals", "M1.5.5L-1-2", []Point{{1.5, 0.5, 0}, {-1, -2, 0}}},
+		{"exponent", "M0 0L1e-3 0", []Point{{0, 0, 0}, {0.001, 0, 0}}},
+		{"commas and whitespace", "M 0,0 , 10 ,0,10,10", []Point{{0, 0, 0}, {10, 0, 0}, {10, 10, 0}}},
 		{"shed example", "M220 180 H100 V100 L160 100 220 100",
-			[]Point{{220, 180}, {100, 180}, {100, 100}, {160, 100}, {220, 100}}},
+			[]Point{{220, 180, 0}, {100, 180, 0}, {100, 100, 0}, {160, 100, 0}, {220, 100, 0}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -114,10 +114,10 @@ func TestCubicFlattening(t *testing.T) {
 	const k = 5.5228475
 	p := parseShape(t, "M10 0 C10 "+f(k)+" "+f(k)+" 10 0 10", "")
 	last := p.Points[len(p.Points)-1]
-	if (last != Point{0, 10}) {
+	if (last != Point{0, 10, 0}) {
 		t.Errorf("endpoint = %v, want exactly (0,10)", last)
 	}
-	if (p.Points[0] != Point{10, 0}) {
+	if (p.Points[0] != Point{10, 0, 0}) {
 		t.Errorf("start = %v, want exactly (10,0)", p.Points[0])
 	}
 	want := math.Pi * 10 / 2
@@ -140,7 +140,7 @@ func TestRelativeCubic(t *testing.T) {
 	// c with all coordinates relative to the segment start.
 	p := parseShape(t, "M5 5 c0 10 10 10 10 0", "")
 	last := p.Points[len(p.Points)-1]
-	if (last != Point{15, 5}) {
+	if (last != Point{15, 5, 0}) {
 		t.Errorf("endpoint = %v, want (15,5)", last)
 	}
 }
@@ -150,7 +150,7 @@ func TestQuadraticFlattening(t *testing.T) {
 	// ∫|B'| dt = (1/20)[u/2·sqrt(100+u²) + 50·ln(u+sqrt(100+u²))] from 0 to 20.
 	want := (10*math.Sqrt(500) + 50*math.Log((20+math.Sqrt(500))/10)) / 20
 	p := parseShape(t, "M0 0 Q5 10 10 0", "")
-	if (p.Points[len(p.Points)-1] != Point{10, 0}) {
+	if (p.Points[len(p.Points)-1] != Point{10, 0, 0}) {
 		t.Errorf("endpoint = %v, want exactly (10,0)", p.Points[len(p.Points)-1])
 	}
 	if got := p.Length(); math.Abs(got-want)/want > 0.001 {
@@ -158,7 +158,7 @@ func TestQuadraticFlattening(t *testing.T) {
 	}
 	// Relative q.
 	pr := parseShape(t, "M1 1 q5 10 10 0", "")
-	if (pr.Points[len(pr.Points)-1] != Point{11, 1}) {
+	if (pr.Points[len(pr.Points)-1] != Point{11, 1, 0}) {
 		t.Errorf("relative endpoint = %v, want (11,1)", pr.Points[len(pr.Points)-1])
 	}
 }
@@ -168,7 +168,7 @@ func TestSmoothCurves(t *testing.T) {
 	// first, so the full path is twice as long as the first half.
 	half := parseShape(t, "M0 0 C0 10 10 10 10 0", "")
 	full := parseShape(t, "M0 0 C0 10 10 10 10 0 S20 -10 20 0", "")
-	if (full.Points[len(full.Points)-1] != Point{20, 0}) {
+	if (full.Points[len(full.Points)-1] != Point{20, 0, 0}) {
 		t.Errorf("S endpoint = %v, want (20,0)", full.Points[len(full.Points)-1])
 	}
 	if got, want := full.Length(), 2*half.Length(); math.Abs(got-want)/want > 0.001 {
@@ -178,7 +178,7 @@ func TestSmoothCurves(t *testing.T) {
 	// T reflects the previous quadratic control the same way.
 	qhalf := parseShape(t, "M0 0 Q5 10 10 0", "")
 	qfull := parseShape(t, "M0 0 Q5 10 10 0 T20 0", "")
-	if (qfull.Points[len(qfull.Points)-1] != Point{20, 0}) {
+	if (qfull.Points[len(qfull.Points)-1] != Point{20, 0, 0}) {
 		t.Errorf("T endpoint = %v, want (20,0)", qfull.Points[len(qfull.Points)-1])
 	}
 	if got, want := qfull.Length(), 2*qhalf.Length(); math.Abs(got-want)/want > 0.001 {
@@ -188,7 +188,7 @@ func TestSmoothCurves(t *testing.T) {
 	// S with no preceding cubic uses the current point as first control:
 	// S then behaves like a quadratic-ish curve but must still end exactly.
 	s := parseShape(t, "M0 0 S10 10 20 0", "")
-	if (s.Points[len(s.Points)-1] != Point{20, 0}) {
+	if (s.Points[len(s.Points)-1] != Point{20, 0, 0}) {
 		t.Errorf("bare S endpoint = %v, want (20,0)", s.Points[len(s.Points)-1])
 	}
 	// T with no preceding quadratic degenerates to a straight line.
@@ -200,7 +200,7 @@ func TestSmoothCurves(t *testing.T) {
 
 func TestArcQuarterCircle(t *testing.T) {
 	p := parseShape(t, "M10 0 A10 10 0 0 1 0 10", "")
-	if (p.Points[len(p.Points)-1] != Point{0, 10}) {
+	if (p.Points[len(p.Points)-1] != Point{0, 10, 0}) {
 		t.Errorf("endpoint = %v, want exactly (0,10)", p.Points[len(p.Points)-1])
 	}
 	want := math.Pi * 10 / 2
@@ -219,7 +219,7 @@ func TestArcRadiiTooSmall(t *testing.T) {
 	// rx=ry=1 cannot span a chord of 10; per F.6.6 the radii scale up to 5
 	// and the arc becomes a semicircle of radius 5.
 	p := parseShape(t, "M0 0 A1 1 0 0 0 10 0", "")
-	if (p.Points[len(p.Points)-1] != Point{10, 0}) {
+	if (p.Points[len(p.Points)-1] != Point{10, 0, 0}) {
 		t.Errorf("endpoint = %v, want exactly (10,0)", p.Points[len(p.Points)-1])
 	}
 	want := math.Pi * 5
@@ -240,10 +240,10 @@ func TestArcLargeSweepCombinations(t *testing.T) {
 		length  float64
 		midWant Point
 	}{
-		{"large=0 sweep=0", "M0 0 A10 10 0 0 0 10 0", minor, Point{5, 10 - h}},
-		{"large=0 sweep=1", "M0 0 A10 10 0 0 1 10 0", minor, Point{5, h - 10}},
-		{"large=1 sweep=0", "M0 0 A10 10 0 1 0 10 0", major, Point{5, h + 10}},
-		{"large=1 sweep=1", "M0 0 A10 10 0 1 1 10 0", major, Point{5, -h - 10}},
+		{"large=0 sweep=0", "M0 0 A10 10 0 0 0 10 0", minor, Point{5, 10 - h, 0}},
+		{"large=0 sweep=1", "M0 0 A10 10 0 0 1 10 0", minor, Point{5, h - 10, 0}},
+		{"large=1 sweep=0", "M0 0 A10 10 0 1 0 10 0", major, Point{5, h + 10, 0}},
+		{"large=1 sweep=1", "M0 0 A10 10 0 1 1 10 0", major, Point{5, -h - 10, 0}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -262,7 +262,7 @@ func TestArcLargeSweepCombinations(t *testing.T) {
 func TestArcDegenerateCases(t *testing.T) {
 	// Zero radius: a straight line to the endpoint.
 	p := parseShape(t, "M0 0 A0 5 0 0 1 10 0", "")
-	checkPoints(t, p.Points, []Point{{0, 0}, {10, 0}})
+	checkPoints(t, p.Points, []Point{{0, 0, 0}, {10, 0, 0}})
 	if got := p.Length(); !within(got, 10, 1e-9) {
 		t.Errorf("length = %g, want 10", got)
 	}
@@ -270,11 +270,11 @@ func TestArcDegenerateCases(t *testing.T) {
 	// Identical endpoints: the arc is omitted; the duplicate endpoint
 	// merges with the current point.
 	p = parseShape(t, "M3 4 A10 10 0 0 1 3 4", "")
-	checkPoints(t, p.Points, []Point{{3, 4}})
+	checkPoints(t, p.Points, []Point{{3, 4, 0}})
 
 	// Relative arc with compacted flags: a1 1 0 0110 10.
 	p = parseShape(t, "M0 0a1 1 0 0110 10", "")
-	if (p.Points[len(p.Points)-1] != Point{10, 10}) {
+	if (p.Points[len(p.Points)-1] != Point{10, 10, 0}) {
 		t.Errorf("endpoint = %v, want exactly (10,10)", p.Points[len(p.Points)-1])
 	}
 	// Radii scale up to |chord|/2 = sqrt(50): a semicircle.
@@ -286,7 +286,7 @@ func TestArcDegenerateCases(t *testing.T) {
 	// Implicit arc repeat (the full 7-value group repeats): two quarter
 	// circles around the origin.
 	p = parseShape(t, "M10 0 A10 10 0 0 1 0 10 10 10 0 0 1 -10 0", "")
-	if (p.Points[len(p.Points)-1] != Point{-10, 0}) {
+	if (p.Points[len(p.Points)-1] != Point{-10, 0, 0}) {
 		t.Errorf("endpoint = %v, want exactly (-10,0)", p.Points[len(p.Points)-1])
 	}
 	want = math.Pi * 10
@@ -310,7 +310,7 @@ func TestEllipticalArcRotated(t *testing.T) {
 	if !within(mTall.Y, -5, 0.05) {
 		t.Errorf("rotated midpoint Y = %g, want -5 (axes swapped by 90 degree rotation)", mTall.Y)
 	}
-	if (tall.Points[len(tall.Points)-1] != Point{20, 0}) {
+	if (tall.Points[len(tall.Points)-1] != Point{20, 0, 0}) {
 		t.Errorf("endpoint = %v, want exactly (20,0)", tall.Points[len(tall.Points)-1])
 	}
 }

@@ -42,8 +42,10 @@ made-up installations only.
 | **Anchor** | A statement that a particular pixel sits at a node, for example "index 402 is at node `shed-sw`". Anchors split runs into edges. |
 | **Edge** | A connection between two nodes in the layout graph. A **strip edge** carries pixels. A **gap edge** has physical length but no pixels, like a gate or doorway. A **link edge** has zero length and no pixels, and ties two nodes that aren't physically connected but should line up. |
 | **Sync point** | A node where effects must line up. Any node can be one. A link edge makes two nodes one sync point. |
-| **Plan coordinates** | Optional 2-D positions on a floor plan, in meters. Used by the live map and by spatial mappings. |
-| **Mapping** | A rule that gives every pixel a coordinate: flow distance, plan position, radius, or raw index. Effects read coordinates and never read indices. |
+| **Position** | Optional physical position of a pixel, `x, y, z` in meters with Z up. It comes from the scene model, or from a floor plan (then `z` is the plan's elevation). Used by the live map and by spatial mappings. |
+| **Scene model** | A 3-D model of the site (glTF binary, `.glb`) that carries each run's shape and the building drawn around it. Site data. |
+| **Plan coordinates** | The `x, y` part of a position. On a floor plan it is the only part known. |
+| **Mapping** | A rule that gives every pixel a coordinate: flow distance, position, radius, or raw index. Effects read coordinates and never read indices. |
 | **Flow** | A mapping kind: position along the layout graph from an origin, with edge orientations. |
 | **Flow position (`u`)** | A pixel's coordinate in a flow. Measured in meters *of the reference path*, so it equals physical distance only where nothing is stretched. |
 | **Pinned node** | A node whose `u` is fixed before edges are filled in: by the reference path, by a link to another pinned node, or by an explicit value. |
@@ -67,9 +69,9 @@ how often it changes:
 
 | File | Contents | Changes when |
 |---|---|---|
-| `glowstack.yaml` | Optional program settings: `fps`, `boot`, default `fade` times, power-limit `power: { group, release }`, `dither` | Rarely |
+| `glowstack.yaml` | Optional program settings: `fps`, `boot`, default `fade` times, power-limit `power: { group, release }`, `dither`, live map presentation `map:` | Rarely |
 | `controllers.yaml` | Controllers, outputs, transport settings | Hardware or network changes |
-| `layout.yaml` | Runs, nodes, anchors, edges, plan coordinates | Strips are repaired, moved or measured |
+| `layout.yaml` | Runs, nodes, anchors, edges, the scene model and plans that give runs their shape | Strips are repaired, moved or measured |
 | `areas.yaml` | Areas and zones, virtual device identity | Grouping changes |
 | `mappings.yaml` | Named flows and spatial mappings | New ways of looking at the house |
 | `palettes.yaml` | User palettes, adding to the built-ins | Taste |
@@ -180,6 +182,10 @@ and the solver turns that into edges.
 schema: 1
 pitch: 1/60 m                  # default LED pitch; a run may override it
 
+scene: { glb: site.glb }       # optional 3-D scene model; see "Scene models"
+plans:                         # optional floor plans
+  - { svg: plan.svg, scale: 0.05 m, z: 0 m }
+
 nodes:                         # optional declarations; anchors can create nodes too
   - { id: shed-ne, label: "shed NE corner" }
   - { id: tower-top, sync: true }
@@ -192,7 +198,8 @@ runs:
     anchors:                   # which index sits at each interior node
       - { node: shed-sw, index: 402 }
       - { node: shed-nw, index: 815 }
-    plan: { svg: "plan.svg#eave", reverse: false }   # optional
+    model: { glb: "site.glb#shed-eave" }             # optional 3-D shape
+    plan: { svg: "plan.svg#eave", reverse: false }   # optional 2-D shape
     lengths:                   # optional measured lengths between path nodes
       - { from: shed-sw, to: shed-nw, length: 6.9 m }
 
@@ -221,13 +228,19 @@ dead:                          # pixels physically present but unlit or hidden
   starts at 0, pixel *k*'s center is at *k* + ½ and the run ends at its
   pixel count. An anchor puts its node at its pixel's center. The run's two
   end nodes sit at the run's ends, so they take no anchor.
-- **Plan coordinates.** Pixels are spaced evenly along an SVG path between
-  anchors. Anchors can name SVG vertices so that corners land on corners.
-  Anchors can be estimated from the drawing (see "Drawing first, measuring
-  later").
+- **Run shape.** A run's shape is an ordered list of vertices, each with an
+  optional node id, drawn in data direction. It comes from the scene model
+  (`model:`, 3-D) or a floor plan (`plan:`, 2-D). Both feed the same solver;
+  the only difference is that model vertices have a height. When the layout
+  has a `scene:`, positions come from `model:` shapes and `plan:` shapes are
+  ignored for positions, so 2-D and 3-D never mix in one view. A run with
+  neither has no position.
+- **Positions.** Pixels are spaced evenly along the shape between anchors.
+  Anchors can name shape vertices so that corners land on corners. Anchors
+  can be estimated from the drawing (see "Drawing first, measuring later").
 - **What the solver produces.** A pixel table with, for each pixel: global
-  id, controller, index, run, edge, distance along the edge, and plan x/y if
-  known.
+  id, controller, index, run, edge, distance along the edge, and position
+  `x, y, z` if known.
 - **Validation:**
   - every pixel belongs to at most one run
   - anchors are monotone along their run
@@ -276,6 +289,50 @@ and misjudge lengths, so an error of 10–20% is normal. Glowstack reports, per
 run, the drawn length (when the plan scale is known) against the pixel-count
 length. A large mismatch suggests a missing corner, hidden slack, a jumper
 gap or a wrong pixel count.
+
+The same applies to a scene model. Its units are meters, so no scale is
+needed and the length check is always available.
+
+#### Scene models
+
+A scene model is a glTF binary (`.glb`) of the site, usually exported from a
+3-D modeling tool. It does two jobs: it gives runs their 3-D shape, and it is
+the building the live map draws around the pixels. It is site data, mounted
+with the config.
+
+**Frame.** Glowstack works in meters with Z up. glTF is Y up, so a scene
+point `(X, Y, Z)` becomes `(X, −Z, Y)` on load. The scene states its frame
+in scene-level extras, and Glowstack refuses a scene that doesn't:
+
+```json
+{ "glowstack": { "schema": 1, "units": "m", "axes": "gltf-y-up" } }
+```
+
+**Runs.** A run's shape is a glTF node with these extras:
+
+| Extra | Required | Meaning |
+|---|---|---|
+| `glowstack_run` | yes | Run id, as in `layout.yaml` |
+| `points` | yes | Ordered vertices in scene coordinates, first vertex at the run's lowest index |
+| `nodes` | yes | Comma-separated node id per vertex; empty entries leave a vertex unlabeled |
+| `controller`, `indices` | no | Checked against `layout.yaml` when present; a mismatch is a load error |
+| `basis` | no | Per-vertex provenance (`measured`, `model`, `estimated`, with a note), shown by inspect |
+
+`layout.yaml` stays the source of truth for controllers and indices; the
+model only supplies shape. `points` is authoritative: glTF doesn't promise
+to keep line vertices in order, so any line mesh on a run node is display
+only. `model: { glb: "site.glb#shed-eave" }` names the run node by its
+`glowstack_run` value.
+
+**Building.** Every other mesh in the scene is drawing. Line meshes draw as
+lines and triangle meshes as faint surfaces. Each mesh node is a **scene
+layer**, named by its node name, that the map can style and toggle (see
+"Live map"). Glowstack doesn't interpret the building; it only draws it.
+
+**Plans alongside a model.** A site can keep its floor plans for reference
+and for drawing new runs. When `scene:` is set the map shows the model, not
+the plans, and run positions come from the model. Runs not yet in the model
+are listed but not drawn.
 
 #### Calibration mode
 
@@ -404,9 +461,16 @@ they need, and a layer picks the mapping.
 | Kind | Coordinate(s) | Parameters |
 |---|---|---|
 | `flow` | `u`: graph distance from the origin | origin node, edge orientation overrides, conflict policy |
-| `axis` | `u`: plan position projected onto a direction | angle, or two reference points |
-| `radial` | `u`: plan distance from a point | center node or point |
-| `plan` | `x`, `y` | none (2-D effects) |
+| `axis` | `u`: position projected onto a direction | angle (horizontal, counter-clockwise seen from above), a 3-D `direction` vector (`[0, 0, 1]` is up), or two reference points |
+| `radial` | `u`: distance from a point | center node or point; `horizontal: true` ignores height |
+| `plan` | `x`, `y`, `z` | none (spatial effects) |
+
+Kinds that need a position cover only pixels that have one. Positions are a
+property of the pixel, so effects that read `x, y` also get `z`. A point is
+a node id, `[x, y]` or `[x, y, z]`; a point without `z` has no height, so a
+radial distance from it, or an axis toward it, is horizontal. On a site with
+only floor plans, `z` is each plan's elevation, so height-based mappings
+work but are coarse.
 | `local` | `u`: distance along each run separately | none. The "unsynced" fallback |
 | `index` | `u`: position within the target area, 0–1 | ordering of runs. Used for WLED-exact effects |
 
@@ -905,8 +969,8 @@ apply theirs a second time (see Controllers).
 
 ## Live map
 
-A web page served by Glowstack that draws every pixel on the floor plan and
-updates as it renders. It is a development tool first and an HA dashboard
+A web page served by Glowstack that draws every pixel on the site's scene
+model (or, without one, its floor plan) and updates as it renders. It is a development tool first and an HA dashboard
 later. It comes early in the build because it lets layouts and effects be
 checked without going outside.
 
@@ -914,20 +978,54 @@ checked without going outside.
   frames: 8-bit RGB per pixel in global-id order (W folded into RGB for
   display), at a capped rate (say 20 fps). 25,000 pixels is about 1.5 MB/s,
   fine on a LAN. Clients can ask for a lower rate or a subset of areas.
-- **Background.** Plan SVGs are site data, mounted with the config and never
-  committed. Pixels are drawn at their plan coordinates from the layout
-  solver. Runs with no plan geometry are listed but not drawn.
+- **Background.** The scene model or plan SVGs are site data, mounted with
+  the config and never committed. Pixels are drawn at their positions from
+  the layout solver. Runs with no position are listed but not drawn.
+- **3-D view.** With a scene model, the map is a 3-D view (WebGL, three.js
+  vendored with its license):
+  - The building draws as see-through lines over faint surfaces, without
+    depth writes, so pixels on the far side of a wall stay visible.
+  - Each pixel is a dot at its position in its live color, sized by its
+    pitch and distance, drawn far to near. An unlit pixel shows as a dim
+    blue dot, so runs still read when everything is off.
+  - Orbit, pan and zoom. Nodes, arrows and labels draw through the same
+    camera, and inspect and calibration pick the pixel nearest the pointer
+    on screen. Fit returns to the default view.
+  - Scene layers can be toggled; the choice is kept in the browser. Their look is site config in
+    `glowstack.yaml`, keyed by scene node name; unlisted layers get a
+    default. The default camera is set there too, so a site picks the view
+    it opens on. A **copy view** button puts the current camera, as YAML,
+    on the clipboard for pasting into config (over plain http, where
+    browsers block the clipboard API, it falls back to a dialog to copy
+    from). Without a `view`, the map frames the model from an elevated
+    three-quarter angle:
+
+    ```yaml
+    map:
+      view: { from: [-6, -14, 9], to: [8, 6, 2], fov: 40 }   # meters, Z up
+      auto_rotate: false
+      layers:
+        walls lines:  { color: "#cfe3ff", opacity: 0.55 }
+        walls faces:  { color: "#4b6a9a", opacity: 0.06 }
+        site lines:   { color: "#5b6b7a", opacity: 0.35, visible: true }
+    ```
+
+- **2-D view.** Without a scene model, the map draws the floor plans as
+  before. A site with a model doesn't show its plans; they stay in its
+  config folder for reference and for drawing new runs.
 - **Output optional.** `--output=none` renders without sending DDP, so the
   map works with no controllers. `--output=<controller,…>` sends to some
   (the default is `all`). `--loopback=PORT` sends to fake controllers on
   this machine instead (`cmd/fakewled`).
-- **Inspect.** Hover or tap a pixel for its controller, index, run, edge,
+- **Inspect.** Hover or tap a pixel for its controller, index, output, run, edge,
   areas, flow position `u`, stretch and which layer is showing.
 - **Diagnostic views** (overlays instead of the live frame):
   - flow position as a color ramp per mapping, with direction arrows
   - stretch per edge (blue compressed, red stretched)
   - nodes, anchors, sync points and links, labeled
   - areas and zones
+  - controllers and outputs: each output in its own color, a ring where its
+    data enters, optionally one controller at a time
   - estimated current per output and the active power-limit scale
 - **Time control** for designing effects: pause, step a frame, slow down or
   speed up, and scrub. It's the preview's clock only, so the house keeps
@@ -942,8 +1040,7 @@ checked without going outside.
   (preview layers and clock over the house; the house's own frames when
   nothing is previewed) or live, what the lights show, even while someone
   else is previewing.
-- **Later:** embedded in HA as a dashboard panel (iframe or custom card), and
-  2-D/elevation views for multi-floor runs.
+- **Later:** embedded in HA as a dashboard panel (iframe or custom card).
 
 ## Runtime components
 
@@ -977,6 +1074,10 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
 - Direction is an effect parameter. Sync points, nodes and edges are layout.
 - Layouts can start from the drawing: anchors are estimated from the plan
   and pixel counts, marked `estimated`, and refined in calibration mode.
+- Positions are 3-D, meters, Z up. A scene model (`.glb`) is the preferred
+  source of run shapes and the live map's background; floor plans remain
+  for sites without one. The model supplies shape only; `layout.yaml` keeps
+  controllers and indices.
 - Stretching and compression are part of the flow solver from the start.
   `u` is measured along a reference path, and parallel paths between pinned
   nodes conform. Each pixel also keeps its physical size, so density-type

@@ -39,7 +39,7 @@ type Coords uint8
 
 const (
 	CoordU     Coords = 1 << iota // Context.U from the layer's mapping
-	CoordXY                       // Context.X, Context.Y plan positions
+	CoordXY                       // Context.X, Context.Y, Context.Z positions
 	CoordIndex                    // Context.Index/Count (WLED-exact effects; use with the index mapping)
 	// CoordPixel reads global pixel ids directly, including pixels outside
 	// the mapping's domain. Calibration must reach unassigned pixels too.
@@ -100,7 +100,7 @@ type Context struct {
 
 	Pixels  []int32   // global pixel ids to render
 	U       []float32 // mapping coordinate (reverse and offset applied); meters, or 0–1 for index
-	X, Y    []float32 // plan position, meters (NaN if unknown); only with CoordXY
+	X, Y, Z []float32 // position, meters, Z up; only with CoordXY
 	Dl      []float32 // physical size of each pixel, meters
 	Stretch []float32 // dl/du: >1 where the flow is stretched
 	Index   []int32   // rank in the layer's full target, in mapping order

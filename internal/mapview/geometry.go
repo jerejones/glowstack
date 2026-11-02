@@ -7,9 +7,11 @@ package mapview
 import (
 	"cmp"
 	"math"
+	"sort"
 	"strconv"
 
 	"github.com/jerejones/glowstack/internal/app"
+	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/layout"
 )
 
@@ -25,6 +27,7 @@ type Geometry struct {
 	HouseFPS       float64          `json:"house_fps"` // the frame loop's rate
 	Pixels         PixelColumns     `json:"pixels"`
 	Plans          []PlanJSON       `json:"plans"`
+	Map            MapJSON          `json:"map"`
 	Controllers    []ControllerJSON `json:"controllers"`
 	Runs           []RunJSON        `json:"runs"`
 	Nodes          []NodeJSON       `json:"nodes"`
@@ -38,12 +41,13 @@ type Geometry struct {
 }
 
 // PixelColumns is the pixel table, one array per column, indexed by
-// global id. X and Y are plan meters (null where unknown); Plan, Run and
+// global id. X, Y and Z are meters, Z up (null where unknown); Plan, Run and
 // Edge are indices (-1 for none).
 type PixelColumns struct {
 	Count      int     `json:"count"`
 	X          floats  `json:"x"`
 	Y          floats  `json:"y"`
+	Z          floats  `json:"z"`
 	Plan       []int16 `json:"plan"`
 	Controller []int16 `json:"controller"`
 	Index      []int32 `json:"index"`
@@ -53,14 +57,48 @@ type PixelColumns struct {
 	Dead       []int32 `json:"dead"` // global ids of dead pixels
 }
 
-// PlanJSON is one plan SVG. Pixel and node coordinates are plan units
-// times Scale, so the SVG's viewBox in meters is ViewBox × Scale.
+// PlanJSON is one drawing: a plan SVG or the scene model. For a plan,
+// pixel and node coordinates are plan units times Scale, so the SVG's
+// viewBox in meters is ViewBox × Scale. The scene is a .glb in meters, Y up
+// (see package scene); Layers lists its drawing nodes.
 type PlanJSON struct {
-	URL            string     `json:"url"`
-	Name           string     `json:"name"`
-	ViewBox        [4]float64 `json:"view_box"` // min-x, min-y, width, height in plan units; zero if the SVG has none
-	Scale          float64    `json:"scale"`    // meters per plan unit
-	ScaleEstimated bool       `json:"scale_estimated"`
+	Kind           string      `json:"kind"` // svg | scene
+	URL            string      `json:"url"`
+	Name           string      `json:"name"`
+	Layers         []LayerJSON `json:"layers,omitempty"`
+	ViewBox        [4]float64  `json:"view_box"` // min-x, min-y, width, height in plan units; zero if the SVG has none
+	Scale          float64     `json:"scale"`    // meters per plan unit
+	ScaleEstimated bool        `json:"scale_estimated"`
+}
+
+// MapJSON is the 3-D view's presentation from glowstack.yaml `map:`.
+// View is null when the config doesn't set one; the page then frames the
+// pixels itself.
+type MapJSON struct {
+	View       *ViewJSON      `json:"view"`
+	AutoRotate bool           `json:"auto_rotate"`
+	Layers     []MapLayerJSON `json:"layers"`
+}
+
+// ViewJSON is a camera in meters, Z up.
+type ViewJSON struct {
+	From []float64 `json:"from"`
+	To   []float64 `json:"to"`
+	FOV  float64   `json:"fov"`
+}
+
+// MapLayerJSON styles one scene layer; empty fields take the default.
+type MapLayerJSON struct {
+	Name    string   `json:"name"`
+	Color   string   `json:"color,omitempty"`
+	Opacity *float64 `json:"opacity,omitempty"`
+	Visible *bool    `json:"visible,omitempty"`
+}
+
+// LayerJSON is one drawing node of the scene.
+type LayerJSON struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"` // lines | surfaces
 }
 
 type ControllerJSON struct {
@@ -107,6 +145,7 @@ type NodeJSON struct {
 	Sync  bool   `json:"sync,omitempty"`
 	X     float  `json:"x"`
 	Y     float  `json:"y"`
+	Z     float  `json:"z"`
 	Plan  int    `json:"plan"`
 	Edges []int  `json:"edges"`
 }
@@ -157,7 +196,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 		Gen: v.Gen,
 		FPS: m.opts.FPS, HouseFPS: a.Ticker.FPS(),
 		Pixels: PixelColumns{
-			Count: n, X: make(floats, n), Y: make(floats, n), Plan: make([]int16, n),
+			Count: n, X: make(floats, n), Y: make(floats, n), Z: make(floats, n), Plan: make([]int16, n),
 			Controller: make([]int16, n), Index: make([]int32, n), Run: make([]int32, n),
 			Edge: make([]int32, n), Dl: make(floats, n), Dead: []int32{},
 		},
@@ -166,7 +205,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 	for i := range l.Pixels {
 		px := &l.Pixels[i]
 		c := &g.Pixels
-		c.X[i], c.Y[i], c.Plan[i] = float64(px.X), float64(px.Y), px.Plan
+		c.X[i], c.Y[i], c.Z[i], c.Plan[i] = float64(px.X), float64(px.Y), float64(px.Z), px.Plan
 		c.Controller[i], c.Index[i], c.Run[i], c.Edge[i] = px.Controller, px.Index, px.Run, px.Edge
 		c.Dl[i] = float64(px.Dl)
 		if px.Run < 0 {
@@ -177,12 +216,19 @@ func (m *Map) geometry(v app.View) *Geometry {
 		}
 	}
 	for i, p := range l.Plans {
-		pj := PlanJSON{URL: "/api/map/plans/" + strconv.Itoa(i), Name: p.SVG, Scale: p.Scale, ScaleEstimated: p.ScaleEstimated}
+		pj := PlanJSON{Kind: "svg", URL: "/api/map/plans/" + strconv.Itoa(i), Name: p.SVG, Scale: p.Scale, ScaleEstimated: p.ScaleEstimated}
 		if p.Drawing != nil {
 			pj.ViewBox = p.Drawing.ViewBox
 		}
+		if p.IsScene() {
+			pj.Kind, pj.Name = "scene", p.GLB
+			for _, ly := range p.Scene.Layers {
+				pj.Layers = append(pj.Layers, LayerJSON{Name: ly.Name, Kind: ly.Kind})
+			}
+		}
 		g.Plans = append(g.Plans, pj)
 	}
+	g.Map = mapJSON(&v.Config.Settings.Map)
 	for _, c := range l.Controllers {
 		cj := ControllerJSON{ID: c.ID, Base: c.Base, Pixels: c.Pixels, Channels: cmp.Or(c.Config.Channels, "rgb"), Outputs: []OutputJSON{}}
 		for _, o := range c.Config.Outputs {
@@ -207,7 +253,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 	}
 	for _, nd := range l.Nodes {
 		g.Nodes = append(g.Nodes, NodeJSON{ID: nd.ID, Label: nd.Label, Sync: nd.Sync,
-			X: float(nd.X), Y: float(nd.Y), Plan: nd.Plan, Edges: nd.Edges})
+			X: float(nd.X), Y: float(nd.Y), Z: float(nd.Z), Plan: nd.Plan, Edges: nd.Edges})
 	}
 	for i := range l.Edges {
 		e := &l.Edges[i]
@@ -280,4 +326,21 @@ func edgeName(l *layout.Layout, e int32) string {
 		return ""
 	}
 	return l.Edges[e].Name(l)
+}
+
+func mapJSON(m *config.MapSettings) MapJSON {
+	out := MapJSON{AutoRotate: m.AutoRotate, Layers: []MapLayerJSON{}}
+	if w := m.View; w != nil {
+		out.View = &ViewJSON{From: w.From, To: w.To, FOV: w.FOV}
+	}
+	names := make([]string, 0, len(m.Layers))
+	for name := range m.Layers {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		l := m.Layers[name]
+		out.Layers = append(out.Layers, MapLayerJSON{Name: name, Color: l.Color, Opacity: l.Opacity, Visible: l.Visible})
+	}
+	return out
 }

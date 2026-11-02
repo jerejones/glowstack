@@ -10,7 +10,7 @@ import (
 )
 
 // Path is a shape flattened to a polyline in plan units, all transforms
-// applied. Callers must treat Points and Labels as read-only; Drawing
+// applied. Paths from a scene model are 3-D, in meters. Callers must treat Points and Labels as read-only; Drawing
 // returns the same *Path to every caller.
 type Path struct {
 	ID     string
@@ -18,6 +18,11 @@ type Path struct {
 	Labels []string // len(Labels)==len(Points); node id at labeled vertices, "" elsewhere
 
 	cum []float64 // lazily computed by Cumulative
+}
+
+// Dist is the straight-line distance between two points.
+func Dist(a, b Point) float64 {
+	return math.Sqrt((b.X-a.X)*(b.X-a.X) + (b.Y-a.Y)*(b.Y-a.Y) + (b.Z-a.Z)*(b.Z-a.Z))
 }
 
 // Length returns the total polyline length.
@@ -37,7 +42,7 @@ func (p *Path) Cumulative() []float64 {
 		cum := make([]float64, len(p.Points))
 		for i := 1; i < len(p.Points); i++ {
 			a, b := p.Points[i-1], p.Points[i]
-			cum[i] = cum[i-1] + math.Hypot(b.X-a.X, b.Y-a.Y)
+			cum[i] = cum[i-1] + Dist(a, b)
 		}
 		p.cum = cum
 	}
@@ -68,7 +73,7 @@ func (p *Path) At(dist float64) Point {
 	seg := cum[i] - cum[i-1]
 	t := (dist - cum[i-1]) / seg
 	a, b := p.Points[i-1], p.Points[i]
-	return Point{X: a.X + t*(b.X-a.X), Y: a.Y + t*(b.Y-a.Y)}
+	return Point{X: a.X + t*(b.X-a.X), Y: a.Y + t*(b.Y-a.Y), Z: a.Z + t*(b.Z-a.Z)}
 }
 
 // Reversed returns a new Path with points and labels in reverse order. The

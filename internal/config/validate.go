@@ -8,6 +8,7 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jerejones/glowstack/internal/units"
@@ -133,6 +134,29 @@ func (v *validator) settings(s *Settings) {
 		on := true
 		s.Dither = &on
 	}
+	if w := s.Map.View; w != nil {
+		if len(w.From) != 3 || len(w.To) != 3 {
+			v.errorf(w.Pos, "map view: from and to want [x, y, z] in meters")
+		} else if w.From[0] == w.To[0] && w.From[1] == w.To[1] && w.From[2] == w.To[2] {
+			v.errorf(w.Pos, "map view: from and to are the same point")
+		}
+		if w.FOV == 0 {
+			w.FOV = 40
+		}
+		if w.FOV < 1 || w.FOV > 170 {
+			v.errorf(w.Pos, "map view: fov %v out of range (degrees)", w.FOV)
+		}
+	}
+	for name, l := range s.Map.Layers {
+		if l.Color != "" {
+			if _, err := units.ParseColor(l.Color); err != nil || len(l.Color) != 7 {
+				v.errorf(l.Pos, "map layer %q: color wants #rrggbb", name)
+			}
+		}
+		if l.Opacity != nil && (*l.Opacity < 0 || *l.Opacity > 1) {
+			v.errorf(l.Pos, "map layer %q: opacity must be 0–1", name)
+		}
+	}
 }
 
 func (v *validator) controllers(cs []Controller) {
@@ -188,11 +212,17 @@ func (v *validator) layout(c *Config) {
 	}
 	unique(v, "node", l.Nodes, func(n *Node) (string, Pos) { return n.ID, n.Pos })
 	unique(v, "run", l.Runs, func(r *Run) (string, Pos) { return r.ID, r.Pos })
+	if l.Scene != nil {
+		v.required(l.Scene.Pos, "glb", l.Scene.GLB)
+	}
 	for i := range l.Plans {
 		p := &l.Plans[i]
 		v.required(p.Pos, "svg", p.SVG)
 		if p.Scale != nil && (p.Scale.PX || p.Scale.Value <= 0) {
 			v.errorf(p.Pos, "plan scale must be a positive length in meters per plan unit")
+		}
+		if p.Z != nil && p.Z.PX {
+			v.errorf(p.Pos, "plan z must be a length in meters")
 		}
 	}
 	for i := range l.Runs {
@@ -214,8 +244,8 @@ func (v *validator) layout(c *Config) {
 		if len(r.Path) == 1 {
 			v.errorf(r.Pos, "run %q: path needs at least two nodes (its two ends)", r.ID)
 		}
-		if len(r.Path) == 0 && r.Plan == nil {
-			v.errorf(r.Pos, "run %q: give a path, or a plan whose vertices are labeled", r.ID)
+		if len(r.Path) == 0 && r.Plan == nil && r.Model == nil {
+			v.errorf(r.Pos, "run %q: give a path, or a plan or model whose vertices are labeled", r.ID)
 		}
 		lo, hi := min(r.Indices[0], r.Indices[1]), max(r.Indices[0], r.Indices[1])
 		for j := range r.Anchors {
@@ -239,6 +269,14 @@ func (v *validator) layout(c *Config) {
 		}
 		if r.Plan != nil {
 			v.required(r.Plan.Pos, "svg", r.Plan.SVG)
+		}
+		if r.Model != nil && v.required(r.Model.Pos, "glb", r.Model.GLB) {
+			file, _, _ := strings.Cut(r.Model.GLB, "#")
+			if l.Scene == nil {
+				v.errorf(r.Model.Pos, "run %q: model needs the layout's `scene: { glb: %s }`", r.ID, file)
+			} else if file != l.Scene.GLB {
+				v.errorf(r.Model.Pos, "run %q: model %q isn't the layout's scene %q", r.ID, file, l.Scene.GLB)
+			}
 		}
 	}
 	for i := range l.Edges {
@@ -464,8 +502,21 @@ func (v *validator) mapping(m *Mapping) {
 	v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindPlan)
 	switch m.Kind {
 	case KindAxis:
-		if (m.Angle == nil) == (m.To == nil) {
-			v.errorf(m.Pos, "axis mapping %q: give either angle or from+to", m.ID)
+		given := 0
+		for _, set := range []bool{m.Angle != nil, m.Direction != nil, m.To != nil} {
+			if set {
+				given++
+			}
+		}
+		if given != 1 {
+			v.errorf(m.Pos, "axis mapping %q: give one of angle, direction or from+to", m.ID)
+		}
+		if m.Direction != nil {
+			if len(m.Direction) != 3 {
+				v.errorf(m.Pos, "axis mapping %q: direction wants [x, y, z]", m.ID)
+			} else if m.Direction[0] == 0 && m.Direction[1] == 0 && m.Direction[2] == 0 {
+				v.errorf(m.Pos, "axis mapping %q: direction can't be [0, 0, 0]", m.ID)
+			}
 		}
 		if m.To != nil && m.From == nil {
 			v.errorf(m.Pos, "axis mapping %q: to needs from", m.ID)
@@ -474,6 +525,9 @@ func (v *validator) mapping(m *Mapping) {
 		if m.Center == nil {
 			v.errorf(m.Pos, "radial mapping %q: missing center", m.ID)
 		}
+	}
+	if m.Horizontal && m.Kind != KindRadial {
+		v.errorf(m.Pos, "mapping %q: horizontal applies only to radial mappings", m.ID)
 	}
 }
 

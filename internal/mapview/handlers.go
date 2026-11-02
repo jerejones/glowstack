@@ -65,8 +65,8 @@ func (m *Map) handleGeometry(w http.ResponseWriter, r *http.Request) {
 	w.Write(m.state().geom)
 }
 
-// handlePlan serves a plan SVG named in layout.yaml from the config
-// folder. Only those files are served. Browsers load it as an <img>, so
+// handlePlan serves a plan SVG or the scene model named in layout.yaml
+// from the config folder. Only those files are served. Browsers load it as an <img>, so
 // any script in it doesn't run.
 func (m *Map) handlePlan(w http.ResponseWriter, r *http.Request) {
 	v := m.state().View
@@ -75,12 +75,17 @@ func (m *Map) handlePlan(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusNotFound, "no plan %q", r.PathValue("n"))
 		return
 	}
-	b, err := os.ReadFile(filepath.Join(v.Config.Dir, v.Layout.Plans[n].SVG))
+	p := &v.Layout.Plans[n]
+	name, ctype := p.SVG, "image/svg+xml"
+	if p.IsScene() {
+		name, ctype = p.GLB, "model/gltf-binary"
+	}
+	b, err := os.ReadFile(filepath.Join(v.Config.Dir, name))
 	if err != nil {
 		httpError(w, http.StatusNotFound, "plan %d: %v", n, err)
 		return
 	}
-	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Security-Policy", "script-src 'none'")
 	w.Write(b)
@@ -144,6 +149,7 @@ type PixelJSON struct {
 	Dl         float        `json:"dl"`       // physical size, meters
 	X          float        `json:"x"`
 	Y          float        `json:"y"`
+	Z          float        `json:"z"`
 	Dead       bool         `json:"dead,omitempty"`
 	Areas      []string     `json:"areas"`
 	Zones      []string     `json:"zones"`
@@ -204,7 +210,7 @@ func (m *Map) inspect(v app.View, p int32, show string) *PixelJSON {
 	out := &PixelJSON{
 		ID: p, Controller: l.Controllers[px.Controller].ID, Index: px.Index, RunPixel: -1,
 		Edge: edgeName(l, px.Edge), Dist: float(px.Dist), RunDist: float(px.RunDist), Dl: float(px.Dl),
-		X: float(px.X), Y: float(px.Y), Dead: px.Dead, Areas: l.AreasOf(p), Zones: []string{},
+		X: float(px.X), Y: float(px.Y), Z: float(px.Z), Dead: px.Dead, Areas: l.AreasOf(p), Zones: []string{},
 	}
 	if out.Areas == nil {
 		out.Areas = []string{}

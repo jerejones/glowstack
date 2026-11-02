@@ -50,10 +50,10 @@ type eval struct {
 
 // gather holds per-frame copies of geometry for partially covered layers.
 type gather struct {
-	pix             []int32
-	u, x, y, dl, st []float32
-	index           []int32
-	idx             []int32
+	pix                []int32
+	u, x, y, z, dl, st []float32
+	index              []int32
+	idx                []int32
 }
 
 // NewCompositor returns a compositor for n pixels.
@@ -183,12 +183,12 @@ func (c *Compositor) renderEffect(f clock.Frame, L *Layer, e *eval, idx []int32)
 	}
 	all := L.Def.Stateful || len(idx) == len(g.Pixels)
 	if all {
-		ctx.Pixels, ctx.U, ctx.X, ctx.Y = g.Pixels, g.U, g.X, g.Y
+		ctx.Pixels, ctx.U, ctx.X, ctx.Y, ctx.Z = g.Pixels, g.U, g.X, g.Y, g.Z
 		ctx.Dl, ctx.Stretch, ctx.Index = g.Dl, g.Stretch, g.Index
 	} else {
 		s := &c.scratch
 		s.pix, s.u, s.dl, s.st, s.index = s.pix[:0], s.u[:0], s.dl[:0], s.st[:0], s.index[:0]
-		s.x, s.y = s.x[:0], s.y[:0]
+		s.x, s.y, s.z = s.x[:0], s.y[:0], s.z[:0]
 		for _, i := range idx {
 			s.pix = append(s.pix, g.Pixels[i])
 			s.u = append(s.u, g.U[i])
@@ -198,11 +198,12 @@ func (c *Compositor) renderEffect(f clock.Frame, L *Layer, e *eval, idx []int32)
 			if g.X != nil {
 				s.x = append(s.x, g.X[i])
 				s.y = append(s.y, g.Y[i])
+				s.z = append(s.z, g.Z[i])
 			}
 		}
 		ctx.Pixels, ctx.U, ctx.Dl, ctx.Stretch, ctx.Index = s.pix, s.u, s.dl, s.st, s.index
 		if g.X != nil {
-			ctx.X, ctx.Y = s.x, s.y
+			ctx.X, ctx.Y, ctx.Z = s.x, s.y, s.z
 		}
 	}
 	out := grow(&e.full, len(ctx.Pixels))

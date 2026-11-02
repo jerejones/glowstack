@@ -36,6 +36,10 @@ body.nopanel #panel { display: none; }
 
 main { grid-area: main; position: relative; min-height: 0; }
 canvas#map { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+canvas#gl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; display: none; }
+body.scene3d canvas#gl { display: block; }
+body.scene3d canvas#map { cursor: grab; }
+.layers { display: flex; flex-direction: column; gap: 4px; }
 
 #legend {
   position: absolute; left: 8px; bottom: 8px; padding: 6px 8px; border-radius: 6px;

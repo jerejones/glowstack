@@ -122,6 +122,16 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 			`controllers.yaml:2: want a list, got a value`},
 		{"gap without length", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nedges:\n  - { kind: gap, from: a, to: b }\n"},
 			`layout.yaml:4: gap a–b needs a positive length`},
+		{"axis given twice", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: up, kind: axis, angle: 0 deg, direction: [0, 0, 1] }\n"},
+			`mappings.yaml:3: axis mapping "up": give one of angle, direction or from+to`},
+		{"zero direction", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: up, kind: axis, direction: [0, 0, 0] }\n"},
+			`mappings.yaml:3: axis mapping "up": direction can't be [0, 0, 0]`},
+		{"horizontal axis", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: up, kind: axis, direction: [0, 0, 1], horizontal: true }\n"},
+			`mappings.yaml:3: mapping "up": horizontal applies only to radial mappings`},
+		{"4-d point", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: r, kind: radial, center: [1, 2, 3, 4] }\n"},
+			`want a node id or an [x, y] or [x, y, z] point`},
+		{"scene model without scene", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, indices: [0, 9], model: { glb: \"s.glb#a\" } }\n"},
+			"layout.yaml:4: run \"a\": model needs the layout's `scene: { glb: s.glb }`"},
 		{"reserved mapping id", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: local, kind: local }\n"},
 			`mappings.yaml:3: mapping id "local" is built in`},
 	}
@@ -139,6 +149,22 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 				t.Errorf("error:\n%v\nwant it to contain %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestPointRefWithHeight(t *testing.T) {
+	cfg, err := Load(writeConfig(t, map[string]string{MappingsFileName: "schema: 1\nmappings:\n" +
+		"  - { id: r, kind: radial, center: [1, 2, 3.5], horizontal: true }\n" +
+		"  - { id: up, kind: axis, direction: [0, 0, 1] }\n"}), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := cfg.Mappings[0].Center
+	if !c.HasZ || c.X.Value != 1 || c.Y.Value != 2 || c.Z.Value != 3.5 || !cfg.Mappings[0].Horizontal {
+		t.Errorf("center = %+v", c)
+	}
+	if d := cfg.Mappings[1].Direction; len(d) != 3 || d[2] != 1 {
+		t.Errorf("direction = %v", d)
 	}
 }
 

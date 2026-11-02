@@ -49,11 +49,16 @@ func (b *builder) run(cr *config.Run) {
 		return
 	}
 
-	if cr.Plan != nil {
-		r.Plan, r.PlanPath = b.runPlan(cr)
-		if r.PlanPath != nil {
-			r.DrawnLength = r.PlanPath.Length()
+	switch {
+	case b.cfg.Layout.Scene != nil:
+		if cr.Model != nil {
+			r.Plan, r.PlanPath = b.runModel(cr, &r)
 		}
+	case cr.Plan != nil:
+		r.Plan, r.PlanPath = b.runPlan(cr)
+	}
+	if r.PlanPath != nil {
+		r.DrawnLength = r.PlanPath.Length()
 	}
 	anchors := b.runPath(cr, &r)
 	if anchors == nil {
@@ -103,26 +108,66 @@ func (b *builder) claimPixels(r *Run, ci int) bool {
 func (b *builder) runPlan(cr *config.Run) (int, *plan.Path) {
 	file, id, ok := strings.Cut(cr.Plan.SVG, "#")
 	if !ok || id == "" || file == "" {
-		b.errorf(cr.Plan.Pos, "run %s: plan svg %q: want file.svg#path-id", cr.ID, cr.Plan.SVG)
+		b.errorf(b.shapePos(cr), "run %s: plan svg %q: want file.svg#path-id", cr.ID, cr.Plan.SVG)
 		return -1, nil
 	}
-	pi := b.plan(file, cr.Plan.Pos)
+	pi := b.plan(file, b.shapePos(cr))
 	if pi < 0 {
 		return -1, nil
 	}
 	p, err := b.l.Plans[pi].Drawing.Path(id)
 	if err != nil {
-		b.errorf(cr.Plan.Pos, "run %s: %v", cr.ID, err)
+		b.errorf(b.shapePos(cr), "run %s: %v", cr.ID, err)
 		return -1, nil
 	}
 	if cr.Plan.Reverse {
 		p = p.Reversed()
 	}
 	if p.Length() == 0 {
-		b.errorf(cr.Plan.Pos, "run %s: drawn path %q has no length", cr.ID, id)
+		b.errorf(b.shapePos(cr), "run %s: drawn path %q has no length", cr.ID, id)
 		return -1, nil
 	}
 	return pi, p
+}
+
+// runModel takes the run's shape from the scene model, checking what the
+// model says about the run against layout.yaml.
+func (b *builder) runModel(cr *config.Run, r *Run) (int, *plan.Path) {
+	pos := cr.Model.Pos
+	_, id, ok := strings.Cut(cr.Model.GLB, "#")
+	if !ok || id == "" {
+		b.errorf(pos, "run %s: model glb %q: want file.glb#run-id", cr.ID, cr.Model.GLB)
+		return -1, nil
+	}
+	if b.scene < 0 {
+		return -1, nil // the scene failed to load; reported
+	}
+	sr := b.l.Plans[b.scene].Scene.Runs[id]
+	if sr == nil {
+		b.errorf(pos, "run %s: the scene has no run %q (a node with glowstack_run: %s)", cr.ID, id, id)
+		return -1, nil
+	}
+	if sr.Controller != "" && sr.Controller != cr.Controller {
+		b.errorf(pos, "run %s: the scene says controller %q, layout.yaml says %q", cr.ID, sr.Controller, cr.Controller)
+		return -1, nil
+	}
+	if sr.Indices != nil && *sr.Indices != cr.Indices {
+		b.errorf(pos, "run %s: the scene says indices %d-%d, layout.yaml says %d-%d", cr.ID,
+			sr.Indices[0], sr.Indices[1], cr.Indices[0], cr.Indices[1])
+		return -1, nil
+	}
+	return b.scene, sr.Path
+}
+
+// shapePos is where the run's shape is configured, for messages.
+func (b *builder) shapePos(cr *config.Run) config.Pos {
+	switch {
+	case b.cfg.Layout.Scene != nil && cr.Model != nil:
+		return cr.Model.Pos
+	case b.cfg.Layout.Scene == nil && cr.Plan != nil:
+		return cr.Plan.Pos
+	}
+	return cr.Pos
 }
 
 // runPath works out the run's node sequence and returns one pathAnchor per
@@ -149,14 +194,18 @@ func (b *builder) runPath(cr *config.Run, r *Run) []pathAnchor {
 	} else if pp != nil {
 		first, last := pp.Labels[0], pp.Labels[len(pp.Labels)-1]
 		if first == ids[len(ids)-1] && last == ids[0] && first != last {
-			b.errorf(cr.Plan.Pos, "run %s: the drawing runs from %s to %s, against the run's direction; set `reverse: true`", cr.ID, first, last)
+			msg := "set `reverse: true`"
+			if r.Plan == b.scene {
+				msg = "redraw it from the first pixel"
+			}
+			b.errorf(b.shapePos(cr), "run %s: the drawing runs from %s to %s, against the run's direction; %s", cr.ID, first, last, msg)
 			return nil
 		}
 		if first != "" && first != ids[0] {
-			b.warnf(cr.Plan.Pos, "run %s: drawing starts at %q but the run's path starts at %q", cr.ID, first, ids[0])
+			b.warnf(b.shapePos(cr), "run %s: drawing starts at %q but the run's path starts at %q", cr.ID, first, ids[0])
 		}
 		if last != "" && last != ids[len(ids)-1] {
-			b.warnf(cr.Plan.Pos, "run %s: drawing ends at %q but the run's path ends at %q", cr.ID, last, ids[len(ids)-1])
+			b.warnf(b.shapePos(cr), "run %s: drawing ends at %q but the run's path ends at %q", cr.ID, last, ids[len(ids)-1])
 		}
 	}
 
@@ -250,7 +299,7 @@ func (b *builder) solveAnchors(cr *config.Run, r *Run, anchors []pathAnchor) boo
 			continue
 		}
 		if anchors[j].drawn <= anchors[prevDrawn].drawn {
-			b.errorf(cr.Plan.Pos, "run %s: the drawing labels %q out of order relative to %q", cr.ID,
+			b.errorf(b.shapePos(cr), "run %s: the drawing labels %q out of order relative to %q", cr.ID,
 				b.l.Nodes[anchors[j].node].ID, b.l.Nodes[anchors[prevDrawn].node].ID)
 			return false
 		}
@@ -285,7 +334,7 @@ func (b *builder) solveAnchors(cr *config.Run, r *Run, anchors []pathAnchor) boo
 		}
 		dl, dh := anchors[lo].drawn, anchors[hi].drawn
 		if a.drawn < dl || a.drawn > dh {
-			b.errorf(cr.Plan.Pos, "run %s: the drawing labels %q out of order relative to %q and %q", cr.ID, name,
+			b.errorf(b.shapePos(cr), "run %s: the drawing labels %q out of order relative to %q and %q", cr.ID, name,
 				b.l.Nodes[anchors[lo].node].ID, b.l.Nodes[anchors[hi].node].ID)
 			return false
 		}
@@ -400,7 +449,7 @@ func (b *builder) placeRun(ri int) {
 	if r.PlanPath == nil {
 		return
 	}
-	scale := b.l.Plans[r.Plan].Scale
+	scale, z0 := b.l.Plans[r.Plan].Scale, b.l.Plans[r.Plan].Z
 	// Knots: (cell position, drawn distance) for the ends and labeled nodes.
 	var ats, ds []float64
 	for _, a := range r.Anchors {
@@ -431,7 +480,7 @@ func (b *builder) placeRun(ri int) {
 	for k := range r.Count {
 		p := r.PlanPath.At(at2drawn(float64(k) + 0.5))
 		px := &b.l.Pixels[r.Pixel(b.l, k)]
-		px.X, px.Y, px.Plan = float32(p.X*scale), float32(p.Y*scale), int16(r.Plan)
+		px.X, px.Y, px.Z, px.Plan = float32(p.X*scale), float32(p.Y*scale), float32(z0+p.Z*scale), int16(r.Plan)
 	}
 	for _, a := range r.Anchors {
 		n := &b.l.Nodes[a.Node]
@@ -439,7 +488,7 @@ func (b *builder) placeRun(ri int) {
 			continue
 		}
 		p := r.PlanPath.At(at2drawn(a.At))
-		n.X, n.Y, n.Plan = p.X*scale, p.Y*scale, r.Plan
+		n.X, n.Y, n.Z, n.Plan = p.X*scale, p.Y*scale, z0+p.Z*scale, r.Plan
 	}
 }
 

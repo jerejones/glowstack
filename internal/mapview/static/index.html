@@ -12,6 +12,12 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 <title>Glowstack live map</title>
 <link rel="stylesheet" href="map.css">
 <link rel="stylesheet" href="calibrate.css">
+<script type="importmap">
+{ "imports": {
+  "three": "./third_party/three/build/three.module.min.js",
+  "three/addons/": "./third_party/three/addons/"
+} }
+</script>
 </head>
 <body>
 <header id="bar">
@@ -26,20 +32,24 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
       <option value="flow">Flow position (u)</option>
       <option value="stretch">Stretch</option>
       <option value="areas">Areas &amp; zones</option>
+      <option value="outputs">Controllers &amp; outputs</option>
     </select>
   </label>
   <label id="mappingWrap" hidden>Mapping <select id="mapping"></select></label>
   <label id="areaWrap" hidden>Show <select id="areaPick"></select></label>
+  <label id="outputWrap" hidden>Show <select id="outputPick"><option value="">all controllers</option></select></label>
   <label id="planWrap" hidden>Plan <select id="plan"></select></label>
   <label class="check"><input type="checkbox" id="showNodes"> Nodes</label>
   <label class="check"><input type="checkbox" id="showLabels"> Labels</label>
   <span class="grow"></span>
+  <button id="copyView" hidden title="Copy this camera as glowstack.yaml map: view">Copy view</button>
   <button id="fit" title="Fit to screen">Fit</button>
   <button id="calToggle" title="Calibration">Calibrate</button>
   <button id="panelToggle" title="Panel">☰</button>
 </header>
 
 <main>
+  <canvas id="gl"></canvas>
   <canvas id="map"></canvas>
   <div id="legend"></div>
 </main>
@@ -86,8 +96,13 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
     <div id="streamInfo" class="muted"></div>
   </section>
 
+  <section id="layersSec" hidden>
+    <h2>Model layers</h2>
+    <div id="layers" class="layers"></div>
+  </section>
+
   <section id="undrawnSec">
-    <h2>Not on the plan</h2>
+    <h2 id="undrawnTitle">Not on the plan</h2>
     <ul id="undrawn" class="muted"></ul>
   </section>
 </aside>
@@ -104,5 +119,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 <script src="map.js"></script>
 <script src="calibrate.js"></script>
+<script type="module" src="scene.js"></script>
 </body>
 </html>

@@ -2,8 +2,11 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-// The Glowstack live map. Plain JS, no build step. World coordinates are
-// plan meters (y down, as in the SVG); the view maps them to the canvas.
+// The Glowstack live map. Plain JS, no build step. On an SVG plan, world
+// coordinates are plan meters (y down, as in the SVG) and the view maps
+// them to the canvas. With a scene model, scene.js draws the building in
+// 3-D on a canvas below this one, and everything here (pixels, nodes,
+// labels, picking) draws through its camera.
 'use strict';
 
 const $ = (id) => document.getElementById(id);
@@ -17,6 +20,10 @@ const S = {
   plan: 0,              // plan index shown
   drawable: [],         // global ids on the current plan
   planImg: null,
+  three: null,          // scene.js view when the plan is a scene model
+  proj: null,           // its projection for the frame being drawn
+  scr: null,            // 3-D: screen x, y and depth per pixel, this frame
+  shown: [],            // 3-D: drawable pixels in front of the camera, far first
   view: { k: 50, tx: 0, ty: 0 }, // screen = world * k + t (CSS px)
   mode: 'live',
   mappingId: '',
@@ -101,10 +108,13 @@ async function main() {
     opt($('streamArea'), a.id);
   }
   for (const z of g.zones) opt($('areaPick'), 'zone:' + z.id, `zone ${z.id}`);
+  for (const c of g.controllers) opt($('outputPick'), c.id, `controller ${c.id}`);
   S.pick = $('areaPick').value;
   for (const e of g.effects) opt($('pLook'), 'effect:' + e.id, `effect ${e.name || e.id}`);
   for (const p of g.presets) opt($('pLook'), 'preset:' + p.id, `preset ${p.name || p.id}`);
 
+  const isScene = g.plans.some((p) => p.kind === 'scene');
+  $('undrawnTitle').textContent = isScene ? 'Not in the model' : 'Not on the plan';
   const undrawn = g.runs.filter((r) => r.plan < 0);
   $('undrawn').innerHTML = undrawn.length
     ? undrawn.map((r) => `<li>run <b>${esc(r.id)}</b>: ${r.count} px on ${esc(g.controllers[r.controller].id)}</li>`).join('')
@@ -126,7 +136,9 @@ async function selectPlan(i) {
   for (let p = 0; p < S.n; p++) if (g.pixels.plan[p] === i && g.pixels.x[p] !== null) S.drawable.push(p);
   S.planImg = null;
   const plan = g.plans[i];
-  if (plan) {
+  if (plan && plan.kind === 'scene') {
+    await openScene(plan);
+  } else if (plan) {
     const img = new Image();
     img.onload = () => { S.planImg = img; markDirty(); };
     img.src = plan.url;
@@ -135,9 +147,71 @@ async function selectPlan(i) {
   fit();
 }
 
+// sceneModule waits for scene.js, a module, which loads after this script.
+function sceneModule() {
+  if (window.GlowScene) return Promise.resolve(window.GlowScene);
+  return new Promise((resolve, reject) => {
+    document.addEventListener('glowstack:scene', () => resolve(window.GlowScene), { once: true });
+    setTimeout(() => reject(new Error('the 3-D view (scene.js) did not load')), 15000);
+  });
+}
+
+async function openScene(plan) {
+  const px = S.geo.pixels;
+  const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+  for (const p of S.drawable) {
+    [px.x[p], px.y[p], px.z[p] || 0].forEach((v, k) => { lo[k] = Math.min(lo[k], v); hi[k] = Math.max(hi[k], v); });
+  }
+  const mod = await sceneModule();
+  S.scr = new Float32Array(S.n * 3);
+  S.three = await mod.open($('gl'), canvas, {
+    url: plan.url,
+    layers: plan.layers || [],
+    map: S.geo.map || {},
+    bounds: isFinite(lo[0]) ? [lo, hi] : null,
+    onChange: markDirty,
+  });
+  document.body.classList.add('scene3d');
+  $('copyView').hidden = false;
+  $('fit').title = 'Back to the default view';
+  const box = $('layers');
+  box.innerHTML = '';
+  for (const l of S.three.layers) {
+    const lab = document.createElement('label');
+    lab.className = 'check';
+    lab.innerHTML = `<input type="checkbox"${l.visible ? ' checked' : ''}> ${esc(l.name)} <small class="muted">${esc(l.kind)}</small>`;
+    lab.querySelector('input').onchange = (e) => S.three.setVisible(l.name, e.target.checked);
+    box.appendChild(lab);
+  }
+  $('layersSec').hidden = S.three.layers.length === 0;
+}
+
+// copyView puts the camera on the clipboard as glowstack.yaml `map:`.
+// The clipboard API needs a secure context; plain http falls back to a
+// selection copy, then to a prompt the text can be copied from.
+async function copyView() {
+  const text = S.three.view();
+  const b = $('copyView');
+  const done = (msg) => { b.textContent = msg; setTimeout(() => { b.textContent = 'Copy view'; }, 1500); };
+  try {
+    await navigator.clipboard.writeText(text);
+    return done('Copied');
+  } catch (e) { /* fall back */ }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+  ta.remove();
+  if (ok) return done('Copied');
+  prompt('Copy this into glowstack.yaml:', text);
+}
+
 function planRect() {
   const p = S.geo.plans[S.plan];
-  if (!p) return null;
+  if (!p || p.kind === 'scene') return null;
   let [x, y, w, h] = p.view_box;
   if (!(w > 0 && h > 0)) {
     if (!S.planImg) return null;
@@ -151,9 +225,11 @@ function resize() {
   const r = canvas.getBoundingClientRect();
   canvas.width = Math.round(r.width * dpr);
   canvas.height = Math.round(r.height * dpr);
+  if (S.three) S.three.resize(r.width, r.height, dpr);
 }
 
 function fit() {
+  if (S.three) { S.three.reset(); return; }
   const g = S.geo, px = g.pixels;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const p of S.drawable) {
@@ -199,8 +275,14 @@ function draw() {
   const { k, tx, ty } = S.view;
   const g = S.geo, px = g.pixels;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = '#0d0e10';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (S.three) {
+    // The building is on the GL canvas below; this one stays clear.
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    S.proj = S.three.render();
+  } else {
+    ctx.fillStyle = '#0d0e10';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const r = planRect();
@@ -211,7 +293,8 @@ function draw() {
   // Pixels: squares sized to their physical pitch, at least 2 CSS px.
   const col = S.mode === 'live' ? S.rgb : S.overlay;
   const dead = new Set(px.dead);
-  for (const p of S.drawable) {
+  if (S.three) drawPixels3D(col, dead);
+  else for (const p of S.drawable) {
     const s = Math.min(Math.max((px.dl[p] || 0.03) * k * 0.85, 3), 16);
     const x = px.x[p] * k + tx, y = px.y[p] * k + ty;
     if (x < -s || y < -s || x > canvas.clientWidth + s || y > canvas.clientHeight + s) continue;
@@ -231,16 +314,62 @@ function draw() {
 
   if (S.mode === 'flow') drawArrows();
   if (S.mode === 'stretch') drawStretchLabels();
+  if (S.mode === 'outputs') drawOutputStarts();
   if (S.showNodes) drawNodes();
   for (const [p, c] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
     if (p < 0 || px.plan[p] !== S.plan) continue;
-    const x = px.x[p] * k + tx, y = px.y[p] * k + ty;
+    const q = pxScreen(p);
+    if (!q) continue;
+    const [x, y] = q;
     ctx.strokeStyle = c; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(x, y, 9, 0, 2 * Math.PI); ctx.stroke();
   }
 }
 
-const toScreen = (x, y) => [x * S.view.k + S.view.tx, y * S.view.k + S.view.ty];
+// drawPixels3D draws the pixels as dots sized by their pitch and depth,
+// far ones first. It keeps each pixel's screen position for picking.
+function drawPixels3D(col, dead) {
+  const px = S.geo.pixels, scr = S.scr, cw = canvas.clientWidth, ch = canvas.clientHeight;
+  const shown = [];
+  for (const p of S.drawable) {
+    const q = toScreen(px.x[p], px.y[p], px.z[p]);
+    if (!q || q[0] < -20 || q[1] < -20 || q[0] > cw + 20 || q[1] > ch + 20) continue;
+    scr[3 * p] = q[0]; scr[3 * p + 1] = q[1]; scr[3 * p + 2] = q[2];
+    shown.push(p);
+  }
+  shown.sort((a, b) => scr[3 * b + 2] - scr[3 * a + 2]);
+  S.shown = shown;
+  for (const p of shown) {
+    const x = scr[3 * p], y = scr[3 * p + 1];
+    const s = Math.min(Math.max((px.dl[p] || 0.03) * S.proj.ppm / scr[3 * p + 2] * 0.9, 2), 14);
+    if (dead.has(p)) {
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
+      ctx.strokeRect(x - s / 2, y - s / 2, s, s);
+      continue;
+    }
+    let cr = 0, cg = 0, cb = 0;
+    if (col) { cr = col[3 * p]; cg = col[3 * p + 1]; cb = col[3 * p + 2]; }
+    // Unlit pixels show as dim blue, so the runs read against the model.
+    if (cr + cg + cb < 24) { cr = 45; cg = 82; cb = 175; }
+    ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
+    if (s < 4) { ctx.fillRect(x - s / 2, y - s / 2, s, s); continue; }
+    ctx.beginPath(); ctx.arc(x, y, s / 2, 0, 2 * Math.PI); ctx.fill();
+  }
+}
+
+// toScreen maps a world position to CSS px. In 3-D it also returns the
+// view depth, or null behind the camera; z is ignored on an SVG plan.
+function toScreen(x, y, z) {
+  if (!S.three) return [x * S.view.k + S.view.tx, y * S.view.k + S.view.ty];
+  const m = S.proj.m;
+  z = z || 0;
+  const cx = m[0] * x + m[4] * y + m[8] * z + m[12];
+  const cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+  const cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+  if (cw < S.proj.near) return null;
+  return [(cx / cw + 1) * 0.5 * S.proj.w, (1 - cy / cw) * 0.5 * S.proj.h, cw];
+}
+const pxScreen = (p) => toScreen(S.geo.pixels.x[p], S.geo.pixels.y[p], S.geo.pixels.z[p]);
 
 // edgePixels groups the drawable pixels by strip edge.
 let edgePixelsCache = null;
@@ -267,11 +396,10 @@ function drawArrows() {
     const ps = pixels.filter((p) => m.u[p] !== null).sort((a, b) => m.u[a] - m.u[b]);
     if (ps.length < 4) continue;
     const i = Math.floor(ps.length / 2);
-    const a = ps[i - 1], b = ps[i + 1];
-    const [x0, y0] = toScreen(px.x[a], px.y[a]);
-    const [x1, y1] = toScreen(px.x[b], px.y[b]);
-    const ang = Math.atan2(y1 - y0, x1 - x0);
-    const [cx, cy] = toScreen(px.x[ps[i]], px.y[ps[i]]);
+    const a = pxScreen(ps[i - 1]), b = pxScreen(ps[i + 1]), c = pxScreen(ps[i]);
+    if (!a || !b || !c) continue;
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const [cx, cy] = c;
     ctx.save();
     ctx.translate(cx, cy); ctx.rotate(ang);
     ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, -6); ctx.lineTo(-3, 0); ctx.lineTo(-6, 6); ctx.closePath();
@@ -281,8 +409,9 @@ function drawArrows() {
   // The origin.
   if (m.flow) {
     const nd = S.geo.nodes[m.flow.origin];
-    if (nd && nd.plan === S.plan && nd.x !== null) {
-      const [x, y] = toScreen(nd.x, nd.y);
+    const q = nd && nd.plan === S.plan && nd.x !== null ? toScreen(nd.x, nd.y, nd.z) : null;
+    if (q) {
+      const [x, y] = q;
       ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, 7, 0, 2 * Math.PI); ctx.stroke();
       label(`origin ${nd.id}`, x + 10, y + 18, '#fff');
@@ -297,8 +426,9 @@ function drawStretchLabels() {
   for (const [e, pixels] of edgePixels()) {
     const s = m.flow.edge_stretch[e];
     if (s === null || pixels.length < 2) continue;
-    const p = pixels[Math.floor(pixels.length / 2)];
-    const [x, y] = toScreen(px.x[p], px.y[p]);
+    const q = pxScreen(pixels[Math.floor(pixels.length / 2)]);
+    if (!q) continue;
+    const [x, y] = q;
     label('×' + s.toFixed(2), x + 6, y + 14, '#eee');
   }
 }
@@ -314,7 +444,7 @@ function label(text, x, y, color) {
 // green, estimated ones dashed amber.
 function drawNodes() {
   const g = S.geo, px = g.pixels;
-  const pos = (i) => { const n = g.nodes[i]; return n && n.plan === S.plan && n.x !== null ? toScreen(n.x, n.y) : null; };
+  const pos = (i) => { const n = g.nodes[i]; return n && n.plan === S.plan && n.x !== null ? toScreen(n.x, n.y, n.z) : null; };
   ctx.lineWidth = 1.5;
   for (const e of g.edges) {
     if (e.kind === 'strip') continue;
@@ -329,7 +459,9 @@ function drawNodes() {
   for (const r of g.runs) {
     for (const an of r.anchors) {
       if (an.source === 'end' || px.plan[an.pixel] !== S.plan || px.x[an.pixel] === null) continue;
-      const [x, y] = toScreen(px.x[an.pixel], px.y[an.pixel]);
+      const q = pxScreen(an.pixel);
+      if (!q) continue;
+      const [x, y] = q;
       const measured = an.source === 'measured';
       ctx.strokeStyle = measured ? '#5ddc8a' : '#ffb347';
       ctx.lineWidth = 2;
@@ -361,6 +493,7 @@ async function setMode(mode) {
   S.mode = mode;
   $('mappingWrap').hidden = !(mode === 'flow' || mode === 'stretch');
   $('areaWrap').hidden = mode !== 'areas';
+  $('outputWrap').hidden = mode !== 'outputs';
   S.overlay = null;
   const legend = $('legend');
   legend.innerHTML = '';
@@ -391,6 +524,8 @@ async function setMode(mode) {
     }
   } else if (mode === 'areas') {
     S.overlay = areaOverlay(legend);
+  } else if (mode === 'outputs') {
+    S.overlay = outputOverlay(legend);
   }
   if (S.showNodes) {
     legend.insertAdjacentHTML('beforeend', `<div><span class="sw" style="background:#5ddc8a"></span>measured anchor
@@ -402,6 +537,54 @@ async function setMode(mode) {
 
 function inRanges(ranges, cb) {
   for (const [a, b] of ranges) for (let p = a; p <= b; p++) cb(p);
+}
+
+// outputs lists every controller output with its global pixel range and
+// a color: the palette first, then golden-angle hues past its end.
+let outputsCache = null;
+function outputs() {
+  if (outputsCache) return outputsCache;
+  outputsCache = [];
+  for (const c of S.geo.controllers) {
+    for (const o of c.outputs) {
+      const i = outputsCache.length;
+      const color = i < PALETTE.length ? PALETTE[i] : hsl((i * 137.508) % 360, 0.75, 0.6);
+      outputsCache.push({ controller: c.id, pin: o.pin, start: o.start, first: c.base + o.start, last: c.base + o.start + o.count - 1, count: o.count, color });
+    }
+  }
+  return outputsCache;
+}
+const outputOf = (p) => outputs().find((o) => p >= o.first && p <= o.last);
+
+// outputOverlay colors each pixel by the controller output it's wired to.
+// Picking a controller dims the others' pixels.
+function outputOverlay(legend) {
+  const out = new Uint8Array(S.n * 3).fill(40);
+  const pick = $('outputPick').value;
+  const shown = outputs().filter((o) => !pick || o.controller === pick);
+  for (const o of shown) inRanges([[o.first, o.last]], (p) => out.set(o.color, 3 * p));
+  let html = '<div class="muted">rings mark where data enters each output</div>', ctrl = '';
+  for (const o of shown) {
+    if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(ctrl)}</b></div>`; }
+    html += `<div><span class="sw" style="background:rgb(${o.color})"></span>pin ${o.pin}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
+  }
+  legend.innerHTML = html;
+  return out;
+}
+
+// drawOutputStarts rings each shown output's first pixel, where its data
+// enters, and names it.
+function drawOutputStarts() {
+  const pick = $('outputPick').value;
+  for (const o of outputs()) {
+    if (pick && o.controller !== pick) continue;
+    if (S.geo.pixels.plan[o.first] !== S.plan || S.geo.pixels.x[o.first] === null) continue;
+    const q = pxScreen(o.first);
+    if (!q) continue;
+    ctx.strokeStyle = `rgb(${o.color})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(q[0], q[1], 8, 0, 2 * Math.PI); ctx.stroke();
+    label(`${o.controller} pin ${o.pin}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
+  }
 }
 
 function areaOverlay(legend) {
@@ -432,10 +615,12 @@ function bindUI() {
   $('view').onchange = (e) => setMode(e.target.value);
   $('mapping').onchange = (e) => { S.mappingId = e.target.value; setMode(S.mode); };
   $('areaPick').onchange = (e) => { S.pick = e.target.value; setMode(S.mode); };
+  $('outputPick').onchange = () => setMode(S.mode);
   $('plan').onchange = (e) => selectPlan(+e.target.value);
   $('showNodes').onchange = (e) => { S.showNodes = e.target.checked; setMode(S.mode); };
   $('showLabels').onchange = (e) => { S.showLabels = e.target.checked; markDirty(); };
   $('fit').onclick = fit;
+  $('copyView').onclick = copyView;
   $('panelToggle').onclick = () => { document.body.classList.toggle('nopanel'); resize(); markDirty(); };
   $('fps').onchange = subscribe;
   for (const b of $('showSeg').querySelectorAll('button')) b.onclick = () => setShow(b.dataset.show);
@@ -486,11 +671,13 @@ function bindUI() {
   $('pClear').onclick = async () => { await api('/api/map/preview/layers', { method: 'DELETE' }); pollPreview(); };
   $('pPromote').onclick = () => promote([]);
 
-  // Zoom, pan, pinch, hover and tap.
+  // Zoom, pan, pinch, hover and tap. In 3-D, scene.js's orbit controls
+  // move the camera; this only tells taps from drags.
   const pointers = new Map();
   let drag = null, pinch = null, moved = false;
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
+    if (S.three) return;
     zoomAt(e.offsetX, e.offsetY, Math.exp(-e.deltaY * 0.0015));
   }, { passive: false });
   canvas.addEventListener('pointerdown', (e) => {
@@ -506,7 +693,10 @@ function bindUI() {
       return;
     }
     pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
-    if (pinch && pointers.size === 2) {
+    if (S.three) {
+      if (drag && Math.abs(e.offsetX - drag.x) + Math.abs(e.offsetY - drag.y) > 4) moved = true;
+      if (pointers.size > 1) moved = true;
+    } else if (pinch && pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
       zoomAt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (pinch.k * d / pinch.d) / S.view.k);
@@ -549,6 +739,16 @@ function zoomAt(x, y, f) {
 function nearest(sx, sy, radius) {
   const { k, tx, ty } = S.view, px = S.geo.pixels;
   let best = -1, bd = radius * radius;
+  if (S.three) {
+    // Nearest on screen; shown is far first, so ties go to the nearer.
+    const scr = S.scr;
+    for (const p of S.shown) {
+      const dx = scr[3 * p] - sx, dy = scr[3 * p + 1] - sy;
+      const d = dx * dx + dy * dy;
+      if (d <= bd) { bd = d; best = p; }
+    }
+    return best;
+  }
   for (const p of S.drawable) {
     const dx = px.x[p] * k + tx - sx, dy = px.y[p] * k + ty - sy;
     const d = dx * dx + dy * dy;
@@ -586,10 +786,13 @@ async function inspect(p) {
   const maps = d.mappings.map((m) => row(esc(m.id), `u ${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · stretch ×${fmt(m.stretch)}` : ''}`)).join('');
   body.innerHTML = `<table class="kv">
     ${row('pixel', `#${d.id} · <b>${esc(d.controller)}:${d.index}</b>${d.dead ? ' (dead)' : ''}`)}
+    ${row('output', (() => { const o = outputOf(d.id); return o ? `${esc(o.controller)} pin ${o.pin} · ${d.id - o.first + 1} of ${o.count}` : '<span class="muted">none</span>'; })())}
     ${row('run', d.run ? `${esc(d.run)} · pixel ${d.run_pixel}` : '<span class="muted">none</span>')}
     ${row('edge', d.edge ? `${esc(d.edge)} · ${fmt(d.dist)} m` : '—')}
     ${row('size dl', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
-    ${row('plan x, y', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
+    ${S.three
+    ? row('position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`)
+    : row('plan x, y', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
     ${row('areas', esc(d.areas.join(', ') || '—'))}
     ${row('zones', esc(d.zones.join(', ') || '—'))}
     ${row('showing', layer)}
