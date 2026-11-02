@@ -258,7 +258,7 @@ func TestGeometryJSON(t *testing.T) {
 		t.Errorf("page: %s", resp.Status)
 	}
 	// So are its modules, including those in subfolders.
-	for _, path := range []string{"/map/app.js", "/map/ui.css", "/map/panel/looks.js"} {
+	for _, path := range []string{"/map/app.js", "/map/ui.css", "/map/panel/looks.js", "/map/panel/calibrate.js"} {
 		resp, err := http.Get(f.srv.URL + path)
 		if err != nil {
 			t.Fatal(err)

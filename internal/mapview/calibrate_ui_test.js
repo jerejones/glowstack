@@ -2,54 +2,21 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+// Tests for the calibration session logic in static/panel/calibrate.js,
+// against a controlled server. Run with:
+// node --test internal/mapview/calibrate_ui_test.js
 'use strict';
 
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const test = require('node:test');
-const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, 'static/calibrate.js'), 'utf8');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
+const load = () => import(pathToFileURL(path.join(__dirname, 'static/panel/calibrate.js')).href);
 
-// Run the real panel script with a minimal DOM and a controlled server.
-// Buttons and inputs are rebuilt from its HTML, as they are in a browser.
-async function panel(fetch, saved = new Map()) {
-  const elements = new Map();
-  const box = {
-    buttons: [],
-    set innerHTML(html) {
-      this.buttons = [...html.matchAll(/<button[^>]*data-a="(\d+)"[^>]*>([^<]*)<\/button>/g)]
-        .map((m) => ({ dataset: { a: m[1] }, label: m[2] }));
-      if (html.includes('id="calNext"')) {
-        elements.set('calNext', { checked: /id="calNext" checked/.test(html) });
-      }
-    },
-    querySelector() { return null; },
-    querySelectorAll(selector) { return selector === '[data-a]' ? this.buttons : []; },
-  };
-  elements.set('cal', box);
-  elements.set('calToggle', {});
-  const document = {
-    body: { classList: { contains() { return false; } } },
-    activeElement: null,
-    addEventListener() {},
-  };
-  vm.runInNewContext(source, {
-    document, S: { geo: null }, $: (id) => elements.get(id), esc: String,
-    fetch, setInterval() {}, resize() {}, markDirty() {},
-    sessionStorage: { getItem: (key) => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) },
-  });
-  await flush();
-  return {
-    elements,
-    click(label) {
-      const b = box.buttons.find((b) => b.label === label);
-      assert.ok(b, `missing button ${label}`);
-      b.onclick({ preventDefault() {} });
-    },
-  };
+function storage(saved = new Map()) {
+  return { getItem: (key) => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
 }
 
 function state() {
@@ -64,19 +31,24 @@ function state() {
 const reply = (st) => ({ ok: true, text: async () => JSON.stringify(st) });
 
 test('confirm waits for an earlier nudge to finish', async () => {
+  const { createSession } = await load();
   const st = state();
   let releaseNudge, confirmedIndex;
-  const p = await panel(async (url, opts) => {
-    if (url.endsWith('/nudge')) {
-      await new Promise((resolve) => { releaseNudge = resolve; });
-      st.cursors[0].index += JSON.parse(opts.body).by;
-    }
-    if (url.endsWith('/confirm')) confirmedIndex = st.cursors[0].index;
-    return reply(st);
+  const s = createSession({
+    storage: storage(),
+    onState() {},
+    fetch: async (url, opts) => {
+      if (url.endsWith('/nudge')) {
+        await new Promise((resolve) => { releaseNudge = resolve; });
+        st.cursors[0].index += JSON.parse(opts.body).by;
+      }
+      if (url.endsWith('/confirm')) confirmedIndex = st.cursors[0].index;
+      return reply(st);
+    },
   });
-  p.click('+1');
+  s.nudge(1);
   await flush();
-  p.click('Confirm');
+  s.confirm();
   await flush();
   const confirmedBeforeNudge = confirmedIndex !== undefined;
   releaseNudge();
@@ -86,15 +58,44 @@ test('confirm waits for an earlier nudge to finish', async () => {
   assert.equal(confirmedIndex, 6);
 });
 
-test('confirm-and-next preference survives the reload caused by confirming', async () => {
-  const saved = new Map();
-  const fetch = async () => reply(state());
-  const first = await panel(fetch, saved);
-  const checkbox = first.elements.get('calNext');
-  checkbox.checked = false;
-  checkbox.onchange();
-  first.click('Confirm');
+test('a poll overtaken by an action is dropped', async () => {
+  const { createSession } = await load();
+  const st = state();
+  let releasePoll;
+  const shown = [];
+  const s = createSession({
+    storage: storage(),
+    onState: (C) => shown.push(C.st.cursors[0].index),
+    fetch: async (url, opts) => {
+      if (!opts.method) {
+        const old = JSON.stringify(st);
+        await new Promise((resolve) => { releasePoll = resolve; });
+        return { ok: true, text: async () => old };
+      }
+      st.cursors[0].index += JSON.parse(opts.body).by;
+      return reply(st);
+    },
+  });
+  s.poll();
   await flush();
-  const reloaded = await panel(fetch, saved);
-  assert.equal(reloaded.elements.get('calNext').checked, false);
+  await s.nudge(10);
+  releasePoll();
+  await flush();
+  assert.deepEqual(shown, [15], 'the stale poll was drawn over the nudge');
+});
+
+test('confirm-and-next preference survives the reload caused by confirming', async () => {
+  const { createSession } = await load();
+  const saved = new Map();
+  let confirmed;
+  const fetch = async (url, opts) => {
+    if (url.endsWith('/confirm')) confirmed = JSON.parse(opts.body);
+    return reply(state());
+  };
+  const first = createSession({ fetch, storage: storage(saved), onState() {} });
+  first.setNext(false);
+  await first.confirm();
+  assert.deepEqual(confirmed, { next: false });
+  const reloaded = createSession({ fetch, storage: storage(saved), onState() {} });
+  assert.equal(reloaded.C.next, false);
 });
