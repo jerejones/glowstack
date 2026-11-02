@@ -94,6 +94,11 @@ curl -s 127.0.0.1:40081/json/state -d '{"seg":[{"id":0,"on":true,"fx":87}]}'
 bin/glowstack ctl layers                        # owner wled-device:porch/0
 ```
 
+Controller health is available as `health.controllers` in `/api/v1/status`
+and as `health` on each `/api/v1/controllers` entry. Every configured
+controller appears; disabled output has `sending: false` and
+`reachable: null`. See [the health API contract](docs/design.md#controller-health-api).
+
 `glowctl` is the same client on its own. The map's panel (a bottom sheet
 on a phone, a side panel on wider screens) has three tabs. *Looks* tries
 presets and effects on the map, with the preview clock (pause, scrub,

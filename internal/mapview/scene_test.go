@@ -100,3 +100,28 @@ map:
 		t.Errorf("model: %s %s", resp.Status, resp.Header.Get("Content-Type"))
 	}
 }
+
+func TestDirectionViewJSON(t *testing.T) {
+	dir := copyConfig(t)
+	if err := os.WriteFile(filepath.Join(dir, "glowstack.yaml"), []byte("schema: 1\nmap:\n  view: {direction: [0, -3, 4]}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := newFixtureIn(t, dir)
+	var g struct {
+		Map struct {
+			View map[string]any `json:"view"`
+		} `json:"map"`
+	}
+	f.get(t, "/api/map/geometry", &g)
+	v := g.Map.View
+	d, ok := v["direction"].([]any)
+	if !ok || len(d) != 3 || d[1] != -0.6 || d[2] != 0.8 || v["fov"] != float64(40) {
+		t.Fatalf("view = %v", v)
+	}
+	if _, ok := v["from"]; ok {
+		t.Errorf("from must be omitted: %v", v)
+	}
+	if _, ok := v["to"]; ok {
+		t.Errorf("to must be omitted: %v", v)
+	}
+}

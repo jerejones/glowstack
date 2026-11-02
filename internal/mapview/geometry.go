@@ -82,9 +82,10 @@ type MapJSON struct {
 
 // ViewJSON is a camera in meters, Z up.
 type ViewJSON struct {
-	From []float64 `json:"from"`
-	To   []float64 `json:"to"`
-	FOV  float64   `json:"fov"`
+	From      []float64 `json:"from,omitempty"`
+	Direction []float64 `json:"direction,omitempty"`
+	To        []float64 `json:"to,omitempty"`
+	FOV       float64   `json:"fov"`
 }
 
 // MapLayerJSON styles one scene layer; empty fields take the default.
@@ -161,9 +162,11 @@ type EdgeJSON struct {
 }
 
 type AreaJSON struct {
-	ID     string  `json:"id"`
-	Count  int     `json:"count"`
-	Ranges []Range `json:"ranges"`
+	ID       string   `json:"id"`
+	Count    int      `json:"count"`
+	Ranges   []Range  `json:"ranges"`
+	Includes []string `json:"includes"`
+	Runs     []string `json:"runs"`
 }
 
 type ZoneJSON struct {
@@ -260,8 +263,23 @@ func (m *Map) geometry(v app.View) *Geometry {
 		g.Edges = append(g.Edges, EdgeJSON{Kind: e.Kind.String(), From: e.From, To: e.To,
 			Length: e.Length, Measured: e.Measured, Run: e.Run, Name: e.Name(l)})
 	}
+	areaConfigs := make(map[string]config.Area, len(v.Config.Areas))
+	for _, ar := range v.Config.Areas {
+		areaConfigs[ar.ID] = ar
+	}
 	for _, ar := range l.Areas {
-		g.Areas = append(g.Areas, AreaJSON{ID: ar.ID, Count: len(ar.Pixels), Ranges: ranges(ar.Pixels)})
+		aj := AreaJSON{ID: ar.ID, Count: len(ar.Pixels), Ranges: ranges(ar.Pixels), Includes: []string{}, Runs: []string{}}
+		seenRuns := map[string]bool{}
+		for _, part := range areaConfigs[ar.ID].Include {
+			if part.Area != "" {
+				aj.Includes = append(aj.Includes, part.Area)
+			}
+			if part.Run != "" && !seenRuns[part.Run] {
+				aj.Runs = append(aj.Runs, part.Run)
+				seenRuns[part.Run] = true
+			}
+		}
+		g.Areas = append(g.Areas, aj)
 	}
 	for _, z := range v.Config.Zones {
 		zj := ZoneJSON{ID: z.ID, Name: z.Device.Name, Area: z.Area, Mapping: z.Mapping}
@@ -331,7 +349,7 @@ func edgeName(l *layout.Layout, e int32) string {
 func mapJSON(m *config.MapSettings) MapJSON {
 	out := MapJSON{AutoRotate: m.AutoRotate, Layers: []MapLayerJSON{}}
 	if w := m.View; w != nil {
-		out.View = &ViewJSON{From: w.From, To: w.To, FOV: w.FOV}
+		out.View = &ViewJSON{From: w.From, Direction: w.Direction, To: w.To, FOV: w.FOV}
 	}
 	names := make([]string, 0, len(m.Layers))
 	for name := range m.Layers {

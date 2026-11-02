@@ -116,9 +116,11 @@ change them in one place when they need to grow.
   feature registers its routes on the shared server (the API owns
   `/api/v1/`, the live map `/map/` and `/api/map/`), and background work
   with `Server.Go`.
-- **`api.HealthReporter`.** An output sink or stage with `Health() any`
-  has its controller health shown by `/api/v1/status` and
-  `/api/v1/controllers`. `wire.Outputs` reports reachability, firmware,
+- **`output.HealthReporter`** (also `api.HealthReporter`). An output sink
+  or stage returns `Health() map[string]output.ControllerHealth`. The API
+  fills in unmonitored controllers and wraps the map as `health.controllers`
+  in `/api/v1/status` and `/api/v1/controllers`; each controller listing
+  also has its own `health` object. `wire.Outputs` reports reachability, firmware,
   reboots, setting mismatches and DDP counters per controller.
 - **`mapview.PowerReport`.** The output stage's power figures for the
   map. `mapview.Options.Power` supplies it; by default it's

@@ -5,6 +5,7 @@
 package config
 
 import (
+	"math"
 	"net"
 	"slices"
 	"strconv"
@@ -135,10 +136,37 @@ func (v *validator) settings(s *Settings) {
 		s.Dither = &on
 	}
 	if w := s.Map.View; w != nil {
-		if len(w.From) != 3 || len(w.To) != 3 {
-			v.errorf(w.Pos, "map view: from and to want [x, y, z] in meters")
-		} else if w.From[0] == w.To[0] && w.From[1] == w.To[1] && w.From[2] == w.To[2] {
-			v.errorf(w.Pos, "map view: from and to are the same point")
+		if (w.From != nil) == (w.Direction != nil) {
+			v.errorf(w.Pos, "map view: give exactly one of from or direction")
+		}
+		if w.From != nil {
+			if len(w.From) != 3 || len(w.To) != 3 {
+				v.errorf(w.Pos, "map view: from and to want [x, y, z] in meters")
+			} else if slices.Equal(w.From, w.To) {
+				v.errorf(w.Pos, "map view: from and to are the same point")
+			}
+		}
+		if w.Direction != nil {
+			if len(w.Direction) != 3 {
+				v.errorf(w.Pos, "map view: direction wants three finite numbers [dx, dy, dz]")
+			} else {
+				d := w.Direction
+				scale := max(math.Abs(d[0]), math.Abs(d[1]), math.Abs(d[2]))
+				switch {
+				case math.IsNaN(scale) || math.IsInf(scale, 0):
+					v.errorf(w.Pos, "map view: direction wants three finite numbers")
+				case scale == 0:
+					v.errorf(w.Pos, "map view: direction must have non-zero length")
+				default:
+					// Scale first to avoid overflow or underflow for any length.
+					x, y, z := d[0]/scale, d[1]/scale, d[2]/scale
+					n := math.Sqrt(x*x + y*y + z*z)
+					w.Direction = []float64{x / n, y / n, z / n}
+				}
+			}
+			if w.To != nil && len(w.To) != 3 {
+				v.errorf(w.Pos, "map view: to wants [x, y, z] in meters")
+			}
 		}
 		if w.FOV == 0 {
 			w.FOV = 40

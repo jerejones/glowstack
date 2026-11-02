@@ -164,28 +164,10 @@ func (o *Outputs) Run(ctx context.Context) error { return o.monitor.Run(ctx) }
 
 // Controller is one controller's health and traffic, as the control API
 // reports it.
-type Controller struct {
-	Addr       string    `json:"addr"`
-	Reachable  bool      `json:"reachable"`
-	Checked    time.Time `json:"checked,omitzero"`
-	Version    string    `json:"version,omitempty"`
-	Uptime     float64   `json:"uptime_s,omitempty"`
-	Count      int       `json:"led_count,omitempty"`
-	Reboots    int       `json:"reboots"`
-	Mismatches []string  `json:"mismatches,omitempty"`
-	Err        string    `json:"error,omitempty"`
+type Controller = output.ControllerHealth
 
-	Frames    uint64    `json:"frames"`
-	Packets   uint64    `json:"packets"`
-	Bytes     uint64    `json:"bytes"`
-	Errors    uint64    `json:"send_errors"`
-	Coalesced uint64    `json:"coalesced"`
-	LastError string    `json:"last_send_error,omitempty"`
-	ErrorAt   time.Time `json:"last_send_error_at,omitzero"`
-}
-
-// Health implements api.HealthReporter: a map keyed by controller id.
-func (o *Outputs) Health() any { return o.Report() }
+// Health implements output.HealthReporter, keyed by selected controller id.
+func (o *Outputs) Health() map[string]output.ControllerHealth { return o.Report() }
 
 // Report is each selected controller's health and DDP counters.
 func (o *Outputs) Report() map[string]Controller {
@@ -194,15 +176,26 @@ func (o *Outputs) Report() map[string]Controller {
 	o.mu.RUnlock()
 	out := make(map[string]Controller, len(stats))
 	for _, s := range stats {
-		out[s.ID] = Controller{Addr: s.Addr, Frames: s.Frames, Packets: s.Packets, Bytes: s.Bytes,
-			Errors: s.Errors, Coalesced: s.Coalesced, LastError: s.LastError, ErrorAt: s.ErrorAt}
+		out[s.ID] = Controller{Sending: true, Frames: s.Frames, Packets: s.Packets, Bytes: s.Bytes,
+			Errors: s.Errors, Coalesced: s.Coalesced, LastError: s.LastError, LastSendError: s.LastError, ErrorAt: s.ErrorAt}
 	}
 	for _, h := range o.monitor.Status() {
 		c, ok := out[h.ID]
 		if !ok {
 			continue
 		}
-		c.Reachable, c.Checked, c.Version, c.Count = h.Reachable, h.Checked, h.Version, h.Count
+		if !h.Checked.IsZero() {
+			c.Reachable = new(bool)
+			*c.Reachable = h.Reachable
+		}
+		if !h.LastSeen.IsZero() {
+			seen := h.LastSeen.UTC()
+			c.LastSeen = &seen
+		}
+		c.Checked, c.Version, c.Count = h.Checked, h.Version, h.Count
+		if h.Err != "" {
+			c.LastError = h.Err
+		}
 		c.Uptime, c.Reboots, c.Mismatches, c.Err = h.Uptime.Seconds(), h.Reboots, h.Mismatches, h.Err
 		out[h.ID] = c
 	}

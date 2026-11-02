@@ -46,12 +46,14 @@ type MapSettings struct {
 	Layers     map[string]MapLayer `yaml:"layers"`
 }
 
-// MapView is a camera: positions in meters, Z up.
+// MapView is a camera: positions in meters, Z up. Direction points from
+// the target toward the camera; the page fits its distance to the screen.
 type MapView struct {
 	Pos
-	From []float64 `yaml:"from"` // camera position [x, y, z]
-	To   []float64 `yaml:"to"`   // the point it looks at and orbits
-	FOV  float64   `yaml:"fov"`  // vertical field of view, degrees; default 40
+	From      []float64 `yaml:"from"`      // camera position [x, y, z]
+	Direction []float64 `yaml:"direction"` // normalized target-to-camera vector
+	To        []float64 `yaml:"to"`        // the point it looks at and orbits
+	FOV       float64   `yaml:"fov"`       // vertical field of view, degrees; default 40
 }
 
 // MapLayer styles one scene layer.

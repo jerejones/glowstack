@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -900,5 +901,47 @@ func TestShowHouseWhilePreviewing(t *testing.T) {
 	read(websocket.MessageText)
 	for f.m.houseClients.Load() != 0 {
 		time.Sleep(time.Millisecond)
+	}
+}
+
+func TestAreaIncludeGraph(t *testing.T) {
+	dir := copyConfig(t)
+	path := filepath.Join(dir, "areas.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Add an area referencing a range area and two runs (one repeated).
+	s := strings.Replace(string(b), "areas:\n", `areas:
+  - id: assembly
+    include: [{area: shed-north}, tower, {run: shed-eave, from: shed-nw, to: shed-ne}, tower, {area: porch}]
+`, 1)
+	if err := os.WriteFile(path, []byte(s), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := newFixtureIn(t, dir)
+	var g struct {
+		Areas []AreaJSON `json:"areas"`
+	}
+	f.get(t, "/api/map/geometry", &g)
+	areas := map[string]AreaJSON{}
+	for _, a := range g.Areas {
+		areas[a.ID] = a
+		if a.Includes == nil || a.Runs == nil {
+			t.Errorf("null graph fields: %+v", a)
+		}
+	}
+	for _, tt := range []struct {
+		id             string
+		includes, runs []string
+	}{
+		{"shed-north", []string{}, []string{"shed-eave"}},
+		{"assembly", []string{"shed-north", "porch"}, []string{"tower", "shed-eave"}},
+		{"everything", []string{"shed", "yard", "porch"}, []string{}},
+	} {
+		a := areas[tt.id]
+		if !reflect.DeepEqual(a.Includes, tt.includes) || !reflect.DeepEqual(a.Runs, tt.runs) {
+			t.Errorf("area %s: %+v", tt.id, a)
+		}
 	}
 }

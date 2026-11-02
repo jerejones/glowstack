@@ -18,6 +18,8 @@ import (
 	"github.com/jerejones/glowstack/internal/fakewled"
 	"github.com/jerejones/glowstack/internal/layout"
 	"github.com/jerejones/glowstack/internal/output"
+	"github.com/jerejones/glowstack/internal/output/ddp"
+	"github.com/jerejones/glowstack/internal/output/health"
 )
 
 type fake struct {
@@ -101,7 +103,7 @@ func TestOutputsRebuildAndHealth(t *testing.T) {
 	waitFor(t, fs["shed"].dev, bytes.Repeat([]byte{7}, 12))
 	o.monitor.Check(t.Context())
 	r := o.Report()
-	if len(r) != 1 || !r["shed"].Reachable || r["shed"].Count != 4 || r["shed"].Frames == 0 {
+	if len(r) != 1 || (r["shed"].Reachable == nil || !*r["shed"].Reachable) || r["shed"].Count != 4 || r["shed"].Frames == 0 {
 		t.Fatalf("report %+v", r)
 	}
 
@@ -115,7 +117,7 @@ func TestOutputsRebuildAndHealth(t *testing.T) {
 	waitFor(t, fs["shed"].dev, bytes.Repeat([]byte{9}, 12))
 	o.monitor.Check(t.Context())
 	r = o.Report()
-	if len(r) != 2 || !r["tower"].Reachable || r["tower"].Count != 2 {
+	if len(r) != 2 || (r["tower"].Reachable == nil || !*r["tower"].Reachable) || r["tower"].Count != 2 {
 		t.Errorf("after rebuild %+v", r)
 	}
 }
@@ -168,4 +170,27 @@ func TestRebuildFailureStopsOldTargets(t *testing.T) {
 	}
 	send(t, o, l, 9)
 	waitFor(t, fs["shed"].dev, bytes.Repeat([]byte{9}, 12))
+}
+
+func TestSendErrorsInHealth(t *testing.T) {
+	// An invalid endpoint fails locally without sending anything.
+	o := &Outputs{monitor: &health.Monitor{}, sink: ddp.New([]ddp.Target{{ID: "shed", Addr: "not a host:port:x"}}, ddp.Options{})}
+	defer o.Close()
+	if err := o.Send(&output.Frame{ID: "shed", Channels: 3, Data: []byte{1, 2, 3}}); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(time.Second)
+	for {
+		h := o.Health()["shed"]
+		if h.Errors > 0 {
+			if !h.Sending || h.LastError == "" || h.LastError != h.LastSendError || h.ErrorAt.IsZero() || h.Reachable != nil || h.LastSeen != nil {
+				t.Fatalf("send failure health: %+v", h)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("send error not reported")
+		}
+		time.Sleep(time.Millisecond)
+	}
 }

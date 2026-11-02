@@ -176,14 +176,15 @@ func TestBody(t *testing.T) {
 func TestShowHealth(t *testing.T) {
 	var out bytes.Buffer
 	c := &client{out: &out}
-	c.showHealth(map[string]any{
-		"shed": map[string]any{"addr": "127.0.0.1:40481", "reachable": true, "checked": "2026-01-01T18:00:00Z",
+	c.showHealth(map[string]any{"controllers": map[string]any{
+		"shed": map[string]any{"sending": true, "reachable": true, "checked": "2026-01-01T18:00:00Z",
 			"version": "0.15.0-fake", "led_count": 604, "frames": 12},
-		"yard": map[string]any{"addr": "192.0.2.22:4048", "checked": "2026-01-01T18:00:00Z",
+		"yard": map[string]any{"sending": true, "reachable": false, "checked": "2026-01-01T18:00:00Z",
 			"error": "connection refused", "send_errors": 3},
-	})
+		"spare": map[string]any{"sending": false, "reachable": nil},
+	}})
 	got := out.String()
-	for _, want := range []string{"CONTROLLER", "shed", "reachable", "0.15.0-fake", "604", "yard", "unreachable", "connection refused"} {
+	for _, want := range []string{"CONTROLLER", "shed", "reachable", "0.15.0-fake", "604", "yard", "unreachable", "connection refused", "spare", "output disabled"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("health table lacks %q:\n%s", want, got)
 		}

@@ -6,6 +6,7 @@ package config
 
 import (
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -255,5 +256,48 @@ func TestRequiredIndicesStillMarshalAsYAML(t *testing.T) {
 		if !strings.Contains(string(data), "index:") && !strings.Contains(string(data), "indices:") {
 			t.Fatalf("missing pixel indices in YAML: %s", data)
 		}
+	}
+}
+
+func TestMapView(t *testing.T) {
+	for _, tt := range []struct{ name, view, want string }{
+		{"direction with target", "{direction: [0, -3, 4], to: [1, 2, 3], fov: 50}", ""},
+		{"direction without target", "{direction: [0, -3, 4]}", ""},
+		{"absolute", "{from: [1, 2, 3], to: [0, 0, 0]}", ""},
+		{"both", "{from: [1, 2, 3], direction: [0, 1, 0], to: [0, 0, 0]}", "exactly one of from or direction"},
+		{"neither", "{}", "exactly one of from or direction"},
+		{"zero", "{direction: [0, 0, 0]}", "non-zero length"},
+		{"short", "{direction: [1, 2]}", "three finite numbers"},
+		{"empty", "{direction: []}", "three finite numbers"},
+		{"nan", "{direction: [0, .nan, 1]}", "finite number"},
+		{"infinite", "{direction: [.inf, 0, 1]}", "finite number"},
+		{"bad target", "{direction: [1, 2, 3], to: []}", "to wants"},
+		{"absolute without target", "{from: [1, 2, 3]}", "from and to want"},
+		{"bad fov", "{direction: [1, 2, 3], fov: 171}", "fov"},
+		{"large", "{direction: [0, -3e300, 4e300]}", ""},
+		{"small", "{direction: [0, -3e-300, 4e-300]}", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c, err := Load(writeConfig(t, map[string]string{SettingsFileName: "schema: 1\nmap:\n  view: " + tt.view + "\n"}), "")
+			if tt.want != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.want) {
+					t.Fatalf("got %v, want %q", err, tt.want)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			v := c.Settings.Map.View
+			if v.Direction != nil && (math.Abs(v.Direction[1]+0.6) > 1e-12 || math.Abs(v.Direction[2]-0.8) > 1e-12) {
+				t.Errorf("direction = %v", v.Direction)
+			}
+			if v.FOV != 40 && v.FOV != 50 {
+				t.Errorf("fov = %v", v.FOV)
+			}
+			if tt.name == "direction without target" && v.To != nil {
+				t.Errorf("to = %v", v.To)
+			}
+		})
 	}
 }

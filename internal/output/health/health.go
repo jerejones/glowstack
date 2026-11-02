@@ -43,7 +43,8 @@ type Status struct {
 	Count      int // LED count it reports
 	Reboots    int // reboots seen since Glowstack started
 	Mismatches []string
-	Err        string // last error, if unreachable
+	Err        string    // last error, if unreachable
+	LastSeen   time.Time // last successful /json/info check
 	Checked    time.Time
 }
 
@@ -253,6 +254,7 @@ func (m *Monitor) check(ctx context.Context, t Target) {
 		return
 	}
 	st.Reachable, st.Err = true, ""
+	st.LastSeen = st.Checked
 	st.Version, st.Count = info.Ver, info.Leds.Count
 	up := time.Duration(info.Uptime) * time.Second
 	// An offline poll preserves the last successful uptime. A reboot

@@ -7,8 +7,10 @@ package api
 import (
 	"net/http"
 
+	"github.com/jerejones/glowstack/internal/app"
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/layout"
+	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/render"
 )
 
@@ -253,26 +255,40 @@ type Controller struct {
 	MaxFPS    float64 `json:"max_fps,omitempty"`
 	Outputs   int     `json:"outputs"`
 	// Base is the controller's first global pixel id.
-	Base int32 `json:"base"`
+	Base   int32                   `json:"base"`
+	Health output.ControllerHealth `json:"health"`
 }
 
 func (api *API) controllers(w http.ResponseWriter, r *http.Request) error {
 	v := api.app.Current()
+	health := api.health(v)
 	var list []Controller
 	for _, c := range v.Layout.Controllers {
 		cc := c.Config
 		list = append(list, Controller{ID: c.ID, Host: cc.Host, Port: cc.Port, Transport: cc.Transport,
-			Pixels: c.Pixels, Channels: cc.Channels, MaxFPS: cc.MaxFPS, Outputs: len(cc.Outputs), Base: c.Base})
+			Pixels: c.Pixels, Channels: cc.Channels, MaxFPS: cc.MaxFPS, Outputs: len(cc.Outputs), Base: c.Base, Health: health.Controllers[c.ID]})
 	}
-	return writeJSON(w, http.StatusOK, map[string]any{"controllers": nonNil(list), "health": api.health()})
+	return writeJSON(w, http.StatusOK, map[string]any{"controllers": nonNil(list), "health": health})
 }
 
-// health asks the output sink, then the stage, for controller health.
-func (api *API) health() any {
+// Health is the stable wrapper shared by status and controller listings.
+type Health struct {
+	Controllers map[string]output.ControllerHealth `json:"controllers"`
+}
+
+// health asks the output sink, then the stage, and fills unmonitored ids
+// from the same layout snapshot used by the enclosing response.
+func (api *API) health(v app.View) Health {
+	var reported map[string]output.ControllerHealth
 	for _, x := range []any{api.app.Sink(), api.app.Stage()} {
 		if h, ok := x.(HealthReporter); ok {
-			return h.Health()
+			reported = h.Health()
+			break
 		}
 	}
-	return nil
+	h := Health{Controllers: make(map[string]output.ControllerHealth, len(v.Layout.Controllers))}
+	for _, c := range v.Layout.Controllers {
+		h.Controllers[c.ID] = reported[c.ID]
+	}
+	return h
 }
