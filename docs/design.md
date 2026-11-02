@@ -1023,6 +1023,13 @@ checked without going outside.
   map works with no controllers. `--output=<controller,…>` sends to some
   (the default is `all`). `--loopback=PORT` sends to fake controllers on
   this machine instead (`cmd/fakewled`).
+- **Area geometry.** `/api/map/geometry` includes each area's `id`, pixel
+  `count`, global pixel `ranges` (half-open `[start, end]` pairs), `includes`
+  (directly included area ids), and `runs` (directly referenced run ids,
+  including partial runs). Both lists follow config order; `runs` is
+  deduplicated. Empty lists are `[]`. The graph preserves direct references
+  rather than flattening descendants, so selection can move from a run to
+  its containing areas and zones.
 - **Inspect.** Hover or tap a pixel for its controller, index, output, run, edge,
   areas, flow position `u`, stretch and which layer is showing.
 - **Diagnostic views** (overlays instead of the live frame):

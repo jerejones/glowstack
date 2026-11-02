@@ -162,9 +162,11 @@ type EdgeJSON struct {
 }
 
 type AreaJSON struct {
-	ID     string  `json:"id"`
-	Count  int     `json:"count"`
-	Ranges []Range `json:"ranges"`
+	ID       string   `json:"id"`
+	Count    int      `json:"count"`
+	Ranges   []Range  `json:"ranges"`
+	Includes []string `json:"includes"`
+	Runs     []string `json:"runs"`
 }
 
 type ZoneJSON struct {
@@ -261,8 +263,23 @@ func (m *Map) geometry(v app.View) *Geometry {
 		g.Edges = append(g.Edges, EdgeJSON{Kind: e.Kind.String(), From: e.From, To: e.To,
 			Length: e.Length, Measured: e.Measured, Run: e.Run, Name: e.Name(l)})
 	}
+	areaConfigs := make(map[string]config.Area, len(v.Config.Areas))
+	for _, ar := range v.Config.Areas {
+		areaConfigs[ar.ID] = ar
+	}
 	for _, ar := range l.Areas {
-		g.Areas = append(g.Areas, AreaJSON{ID: ar.ID, Count: len(ar.Pixels), Ranges: ranges(ar.Pixels)})
+		aj := AreaJSON{ID: ar.ID, Count: len(ar.Pixels), Ranges: ranges(ar.Pixels), Includes: []string{}, Runs: []string{}}
+		seenRuns := map[string]bool{}
+		for _, part := range areaConfigs[ar.ID].Include {
+			if part.Area != "" {
+				aj.Includes = append(aj.Includes, part.Area)
+			}
+			if part.Run != "" && !seenRuns[part.Run] {
+				aj.Runs = append(aj.Runs, part.Run)
+				seenRuns[part.Run] = true
+			}
+		}
+		g.Areas = append(g.Areas, aj)
 	}
 	for _, z := range v.Config.Zones {
 		zj := ZoneJSON{ID: z.ID, Name: z.Device.Name, Area: z.Area, Mapping: z.Mapping}
