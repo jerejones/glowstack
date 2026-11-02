@@ -257,8 +257,8 @@ func TestGeometryJSON(t *testing.T) {
 	if resp.StatusCode != 200 || !bytes.Contains(body, []byte("app.js")) {
 		t.Errorf("page: %s", resp.Status)
 	}
-	// So are its modules.
-	for _, path := range []string{"/map/app.js", "/map/ui.css"} {
+	// So are its modules, including those in subfolders.
+	for _, path := range []string{"/map/app.js", "/map/ui.css", "/map/panel/looks.js"} {
 		resp, err := http.Get(f.srv.URL + path)
 		if err != nil {
 			t.Fatal(err)
