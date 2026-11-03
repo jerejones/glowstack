@@ -189,7 +189,7 @@ func TestEndToEndWithFakes(t *testing.T) {
 		t.Errorf("after confirm: %+v, %d measured", st.Cursors[0], st.Measured)
 	}
 	file, _ := os.ReadFile(filepath.Join(data, config.AnchorsFileName))
-	if want := fmt.Sprintf("  - { run: shed-eave, node: shed-eave-mid, index: %d, source: measured }\n", est+9); !strings.Contains(string(file), want) {
+	if want := fmt.Sprintf("  - { run: shed-eave, node: shed-eave-mid, offset: %d, pixels: 482, source: measured }\n", est+9); !strings.Contains(string(file), want) {
 		t.Errorf("anchors.yaml:\n%s\nwant a line %q", file, want)
 	}
 	// The house API sees the re-solved layout.

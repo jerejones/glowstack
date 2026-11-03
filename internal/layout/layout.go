@@ -60,11 +60,14 @@ type Layout struct {
 	Areas       []Area
 	Plans       []Plan
 	Warnings    config.Errors
+	// Density lists stretches whose pixel density is off; each is in
+	// Warnings too.
+	Density []DensityIssue
 
 	nodeByID map[string]int
 	runByID  map[string]int
 	areaByID map[string]int
-	implicit map[string]*Area // run:<id> and controller:<id>; see Area
+	implicit map[string]*Area // run:<id>, controller:<id> and all; see Area
 }
 
 // Controller is a controller's slice of the global id space. Its pixels are
@@ -252,6 +255,7 @@ func BuildWithLoaders(cfg *config.Config, load PlanLoader, loadScene SceneLoader
 		},
 		planByFile: map[string]int{},
 	}
+	b.l.Warnings = append(b.l.Warnings, cfg.Warnings...)
 	b.controllers()
 	b.nodes()
 	b.plans()
@@ -263,6 +267,7 @@ func BuildWithLoaders(cfg *config.Config, load PlanLoader, loadScene SceneLoader
 		b.estimatePlanScales()
 		for i := range b.l.Runs {
 			b.placeRun(i)
+			b.checkDensity(i)
 		}
 		b.nonStripEdges()
 		b.dead()
@@ -288,13 +293,14 @@ func (l *Layout) RunIndex(id string) (int, bool) {
 	return i, ok
 }
 
-// Prefixes of the implicit areas: every run and every controller is also
-// a layer target, as "run:<id>" and "controller:<id>". They aren't listed in
-// Areas (so they don't show up as areas, segments or in inspect), and an
-// areas.yaml area with the same id wins.
+// The implicit areas: every run and every controller is also a layer
+// target, as "run:<id>" and "controller:<id>", and "all" is every pixel
+// on a run. They aren't listed in Areas (so they don't show up as areas,
+// segments or in inspect), and an areas.yaml area with the same id wins.
 const (
 	AreaRunPrefix        = "run:"
 	AreaControllerPrefix = "controller:"
+	AreaAll              = "all"
 )
 
 // Area returns the area with the given id, or an implicit run or

@@ -60,6 +60,7 @@ export function createLooks(S, root) {
     const sel = S.sel ? nodeTarget(S.sel.node) : '';
     targetSel.innerHTML =
       (sel ? `<optgroup label="Selected">${opt(sel, nodeName(S.sel.node))}</optgroup>` : '') +
+      `<optgroup label="Everything">${opt('all', 'All')}</optgroup>` +
       `<optgroup label="Zones">${g.zones.map((z) => opt(z.area, z.name || z.id)).join('')}</optgroup>` +
       `<optgroup label="Areas">${g.areas.map((a) => opt(a.id, `${a.id} (${a.count})`)).join('')}</optgroup>` +
       `<optgroup label="Runs">${g.runs.map((r) => opt('run:' + r.id, r.id)).join('')}</optgroup>`;

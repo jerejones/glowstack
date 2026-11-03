@@ -73,8 +73,8 @@ func writeConfig(t *testing.T, extra map[string]string) string {
 	t.Helper()
 	dir := t.TempDir()
 	files := map[string]string{
-		ControllersFileName: "schema: 1\ncontrollers:\n  - { id: shed, host: 192.0.2.1, pixels: 100 }\n",
-		LayoutFileName:      "schema: 1\npitch: 1/60 m\nruns:\n  - { id: a, controller: shed, indices: [0, 99], path: [x, y] }\n",
+		ControllersFileName: "schema: 1\ncontrollers:\n  - { id: shed, host: 192.0.2.1, outputs: [{ count: 100 }] }\n",
+		LayoutFileName:      "schema: 1\npitch: 1/60 m\nruns:\n  - { id: a, controller: shed, output: 1, path: [x, y] }\n",
 	}
 	for k, v := range extra {
 		files[k] = v
@@ -93,7 +93,7 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 		files map[string]string
 		want  string
 	}{
-		{"unknown field", map[string]string{ControllersFileName: "schema: 1\ncontrollers:\n  - id: shed\n    host: h\n    pixels: 10\n    colour: red\n"},
+		{"unknown field", map[string]string{ControllersFileName: "schema: 1\ncontrollers:\n  - id: shed\n    host: h\n    outputs: [{ count: 10 }]\n    colour: red\n"},
 			`controllers.yaml:6: unknown field "colour"`},
 		{"bad unit", map[string]string{LayoutFileName: "schema: 1\npitch: 1/60 furlongs\n"},
 			`layout.yaml:2: bad length "1/60 furlongs"`},
@@ -101,11 +101,11 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 			"layout.yaml:1: missing `schema: 1`"},
 		{"wrong schema", map[string]string{LayoutFileName: "schema: 2\n"},
 			`layout.yaml:1: unsupported schema "2"`},
-		{"unknown controller", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - id: a\n    controller: nope\n    indices: [0, 9]\n    path: [x, y]\n"},
+		{"unknown controller", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - id: a\n    controller: nope\n    output: 1\n    path: [x, y]\n"},
 			`layout.yaml:4: run "a": unknown controller "nope"`},
-		{"index out of range", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, indices: [0, 100], path: [x, y] }\n"},
-			`layout.yaml:4: run "a": index 100 outside`},
-		{"duplicate run", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, indices: [0, 9], path: [x, y] }\n  - { id: a, controller: shed, indices: [10, 19], path: [x, y] }\n"},
+		{"index out of range", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, output: 1, leds: [0, 100], path: [x, y] }\n"},
+			`layout.yaml:4: run "a": leds [0, 100] outside the output's 0–99`},
+		{"duplicate run", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, output: 1, leds: [0, 9], path: [x, y] }\n  - { id: a, controller: shed, output: 1, leds: [10, 19], path: [x, y] }\n"},
 			`layout.yaml:5: duplicate run id "a" (first at layout.yaml:4)`},
 		{"bad enum", map[string]string{MappingsFileName: "schema: 1\nflows:\n  - { id: f, origin: x, pace: fastest }\n"},
 			`mappings.yaml:3: pace "fastest"`},
@@ -131,7 +131,7 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 			`mappings.yaml:3: mapping "up": horizontal applies only to radial mappings`},
 		{"4-d point", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: r, kind: radial, center: [1, 2, 3, 4] }\n"},
 			`want a node id or an [x, y] or [x, y, z] point`},
-		{"scene model without scene", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, indices: [0, 9], model: { glb: \"s.glb#a\" } }\n"},
+		{"scene model without scene", map[string]string{LayoutFileName: "schema: 1\npitch: 1 cm\nruns:\n  - { id: a, controller: shed, output: 1, model: { glb: \"s.glb#a\" } }\n"},
 			"layout.yaml:4: run \"a\": model needs the layout's `scene: { glb: s.glb }`"},
 		{"reserved mapping id", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: local, kind: local }\n"},
 			`mappings.yaml:3: mapping id "local" is built in`},
@@ -194,9 +194,9 @@ func TestSavedPresetShadows(t *testing.T) {
 
 func TestAnchorOverridesRejectUnknownRunsAndDuplicates(t *testing.T) {
 	for _, tt := range []struct{ name, body, want string }{
-		{"unknown run", "  - {run: missing, node: corner, index: 5}\n", `unknown run "missing"`},
-		{"duplicate", "  - {run: a, node: corner, index: 5}\n  - {run: a, node: corner, index: 6}\n", "duplicate anchor"},
-		{"outside run", "  - {run: a, node: corner, index: 100}\n", "outside run"},
+		{"unknown run", "  - {run: missing, node: corner, offset: 5, pixels: 100}\n", `unknown run "missing"`},
+		{"duplicate", "  - {run: a, node: corner, offset: 5, pixels: 100}\n  - {run: a, node: corner, offset: 6, pixels: 100}\n", "duplicate anchor"},
+		{"outside run", "  - {run: a, node: corner, offset: 100, pixels: 100}\n", `offset 100 outside run "a"'s 0–99`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := writeConfig(t, nil)
@@ -215,18 +215,18 @@ func TestAnchorOverridesRejectUnknownRunsAndDuplicates(t *testing.T) {
 func TestRequiredPixelIndicesCannotDefaultToZero(t *testing.T) {
 	body := "schema: 1\npitch: 1 cm\nruns:\n  - {id: a, controller: shed, path: [x, y]}\n"
 	_, err := Load(writeConfig(t, map[string]string{LayoutFileName: body}), "")
-	if err == nil || !strings.Contains(err.Error(), "layout.yaml:4: missing indices") {
-		t.Fatalf("missing run indices: %v", err)
+	if err == nil || !strings.Contains(err.Error(), `layout.yaml:4: run "a": missing output`) {
+		t.Fatalf("missing run output: %v", err)
 	}
-	for _, field := range []string{"", ", index: null"} {
+	for _, field := range []string{"", ", offset: null"} {
 		dir := writeConfig(t, nil)
 		data := t.TempDir()
-		if err := os.WriteFile(filepath.Join(data, AnchorsFileName), []byte("schema: 1\nanchors:\n  - {run: a, node: corner"+field+"}\n"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(data, AnchorsFileName), []byte("schema: 1\nanchors:\n  - {run: a, node: corner, pixels: 100"+field+"}\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		_, err := Load(dir, data)
-		if err == nil || !strings.Contains(err.Error(), "anchors.yaml:3: missing index") {
-			t.Fatalf("missing override index (%q): %v", field, err)
+		if err == nil || !strings.Contains(err.Error(), "anchors.yaml:3: missing offset") {
+			t.Fatalf("missing override offset (%q): %v", field, err)
 		}
 	}
 }
@@ -234,7 +234,7 @@ func TestRequiredPixelIndicesCannotDefaultToZero(t *testing.T) {
 func TestRejectNonFiniteConfigNumbers(t *testing.T) {
 	for _, tt := range []struct{ file, body, location string }{
 		{SettingsFileName, "schema: 1\nfps: .nan\n", "glowstack.yaml:2:"},
-		{ControllersFileName, "schema: 1\ncontrollers:\n  - {id: shed, host: 192.0.2.1, pixels: 100, max_fps: .inf}\n", "controllers.yaml:3:"},
+		{ControllersFileName, "schema: 1\ncontrollers:\n  - {id: shed, host: 192.0.2.1, outputs: [{count: 100}], max_fps: .inf}\n", "controllers.yaml:3:"},
 		{MappingsFileName, "schema: 1\nflows:\n  - {id: f, origin: x, max_stretch: .nan}\n", "mappings.yaml:3:"},
 	} {
 		_, err := Load(writeConfig(t, map[string]string{tt.file: tt.body}), "")
@@ -244,17 +244,17 @@ func TestRejectNonFiniteConfigNumbers(t *testing.T) {
 	}
 }
 
-func TestRequiredIndicesStillMarshalAsYAML(t *testing.T) {
+func TestRunReferencesStillMarshalAsYAML(t *testing.T) {
 	for _, value := range []any{
-		AnchorsFile{Schema: 1, Anchors: []AnchorOverride{{Run: "a", Node: "corner", Index: 5}}},
-		LayoutFile{Schema: 1, Layout: Layout{Runs: []Run{{ID: "a", Indices: [2]int{0, 9}}}}},
+		AnchorsFile{Schema: 1, Anchors: []AnchorOverride{{Run: "a", Node: "corner", Offset: 5}}},
+		LayoutFile{Schema: 1, Layout: Layout{Runs: []Run{{ID: "a", Output: 1}}}},
 	} {
 		data, err := yaml.Marshal(value)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(string(data), "index:") && !strings.Contains(string(data), "indices:") {
-			t.Fatalf("missing pixel indices in YAML: %s", data)
+		if !strings.Contains(string(data), "offset: 5") && !strings.Contains(string(data), "output: 1") {
+			t.Fatalf("missing run reference in YAML: %s", data)
 		}
 	}
 }

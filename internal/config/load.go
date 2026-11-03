@@ -66,6 +66,10 @@ type Config struct {
 	Ends         []EndOverride
 	Gaps         []GapOverride
 	MeasuredDead []Dead
+	// Warnings are problems that don't stop the config loading, e.g.
+	// anchors measured when a run had a different length. The layout
+	// solver passes them on in Layout.Warnings.
+	Warnings Errors
 }
 
 // Load reads and validates the config folder dir and the data folder
@@ -125,6 +129,9 @@ func Load(dir, dataDir string) (*Config, error) {
 	c.Composites = append(presets.Composites, saved.Composites...)
 	c.Anchors = anchors.Anchors
 	c.Ends, c.Gaps, c.MeasuredDead = anchors.Ends, anchors.Gaps, anchors.Dead
+	if err := c.resolve(); err != nil {
+		return nil, err
+	}
 	if err := c.applyMeasured(); err != nil {
 		return nil, err
 	}
@@ -154,4 +161,22 @@ func (c *Config) MappingIDs() []string {
 		ids = append(ids, m.ID)
 	}
 	return ids
+}
+
+// ReadAnchors decodes dataDir's anchors.yaml as written, in offset form,
+// without resolving it against the layout. A missing file is an empty
+// one. It's for tools that fix the file when the config won't load.
+func ReadAnchors(dataDir string) (*AnchorsFile, error) {
+	data, err := os.ReadFile(filepath.Join(dataDir, AnchorsFileName))
+	if errors.Is(err, fs.ErrNotExist) {
+		return &AnchorsFile{Schema: 1}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var f AnchorsFile
+	if errs := decodeFile(AnchorsFileName, data, &f); len(errs) > 0 {
+		return nil, errs
+	}
+	return &f, nil
 }

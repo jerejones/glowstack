@@ -158,7 +158,7 @@ func same(a, b color.Color) bool {
 func unmeasureNW(dir string) {
 	p := filepath.Join(dir, config.LayoutFileName)
 	b, _ := os.ReadFile(p)
-	s := strings.Replace(string(b), "{ node: shed-nw, index: 305, source: measured }", "{ node: shed-nw }", 1)
+	s := strings.Replace(string(b), "{ node: shed-nw, offset: 305, source: measured }", "{ node: shed-nw }", 1)
 	_ = os.WriteFile(p, []byte(s), 0o644)
 }
 
@@ -181,7 +181,7 @@ func TestConfirmWritesAnchorsAndReestimatesNeighbors(t *testing.T) {
 	}
 	st = f.ok(f.m.Confirm(ConfirmOptions{}))
 
-	if !strings.Contains(f.file(), "  - { run: shed-eave, node: shed-nw, index: 320, source: measured }\n") {
+	if !strings.Contains(f.file(), "  - { run: shed-eave, node: shed-nw, offset: 320, pixels: 482, source: measured }\n") {
 		t.Errorf("anchors.yaml:\n%s", f.file())
 	}
 	if a := f.anchor("shed-eave", "shed-nw"); a.Index != 320 || a.Source != layout.SourceMeasured {
@@ -305,7 +305,7 @@ func TestReversedRunRulerFollowsTheRun(t *testing.T) {
 	}
 	f.ok(f.m.Set(-1, 392))
 	f.ok(f.m.Confirm(ConfirmOptions{}))
-	if !strings.Contains(f.file(), "  - { run: porch, last: 392 }\n") {
+	if !strings.Contains(f.file(), "  - { run: porch, last: 2, pixels: 90 }\n") {
 		t.Errorf("anchors.yaml:\n%s", f.file())
 	}
 	r, _ := findRun(f.app.Current().Layout, "porch")
@@ -346,7 +346,7 @@ func TestAnchorsYAMLOverridesLayoutOnReloadAndRestart(t *testing.T) {
 	if a := f.anchor("shed-eave", "shed-nw"); a.Index != 305 {
 		t.Fatalf("layout.yaml's shed-nw = %+v", a)
 	}
-	body := "schema: 1\nanchors:\n  - { run: shed-eave, node: shed-nw, index: 312 }\n" +
+	body := "schema: 1\nanchors:\n  - { run: shed-eave, node: shed-nw, offset: 312, pixels: 482 }\n" +
 		"gaps:\n  - { from: gate-w, to: gate-e, length: 1.3 m }\n"
 	if err := os.WriteFile(filepath.Join(f.data, config.AnchorsFileName), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
@@ -445,13 +445,13 @@ func TestLinkGapAndDead(t *testing.T) {
 
 	want := Header + `schema: 1
 anchors:
-  - { run: shed-eave, node: shed-sw, index: 186, source: measured }
-  - { run: shed-eave, node: shed-eave-mid, index: 390, source: measured }
-  - { run: tower, node: tower-top, index: 546, source: measured }
+  - { run: shed-eave, node: shed-sw, offset: 186, pixels: 482, source: measured }
+  - { run: shed-eave, node: shed-eave-mid, offset: 390, pixels: 482, source: measured }
+  - { run: tower, node: tower-top, offset: 62, pixels: 120, source: measured }
 gaps:
   - { from: gate-w, to: gate-e, length: 1.2192 m }
 dead:
-  - { controller: yard, indices: [100, 103] }
+  - { run: fence-west, offsets: [100, 103], pixels: 240 }
 `
 	if got := f.file(); got != want {
 		t.Errorf("anchors.yaml:\n%s\nwant:\n%s", got, want)
@@ -459,7 +459,7 @@ dead:
 
 	// Un-marking part of the range splits it.
 	f.ok(f.m.Forget(&Target{Kind: KindDead, Controller: "yard", Indices: []int{101, 102}}))
-	if !strings.Contains(f.file(), "[100, 100] }\n  - { controller: yard, indices: [103, 103] }") {
+	if !strings.Contains(f.file(), "[100, 100], pixels: 240 }\n  - { run: fence-west, offsets: [103, 103], pixels: 240 }") {
 		t.Errorf("after forget:\n%s", f.file())
 	}
 }

@@ -46,11 +46,11 @@ func twoControllers() *layout.Layout {
 	ma := &config.Power{LedMA: config.LedMA{R: 10, G: 10, B: 10}}
 	return testLayout(
 		config.Controller{ID: "shed", Pixels: 20, Channels: "rgb", Power: ma, Outputs: []config.Output{
-			{Pin: 1, Start: 0, Count: 10, MaxMA: 100},
-			{Pin: 2, Start: 10, Count: 10},
+			{Number: 1, Start: 0, Count: 10, MaxMA: 100},
+			{Number: 2, Start: 10, Count: 10},
 		}},
 		config.Controller{ID: "yard", Pixels: 10, Channels: "rgb", Power: ma, Outputs: []config.Output{
-			{Pin: 1, Start: 0, Count: 10},
+			{Number: 1, Start: 0, Count: 10},
 		}},
 	)
 }
@@ -69,12 +69,12 @@ func run(t *testing.T, p *Pipeline, l *layout.Layout, buf *render.Buffer, seq ui
 }
 
 func TestPowerGroups(t *testing.T) {
-	// Every pixel red at full: 10 mA each, so shed pin 1 asks for 100 mA
+	// Every pixel red at full: 10 mA each, so shed output 1 asks for 100 mA
 	// against a 50 mA limit and needs 0.5.
 	red := color.Color{R: 1, A: 1}
 	for _, tc := range []struct {
 		group           string
-		shed2, yard     byte // shed pin 2 and yard red levels
+		shed2, yard     byte // shed output 2 and yard red levels
 		wantScale, need float64
 	}{
 		{GroupGlobal, 128, 128, 0.5, 0.5},
@@ -92,10 +92,10 @@ func TestPowerGroups(t *testing.T) {
 			fill(buf, red)
 			out := run(t, p, l, buf, 1, 100)
 			if got := out[0].Data[0]; got != 128 {
-				t.Errorf("shed pin 1: %d", got)
+				t.Errorf("shed output 1: %d", got)
 			}
 			if got := out[0].Data[10*3]; got != tc.shed2 {
-				t.Errorf("shed pin 2: %d, want %d", got, tc.shed2)
+				t.Errorf("shed output 2: %d, want %d", got, tc.shed2)
 			}
 			if got := out[1].Data[0]; got != tc.yard {
 				t.Errorf("yard: %d, want %d", got, tc.yard)
@@ -105,8 +105,8 @@ func TestPowerGroups(t *testing.T) {
 				t.Errorf("scale %v group %q", r.Scale, r.Group)
 			}
 			o := r.Outputs[0]
-			if o.Controller != "shed" || o.Pin != 1 || o.RequestedMA != 100 || o.DrawnMA != 50 || o.Need != tc.need || o.Applied != 0.5 {
-				t.Errorf("shed pin 1 report %+v", o)
+			if o.Controller != "shed" || o.Output != 1 || o.RequestedMA != 100 || o.DrawnMA != 50 || o.Need != tc.need || o.Applied != 0.5 {
+				t.Errorf("shed output 1 report %+v", o)
 			}
 			if y := r.Outputs[2]; y.Controller != "yard" || y.RequestedMA != 100 || y.MaxMA != 0 {
 				t.Errorf("yard report %+v", y)
@@ -185,7 +185,7 @@ func TestPowerSmoothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	buf := render.NewBuffer(len(l.Pixels))
-	fill(buf, color.Color{R: 1, A: 1}) // shed pin 1 needs 0.5
+	fill(buf, color.Color{R: 1, A: 1}) // shed output 1 needs 0.5
 	run(t, p, l, buf, 1, 100)
 	if s := p.Power().Scale; s != 0.5 {
 		t.Fatalf("attack: scale %v, want 0.5 at once", s)
@@ -291,8 +291,8 @@ func TestDitherByteBounds(t *testing.T) {
 
 func TestCheck(t *testing.T) {
 	l := testLayout(
-		config.Controller{ID: "long", Pixels: 1000, Channels: "rgbw", MaxFPS: 40, Outputs: []config.Output{{Pin: 1, Count: 1000, MaxMA: 5000}}},
-		config.Controller{ID: "ok", Pixels: 1000, Channels: "rgb", Outputs: []config.Output{{Pin: 1, Count: 500}, {Pin: 2, Start: 500, Count: 500}}},
+		config.Controller{ID: "long", Pixels: 1000, Channels: "rgbw", MaxFPS: 40, Outputs: []config.Output{{Number: 1, Count: 1000, MaxMA: 5000}}},
+		config.Controller{ID: "ok", Pixels: 1000, Channels: "rgb", Outputs: []config.Output{{Number: 1, Count: 500}, {Number: 2, Start: 500, Count: 500}}},
 	)
 	ws := Check(l, 40)
 	if len(ws) != 2 || !strings.Contains(ws[0], "long: max_fps 40") || !strings.Contains(ws[0], "at most 25 fps") || !strings.Contains(ws[1], "led_ma") {
@@ -323,7 +323,7 @@ func BenchmarkPipeline(b *testing.B) {
 		c := config.Controller{ID: fmt.Sprint("c", i), Pixels: 2500, Channels: "rgbw",
 			Power: &config.Power{MaxMA: 20000, LedMA: config.LedMA{R: 12, G: 12, B: 12, W: 20, Idle: 1}}}
 		for o := range 4 {
-			c.Outputs = append(c.Outputs, config.Output{Pin: o + 1, Start: o * 625, Count: 625, MaxMA: 6000})
+			c.Outputs = append(c.Outputs, config.Output{Number: o + 1, Start: o * 625, Count: 625, MaxMA: 6000})
 		}
 		cs = append(cs, c)
 	}
@@ -361,7 +361,7 @@ func TestPipelineRebuild(t *testing.T) {
 	// The reload drops yard and lifts shed's limit.
 	ma := &config.Power{LedMA: config.LedMA{R: 10, G: 10, B: 10}}
 	l2 := testLayout(config.Controller{ID: "shed", Pixels: 20, Channels: "rgb", Power: ma, Outputs: []config.Output{
-		{Pin: 1, Start: 0, Count: 20},
+		{Number: 1, Start: 0, Count: 20},
 	}})
 	if err := p.Rebuild(settings(GroupGlobal, 0, false), l2); err != nil {
 		t.Fatal(err)

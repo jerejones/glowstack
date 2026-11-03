@@ -33,7 +33,7 @@ func FromStage(r output.PowerReport) *PowerReport {
 	conv := func(ms []output.MeterReport) []OutputPower {
 		var ps []OutputPower
 		for _, m := range ms {
-			ps = append(ps, OutputPower{Controller: m.Controller, Pin: m.Pin, MA: m.DrawnMA, MaxMA: m.MaxMA,
+			ps = append(ps, OutputPower{Controller: m.Controller, Output: m.Output, MA: m.DrawnMA, MaxMA: m.MaxMA,
 				RequestedMA: m.RequestedMA, Need: m.Need, Applied: m.Applied, Known: true})
 		}
 		return ps
@@ -42,11 +42,11 @@ func FromStage(r output.PowerReport) *PowerReport {
 	return out
 }
 
-// OutputPower is the current drawn by one output (one data pin; pin 0 is
+// OutputPower is the current drawn by one WLED output (output 0 is
 // a controller total in PowerReport.Controllers).
 type OutputPower struct {
 	Controller string  `json:"controller"`
-	Pin        int     `json:"pin"`
+	Output     int     `json:"output"` // WLED output number
 	Start      int     `json:"start"`
 	Count      int     `json:"count"`
 	MA         float64 `json:"ma"`
@@ -79,14 +79,14 @@ func estimatePower(l *layout.Layout, buf *render.Buffer) []OutputPower {
 			r, g, b, w, idle = ma.R, ma.G, ma.B, ma.W, ma.Idle
 		}
 		type pin struct {
-			pin, start, count int
-			max               float64
+			output, start, count int
+			max                  float64
 		}
 		pins := []pin{{0, 0, c.Pixels, 0}}
 		if len(cfg.Outputs) > 0 {
 			pins = pins[:0]
 			for _, o := range cfg.Outputs {
-				pins = append(pins, pin{o.Pin, o.Start, o.Count, o.MaxMA})
+				pins = append(pins, pin{o.Number, o.Start, o.Count, o.MaxMA})
 			}
 		}
 		for _, o := range pins {
@@ -101,7 +101,7 @@ func estimatePower(l *layout.Layout, buf *render.Buffer) []OutputPower {
 					total += float64(pr)*r + float64(pg)*g + float64(pb)*b + float64(pw)*w + idle
 				}
 			}
-			out = append(out, OutputPower{Controller: c.ID, Pin: o.pin, Start: o.start, Count: o.count,
+			out = append(out, OutputPower{Controller: c.ID, Output: o.output, Start: o.start, Count: o.count,
 				MA: total, MaxMA: o.max, Known: known})
 		}
 	}

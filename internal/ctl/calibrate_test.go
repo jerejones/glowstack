@@ -69,7 +69,7 @@ func TestCalibrateCommands(t *testing.T) {
 		t.Errorf("%d layers left after stop", n)
 	}
 	file, _ := os.ReadFile(filepath.Join(data, "anchors.yaml"))
-	if !strings.Contains(string(file), "node: shed-eave-mid, index: 402") || !strings.Contains(string(file), "length: 1.25 m") {
+	if !strings.Contains(string(file), "node: shed-eave-mid, offset: 402") || !strings.Contains(string(file), "length: 1.25 m") {
 		t.Errorf("anchors.yaml:\n%s", file)
 	}
 	if code, _, errs := ctl(ts.URL, "cal", "confirm"); code != 1 || !strings.Contains(errs, "no calibration target") {

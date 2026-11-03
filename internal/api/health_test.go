@@ -50,13 +50,13 @@ func TestControllerHealthAPI(t *testing.T) {
 			files := map[string]string{
 				"controllers.yaml": fmt.Sprintf(`schema: 1
 controllers:
-  - {id: shed, host: 127.0.0.1, port: %d, http_port: %s, pixels: 2}
-  - {id: spare, host: 192.0.2.2, pixels: 1}
+  - {id: shed, host: 127.0.0.1, port: %d, http_port: %s, outputs: [{count: 2}]}
+  - {id: spare, host: 192.0.2.2, outputs: [{count: 1}]}
 `, pc.LocalAddr().(*net.UDPAddr).Port, port),
 				"layout.yaml": `schema: 1
 pitch: 1 cm
 runs:
-  - {id: eave, controller: shed, indices: [0, 1], path: [a, b]}
+  - {id: eave, controller: shed, output: 1, path: [a, b]}
 `,
 			}
 			for name, body := range files {

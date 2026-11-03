@@ -34,15 +34,15 @@ func (c *Config) applyMeasured() error {
 			v.errorf(e.Pos, "ends: unknown run %q", e.Run)
 			continue
 		}
-		if e.First == nil && e.Last == nil {
+		if e.FirstIndex == nil && e.LastIndex == nil {
 			v.errorf(e.Pos, "ends for run %q: give first, last or both", e.Run)
 			continue
 		}
-		if e.First != nil {
-			r.Indices[0] = *e.First
+		if e.FirstIndex != nil {
+			r.Indices[0] = *e.FirstIndex
 		}
-		if e.Last != nil {
-			r.Indices[1] = *e.Last
+		if e.LastIndex != nil {
+			r.Indices[1] = *e.LastIndex
 		}
 		// Subsequent validation and solving must name the measurement that
 		// supplied these indices, rather than the overridden layout entry.

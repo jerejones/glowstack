@@ -388,7 +388,7 @@ func TestCaptureFoldsWhiteAndTracksLayers(t *testing.T) {
 func TestPowerEstimate(t *testing.T) {
 	f := newFixture(t)
 	f.m.clients.Add(1)
-	// Full white on the tower (shed pin 2, 120 RGBW pixels at r,g,b 12 mA,
+	// Full white on the tower (shed output 2, 120 RGBW pixels at r,g,b 12 mA,
 	// w 20 mA, 1 mA idle).
 	f.push(t, "shed", "#ffffff/ff")
 	f.frame(t)
@@ -407,7 +407,7 @@ func TestPowerEstimate(t *testing.T) {
 		t.Errorf("stage %+v", pw.Stage)
 	}
 	tower := pw.Estimate[1]
-	if tower.Controller != "shed" || tower.Pin != 2 || math.Abs(tower.MA-120*(3*12+20+1)) > 1e-6 || tower.MaxMA != 2000 || !tower.Known {
+	if tower.Controller != "shed" || tower.Output != 2 || math.Abs(tower.MA-120*(3*12+20+1)) > 1e-6 || tower.MaxMA != 2000 || !tower.Known {
 		t.Errorf("tower %+v", tower)
 	}
 	// The porch is dark: idle only.

@@ -8,6 +8,8 @@
 // the page when imported, so tests can load it.
 
 export const $ = (id) => document.getElementById(id);
+// outputName is how the page names a controller output: "output 3 (GPIO 2)".
+export const outputName = (o) => `output ${o.output}${o.gpio != null ? ` (GPIO ${o.gpio})` : ''}`;
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const fmt = (v, d = 3) => (v === null || v === undefined || Number.isNaN(v)) ? '—' : (+v).toFixed(d);
 export const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));

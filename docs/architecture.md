@@ -138,7 +138,7 @@ change them in one place when they need to grow.
 - **Global pixel ids.** Controllers take consecutive id ranges in
   `controllers.yaml` order (`Layout.Controllers[i].Base`). Everything inside
   Glowstack uses global ids, and per-controller indices appear only in
-  config and output.
+  the API, the map and output. Config files never store one (see 62).
 - **Positions along a run** are in pixel cells: the run starts at 0, pixel
   *k*'s center is at *k* + ½, the run ends at its pixel count. Anchors sit
   at pixel centers and run ends at run ends.
@@ -161,10 +161,10 @@ list, numbered in the order they were made.
 
 1. **`glowstack.yaml`** is a new optional config file: `fps` (default 40),
    `boot` (`restore` | `dark`) and default `fade: { in: 300 ms, out: 500 ms }`.
-2. **Explicit anchor indices are never moved**, whatever their `source`.
-   Anchors without an index are estimated from the drawing piecewise
+2. **Explicit anchor offsets are never moved**, whatever their `source`.
+   Anchors without an offset are estimated from the drawing piecewise
    between explicit anchors, and only the drawing's labeled vertices are
-   used as knots. With neither an index nor a drawing, it's an error.
+   used as knots. With neither an offset nor a drawing, it's an error.
 3. **Measured lengths** go in a run-level `lengths:` list (`from`, `to`,
    `length`) for a stretch between consecutive path nodes.
 4. **Plan scale** is estimated as total pixel length ÷ total drawn length
@@ -339,7 +339,8 @@ list, numbered in the order they were made.
 50. **Implicit areas** `run:<id>` and `controller:<id>` exist for every
     run and controller, through `Layout.Area`, but aren't listed in
     `Layout.Areas`. They let a layer cover exactly what calibration needs,
-    and so light only the controllers involved.
+    and so light only the controllers involved. `all` (every pixel on a
+    run) is the map's top selection; see 64.
 51. **The calibration layers stay on top.** A 500 ms tick in
     `calibrate.Mount` re-pushes them if anything went above them, and
     edits them in place when the cursor moves. Ending the session removes
@@ -399,6 +400,37 @@ list, numbered in the order they were made.
     `plan:` aren't loaded at all. `plan.Point` gained `Z`; SVG points have
     `Z = 0` and pixels on a plan get the plan's `z:`. A scene run that no
     `model:` names is a warning, since it usually means a renamed run.
+
+### Output-relative indices
+
+62. **Nothing on disk is a controller index.** Outputs are numbered as in
+    WLED and laid end to end (`config.outputStarts`); a run names
+    `output`/`outputs` and optional `leds`; anchors, dead ranges, area
+    ranges and anchors.yaml count from the run's first LED in data order
+    (`config.Run.Span`), or for dead pixels off any run, from an output's.
+    `Load` resolves them (`config.resolve`) into the same absolute fields
+    the solver always used (`Run.Indices`, `Anchor.Index`, `Dead.Indices`,
+    `AnchorOverride.Index`, `EndOverride.FirstIndex`/`LastIndex`), which
+    are `yaml:"-"`. Configs built in code set those directly, as before.
+    Calibration keeps its measurements as indices and converts on write
+    (`measurements.format`, then `encode`). The scene model no longer
+    carries indices. There is no compatibility path: old fields are
+    unknown-field errors.
+63. **Stale measurements.** Each anchors.yaml entry records `pixels`, its
+    run's LED count when measured. A mismatch is one `Config.Warnings`
+    entry per run (passed into `Layout.Warnings`), never an error, because
+    the common case, LEDs added or removed at the far end, leaves every
+    offset right. `glowstack anchors accept|shift|clear` (`calibrate.Adjust`)
+    settles it on the file's offsets, loading the config without the data
+    folder, so it works even when the stale entries stop a full load.
+64. **Density check and All.** `layout.checkDensity` compares each stretch
+    between a run's ends and measured anchors, next to a measured one, with
+    the run's average pixels per drawn length (not the pitch, so a drawing
+    off in scale overall doesn't warn everywhere). Off by more than
+    `DensityTolerance` (25%) and at least 4 pixels, it's a
+    `Layout.Density` entry and a warning; calibration's confirm reports the
+    new ones in `State.Checks`. In the map, `buildTree` adds an `all` node
+    over every top node, so tapping climbs run → … → zone → All → run.
 
 ## Live map
 

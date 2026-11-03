@@ -81,7 +81,7 @@ type pipe struct {
 // meter estimates the current of one output or one controller total.
 type meter struct {
 	ctl    int
-	pin    int // 0 for a controller total
+	output int // WLED output number; 0 for a controller total
 	maxMA  float64
 	idle   float64 // mA drawn with everything dark
 	varMA  float64 // channel current this frame, before limiting
@@ -104,7 +104,7 @@ type PowerReport struct {
 // MeterReport is one output's or controller's estimate.
 type MeterReport struct {
 	Controller string
-	Pin        int     // 0 for a controller total
+	Output     int     // WLED output number; 0 for a controller total
 	MaxMA      float64 // 0 = unlimited
 	// RequestedMA is the estimated current of the frame as rendered;
 	// DrawnMA after power limiting. Both include idle current.
@@ -152,7 +152,7 @@ func NewPipeline(l *layout.Layout, cfg *config.Config) (*Pipeline, error) {
 		}
 		for _, o := range cc.Outputs {
 			mi := int32(len(p.meters))
-			p.meters = append(p.meters, meter{ctl: ci, pin: o.Pin, maxMA: o.MaxMA, idle: idle * float64(o.Count), scale: 1})
+			p.meters = append(p.meters, meter{ctl: ci, output: o.Number, maxMA: o.MaxMA, idle: idle * float64(o.Count), scale: 1})
 			for k := o.Start; k < o.Start+o.Count && k < c.Pixels; k++ {
 				p.pixMeters[int(c.Base)+k][0] = mi
 			}
@@ -183,8 +183,8 @@ func NewPipeline(l *layout.Layout, cfg *config.Config) (*Pipeline, error) {
 	p.classK = make([]float32, len(p.classes))
 	p.report = PowerReport{Group: p.group}
 	for _, m := range p.meters {
-		r := MeterReport{Controller: l.Controllers[m.ctl].ID, Pin: m.pin, MaxMA: m.maxMA}
-		if m.pin == 0 {
+		r := MeterReport{Controller: l.Controllers[m.ctl].ID, Output: m.output, MaxMA: m.maxMA}
+		if m.output == 0 {
 			p.report.Controllers = append(p.report.Controllers, r)
 		} else {
 			p.report.Outputs = append(p.report.Outputs, r)
@@ -412,7 +412,7 @@ func (p *Pipeline) publish(when time.Time, lowest float64) {
 	oi, ci := 0, 0
 	for _, m := range p.meters {
 		var r *MeterReport
-		if m.pin == 0 {
+		if m.output == 0 {
 			r = &p.report.Controllers[ci]
 			ci++
 		} else {

@@ -8,7 +8,7 @@
 // anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
-import { api, esc, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
+import { api, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
 
 export const MODES = [
   ['live', 'Colors'], ['flow', 'Flow'], ['stretch', 'Stretch'], ['areas', 'Areas'], ['outputs', 'Outputs'],
@@ -38,7 +38,7 @@ export function createOverlay(S) {
     for (const c of g.controllers) {
       for (const o of c.outputs) {
         const i = outs.length;
-        outs.push({ controller: c.id, pin: o.pin, start: o.start, first: c.base + o.start, last: c.base + o.start + o.count - 1, count: o.count, max_ma: o.max_ma, color: nthColor(i) });
+        outs.push({ controller: c.id, output: o.output, gpio: o.gpio, start: o.start, first: c.base + o.start, last: c.base + o.start + o.count - 1, count: o.count, max_ma: o.max_ma, color: nthColor(i) });
       }
     }
     return outs;
@@ -90,7 +90,7 @@ export function createOverlay(S) {
     for (const o of outputs()) {
       for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
       if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(ctrl)}</b></div>`; }
-      html += `<div><span class="sw" style="background:rgb(${o.color})"></span>pin ${o.pin}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
+      html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
     }
     st.legend = html;
     return out;
@@ -175,7 +175,7 @@ export function createOverlay(S) {
       const q = pixelAt(o.first);
       if (!q) continue;
       ring(q, 8, `rgb(${o.color})`);
-      label(`${o.controller} pin ${o.pin}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
+      label(`${o.controller} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
     }
   }
 

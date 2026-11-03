@@ -151,11 +151,6 @@ func (b *builder) runModel(cr *config.Run, r *Run) (int, *plan.Path) {
 		b.errorf(pos, "run %s: the scene says controller %q, layout.yaml says %q", cr.ID, sr.Controller, cr.Controller)
 		return -1, nil
 	}
-	if sr.Indices != nil && *sr.Indices != cr.Indices {
-		b.errorf(pos, "run %s: the scene says indices %d-%d, layout.yaml says %d-%d", cr.ID,
-			sr.Indices[0], sr.Indices[1], cr.Indices[0], cr.Indices[1])
-		return -1, nil
-	}
 	return b.scene, sr.Path
 }
 

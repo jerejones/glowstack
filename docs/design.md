@@ -34,12 +34,13 @@ made-up installations only.
 
 | Term | Meaning |
 |---|---|
-| **Controller** | A physical WLED device that receives frames over the network. It has an address and a pixel count. |
-| **Output** | One data pin on a controller: a contiguous index range. Used for frame-rate and power budgeting only. Rendering never looks at outputs. |
-| **Pixel** | One addressable LED, identified by `(controller, index)`. Internally every pixel gets a dense global id. |
-| **Run** | A physically continuous stretch of pixels on one controller, between two nodes, with a known index direction. Runs are the unit of layout. |
+| **Controller** | A physical WLED device that receives frames over the network. It has an address and its outputs; its pixel count is their total. |
+| **Output** | One WLED output, which drives one data pin: a contiguous index range. Numbered from 1 in WLED's order, as WLED's LED settings show them. Outputs are laid end to end, so each starts where the one before ends. Runs name their LEDs by output; otherwise outputs are used for frame-rate and power budgeting only. |
+| **Pixel** | One addressable LED, identified on the wire by `(controller, index)`. Internally every pixel gets a dense global id. Config files never store an index: they count from an output's or a run's first LED, so changing one output's count moves nothing else. |
+| **Run** | A physically continuous stretch of pixels on one or two consecutive outputs, between two nodes, with a known direction. Runs are the unit of layout. |
+| **Offset** | A position on a run, counted from its first LED in data order (its lowest index), whichever way the run goes. Anchors, dead ranges and area ranges use offsets. |
 | **Node** | A named point in the house's layout graph: a corner, an end, a junction or a sync point. |
-| **Anchor** | A statement that a particular pixel sits at a node, for example "index 402 is at node `shed-sw`". Anchors split runs into edges. |
+| **Anchor** | A statement that a particular pixel sits at a node, for example "offset 402 is at node `shed-sw`". Anchors split runs into edges. |
 | **Edge** | A connection between two nodes in the layout graph. A **strip edge** carries pixels. A **gap edge** has physical length but no pixels, like a gate or doorway. A **link edge** has zero length and no pixels, and ties two nodes that aren't physically connected but should line up. |
 | **Sync point** | A node where effects must line up. Any node can be one. A link edge makes two nodes one sync point. |
 | **Position** | Optional physical position of a pixel, `x, y, z` in meters with Z up. It comes from the scene model, or from a floor plan (then `z` is the plan's elevation). Used by the live map and by spatial mappings. |
@@ -129,12 +130,11 @@ controllers:
     transport: ddp            # ddp now; e131/artnet possible later
     port: 4048                # DDP port
     http_port: 80             # JSON API port, for read-only health checks
-    pixels: 1800              # total pixel count the controller expects
     channels: rgbw            # rgb | rgbw: bytes per pixel on the wire
     max_fps: 40               # cap; also derived from the longest output
-    outputs:                  # fps budgeting and power limiting
-      - { pin: 1, start: 0,    count: 600,  max_ma: 6000 }
-      - { pin: 2, start: 600,  count: 1200, max_ma: 6000 }
+    outputs:                  # every WLED output, in WLED's order
+      - { output: 1, gpio: 16, count: 600,  max_ma: 6000 }
+      - { output: 2, gpio: 3,  count: 1200, max_ma: 6000 }
     power:
       max_ma: 10000           # optional controller/supply total, like WLED's ABL total
       led_ma: { r: 12, g: 12, b: 12, w: 20, idle: 1 }   # per pixel at full; per strip type
@@ -143,6 +143,12 @@ controllers:
 
 Notes:
 
+- **Outputs** are listed in WLED's order, every one of them, because each
+  takes up index space. `output:` is WLED's output number, optional but
+  checked against the position. Each output starts where the previous one
+  ends and the controller's pixel count is the total, so changing one count
+  is the only edit when a strip is cut or extended. `gpio:` is for
+  information only: messages and the map show "output 2 (GPIO 3)".
 - **Power limits** are per output, like WLED's per-output current limit, plus
   an optional controller total. `max_ma` omitted means unlimited. See the
   brightness pipeline for how limits are applied.
@@ -193,11 +199,12 @@ nodes:                         # optional declarations; anchors can create nodes
 runs:
   - id: shed-eave
     controller: shed
-    indices: [0, 1199]         # inclusive; order = direction along `path`
+    output: 1                  # or outputs: [1, 2] for a strip fed by two
+    leds: [0, 1199]            # optional; counted from the output's first LED
     path: [shed-se, shed-sw, shed-nw, shed-ne]   # node sequence the run passes
-    anchors:                   # which index sits at each interior node
-      - { node: shed-sw, index: 402 }
-      - { node: shed-nw, index: 815 }
+    anchors:                   # which offset sits at each interior node
+      - { node: shed-sw, offset: 402 }
+      - { node: shed-nw, offset: 815 }
     model: { glb: "site.glb#shed-eave" }             # optional 3-D shape
     plan: { svg: "plan.svg#eave", reverse: false }   # optional 2-D shape
     lengths:                   # optional measured lengths between path nodes
@@ -205,18 +212,34 @@ runs:
 
   - id: tower
     controller: shed
-    indices: [1600, 1799]
+    output: 2
+    reverse: true              # wired from tower-r: the path starts at its last LED
     path: [tower-l, tower-top, tower-r]
     anchors:
-      - { node: tower-top, index: 1700 }
+      - { node: tower-top, offset: 100 }
 
 edges:                         # non-strip edges
   - { kind: gap,  from: fence-end, to: wall-start, length: 1.2 m }
   - { kind: link, from: tower-top, to: shed-eave-mid }   # disconnected but aligned
 
 dead:                          # pixels physically present but unlit or hidden
-  - { controller: shed, indices: [1200, 1205] }
+  - { controller: shed, output: 2, leds: [0, 5] }   # by output, or
+  - { run: tower, offsets: [0, 5] }                 # by run
 ```
+
+- **Which LEDs.** A run names its output (`output: 3`) or consecutive
+  outputs (`outputs: [1, 2]`), and by default takes all of them, so it
+  follows its output's count. `leds: [a, b]` takes part of it, counted from
+  the first output's first LED, low to high and inclusive.
+- **Direction.** A run's path goes in data order, from its lowest LED,
+  unless `reverse: true` says it starts at its highest. This is separate
+  from `plan: { reverse: true }`, which says only the drawing runs the other
+  way.
+- **Offsets.** Anchors count from the run's first LED in data order (its
+  lowest), whichever way the run goes. Nothing in the config counts from
+  the controller's first pixel, so cutting or extending one output moves
+  nothing on the others. The API, the map and DDP still use `(controller,
+  index)`, worked out when the config loads.
 
 - **Node at an arbitrary pixel.** A link may need a node partway along a run,
   like `shed-eave-mid`. Declare it with an extra anchor on that run.
@@ -260,16 +283,16 @@ drawing and refine from there:
    is found by its `id` or `inkscape:label`.
 2. **Estimate anchors.** Glowstack knows the run's pixel count and pitch,
    which give its true physical length. It scales the drawn path to that
-   length and places each vertex at the index proportional to its distance
+   length and places each vertex at the offset proportional to its distance
    along the path. Example: a vertex 40% of the way along a 1,000-pixel run
-   is estimated at index 400. A plan scale (from a known dimension) isn't
+   is estimated at offset 400. A plan scale (from a known dimension) isn't
    needed for this, only for checking.
 3. **Mark confidence.** Each anchor records where it came from:
 
    ```yaml
    anchors:
-     - { node: shed-sw, index: 402, source: estimated }   # from the drawing
-     - { node: shed-nw, index: 815, source: measured }    # confirmed on site
+     - { node: shed-sw, source: estimated }                # from the drawing
+     - { node: shed-nw, offset: 815, source: measured }    # confirmed on site
    ```
 
    Everything (solver, mappings, effects, live map) works the same with
@@ -313,13 +336,15 @@ in scene-level extras, and Glowstack refuses a scene that doesn't:
 | Extra | Required | Meaning |
 |---|---|---|
 | `glowstack_run` | yes | Run id, as in `layout.yaml` |
-| `points` | yes | Ordered vertices in scene coordinates, first vertex at the run's lowest index |
+| `points` | yes | Ordered vertices in scene coordinates, first vertex at the run's lowest LED |
 | `nodes` | yes | Comma-separated node id per vertex; empty entries leave a vertex unlabeled |
-| `controller`, `indices` | no | Checked against `layout.yaml` when present; a mismatch is a load error |
+| `controller` | no | Checked against `layout.yaml` when present; a mismatch is a load error |
 | `basis` | no | Per-vertex provenance (`measured`, `model`, `estimated`, with a note), shown by inspect |
 
-`layout.yaml` stays the source of truth for controllers and indices; the
-model only supplies shape. `points` is authoritative: glTF doesn't promise
+`layout.yaml` stays the source of truth for controllers and LEDs; the model
+only supplies shape. It carries no pixel indices, so changing an output's
+count doesn't need a re-export (an old exporter's `indices` extra is
+ignored). `points` is authoritative: glTF doesn't promise
 to keep line vertices in order, so any line mesh on a run node is display
 only. `model: { glb: "site.glb#shed-eave" }` names the run node by its
 `glowstack_run` value.
@@ -388,23 +413,53 @@ How it works:
   (say, out of order along the run) nothing is written and the error comes
   back with its line. Measured anchors are knots for the piecewise
   estimate, so their neighbors move with them.
+- **Density check.** A measured anchor saved on the wrong node, say the
+  opposite corner of a loop, crowds one stretch and thins the next. After
+  every solve, each stretch between a run's ends and measured anchors that
+  touches a measured anchor is compared with the run's average pixels per
+  drawn length; more than 25% off either way is a warning naming the
+  anchor. It shows in `--check`, the reload result and, for the stretches a
+  confirm just changed, in the Calibrate panel. Comparing with the run's
+  own average rather than the pitch keeps a drawing that is off in scale
+  overall from warning everywhere.
 - **Output.** Calibration never widens `--output`. If a controller it lights
   isn't selected, the session says so; the live map still shows the pattern.
 
 `anchors.yaml` holds four lists, each optional, one flow-style line per
-entry, sorted in layout order:
+entry, sorted in layout order. Positions are run offsets, like
+`layout.yaml`'s, and `pixels` is the run's LED count when the entry was
+measured:
 
 ```yaml
 schema: 1
 anchors:   # a node's pixel on a run (overrides that anchor in layout.yaml)
-  - { run: shed-eave, node: shed-nw, index: 305, source: measured }
-ends:      # a run's first or last pixel (overrides indices in layout.yaml)
-  - { run: porch, last: 392 }
+  - { run: shed-eave, node: shed-nw, offset: 305, pixels: 482, source: measured }
+ends:      # a run's first or last pixel in run direction (may fall outside its leds)
+  - { run: porch, last: 2, pixels: 90 }
 gaps:      # a gap edge's length, measured by hand
   - { from: gate-w, to: gate-e, length: 1.25 m }
-dead:      # added to the layout's dead pixels
-  - { controller: yard, indices: [100, 103] }
+dead:      # added to the layout's dead pixels: by run, or by output off any run
+  - { run: fence-west, offsets: [100, 103], pixels: 240 }
+  - { controller: shed, output: 1, leds: [482, 483] }
 ```
+
+**When a run's count changes.** Offsets survive changes on other outputs
+untouched. On the run's own output it depends on where the LEDs went: added
+or removed at the far end (away from the data input), every offset still
+holds and only the run's end moves; at the data input or in the middle, the
+offsets past the change are wrong. Glowstack can't tell which, so while any
+of a run's entries has a `pixels` that isn't the run's count it keeps them
+and warns once for the run. Settle it with:
+
+```sh
+glowstack anchors accept RUN        # the change was at the far end; keep every offset
+glowstack anchors shift RUN AT N    # N LEDs added (negative: removed) before offset AT
+glowstack anchors clear RUN         # drop the run's measurements and recalibrate it
+```
+
+They take `--config` and `--data` like `glowstack` itself, work on the
+file's offsets so they run even when stale measurements stop the config
+loading, and write `anchors.yaml`; reload Glowstack afterwards.
 
 A link is calibrated by placing both of its nodes; confirming writes an
 anchor for each side that sits inside its run (a run end is already fixed).
@@ -422,7 +477,7 @@ areas:
   - id: front
     include: [shed-eave, fence, wall]
   - id: porch
-    include: [{ run: shed-eave, from: shed-nw, to: shed-ne }]  # by node or index
+    include: [{ run: shed-eave, from: shed-nw, to: shed-ne }]  # by node or offset
   - id: west-eave
     include: [{ run: shed-eave, after: shed-sw, before: shed-nw }]  # ends excluded
   - id: everything
@@ -437,7 +492,8 @@ zones:
       - { area: porch, mapping: porch-local }   # per-segment override
 ```
 
-A run range has a start and an end, each a node id or a pixel index.
+A run range has a start and an end, each a node id or a run offset
+(counted from the run's first LED in data order).
 `from` and `to` include the pixel at that point; `after` and `before`
 exclude it, so two neighboring areas can meet at a node without sharing
 its pixel (`{to: shed-nw}` and `{after: shed-nw}`). Give at most one start
@@ -449,8 +505,13 @@ range that ends up with no pixels is an error.
 A layer's mapping comes from, in order: the layer itself, its segment, its
 zone, then the global default in `mappings.yaml`.
 
-Areas reference runs and nodes, not raw indices. If a strip is repaired and
-its pixel count changes, only `layout.yaml` changes.
+Areas reference runs, nodes and run offsets, not controller indices. If a
+strip is repaired and its pixel count changes, only its output's `count` in
+`controllers.yaml` changes.
+
+Besides areas.yaml's areas, every layer target can also be an implicit
+area: `run:<id>`, `controller:<id>`, or `all` for every pixel on a run. An
+areas.yaml area with the same id wins.
 
 ### Mappings
 
@@ -1046,7 +1107,9 @@ desk.
   doesn't show its plans; they stay in its config folder for reference and
   for drawing new runs.
 - **Selection.** Tapping a run selects the smallest area around it; tapping
-  it again climbs to the next larger area, then the zone. A breadcrumb over
+  it again climbs to the next larger area, then the zone, then **All**
+  (every pixel on a run, the `all` target), then back to the run. An area
+  that already covers everything is the same step as All. A breadcrumb over
   the map shows the chain and jumps along it. The selection is where looks
   go; a soft white halo marks its pixels on the map.
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
@@ -1182,7 +1245,11 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
 - Positions are 3-D, meters, Z up. A scene model (`.glb`) is the preferred
   source of run shapes and the live map's background; floor plans remain
   for sites without one. The model supplies shape only; `layout.yaml` keeps
-  controllers and indices.
+  controllers and LEDs.
+- Config never stores controller indices. Runs name WLED outputs, and
+  everything else counts from a run's or an output's first LED, so a
+  repair that changes one output's count is a one-line edit. Measurements
+  remember the run length they were taken at and warn when it changes.
 - Stretching and compression are part of the flow solver from the start.
   `u` is measured along a reference path, and parallel paths between pinned
   nodes conform. Each pixel also keeps its physical size, so density-type

@@ -6,11 +6,15 @@
 // zones as pixel sets. Sets with the same pixels are one node (a run that
 // is also an area); a node's parent is the smallest node holding all its
 // pixels, or an area that includes it by name when the geometry says so
-// (areas[].includes). Tapping a run again climbs: run → area → larger
-// area → zone → back to the run. Also: the pixel set of a layer target.
+// (areas[].includes). Above everything is All, every pixel on a run.
+// Tapping a run again climbs: run → area → larger area → zone → All →
+// back to the run. Also: the pixel set of a layer target.
 import { normRanges, countRanges, covers } from './util.js';
 
-const RANK = { run: 0, area: 1, zone: 2 };
+const RANK = { run: 0, area: 1, zone: 2, all: 3 };
+
+// ALL is the layer target for every pixel on a run (layout.AreaAll).
+export const ALL = 'all';
 
 // buildTree indexes the geometry's runs, areas and zones.
 export function buildTree(geo) {
@@ -31,6 +35,8 @@ export function buildTree(geo) {
     const a = areaById.get(z.area);
     if (a) items.push({ kind: 'zone', id: z.id, area: z.area, name: z.name, ranges: normRanges(a.ranges) });
   }
+  const allRanges = normRanges(runSets.flat());
+  items.push({ kind: 'all', id: ALL, name: 'All', ranges: allRanges });
 
   const byKey = new Map();
   for (const it of items) {
@@ -65,6 +71,11 @@ export function buildTree(geo) {
     }
   }
 
+  // Every top node climbs to All (unless it is All: an area covering
+  // every run shares All's node).
+  const all = nodeOf.get('all:' + ALL) || null;
+  for (const nd of nodes) if (nd !== all && !nd.parent && all) nd.parent = all;
+
   const runNode = geo.runs.map((r) => nodeOf.get('run:' + r.id) || null);
   return {
     nodes,
@@ -98,7 +109,7 @@ function isAncestor(a, b) {
 // name is how a node reads: its biggest member, with the others after.
 export function nodeName(nd) {
   const top = nd.members[nd.members.length - 1];
-  return top.kind === 'zone' && top.name ? top.name : top.id;
+  return (top.kind === 'zone' || top.kind === 'all') && top.name ? top.name : top.id;
 }
 export function nodeKinds(nd) {
   return [...new Set(nd.members.map((m) => m.kind))].join(' · ');
@@ -111,11 +122,12 @@ export function nodeTarget(nd) {
   if (area) return area.id;
   const zone = nd.members.find((m) => m.kind === 'zone');
   if (zone) return zone.area;
+  if (nd.members.some((m) => m.kind === 'all')) return ALL;
   return 'run:' + nd.members[0].id;
 }
 
 // targetRanges is the pixel set of a layer target: an area id,
-// run:<id> or controller:<id>. null if the geometry doesn't know it.
+// run:<id>, controller:<id> or all. null if the geometry doesn't know it.
 export function targetRanges(geo, tree, target) {
   const i = target.indexOf(':');
   if (i > 0) {
@@ -130,5 +142,7 @@ export function targetRanges(geo, tree, target) {
     }
   }
   const a = geo.areas.find((a) => a.id === target);
-  return a ? normRanges(a.ranges) : null;
+  if (a) return normRanges(a.ranges);
+  if (target === ALL) return tree.node('all', ALL)?.ranges || null; // an areas.yaml "all" wins, as in core
+  return null;
 }

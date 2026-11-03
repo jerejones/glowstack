@@ -126,16 +126,16 @@ export function createStatus(S, root) {
     box.className = '';
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
     const rows = pw.estimate.map((o) => {
-      if (!o.known) return `<div class="pw"><div class="row"><span>${esc(o.controller)} pin ${o.pin}</span><span class="muted">no led_ma</span></div></div>`;
+      if (!o.known) return `<div class="pw"><div class="row"><span>${esc(o.controller)} output ${o.output}</span><span class="muted">no led_ma</span></div></div>`;
       const pct = o.max_ma ? Math.min(100, 100 * o.ma / o.max_ma) : 0;
-      return `<div class="pw"><div class="row"><span>${esc(o.controller)} pin ${o.pin} · ${o.count} px</span>
+      return `<div class="pw"><div class="row"><span>${esc(o.controller)} output ${o.output} · ${o.count} px</span>
         <span>${amps(o.ma)}${o.max_ma ? ' / ' + (o.max_ma / 1000).toFixed(1) + ' A' : ''}</span></div>
         ${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</div>`;
     }).join('');
     const totals = pw.controllers.map((c) => `${esc(c.controller)} ${amps(c.ma)}${c.max_ma ? ' / ' + (c.max_ma / 1000).toFixed(1) + ' A' : ''}`).join(' · ');
     const stg = pw.stage;
     const scale = stg ? stg.scale.toFixed(3) + (stg.group ? ` (group ${esc(stg.group)})` : '') : 'n/a (output stage not reporting)';
-    const stageRow = (o) => `<div class="row" style="justify-content:space-between"><span>${esc(o.controller)}${o.pin ? ' pin ' + o.pin : ' total'}</span>
+    const stageRow = (o) => `<div class="row" style="justify-content:space-between"><span>${esc(o.controller)}${o.output ? ' output ' + o.output : ' total'}</span>
       <span>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}${o.max_ma ? ' / ' + (o.max_ma / 1000).toFixed(1) + ' A' : ''}${o.need < 0.9995 ? ` · <b>×${o.need.toFixed(3)}</b>` : ''}</span></div>`;
     const stage = stg ? `<details><summary>Output stage (after limiting)</summary>${(stg.outputs || []).map(stageRow).join('')}${(stg.controllers || []).map(stageRow).join('')}</details>` : '';
     box.innerHTML = `${rows}<div class="muted small">totals: ${totals}</div><div>limit scale: <b>${scale}</b></div>${stage}`;

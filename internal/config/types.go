@@ -94,26 +94,39 @@ type ControllersFile struct {
 // Controller is a physical WLED device.
 type Controller struct {
 	Pos
-	ID        string   `yaml:"id"`
-	Host      string   `yaml:"host"`
-	Transport string   `yaml:"transport"` // ddp (default)
-	Port      int      `yaml:"port"`      // DDP port; default 4048
-	HTTPPort  int      `yaml:"http_port"` // JSON API port for health checks; default 80
-	Pixels    int      `yaml:"pixels"`
-	Channels  string   `yaml:"channels"` // rgb (default) | rgbw
-	MaxFPS    float64  `yaml:"max_fps"`
-	Outputs   []Output `yaml:"outputs"`
-	Power     *Power   `yaml:"power"`
-	White     string   `yaml:"white"` // explicit (default) | auto
+	ID        string `yaml:"id"`
+	Host      string `yaml:"host"`
+	Transport string `yaml:"transport"` // ddp (default)
+	Port      int    `yaml:"port"`      // DDP port; default 4048
+	HTTPPort  int    `yaml:"http_port"` // JSON API port for health checks; default 80
+	// Pixels is the sum of the outputs' counts, set by Validate. Code that
+	// builds a Config may set it directly for a controller without outputs.
+	Pixels   int      `yaml:"-"`
+	Channels string   `yaml:"channels"` // rgb (default) | rgbw
+	MaxFPS   float64  `yaml:"max_fps"`
+	Outputs  []Output `yaml:"outputs"`
+	Power    *Power   `yaml:"power"`
+	White    string   `yaml:"white"` // explicit (default) | auto
 }
 
-// Output is one data pin: a contiguous index range.
+// Output is one WLED output: the LEDs on one data pin, a contiguous index
+// range. Outputs are listed in WLED's order and numbered from 1 as WLED
+// numbers them; each starts where the one before it ends.
 type Output struct {
 	Pos
-	Pin   int     `yaml:"pin"`
-	Start int     `yaml:"start"`
-	Count int     `yaml:"count"`
-	MaxMA float64 `yaml:"max_ma"` // 0 = unlimited
+	Number int     `yaml:"output"` // WLED's output number; optional, must match the position
+	GPIO   *int    `yaml:"gpio"`   // the pin it drives; for information only
+	Count  int     `yaml:"count"`
+	MaxMA  float64 `yaml:"max_ma"` // 0 = unlimited
+	Start  int     `yaml:"-"`      // controller index of its first LED, set by Validate
+}
+
+// Name is how messages refer to the output: "output 3 (GPIO 2)".
+func (o *Output) Name() string {
+	if o.GPIO != nil {
+		return fmt.Sprintf("output %d (GPIO %d)", o.Number, *o.GPIO)
+	}
+	return fmt.Sprintf("output %d", o.Number)
 }
 
 // Power is a controller's supply limit and per-LED current figures.
@@ -179,17 +192,49 @@ type Node struct {
 }
 
 // Run is a physically continuous stretch of pixels on one controller.
+//
+// Its LEDs are named by output: `output: 3` (or `outputs: [1, 2]` for a
+// strip fed by two consecutive outputs) and optionally `leds: [a, b]`,
+// counted from the first output's first LED, inclusive. The default is the
+// whole output(s), so a run follows its output's count. The run's
+// direction along its path is data order (lowest LED first) unless
+// `reverse` is set.
 type Run struct {
 	Pos
 	ID         string        `yaml:"id"`
 	Controller string        `yaml:"controller"`
-	Indices    [2]int        `yaml:"indices" required:"true"` // inclusive; order = direction along path
-	Pitch      *units.Length `yaml:"pitch"`                   // overrides the layout pitch
-	Path       []string      `yaml:"path"`                    // node sequence; may be omitted if the shape labels vertices
+	Output     int           `yaml:"output"`
+	Outputs    []int         `yaml:"outputs"`
+	LEDs       *[2]int       `yaml:"leds"`
+	Reverse    bool          `yaml:"reverse"` // the path starts at the run's highest LED
+	Pitch      *units.Length `yaml:"pitch"`   // overrides the layout pitch
+	Path       []string      `yaml:"path"`    // node sequence; may be omitted if the shape labels vertices
 	Anchors    []Anchor      `yaml:"anchors"`
 	Lengths    []EdgeLength  `yaml:"lengths"` // measured lengths overriding count × pitch
 	Plan       *RunPlan      `yaml:"plan"`
 	Model      *RunModel     `yaml:"model"`
+
+	// Indices are the run's first and last controller index in run
+	// direction. Load derives them from the outputs, then anchors.yaml's
+	// ends may move them. Code that builds a Config sets them directly.
+	Indices [2]int `yaml:"-"`
+	span    *[2]int
+}
+
+// Span is the run's configured LEDs as controller indices, lowest first,
+// before anchors.yaml's ends move them. Offsets in anchors, dead ranges
+// and areas count from its first LED.
+func (r *Run) Span() (lo, hi int) {
+	if r.span != nil {
+		return r.span[0], r.span[1]
+	}
+	return min(r.Indices[0], r.Indices[1]), max(r.Indices[0], r.Indices[1])
+}
+
+// Count is the number of LEDs in the run's configured span.
+func (r *Run) Count() int {
+	lo, hi := r.Span()
+	return hi - lo + 1
 }
 
 // Anchor sources.
@@ -198,13 +243,15 @@ const (
 	SourceEstimated = "estimated"
 )
 
-// Anchor says which pixel sits at a node. With no Index, the anchor is
-// estimated from the run's plan drawing.
+// Anchor says which pixel sits at a node: Offset counts LEDs from the
+// run's first LED in data order (its lowest). With no offset, the anchor
+// is estimated from the run's plan drawing.
 type Anchor struct {
 	Pos
 	Node   string `yaml:"node"`
-	Index  *int   `yaml:"index"`
-	Source string `yaml:"source"` // measured (default when Index is set) | estimated
+	Offset *int   `yaml:"offset"`
+	Source string `yaml:"source"` // measured (default when Offset is set) | estimated
+	Index  *int   `yaml:"-"`      // controller index, derived from Offset by Load
 }
 
 // EdgeLength is a measured physical length for the stretch of a run between
@@ -247,11 +294,24 @@ type Edge struct {
 	Length units.Length `yaml:"length"`
 }
 
-// Dead marks pixels that are physically present but unlit or hidden.
+// Dead marks pixels that are physically present but unlit or hidden,
+// either on a run, `{run, offsets: [a, b]}` counted like anchor offsets,
+// or on an output, `{controller, output, leds: [a, b]}` counted from the
+// output's first LED. Both are inclusive.
 type Dead struct {
 	Pos
-	Controller string `yaml:"controller"`
-	Indices    [2]int `yaml:"indices"` // inclusive
+	Run        string  `yaml:"run"`
+	Offsets    *[2]int `yaml:"offsets"`
+	Controller string  `yaml:"controller"`
+	Output     int     `yaml:"output"`
+	LEDs       *[2]int `yaml:"leds"`
+	// Pixels is the run's LED count when calibration found the range
+	// (anchors.yaml only); see AnchorOverride.Pixels.
+	Pixels int `yaml:"pixels"`
+
+	// Controller indices, derived by Load (Controller is filled in for
+	// run ranges). Code that builds a Config sets them directly.
+	Indices [2]int `yaml:"-"`
 }
 
 // ---- anchors.yaml (data dir) ----
@@ -267,22 +327,37 @@ type AnchorsFile struct {
 	Dead    []Dead           `yaml:"dead"` // dead pixels found on site, added to layout.yaml's
 }
 
-// AnchorOverride replaces (or adds) the anchor for Node on Run.
+// AnchorOverride replaces (or adds) the anchor for Node on Run. Offset
+// counts like a layout.yaml anchor's.
+//
+// Pixels is the run's LED count when the anchor was measured. If the run's
+// count has changed since, LEDs may have been added or removed before the
+// anchor, so Load warns until the anchor is accepted, shifted or cleared
+// (see package calibrate).
 type AnchorOverride struct {
 	Pos
 	Run    string `yaml:"run" json:"run"`
 	Node   string `yaml:"node" json:"node"`
-	Index  int    `yaml:"index" required:"true" json:"index"`
+	Offset int    `yaml:"offset" required:"true" json:"-"`
+	Pixels int    `yaml:"pixels" json:"-"`
 	Source string `yaml:"source" json:"source"` // default measured
+	Index  int    `yaml:"-" json:"index"`       // controller index, derived by Load
 }
 
-// EndOverride moves a run's first or last pixel (its `indices`) to where
-// calibration found the strip actually starts or ends.
+// EndOverride moves a run's first or last pixel (in run direction) to
+// where calibration found the strip actually starts or ends. First and
+// Last are offsets like an anchor's; they may fall outside the run's
+// configured LEDs. Pixels is as for AnchorOverride.
 type EndOverride struct {
 	Pos
-	Run   string `yaml:"run" json:"run"`
-	First *int   `yaml:"first" json:"first,omitempty"`
-	Last  *int   `yaml:"last" json:"last,omitempty"`
+	Run    string `yaml:"run" json:"run"`
+	First  *int   `yaml:"first" json:"-"`
+	Last   *int   `yaml:"last" json:"-"`
+	Pixels int    `yaml:"pixels" json:"-"`
+
+	// Controller indices, derived by Load.
+	FirstIndex *int `yaml:"-" json:"first,omitempty"`
+	LastIndex  *int `yaml:"-" json:"last,omitempty"`
 }
 
 // GapOverride replaces the length of layout.yaml's gap edge between From
@@ -359,7 +434,8 @@ func (a *AreaPart) unmarshalNode(d *decoder, n *yaml.Node) error {
 	return nil
 }
 
-// NodeOrIndex is a node id or a controller pixel index.
+// NodeOrIndex is a node id or a run offset (counted from the run's first
+// LED in data order, like an anchor's).
 type NodeOrIndex struct {
 	Node    string
 	Index   int

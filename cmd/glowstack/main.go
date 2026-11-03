@@ -21,6 +21,9 @@
 //
 // `glowstack ctl …` is the control API's command-line client instead (see
 // internal/ctl).
+//
+// `glowstack anchors accept|shift|clear …` settles a run's measurements in
+// anchors.yaml after its LED count changed (see anchorsMain).
 package main
 
 import (
@@ -31,6 +34,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/jerejones/glowstack/internal/api"
@@ -50,6 +54,9 @@ import (
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "ctl" {
 		os.Exit(ctl.Main(os.Args[2:], os.Stdout, os.Stderr))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "anchors" {
+		os.Exit(anchorsMain(os.Args[2:]))
 	}
 	configDir := flag.String("config", "/config", "config folder (read-only)")
 	dataDir := flag.String("data", "/data", "data folder (writable): state.json, anchors.yaml, presets.saved.yaml")
@@ -137,4 +144,54 @@ func main() {
 		os.Exit(1)
 	}
 	log.Info("stopped", "late_frames", a.Ticker.Late())
+}
+
+const anchorsUsage = `usage: glowstack anchors [--config DIR] [--data DIR] accept RUN
+       glowstack anchors [--config DIR] [--data DIR] shift RUN AT N
+       glowstack anchors [--config DIR] [--data DIR] clear RUN
+
+Settles a run's measurements in anchors.yaml after its LED count changed:
+  accept  LEDs were added or removed at the run's far end; keep every offset
+  shift   N LEDs were added (negative: removed) before offset AT; move the
+          offsets at or past AT by N
+  clear   drop the run's measurements and recalibrate it
+`
+
+// anchorsMain runs `glowstack anchors`.
+func anchorsMain(args []string) int {
+	fs := flag.NewFlagSet("anchors", flag.ContinueOnError)
+	fs.Usage = func() { fmt.Fprint(os.Stderr, anchorsUsage) }
+	configDir := fs.String("config", "/config", "config folder (read-only)")
+	dataDir := fs.String("data", "/data", "data folder holding anchors.yaml")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	rest := fs.Args()
+	want := map[string]int{calibrate.AdjustAccept: 2, calibrate.AdjustShift: 4, calibrate.AdjustClear: 2}
+	if len(rest) == 0 || want[rest[0]] != len(rest) {
+		fs.Usage()
+		return 2
+	}
+	adj := calibrate.Adjustment{Op: rest[0], Run: rest[1]}
+	if adj.Op == calibrate.AdjustShift {
+		var err1, err2 error
+		adj.At, err1 = strconv.Atoi(rest[2])
+		adj.N, err2 = strconv.Atoi(rest[3])
+		if err1 != nil || err2 != nil {
+			fmt.Fprintln(os.Stderr, "shift: AT and N are whole numbers of LEDs")
+			return 2
+		}
+	}
+	msg, err := calibrate.Adjust(*configDir, *dataDir, adj)
+	if msg != "" {
+		fmt.Println(msg)
+	}
+	if err != nil {
+		if msg != "" {
+			fmt.Fprintln(os.Stderr, "the config still doesn't load:")
+		}
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
 }

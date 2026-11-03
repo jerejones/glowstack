@@ -51,19 +51,17 @@ func TestParseRunAndLayers(t *testing.T) {
 	if r.Path.Length() != 6 {
 		t.Errorf("length = %v, want 6", r.Path.Length())
 	}
-	if r.Controller != "shed" || r.Indices == nil || *r.Indices != [2]int{0, 1199} || len(r.Basis) != 3 {
-		t.Errorf("run facts = %q %v %d", r.Controller, r.Indices, len(r.Basis))
+	if r.Controller != "shed" || len(r.Basis) != 3 {
+		t.Errorf("run facts = %q %d", r.Controller, len(r.Basis))
 	}
 }
 
-func TestIndicesArray(t *testing.T) {
-	s, err := parse(t, `{`+frameOK+`,"nodes":[{"extras":{"glowstack_run":"a","indices":[9,0],
-	  "points":[[0,0,0],[1,0,0]],"nodes":"x,y"}}]}`)
-	if err != nil {
+// TestIgnoresIndices: pixel indices aren't the model's business; an old
+// exporter's extra is ignored, even when malformed.
+func TestIgnoresIndices(t *testing.T) {
+	if _, err := parse(t, `{`+frameOK+`,"nodes":[{"extras":{"glowstack_run":"a","indices":"a-b",
+	  "points":[[0,0,0],[1,0,0]],"nodes":"x,y"}}]}`); err != nil {
 		t.Fatal(err)
-	}
-	if *s.Runs["a"].Indices != [2]int{9, 0} {
-		t.Errorf("indices = %v", *s.Runs["a"].Indices)
 	}
 }
 
@@ -81,7 +79,6 @@ func TestParseErrors(t *testing.T) {
 		{"2-d point", run(`"points":[[0,0],[1,0,0]],"nodes":"x,y"`), "want [x, y, z]"},
 		{"repeat point", run(`"points":[[0,0,0],[0,0,0]],"nodes":"x,y"`), "are the same"},
 		{"repeat label", run(`"points":[[0,0,0],[1,0,0],[2,0,0]],"nodes":"x,y,x"`), "labels two points"},
-		{"bad indices", run(`"points":[[0,0,0],[1,0,0]],"nodes":"x,y","indices":"a-b"`), "indices"},
 		{"basis count", run(`"points":[[0,0,0],[1,0,0]],"nodes":"x,y","basis":["m"]`), "basis"},
 	}
 	for _, c := range cases {

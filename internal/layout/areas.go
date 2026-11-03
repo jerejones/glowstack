@@ -66,11 +66,13 @@ func (b *builder) runPart(part config.AreaPart) []int32 {
 			return dflt, true
 		}
 		if x.IsIndex {
-			k := r.Offset(x.Index)
-			if k < 0 {
-				b.errorf(part.Pos, "run %s has no pixel %d", r.ID, x.Index)
+			lo, _ := r.Config.Span()
+			k := r.Offset(lo + x.Index)
+			if k < 0 || x.Index < 0 {
+				b.errorf(part.Pos, "run %s has no offset %d", r.ID, x.Index)
+				return 0, false
 			}
-			return k, k >= 0
+			return k, true
 		}
 		n, ok := b.l.nodeByID[x.Node]
 		if ok {
@@ -114,8 +116,9 @@ func (b *builder) runPart(part config.AreaPart) []int32 {
 	return px
 }
 
-// implicitAreas makes the run:<id> and controller:<id> areas.
+// implicitAreas makes the run:<id>, controller:<id> and all areas.
 func (b *builder) implicitAreas() {
+	var all []int32
 	for _, c := range b.l.Controllers {
 		px := make([]int32, c.Pixels)
 		for k := range px {
@@ -133,5 +136,8 @@ func (b *builder) implicitAreas() {
 		slices.Sort(px)
 		id := AreaRunPrefix + r.ID
 		b.l.implicit[id] = &Area{ID: id, Pixels: px}
+		all = append(all, px...)
 	}
+	slices.Sort(all)
+	b.l.implicit[AreaAll] = &Area{ID: AreaAll, Pixels: slices.Compact(all)}
 }

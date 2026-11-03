@@ -24,7 +24,11 @@
 //	nodes          comma-separated node id per vertex; empty entries leave a
 //	               vertex unlabeled (required, one entry per point)
 //	controller     checked against the layout when present
-//	indices        "first-last" or [first, last]; checked when present
+//
+// Pixel indices aren't part of the model: layout.yaml names each run's
+// LEDs by output, so changing an output's count doesn't need a re-export.
+// Other extras (an exporter's old `indices`, say) are ignored.
+//
 //	basis          per-vertex provenance; kept for inspect
 //
 // points is authoritative. glTF doesn't keep line vertices in order, so any
@@ -46,7 +50,6 @@ import (
 	"math"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/jerejones/glowstack/internal/plan"
@@ -62,7 +65,6 @@ type Scene struct {
 type Run struct {
 	Path       *plan.Path // meters, Z up; Path.ID is the run id
 	Controller string     // "" if the model doesn't say
-	Indices    *[2]int    // nil if the model doesn't say
 	Basis      []json.RawMessage
 }
 
@@ -217,7 +219,6 @@ type runExtras struct {
 	Points     [][]float64       `json:"points"`
 	Nodes      *string           `json:"nodes"`
 	Controller string            `json:"controller"`
-	Indices    json.RawMessage   `json:"indices"`
 	Basis      []json.RawMessage `json:"basis"`
 }
 
@@ -258,30 +259,5 @@ func (e *runExtras) run() (*Run, error) {
 		p.Points = append(p.Points, pt)
 		p.Labels = append(p.Labels, l)
 	}
-	run := &Run{Path: p, Controller: e.Controller, Basis: e.Basis}
-	if len(e.Indices) > 0 {
-		ix, err := parseIndices(e.Indices)
-		if err != nil {
-			return nil, err
-		}
-		run.Indices = &ix
-	}
-	return run, nil
-}
-
-func parseIndices(raw json.RawMessage) ([2]int, error) {
-	var pair [2]int
-	if err := json.Unmarshal(raw, &pair); err == nil {
-		return pair, nil
-	}
-	var s string
-	if err := json.Unmarshal(raw, &s); err == nil {
-		a, b, ok := strings.Cut(s, "-")
-		x, err1 := strconv.Atoi(strings.TrimSpace(a))
-		y, err2 := strconv.Atoi(strings.TrimSpace(b))
-		if ok && err1 == nil && err2 == nil {
-			return [2]int{x, y}, nil
-		}
-	}
-	return pair, fmt.Errorf(`indices %s: want "first-last" or [first, last]`, raw)
+	return &Run{Path: p, Controller: e.Controller, Basis: e.Basis}, nil
 }

@@ -73,6 +73,7 @@ type Manager struct {
 	seq     int
 	view    app.View // config generation the plan was resolved against
 	message string   // what the last action did
+	checks  []string // density warnings the last change brought in
 
 	reloaded atomic.Bool
 }
@@ -102,6 +103,9 @@ type State struct {
 	Controllers []ControllerState `json:"controllers,omitempty"`
 	Warning     string            `json:"warning,omitempty"`
 	Message     string            `json:"message,omitempty"`
+	// Checks are warnings the last confirm brought in, e.g. an anchor
+	// that makes a stretch twice as dense as the rest of its run.
+	Checks []string `json:"checks,omitempty"`
 	// Progress lists every anchor, link and gap, with counts.
 	Progress []Item `json:"progress"`
 	Measured int    `json:"measured"` // anchors measured
@@ -127,7 +131,7 @@ func (m *Manager) State() State {
 func (m *Manager) state() State {
 	m.refresh()
 	v := m.view
-	st := State{Active: m.active, Side: m.side, Layers: slices.Clone(m.layers), Message: m.message}
+	st := State{Active: m.active, Side: m.side, Layers: slices.Clone(m.layers), Message: m.message, Checks: slices.Clone(m.checks)}
 	if m.target != nil && m.plan != nil {
 		t := *m.target
 		st.Target, st.Label = &t, t.String()
@@ -195,6 +199,7 @@ func (m *Manager) Start(t *Target) (State, error) {
 	}
 	m.active = true
 	if t == nil {
+		m.checks = nil
 		m.message = "started; pick something to calibrate"
 	} else {
 		m.message = "calibrating " + t.String()
@@ -211,6 +216,7 @@ func (m *Manager) Select(t Target) (State, error) {
 		return State{}, err
 	}
 	m.active = true
+	m.checks = nil
 	m.message = "calibrating " + t.String()
 	return m.synced()
 }
@@ -246,6 +252,7 @@ func (m *Manager) Next(dir int) (State, error) {
 		return State{}, err
 	}
 	m.active = true
+	m.checks = nil
 	m.message = "calibrating " + t.String()
 	return m.synced()
 }
@@ -492,6 +499,7 @@ func (m *Manager) Forget(t *Target) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
+	m.checks = nil
 	m.message = "forgot " + tt.String()
 	m.reselect()
 	return m.synced()
@@ -671,9 +679,11 @@ func (m *Manager) change(fn func(*measurements) error) error {
 		return err
 	}
 	data := ms.format(v.Layout)
-	if err := check(v.Config.Dir, v.Config.DataDir, data); err != nil {
+	lay, err := check(v.Config.Dir, v.Config.DataDir, data)
+	if err != nil {
 		return err
 	}
+	m.checks = newDensity(v.Layout, lay)
 	if _, err := m.app.WriteDataConfig(config.AnchorsFileName, data); err != nil {
 		return configErr(err)
 	}
@@ -681,36 +691,49 @@ func (m *Manager) change(fn func(*measurements) error) error {
 	return nil
 }
 
+// newDensity lists the density warnings in after that weren't in before.
+func newDensity(before, after *layout.Layout) []string {
+	var out []string
+	for _, d := range after.Density {
+		if !slices.ContainsFunc(before.Density, func(o layout.DensityIssue) bool {
+			return o.Run == d.Run && o.From == d.From && o.To == d.To
+		}) {
+			out = append(out, d.String())
+		}
+	}
+	return out
+}
+
 // check loads the config with anchors.yaml replaced by data, without
-// touching the real data folder.
-func check(configDir, dataDir string, data []byte) error {
+// touching the real data folder, and returns the solved layout.
+func check(configDir, dataDir string, data []byte) (*layout.Layout, error) {
 	tmp, err := os.MkdirTemp("", "glowstack-calibrate-")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer os.RemoveAll(tmp)
 	if saved, err := os.ReadFile(filepath.Join(dataDir, config.SavedPresetsFileName)); err == nil {
 		if err := os.WriteFile(filepath.Join(tmp, config.SavedPresetsFileName), saved, 0o644); err != nil {
-			return err
+			return nil, err
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("checking %s: %w", config.SavedPresetsFileName, err)
+		return nil, fmt.Errorf("checking %s: %w", config.SavedPresetsFileName, err)
 	}
 	if err := os.WriteFile(filepath.Join(tmp, config.AnchorsFileName), data, 0o644); err != nil {
-		return err
+		return nil, err
 	}
 	cfg, err := config.Load(configDir, tmp)
 	if err != nil {
-		return configErr(err)
+		return nil, configErr(err)
 	}
 	lay, err := layout.Build(cfg)
 	if err != nil {
-		return configErr(err)
+		return nil, configErr(err)
 	}
 	if _, err := layout.SolveMappings(lay, cfg); err != nil {
-		return configErr(err)
+		return nil, configErr(err)
 	}
-	return nil
+	return lay, nil
 }
 
 // configErr reports config errors as a 422 that names what's wrong. The

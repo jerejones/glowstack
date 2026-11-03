@@ -12,8 +12,8 @@ import (
 )
 
 const measuredLayout = "schema: 1\npitch: 1/60 m\nruns:\n" +
-	"  - { id: a, controller: shed, indices: [0, 49], path: [x, y] }\n" +
-	"  - { id: b, controller: shed, indices: [60, 89], path: [z, w] }\n" +
+	"  - { id: a, controller: shed, output: 1, leds: [0, 49], path: [x, y] }\n" +
+	"  - { id: b, controller: shed, output: 1, leds: [60, 89], path: [z, w] }\n" +
 	"edges:\n  - { kind: gap, from: y, to: z, length: 1 m }\n"
 
 func writeData(t *testing.T, body string) string {
@@ -27,9 +27,9 @@ func writeData(t *testing.T, body string) string {
 
 func TestMeasuredEndsGapsAndDeadOverrideLayout(t *testing.T) {
 	dir := writeConfig(t, map[string]string{LayoutFileName: measuredLayout})
-	data := writeData(t, "ends:\n  - { run: a, last: 52 }\n  - { run: b, first: 58 }\n"+
+	data := writeData(t, "ends:\n  - { run: a, last: 52, pixels: 50 }\n  - { run: b, first: -2, pixels: 30 }\n"+
 		"gaps:\n  - { from: z, to: y, length: 1.25 m }\n"+
-		"dead:\n  - { controller: shed, indices: [53, 57] }\n")
+		"dead:\n  - { controller: shed, output: 1, leds: [53, 57] }\n")
 	c, err := Load(dir, data)
 	if err != nil {
 		t.Fatal(err)
@@ -53,12 +53,14 @@ func TestMeasuredEndsGapsAndDeadOverrideLayout(t *testing.T) {
 
 func TestMeasuredOverridesReportTheirLine(t *testing.T) {
 	for _, tt := range []struct{ name, body, want string }{
-		{"unknown run", "ends:\n  - { run: nope, last: 5 }\n", `anchors.yaml:3: ends: unknown run "nope"`},
-		{"no end", "ends:\n  - { run: a }\n", "give first, last or both"},
-		{"end outside controller", "ends:\n  - { run: a, last: 100 }\n", `anchors.yaml:3: run "a": index 100 outside controller`},
+		{"unknown run", "ends:\n  - { run: nope, last: 5, pixels: 50 }\n", `anchors.yaml:3: ends: unknown run "nope"`},
+		{"no end", "ends:\n  - { run: a, pixels: 50 }\n", "give first, last or both"},
+		{"end outside controller", "ends:\n  - { run: a, last: 100, pixels: 50 }\n", `anchors.yaml:3: run "a": index 100 outside controller`},
 		{"no such gap", "gaps:\n  - { from: x, to: w, length: 1 m }\n", `no gap edge between "x" and "w"`},
 		{"bad gap length", "gaps:\n  - { from: y, to: z, length: 0 m }\n", "positive length"},
-		{"bad dead", "dead:\n  - { controller: shed, indices: [5, 200] }\n", "anchors.yaml:3: dead: bad index range"},
+		{"bad dead", "dead:\n  - { controller: shed, output: 1, leds: [5, 200] }\n", "anchors.yaml:3: dead: leds [5, 200] outside output 1's 0–99"},
+		{"bad run dead", "dead:\n  - { run: b, offsets: [25, 30], pixels: 30 }\n", `anchors.yaml:3: dead: offsets [25, 30] outside run "b"'s 0–29`},
+		{"dead without pixels", "dead:\n  - { run: b, offsets: [1, 2] }\n", `anchors.yaml:3: run "b": missing pixels`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := writeConfig(t, map[string]string{LayoutFileName: measuredLayout})

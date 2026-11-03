@@ -207,6 +207,7 @@ export function createCalibrate(S, root) {
       const tr = st.target && (st.target.run || (c && c.run));
       parts.push(`<div class="cal-nav">${btn('◀ Prev', () => session.next(true))}${btn('Next ▶', () => session.next())}${tr ? btn('Bands on run', () => session.target({ kind: 'bands', run: tr })) : ''}${st.target && st.target.kind !== 'bands' ? btn('Forget', () => session.forget(), 'quiet') : ''}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(st.message)}</div>`);
+      for (const w of st.checks || []) parts.push(`<div class="cal-warn">${esc(w)}</div>`);
       const nudgeOff = !c || c.fixed || c.index < 0;
       for (const b of root.querySelectorAll('[data-by]')) b.disabled = nudgeOff;
       const confirmable = st.target && st.target.kind !== 'bands' && st.target.kind !== 'gap';

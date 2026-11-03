@@ -21,7 +21,7 @@ import (
 // +Y with Z up.
 const sceneDoc = `{"scenes":[{"extras":{"glowstack":{"schema":1,"units":"m","axes":"gltf-y-up"}}}],
  "nodes":[{"name":"walls lines","mesh":0},
-  {"name":"r","extras":{"glowstack_run":"r","controller":"c","indices":"0-39",
+  {"name":"r","extras":{"glowstack_run":"r","controller":"c",
    "points":[[0,0,0],[0,1,0],[0,1,-3]],"nodes":"a,b,c"}},
   {"name":"spare","extras":{"glowstack_run":"spare","points":[[0,0,0],[1,0,0]],"nodes":"p,q"}}],
  "meshes":[{"primitives":[{"mode":1}]}]}`
@@ -121,9 +121,6 @@ func TestSceneErrors(t *testing.T) {
 		{"controller mismatch", func(g *graph) {}, `{"scenes":[{"extras":{"glowstack":{"schema":1,"units":"m","axes":"gltf-y-up"}}}],
 			"nodes":[{"extras":{"glowstack_run":"r","controller":"other","points":[[0,0,0],[1,0,0]],"nodes":"a,b"}}]}`,
 			`the scene says controller "other", layout.yaml says "c"`},
-		{"indices mismatch", func(g *graph) {}, `{"scenes":[{"extras":{"glowstack":{"schema":1,"units":"m","axes":"gltf-y-up"}}}],
-			"nodes":[{"extras":{"glowstack_run":"r","indices":[0,41],"points":[[0,0,0],[1,0,0]],"nodes":"a,b"}}]}`,
-			`the scene says indices 0-41, layout.yaml says 0-39`},
 		{"drawn backward", func(g *graph) { g.cfg.Layout.Runs[0].Path = []string{"c", "b", "a"} }, sceneDoc,
 			"against the run's direction; redraw it from the first pixel"},
 		{"bad frame", func(g *graph) {}, `{"scenes":[{}]}`, "scene site.glb: scene: the scene's extras don't state its frame"},

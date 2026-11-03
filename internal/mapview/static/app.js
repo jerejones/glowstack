@@ -9,7 +9,7 @@
 // double-tap), the selection with its breadcrumb and halo, the
 // inspect card, toasts and the keyboard. Plain JS modules, no build
 // step.
-import { $, api, esc, fmt, load, save, press } from './util.js';
+import { $, api, esc, outputName, fmt, load, save, press } from './util.js';
 import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
 import { buildTree, nodeName, nodeKinds } from './select.js';
@@ -365,7 +365,7 @@ function renderInspect() {
     ${r('color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
     ${r('showing', layer)}
     ${r('run', d.run ? `${esc(d.run)} · pixel ${d.run_pixel}` : '<span class="muted">none</span>')}
-    ${r('output', o ? `${esc(o.controller)} pin ${o.pin} · ${d.id - o.first + 1} of ${o.count}` : '<span class="muted">none</span>')}
+    ${r('output', o ? `${esc(o.controller)} ${esc(outputName(o))} · LED ${d.id - o.first} (${d.id - o.first + 1} of ${o.count})` : '<span class="muted">none</span>')}
     ${r('areas', esc(d.areas.join(', ') || '—'))}
     ${r('zones', esc(d.zones.join(', ') || '—'))}
     ${r('edge', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}

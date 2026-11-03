@@ -218,7 +218,7 @@ func (e *Engine) build(l *stack.Layer, prev *render.Layer, full bool) (*render.L
 		return nil, fmt.Errorf("no effect %q", effectID)
 	}
 	pitch, ok := e.pitch[area.ID]
-	if !ok { // an implicit run:<id> or controller:<id> area
+	if !ok { // an implicit run:<id>, controller:<id> or all area
 		pitch = e.areaPitch(area.Pixels)
 	}
 	env := render.Env{Pitch: pitch, Palettes: e.palettes}

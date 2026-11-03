@@ -54,8 +54,8 @@ func (c *Config) Validate() error {
 		seenAnchors[key] = a.Pos
 		if r, ok := runs[a.Run]; !ok {
 			v.errorf(a.Pos, "anchor: unknown run %q", a.Run)
-		} else if a.Index < min(r.Indices[0], r.Indices[1]) || a.Index > max(r.Indices[0], r.Indices[1]) {
-			v.errorf(a.Pos, "anchor %q: index %d outside run %q's %d–%d", a.Node, a.Index, a.Run, r.Indices[0], r.Indices[1])
+		} else if lo, hi := r.Span(); a.Index < lo || a.Index > hi {
+			v.errorf(a.Pos, "anchor %q: offset %d outside run %q's 0–%d", a.Node, a.Index-lo, a.Run, hi-lo)
 		}
 	}
 	return v.errs.Err()
@@ -210,27 +210,41 @@ func (v *validator) controllers(cs []Controller) {
 		if c.HTTPPort < 0 || c.HTTPPort > 65535 {
 			v.errorf(c.Pos, "http_port %d out of range", c.HTTPPort)
 		}
+		outputStarts(c)
 		if c.Pixels <= 0 {
-			v.errorf(c.Pos, "controller %q: pixels must be positive", c.ID)
+			v.errorf(c.Pos, "controller %q: needs outputs, each with a positive count", c.ID)
 		}
 		if c.MaxFPS < 0 {
 			v.errorf(c.Pos, "max_fps must not be negative")
 		}
-		used := make([]int, 0, len(c.Outputs))
 		for j := range c.Outputs {
 			o := &c.Outputs[j]
-			if o.Count <= 0 || o.Start < 0 || o.Start+o.Count > c.Pixels {
-				v.errorf(o.Pos, "output pin %d: range %d+%d outside controller %q's %d pixels", o.Pin, o.Start, o.Count, c.ID, c.Pixels)
+			if o.Number != j+1 {
+				v.errorf(o.Pos, "output %d is listed %s; list outputs in WLED's order, numbered from 1", o.Number, ordinal(j+1))
 			}
-			for _, k := range used {
-				p := c.Outputs[k]
-				if o.Start < p.Start+p.Count && p.Start < o.Start+o.Count {
-					v.errorf(o.Pos, "output pin %d overlaps pin %d", o.Pin, p.Pin)
-				}
+			if o.Count <= 0 {
+				v.errorf(o.Pos, "%s: count must be positive", o.Name())
 			}
-			used = append(used, j)
+			if o.GPIO != nil && *o.GPIO < 0 {
+				v.errorf(o.Pos, "%s: gpio must not be negative", o.Name())
+			}
 		}
 	}
+}
+
+// ordinal is 1st, 2nd, 3rd, 4th …
+func ordinal(n int) string {
+	suffix := "th"
+	switch {
+	case n%100 >= 11 && n%100 <= 13:
+	case n%10 == 1:
+		suffix = "st"
+	case n%10 == 2:
+		suffix = "nd"
+	case n%10 == 3:
+		suffix = "rd"
+	}
+	return strconv.Itoa(n) + suffix
 }
 
 func (v *validator) layout(c *Config) {
@@ -279,7 +293,7 @@ func (v *validator) layout(c *Config) {
 		for j := range r.Anchors {
 			a := &r.Anchors[j]
 			v.required(a.Pos, "node", a.Node)
-			if a.Source == "" && a.Index == nil {
+			if a.Source == "" && a.Index == nil && a.Offset == nil {
 				a.Source = SourceEstimated
 			}
 			v.oneOf(a.Pos, "source", &a.Source, SourceMeasured, SourceEstimated)

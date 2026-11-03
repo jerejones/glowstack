@@ -662,3 +662,12 @@ func TestSwitchLookDropsOldEffectParameters(t *testing.T) {
 		t.Errorf("same effect lost its color: %v", out)
 	}
 }
+
+// TestAllTarget: "all" lights every pixel on a run, the map's top
+// selection.
+func TestAllTarget(t *testing.T) {
+	f := newFixture(t, nil)
+	f.push("all", "#ff0000", nil)
+	f.render(time.Second)
+	f.expect(f.porch, "100", "porch under all")
+}
