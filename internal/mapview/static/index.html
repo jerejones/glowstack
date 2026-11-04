@@ -16,6 +16,9 @@ wider screens. app.js fills it in.
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d0e10">
 <title>Glowstack live map</title>
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" href="favicon.svg" type="image/svg+xml" sizes="any">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="ui.css">
 <script type="importmap">
 { "imports": {
@@ -29,7 +32,7 @@ wider screens. app.js fills it in.
   <canvas id="gl" hidden></canvas>
   <canvas id="map"></canvas>
   <div id="chips" class="chipbar">
-    <span class="brand" title="Glowstack live map"><i class="dot"></i><b>Glowstack</b></span>
+    <span class="brand" title="Glowstack live map" aria-label="Glowstack live map"><img class="brand-mark" src="logo.svg" width="24" height="24" alt=""><b>Glowstack</b></span>
     <span id="badge" class="badge">connecting…</span>
     <span class="seg" id="showSeg" role="group" aria-label="What the map shows">
       <button type="button" data-show="" title="Your preview layers, on the map only">Preview</button><button type="button" data-show="house" title="What the lights show">Lights</button>

@@ -114,10 +114,8 @@ label.check { display: inline-flex; align-items: center; gap: 6px; min-height: v
   display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); padding: 0 10px;
   border: 1px solid var(--line); border-radius: 999px; font-weight: 650; letter-spacing: 0.01em;
 }
-.brand .dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: conic-gradient(#ffb347, #f472b6, #60a5fa, #5ddc8a, #ffb347);
-  box-shadow: 0 0 8px rgba(255, 179, 71, 0.7);
+.brand-mark {
+  display: block; width: 24px; height: 24px; flex: none;
 }
 .badge {
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;

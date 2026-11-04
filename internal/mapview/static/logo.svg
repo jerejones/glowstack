@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Glowstack</title>
+  <defs>
+    <linearGradient id="light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffb547"/>
+      <stop offset="0.5" stop-color="#ff706b"/>
+      <stop offset="1" stop-color="#f526b3"/>
+    </linearGradient>
+  </defs>
+  <path d="M48 14H26C17 14 12 20 12 29V37C12 46 17 52 26 52H48V34H35"
+        fill="none" stroke="url(#light)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
