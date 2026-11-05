@@ -714,3 +714,16 @@ func TestConfirmRollsBackIfReloadFailsAfterValidation(t *testing.T) {
 		t.Errorf("failed reload changed anchors.yaml:\n%s", got)
 	}
 }
+
+func TestConfirmAdvancesAndResumesOnNextAnchor(t *testing.T) {
+	f := newFixture(t, "", unmeasureNW)
+	f.ok(f.m.Select(Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-nw"}))
+	st := f.ok(f.m.Confirm(ConfirmOptions{Next: true}))
+	if !st.Active || st.Target.Node != "shed-eave-mid" || len(st.Cursors) == 0 {
+		t.Fatalf("confirm did not keep calibration active on next anchor: %+v", st)
+	}
+	st = f.ok(f.m.Confirm(ConfirmOptions{Next: true}))
+	if !st.Active || st.Target.Node != "tower-top" || len(st.Cursors) == 0 {
+		t.Fatalf("second confirm did not advance: %+v", st)
+	}
+}

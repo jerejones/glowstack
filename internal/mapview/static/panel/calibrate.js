@@ -77,6 +77,26 @@ export function createSession({ fetch, storage, onState }) {
   };
 }
 
+// The map is a target pattern during anchor/end calibration. Nudging changes
+// the real LEDs, not this reference; the live stream remains untouched.
+export function referenceColors(g, cal) {
+  if (!cal?.active || !['anchor', 'end'].includes(cal.target?.kind)) return null;
+  const c = cal.cursors?.[cal.side];
+  const ctl = c && g.controllers.find((x) => x.id === c.controller);
+  if (!ctl || c.estimate < 0) return null;
+  const out = new Uint8Array(g.pixels.count * 3);
+  for (let i = c.min; i <= c.max; i++) {
+    const d = i - c.estimate;
+    let color = [64, 64, 64];
+    if (d === 0) color = [255, 255, 255];
+    else if (Math.abs(d) <= 100 && d % 10 === 0) color = d < 0 ? [255, 0, 0] : [0, 255, 0];
+    else if (d === -1) color = [96, 0, 0];
+    else if (d === 1) color = [0, 96, 0];
+    out.set(color, (ctl.base + i) * 3);
+  }
+  return out;
+}
+
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
@@ -116,6 +136,7 @@ export function createCalibrate(S, root) {
       if (!nodesBefore && S.overlay.st.nodes) { S.overlay.st.nodes = false; S.refreshLegend && S.refreshLegend(); }
       framed = '';
       tapped = -1;
+      S.overlay.apply();
     }
     S.resize();
     if (!on && hold) { S.view.release(hold); hold = null; }
@@ -148,7 +169,8 @@ export function createCalibrate(S, root) {
     const ctl = g.controllers.find((x) => x.id === c.controller);
     if (!ctl) return;
     const ids = [];
-    for (let i = Math.max(c.min, c.index - 40); i <= Math.min(c.max, c.index + 40); i++) ids.push(ctl.base + i);
+    const center = c.node ? c.estimate : c.index;
+    for (let i = Math.max(c.min, center - 40); i <= Math.min(c.max, center + 40); i++) ids.push(ctl.base + i);
     S.view.frameIds(ids);
   }
 
@@ -177,6 +199,10 @@ export function createCalibrate(S, root) {
     acts.length = 0;
     const parts = [];
     const active = st && st.active;
+    const reference = referenceColors(g, st);
+    if (reference) S.view.setColors(reference);
+    else S.overlay.apply();
+    S.refreshBadge?.();
     $$('#caStop').hidden = !active;
     $$('#caClose').hidden = !!active;
     $$('#caDock').hidden = !active;
@@ -198,7 +224,7 @@ export function createCalibrate(S, root) {
         const moved = c.index - c.estimate;
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'no pixel' : esc(c.controller) + ':' + c.index}</span>
           <span class="muted">layout ${c.estimate} · ${esc(c.source)}${moved ? ` · <b>${moved > 0 ? '+' : ''}${moved}</b>` : ''}</span></div>`);
-        parts.push('<div class="muted small">+ moves toward the run\'s end. White is the cursor; red marks every 10th pixel toward the start, green toward the end.</div>');
+        parts.push('<div class="muted small">+ moves toward the run\'s end. Target pattern: this picture stays fixed. Use the offset buttons until the real white pixel matches the circled corner. Red marks every 10th pixel toward the start, green toward the end.</div>');
         if (!c.fixed && c.index >= 0) parts.push(`<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="index" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to index</button></form>`);
       }
       if (st.target && st.target.kind === 'gap') {

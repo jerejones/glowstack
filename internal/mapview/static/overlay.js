@@ -214,8 +214,8 @@ export function createOverlay(S) {
     });
   }
 
-  // calCursors rings the calibration cursors, the side being nudged
-  // brighter.
+  // calCursors rings the physical target, not the moving test pixel.
+  // The white pixel follows nudges; the target stays on the model corner.
   function calCursors() {
     const cal = S.cal;
     if (!cal || !cal.active || !cal.cursors) return;
@@ -223,11 +223,13 @@ export function createOverlay(S) {
       if (c.index < 0) return;
       const ci = g.controllers.findIndex((x) => x.id === c.controller);
       if (ci < 0) return;
-      const q = pixelAt(g.controllers[ci].base + c.index);
+      const ni = c.node ? g.nodes.findIndex((n) => n.id === c.node) : -1;
+      const q = ni >= 0 ? nodeAt(ni)
+        : pixelAt(g.controllers[ci].base + (cal.target?.kind === 'end' ? c.estimate : c.index));
       if (!q) return;
       const on = i === cal.side;
       ring(q, on ? 13 : 10, on ? '#22d3ee' : 'rgba(34,211,238,.5)', on ? 3 : 2);
-      if (on) label(`${c.controller}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc');
+      if (on) label(c.node || c.label || `${c.controller}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc');
     });
   }
 

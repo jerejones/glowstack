@@ -99,3 +99,43 @@ test('confirm-and-next preference survives the reload caused by confirming', asy
   const reloaded = createSession({ fetch, storage: storage(saved), onState() {} });
   assert.equal(reloaded.C.next, false);
 });
+
+
+test('calibration target ring stays on the model node while the pixel is nudged', async () => {
+  const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
+  const cursor = { node: 'corner', controller: 'shed', index: 5, estimate: 5 };
+  const S = {
+    geo: { pixels: { count: 20 }, mappings: [], zones: [],
+      controllers: [{ id: 'shed', base: 0 }],
+      nodes: [{ id: 'corner', plan: 0, x: 3, y: 4, z: 2 }] },
+    plan: 0, hover: -1, pinned: -1,
+    cal: { active: true, side: 0, target: { kind: 'anchor' }, cursors: [cursor] },
+    view: { toScreen: (x, y, z) => [x * 10, (y + z) * 10] },
+  };
+  const rings = [], labels = [];
+  const ctx = { beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {},
+    strokeText() {}, fillText(t) { labels.push(t); } };
+  const overlay = createOverlay(S);
+  overlay.draw(ctx);
+  cursor.index = 15;
+  overlay.draw(ctx);
+  assert.deepEqual(rings, [[30, 60], [30, 60]]);
+  assert.deepEqual(labels, ['corner', 'corner']);
+});
+
+
+test('target pattern stays fixed while nudges change the real cursor index', async () => {
+  const { referenceColors } = await load();
+  const g = { pixels: { count: 30 }, controllers: [{ id: 'shed', base: 5 }] };
+  const cal = state();
+  const first = referenceColors(g, cal);
+  assert.deepEqual([...first.slice(30, 33)], [255, 255, 255]);
+  cal.cursors[0].index += 10;
+  assert.deepEqual(referenceColors(g, cal), first);
+  cal.cursors[0].estimate = 10;
+  assert.notDeepEqual(referenceColors(g, cal), first, 'next target must update reference');
+  cal.active = false;
+  assert.equal(referenceColors(g, cal), null);
+  cal.active = true; cal.target.kind = 'bands';
+  assert.equal(referenceColors(g, cal), null, 'bands retain the live display');
+});

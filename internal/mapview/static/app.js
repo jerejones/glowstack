@@ -454,11 +454,16 @@ S.subscribe = subscribe;
 S.setRate = (fps) => { S.fps = fps; save(RATE, fps); subscribe(); };
 S.streamRate = streamRate;
 
+S.refreshBadge = badge;
 let badgeShown = false;
 function badge() {
   badgeShown = true;
   const b = $('badge');
   if (!S.connected) { b.textContent = 'offline'; b.className = 'badge off'; return; }
+  if (S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind)) {
+    b.textContent = 'target pattern'; b.className = 'badge preview';
+    b.title = 'Fixed reference: adjust the real lights to match'; return;
+  }
   const f = S.frame;
   const hidden = S.show === 'house' && S.preview && S.preview.previewing;
   b.textContent = f.preview ? (f.paused ? 'preview · paused' : 'preview') : hidden ? 'lights · preview hidden' : 'lights';
@@ -573,12 +578,14 @@ async function main() {
   S.looks = createLooks(S, $('tab-looks'));
   S.setup = createSetup(S, $('tab-setup'));
   S.status = createStatus(S, $('tab-status'));
-  S.calib = createCalibrate(S, $('calibrate'));
   bindChrome();
   bindMap();
   let plan = +load(PLAN, 0);
   if (!(plan >= 0 && plan < S.geo.plans.length)) plan = 0;
   await openView(plan);
+  // An active session reopens immediately after Confirm reloads the map.
+  // Its camera hold/frame operations require the asynchronous 3-D view.
+  S.calib = createCalibrate(S, $('calibrate'));
   setShow(S.show);
   connect();
   await S.refresh();
