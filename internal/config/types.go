@@ -114,11 +114,12 @@ type Controller struct {
 // numbers them; each starts where the one before it ends.
 type Output struct {
 	Pos
-	Number int     `yaml:"output"` // WLED's output number; optional, must match the position
-	GPIO   *int    `yaml:"gpio"`   // the pin it drives; for information only
-	Count  int     `yaml:"count"`
-	MaxMA  float64 `yaml:"max_ma"` // 0 = unlimited
-	Start  int     `yaml:"-"`      // controller index of its first LED, set by Validate
+	Reversed bool    `yaml:"reversed"` // WLED bus reversal; physical input marker only, never reverses DDP
+	Number   int     `yaml:"output"`   // WLED's output number; optional, must match the position
+	GPIO     *int    `yaml:"gpio"`     // the pin it drives; for information only
+	Count    int     `yaml:"count"`
+	MaxMA    float64 `yaml:"max_ma"` // 0 = unlimited
+	Start    int     `yaml:"-"`      // controller index of its first LED, set by Validate
 }
 
 // Name is how messages refer to the output: "output 3 (GPIO 2)".

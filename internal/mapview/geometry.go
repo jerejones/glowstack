@@ -111,11 +111,12 @@ type ControllerJSON struct {
 }
 
 type OutputJSON struct {
-	Output int     `json:"output"` // WLED output number
-	GPIO   *int    `json:"gpio,omitempty"`
-	Start  int     `json:"start"`
-	Count  int     `json:"count"`
-	MaxMA  float64 `json:"max_ma,omitempty"`
+	Reversed bool    `json:"reversed,omitempty"`
+	Output   int     `json:"output"` // WLED output number
+	GPIO     *int    `json:"gpio,omitempty"`
+	Start    int     `json:"start"`
+	Count    int     `json:"count"`
+	MaxMA    float64 `json:"max_ma,omitempty"`
 }
 
 type RunJSON struct {
@@ -236,7 +237,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 	for _, c := range l.Controllers {
 		cj := ControllerJSON{ID: c.ID, Base: c.Base, Pixels: c.Pixels, Channels: cmp.Or(c.Config.Channels, "rgb"), Outputs: []OutputJSON{}}
 		for _, o := range c.Config.Outputs {
-			cj.Outputs = append(cj.Outputs, OutputJSON{Output: o.Number, GPIO: o.GPIO, Start: o.Start, Count: o.Count, MaxMA: o.MaxMA})
+			cj.Outputs = append(cj.Outputs, OutputJSON{Reversed: o.Reversed, Output: o.Number, GPIO: o.GPIO, Start: o.Start, Count: o.Count, MaxMA: o.MaxMA})
 		}
 		g.Controllers = append(g.Controllers, cj)
 	}

@@ -1274,3 +1274,11 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
 - When a layer covers part of a larger layer's area, should turning it off in
   HA ever remove the larger layer? Currently it never does.
 - `led_ma` figures for the strips need measuring or a datasheet value.
+
+### Output input markers with WLED reversal
+
+Set `reversed: true` on a controller output when its WLED bus has reversal
+enabled. The Outputs map then marks the highest index as the physical wire
+input, instead of the lowest. This is descriptive metadata only: it does
+not reverse DDP bytes, change pixel ranges, or change calibrated run geometry.
+Run-level `reverse` still describes how the path follows software indices.

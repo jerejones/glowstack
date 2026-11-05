@@ -153,3 +153,18 @@ test('reversed runs keep reference ruler colors in physical run order', async ()
   cal.cursors[0].index = 9;
   assert.deepEqual(referenceColors(g, cal), colors);
 });
+
+
+test('output input marker honors WLED reversal without changing output ranges', async () => {
+  const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
+  const g = { pixels: { count: 20, plan: Array(20).fill(0), x: Array.from({length:20}, (_,i)=>i), y:Array(20).fill(0), z:Array(20).fill(0) },
+    mappings: [], zones: [], controllers: [{ id: 'shed', base: 5, outputs: [
+      { output: 1, start: 0, count: 4 }, { output: 2, start: 4, count: 6, reversed: true } ] }] };
+  const rings = [];
+  const S = { geo:g, plan:0, hover:-1, pinned:-1, view:{toScreen:(x,y)=>[x,y]} };
+  const overlay = createOverlay(S); overlay.st.mode = 'outputs';
+  overlay.draw({ beginPath(){}, arc(x,y){rings.push([x,y]);}, stroke(){}, strokeText(){}, fillText(){} });
+  assert.deepEqual(rings, [[5,0],[14,0]]);
+  assert.deepEqual(overlay.outputs().map(o=>[o.first,o.last]), [[5,8],[9,14]]);
+  assert.equal(overlay.outputOf(9).output, 2);
+});

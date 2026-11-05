@@ -38,7 +38,7 @@ export function createOverlay(S) {
     for (const c of g.controllers) {
       for (const o of c.outputs) {
         const i = outs.length;
-        outs.push({ controller: c.id, output: o.output, gpio: o.gpio, start: o.start, first: c.base + o.start, last: c.base + o.start + o.count - 1, count: o.count, max_ma: o.max_ma, color: nthColor(i) });
+        outs.push({ controller: c.id, output: o.output, gpio: o.gpio, start: o.start, input: c.base + o.start + (o.reversed ? o.count - 1 : 0), first: c.base + o.start, last: c.base + o.start + o.count - 1, count: o.count, max_ma: o.max_ma, color: nthColor(i) });
       }
     }
     return outs;
@@ -172,7 +172,7 @@ export function createOverlay(S) {
 
   function outputStarts() {
     for (const o of outputs()) {
-      const q = pixelAt(o.first);
+      const q = pixelAt(o.input);
       if (!q) continue;
       ring(q, 8, `rgb(${o.color})`);
       label(`${o.controller} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
