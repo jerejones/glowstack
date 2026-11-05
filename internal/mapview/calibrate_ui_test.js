@@ -139,3 +139,17 @@ test('target pattern stays fixed while nudges change the real cursor index', asy
   cal.active = true; cal.target.kind = 'bands';
   assert.equal(referenceColors(g, cal), null, 'bands retain the live display');
 });
+
+
+test('reversed runs keep reference ruler colors in physical run order', async () => {
+  const { referenceColors } = await load();
+  const g = { pixels: { count: 25 }, controllers: [{ id: 'shed', base: 0 }],
+    runs: [{ id: 'eave', first: 20, last: 0 }] };
+  const cal = state();
+  Object.assign(cal.cursors[0], { run: 'eave', estimate: 10, index: 11 });
+  const colors = referenceColors(g, cal);
+  assert.deepEqual([...colors.slice(0, 3)], [0, 255, 0]);
+  assert.deepEqual([...colors.slice(60, 63)], [255, 0, 0]);
+  cal.cursors[0].index = 9;
+  assert.deepEqual(referenceColors(g, cal), colors);
+});

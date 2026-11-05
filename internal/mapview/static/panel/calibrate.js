@@ -84,9 +84,11 @@ export function referenceColors(g, cal) {
   const c = cal.cursors?.[cal.side];
   const ctl = c && g.controllers.find((x) => x.id === c.controller);
   if (!ctl || c.estimate < 0) return null;
+  const run = g.runs?.find((r) => r.id === c.run);
+  const direction = run && run.first > run.last ? -1 : 1;
   const out = new Uint8Array(g.pixels.count * 3);
   for (let i = c.min; i <= c.max; i++) {
-    const d = i - c.estimate;
+    const d = (i - c.estimate) * direction;
     let color = [64, 64, 64];
     if (d === 0) color = [255, 255, 255];
     else if (Math.abs(d) <= 100 && d % 10 === 0) color = d < 0 ? [255, 0, 0] : [0, 255, 0];
