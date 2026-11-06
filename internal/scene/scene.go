@@ -63,6 +63,7 @@ type Scene struct {
 
 // Run is one run's shape and the facts the model states about it.
 type Run struct {
+	Status     string     // optional recorded strip condition; not controller reachability
 	Path       *plan.Path // meters, Z up; Path.ID is the run id
 	Controller string     // "" if the model doesn't say
 	Basis      []json.RawMessage
@@ -215,6 +216,7 @@ func (g *gltf) checkFrame() error {
 }
 
 type runExtras struct {
+	Status     string            `json:"status"`
 	Run        string            `json:"glowstack_run"`
 	Points     [][]float64       `json:"points"`
 	Nodes      *string           `json:"nodes"`
@@ -259,5 +261,5 @@ func (e *runExtras) run() (*Run, error) {
 		p.Points = append(p.Points, pt)
 		p.Labels = append(p.Labels, l)
 	}
-	return &Run{Path: p, Controller: e.Controller, Basis: e.Basis}, nil
+	return &Run{Status: e.Status, Path: p, Controller: e.Controller, Basis: e.Basis}, nil
 }

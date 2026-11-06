@@ -179,6 +179,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
 
     const col = colors || opts.rgb;
     for (const p of drawn) {
+      if (!isDrawn[p]) continue;
       const s = sizeOf(p);
       const x = px.x[p] * v.k + v.tx, y = px.y[p] * v.k + v.ty;
       if (x < -s || y < -s || x > W + s || y > H + s) continue;
@@ -210,6 +211,10 @@ export function openPlan(canvas, plan, planIndex, opts) {
       this.relayout();
     },
     relayout() { if (auto) fit(); else changed(); },
+    setPixelVisibility(mask) {
+      for (const p of drawn) isDrawn[p] = !mask || mask[p] ? 1 : 0;
+      changed();
+    },
     setColors(arr) { colors = arr; changed(); },
     frameArrived() {},
     setGray(ctrls) { gray = ctrls; changed(); },
@@ -222,6 +227,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
     pickPixel(sx, sy, radius) {
       let best = -1, bd = radius * radius;
       for (const p of drawn) {
+      if (!isDrawn[p]) continue;
         const dx = px.x[p] * v.k + v.tx - sx, dy = px.y[p] * v.k + v.ty - sy;
         const d = dx * dx + dy * dy;
         if (d < bd) { bd = d; best = p; }

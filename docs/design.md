@@ -1291,3 +1291,13 @@ pink dotted connector. Labels include run names when a node is shared;
 coincident positions are merged to avoid duplicate markers. Calibration
 highlights the occurrence belonging to the selected run. These positions
 are display metadata and do not alter the flow graph or measured indices.
+
+### Operating-run display filter
+
+Setup offers Operating only / All runs, defaulting to Operating only and
+remembering the choice per browser. It filters pixels, picking, selection
+halos, node labels, anchors and sync connectors without changing output or
+calibration. The model's optional run `status` describes strip condition:
+`working` is operating; other recorded conditions are hidden by the default.
+Missing status defaults to working for older models and 2-D plans. Controller
+reachability is unrelated, so powered-off but working runs remain visible.

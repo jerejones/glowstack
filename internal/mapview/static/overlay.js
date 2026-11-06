@@ -103,6 +103,7 @@ export function createOverlay(S) {
     // outputs
     let html = '<div class="muted">rings mark where data enters each output</div>', ctrl = '';
     for (const o of outputs()) {
+      if (S.visibility && !S.visibility.pixels.subarray(o.first, o.last + 1).some(Boolean)) continue;
       for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
       if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(ctrl)}</b></div>`; }
       html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
@@ -126,8 +127,8 @@ export function createOverlay(S) {
   // ----- drawing -----
   let ctx = null;
   const at = (x, y, z) => S.view.toScreen(x, y, z);
-  const pixelAt = (p) => (px.plan[p] === S.plan && px.x[p] !== null ? at(px.x[p], px.y[p], px.z[p]) : null);
-  const nodeAt = (i) => { const nd = g.nodes[i]; return nd && nd.plan === S.plan && nd.x !== null ? at(nd.x, nd.y, nd.z) : null; };
+  const pixelAt = (p) => ((!S.visibility || S.visibility.pixels[p]) && px.plan[p] === S.plan && px.x[p] !== null ? at(px.x[p], px.y[p], px.z[p]) : null);
+  const nodeAt = (i) => { const nd = g.nodes[i]; return (!S.visibility || S.visibility.nodes.has(i)) && nd && nd.plan === S.plan && nd.x !== null ? at(nd.x, nd.y, nd.z) : null; };
 
   function label(text, x, y, color) {
     ctx.font = '11px system-ui, sans-serif';
@@ -218,7 +219,7 @@ export function createOverlay(S) {
       }
     }
     g.nodes.forEach((nd, i) => {
-      const locations = nodeLocations(g, i, S.plan);
+      const locations = nodeLocations(g, i, S.plan).filter((p) => !S.visibility || p.runs.some((id) => S.visibility.runs[g.runs.findIndex((r) => r.id === id)]) || (!p.runs.length && S.visibility.nodes.has(i)));
       const shared = (nd.locations?.length || 0) > 1;
       const sync = nd.sync || locations.length > 1;
       const projected = locations.map((p) => ({ ...p, q: at(p.x, p.y, p.z) })).filter((p) => p.q);

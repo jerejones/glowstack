@@ -179,7 +179,8 @@ export async function open(glCanvas, input, opts) {
   // ----- pixels -----
   const pos = new Float32Array(3 * n), dl = new Float32Array(n), flags = new Float32Array(n);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-  const drawn = (p) => px.plan[p] === opts.plan && px.x[p] !== null;
+  let visibility = null, grayControllers = new Set(), currentSelection = null;
+  const drawn = (p) => (!visibility || visibility[p]) && px.plan[p] === opts.plan && px.x[p] !== null;
   for (let p = 0; p < n; p++) {
     if (!drawn(p)) { flags[p] = 4; continue; }
     const g = [px.x[p], px.y[p], px.z[p] || 0];
@@ -473,13 +474,21 @@ export async function open(glCanvas, input, opts) {
     },
     // setGray grays the pixels of the given controller indices.
     setGray(ctrls) {
-      for (let p = 0; p < n; p++) flags[p] = baseFlags[p] < 4 && ctrls.has(px.controller[p]) ? baseFlags[p] | 2 : baseFlags[p];
+      grayControllers = ctrls;
+      for (let p = 0; p < n; p++) flags[p] = visibility && !visibility[p] ? 4 : baseFlags[p] < 4 && ctrls.has(px.controller[p]) ? baseFlags[p] | 2 : baseFlags[p];
       flagAttr.needsUpdate = true;
       changed();
     },
     // setSelection draws the halo along the selected pixels (ranges, or
     // null), rebuilding only when they change.
+    setPixelVisibility(mask) {
+      visibility = mask;
+      this.setGray(grayControllers);
+      haloKey = null;
+      this.setSelection(currentSelection);
+    },
     setSelection(selection) {
+      currentSelection = selection;
       const key = JSON.stringify(selection);
       if (key === haloKey) return;
       haloKey = key;

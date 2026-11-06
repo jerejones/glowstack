@@ -18,10 +18,12 @@ import { createLooks } from './panel/looks.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate } from './panel/calibrate.js';
+import { runVisibility } from './run-visibility.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
 const RATE = 'glowstack.fps';
+const RUNS = 'glowstack.allRuns';
 const LONG_PRESS = 450; // ms
 const TAP_SLOP = 6;     // px a tap may move
 
@@ -33,6 +35,8 @@ const bus = new EventTarget();
 const S = {
   geo: null, tree: null, view: null, plan: 0, overlay: null, panel: null,
   rgb: null,
+  allRuns: load(RUNS, false) === true,
+  visibility: null,
   show: load(SHOW, '') === 'house' ? 'house' : '',
   frame: { seq: 0, t: 0, preview: false, paused: false },
   connected: false,
@@ -70,6 +74,19 @@ function toast(msg, opts = {}) {
   setTimeout(() => el.remove(), opts.ms || (err || opts.error ? 8000 : 3500));
 }
 S.toast = toast;
+
+S.setAllRuns = (all) => {
+  S.allRuns = !!all;
+  save(RUNS, S.allRuns);
+  S.visibility = runVisibility(S.geo, S.allRuns);
+  S.view?.setPixelVisibility(S.visibility.pixels);
+  if (S.pinned >= 0 && !S.visibility.pixels[S.pinned]) unpin();
+  S.hover = -1;
+  applySelection();
+  S.refreshLegend?.();
+  S.emit('runVisibility');
+  markDirty();
+};
 
 // ---------- drawing ----------
 
@@ -153,6 +170,7 @@ async function openView(i) {
   } else {
     S.view = openPlan(canvas, { url: '', view_box: [0, 0, 10, 10], scale: 1 }, -1, common);
   }
+  S.view.setPixelVisibility(S.visibility.pixels);
   resize();
   S.view.restore();
   applySelection();
@@ -567,6 +585,7 @@ async function main() {
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
   S.geo = await api('/api/map/geometry');
+  S.visibility = runVisibility(S.geo, S.allRuns);
   S.rgb = new Uint8Array(S.geo.pixels.count * 3);
   S.tree = buildTree(S.geo);
   [S.catalog, S.presets] = await Promise.all([

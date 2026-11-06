@@ -33,7 +33,7 @@ const shedScene = `{"scenes":[{"extras":{"glowstack":{"schema":1,"units":"m","ax
 // served for the page to load.
 func TestSceneMap(t *testing.T) {
 	dir := copyConfig(t)
-	if err := os.WriteFile(filepath.Join(dir, "site.glb"), scene.GLB([]byte(shedScene)), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "site.glb"), scene.GLB([]byte(strings.Replace(shedScene, `"glowstack_run":"fence-west"`, `"glowstack_run":"fence-west","status":"inop"`, 1))), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	edit := func(name, old, new string) {
@@ -67,6 +67,7 @@ map:
 	f := newFixtureIn(t, dir)
 
 	var g struct {
+		Runs   []RunJSON `json:"runs"`
 		Pixels struct {
 			Z []*float64 `json:"z"`
 		} `json:"pixels"`
@@ -74,6 +75,16 @@ map:
 		Map   MapJSON    `json:"map"`
 	}
 	f.get(t, "/api/map/geometry", &g)
+	for _, r := range g.Runs {
+		want := "working"
+		if r.ID == "fence-west" {
+			want = "inop"
+		}
+		if r.Status != want {
+			t.Errorf("%s status %q, want %q", r.ID, r.Status, want)
+		}
+	}
+
 	if len(g.Plans) != 1 || g.Plans[0].Kind != "scene" || len(g.Plans[0].Layers) != 2 ||
 		g.Plans[0].Layers[0] != (LayerJSON{Name: "walls lines", Kind: "lines"}) || g.Plans[0].Layers[1].Kind != "surfaces" {
 		t.Fatalf("plans %+v", g.Plans)

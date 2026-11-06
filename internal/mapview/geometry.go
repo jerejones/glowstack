@@ -120,6 +120,7 @@ type OutputJSON struct {
 }
 
 type RunJSON struct {
+	Status         string       `json:"status"`
 	ID             string       `json:"id"`
 	Controller     int          `json:"controller"`
 	First          int          `json:"first"`
@@ -257,6 +258,12 @@ func (m *Map) geometry(v app.View) *Geometry {
 			ID: r.ID, Controller: r.Controller, First: r.First, Last: r.Last, Count: r.Count,
 			Pitch: r.Pitch, Length: r.Length, Plan: r.Plan, DrawnMeters: r.DrawnMeters,
 			LengthMismatch: r.LengthMismatch, Path: r.Path, Edges: r.Edges,
+		}
+		rj.Status = "working"
+		if r.Plan >= 0 && r.PlanPath != nil && l.Plans[r.Plan].Scene != nil {
+			if sr := l.Plans[r.Plan].Scene.Runs[r.PlanPath.ID]; sr != nil && sr.Status != "" {
+				rj.Status = sr.Status
+			}
 		}
 		for _, an := range r.Anchors {
 			rj.Anchors = append(rj.Anchors, AnchorJSON{

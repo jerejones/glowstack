@@ -186,3 +186,18 @@ test('shared sync nodes show distinct run locations and a dotted connector', asy
   assert.deepEqual(lines,[[[1,5],[1,3],[2,4]]]);
   assert.deepEqual(labels,['junction · eave','junction · rail / return']);
 });
+
+
+test('run visibility defaults to operating strips and restores all runs', async () => {
+  const { runVisibility } = await import(pathToFileURL(path.join(__dirname, 'static/run-visibility.js')).href);
+  const g = { runs:[{status:'working',path:[0,1]},{status:'inop',path:[1,2]},
+    {status:'replace',path:[3,4]},{path:[5,6]}], pixels:{count:5,run:[0,1,2,3,-1]} };
+  const filtered = runVisibility(g);
+  assert.deepEqual(filtered.runs,[true,false,false,true]);
+  assert.deepEqual([...filtered.pixels],[1,0,0,1,0]);
+  assert.deepEqual([...filtered.nodes],[0,1,5,6]);
+  const all = runVisibility(g,true);
+  assert.ok(all.runs.every(Boolean));
+  assert.deepEqual([...all.pixels],[1,1,1,1,1]);
+  assert.deepEqual(runVisibility(g),filtered, 'toggle is reversible without changing geometry');
+});

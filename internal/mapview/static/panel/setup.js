@@ -20,6 +20,12 @@ export function createSetup(S, root) {
       <div class="row"><button type="button" id="suCal" class="grow">Calibrate</button></div>
       <div class="muted small" id="suCalN"></div>
     </div>
+    <h2>Runs shown</h2>
+    <div class="seg" id="suRuns" role="group" aria-label="Runs shown">
+      <button type="button" data-all="false">Operating only</button>
+      <button type="button" data-all="true">All runs</button>
+    </div>
+    <div class="muted small" id="suRunsCount"></div>
     <h2>Overlay</h2>
     <div class="chips" id="suModes">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join('')}</div>
     <div class="row" id="suMappingRow" hidden><span class="muted">Mapping</span><select id="suMapping">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
@@ -45,10 +51,21 @@ export function createSetup(S, root) {
       <span class="muted">fps</span></div>
     <div class="muted small" id="suStream"></div>
     <h2>${isScene ? 'Not in the model' : 'Not on the plan'}</h2>
-    <ul class="list-rows">${undrawn.length
+    <ul class="list-rows" id="suUndrawn">${undrawn.length
     ? undrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} px on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('')
     : '<li class="muted">Every run is drawn.</li>'}</ul>`;
   const $$ = (s) => root.querySelector(s);
+
+  function renderRuns() {
+    for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
+    const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
+    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} px on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every shown run is drawn.</li>';
+    const count = S.visibility.runs.filter(Boolean).length;
+    $$('#suRunsCount').textContent = `${count} of ${g.runs.length} runs shown · based on strip condition`;
+  }
+  for (const b of $$('#suRuns').children) b.onclick = () => S.setAllRuns(b.dataset.all === 'true');
+  S.on('runVisibility', renderRuns);
+  renderRuns();
 
   // ---------- calibration ----------
   $$('#suCal').onclick = () => S.calib.open();
