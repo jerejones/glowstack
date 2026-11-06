@@ -155,6 +155,37 @@ test('reversed runs keep reference ruler colors in physical run order', async ()
 });
 
 
+test('controller markers: config boards lead to their output inputs, others are gray', async () => {
+  const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
+  const g = { pixels: { count: 20, plan: Array(20).fill(0), x: Array.from({length:20}, (_,i)=>i), y:Array(20).fill(0), z:Array(20).fill(0) },
+    mappings: [], zones: [], controllers: [{ id: 'shed', base: 5, outputs: [
+      { output: 1, start: 0, count: 4 }, { output: 2, start: 4, count: 6, reversed: true } ] }],
+    controller_locations: [
+      { id: 'shed', controller: 0, plan: 0, x: 2, y: 7, z: 0 },
+      { id: 'spare', controller: -1, plan: 0, x: 30, y: 7, z: 0 },
+      { id: 'other-plan', controller: -1, plan: 1, x: 40, y: 7, z: 0 }] };
+  const S = { geo:g, plan:0, hover:-1, pinned:-1, view:{toScreen:(x,y)=>[x,y]} };
+  const overlay = createOverlay(S);
+  const draw = () => {
+    const out = { rects: [], lines: [], fills: [] };
+    let from = null, fill = '';
+    overlay.draw({ beginPath(){}, arc(){}, stroke(){}, strokeText(){}, fillText(){}, setLineDash(){},
+      set fillStyle(v) { fill = v; }, get fillStyle() { return fill; },
+      rect(x,y){ out.rects.push([x+6,y+6]); out.fills.push(fill); }, fill(){},
+      moveTo(x,y){ from=[x,y]; }, lineTo(x,y){ out.lines.push([from,[x,y]]); } });
+    return out;
+  };
+  let d = draw();
+  assert.deepEqual(d.rects, [[2,7],[30,7]]);
+  assert.notEqual(d.fills[0], d.fills[1]);
+  assert.deepEqual(d.lines, []);
+  overlay.st.mode = 'outputs';
+  d = draw();
+  assert.deepEqual(d.lines, [[[2,7],[5,0]], [[2,7],[14,0]]]);
+  overlay.st.controllers = false;
+  assert.deepEqual(draw().rects, []);
+});
+
 test('output input marker honors WLED reversal without changing output ranges', async () => {
   const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
   const g = { pixels: { count: 20, plan: Array(20).fill(0), x: Array.from({length:20}, (_,i)=>i), y:Array(20).fill(0), z:Array(20).fill(0) },

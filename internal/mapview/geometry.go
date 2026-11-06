@@ -6,6 +6,7 @@ package mapview
 
 import (
 	"cmp"
+	"encoding/json"
 	"math"
 	"sort"
 	"strconv"
@@ -22,22 +23,25 @@ import (
 // which the frame stream's "subscribed" message repeats so a page can
 // tell its geometry is stale.
 type Geometry struct {
-	Gen            uint64           `json:"gen"`
-	FPS            float64          `json:"fps"`       // stream cap
-	HouseFPS       float64          `json:"house_fps"` // the frame loop's rate
-	Pixels         PixelColumns     `json:"pixels"`
-	Plans          []PlanJSON       `json:"plans"`
-	Map            MapJSON          `json:"map"`
-	Controllers    []ControllerJSON `json:"controllers"`
-	Runs           []RunJSON        `json:"runs"`
-	Nodes          []NodeJSON       `json:"nodes"`
-	Edges          []EdgeJSON       `json:"edges"`
-	Areas          []AreaJSON       `json:"areas"`
-	Zones          []ZoneJSON       `json:"zones"`
-	Mappings       []MappingRef     `json:"mappings"`
-	DefaultMapping string           `json:"default_mapping"`
-	Effects        []NamedJSON      `json:"effects"`
-	Presets        []NamedJSON      `json:"presets"`
+	Gen         uint64           `json:"gen"`
+	FPS         float64          `json:"fps"`       // stream cap
+	HouseFPS    float64          `json:"house_fps"` // the frame loop's rate
+	Pixels      PixelColumns     `json:"pixels"`
+	Plans       []PlanJSON       `json:"plans"`
+	Map         MapJSON          `json:"map"`
+	Controllers []ControllerJSON `json:"controllers"`
+	// ControllerLocations is where the scene model puts controllers,
+	// including boards controllers.yaml doesn't list.
+	ControllerLocations []ControllerLocationJSON `json:"controller_locations"`
+	Runs                []RunJSON                `json:"runs"`
+	Nodes               []NodeJSON               `json:"nodes"`
+	Edges               []EdgeJSON               `json:"edges"`
+	Areas               []AreaJSON               `json:"areas"`
+	Zones               []ZoneJSON               `json:"zones"`
+	Mappings            []MappingRef             `json:"mappings"`
+	DefaultMapping      string                   `json:"default_mapping"`
+	Effects             []NamedJSON              `json:"effects"`
+	Presets             []NamedJSON              `json:"presets"`
 }
 
 // PixelColumns is the pixel table, one array per column, indexed by
@@ -108,6 +112,20 @@ type ControllerJSON struct {
 	Pixels   int          `json:"pixels"`
 	Channels string       `json:"channels"`
 	Outputs  []OutputJSON `json:"outputs"`
+}
+
+// ControllerLocationJSON is a controller's place in the scene model.
+// Controller is its index in Controllers, or -1 for a board the config
+// doesn't list.
+type ControllerLocationJSON struct {
+	ID         string          `json:"id"`
+	Label      string          `json:"label,omitempty"`
+	Controller int             `json:"controller"`
+	Plan       int             `json:"plan"`
+	X          float           `json:"x"`
+	Y          float           `json:"y"`
+	Z          float           `json:"z"`
+	Basis      json.RawMessage `json:"basis,omitempty"`
 }
 
 type OutputJSON struct {
@@ -251,6 +269,23 @@ func (m *Map) geometry(v app.View) *Geometry {
 			cj.Outputs = append(cj.Outputs, OutputJSON{Reversed: o.Reversed, Output: o.Number, GPIO: o.GPIO, Start: o.Start, Count: o.Count, MaxMA: o.MaxMA})
 		}
 		g.Controllers = append(g.Controllers, cj)
+	}
+	g.ControllerLocations = []ControllerLocationJSON{}
+	for i, p := range l.Plans {
+		if !p.IsScene() {
+			continue
+		}
+		for _, id := range p.Scene.ControllerIDs() {
+			sc := p.Scene.Controllers[id]
+			cl := ControllerLocationJSON{ID: id, Label: sc.Label, Controller: -1, Plan: i,
+				X: float(sc.Point.X), Y: float(sc.Point.Y), Z: float(sc.Point.Z), Basis: sc.Basis}
+			for ci, c := range l.Controllers {
+				if c.ID == id {
+					cl.Controller = ci
+				}
+			}
+			g.ControllerLocations = append(g.ControllerLocations, cl)
+		}
 	}
 	for i := range l.Runs {
 		r := &l.Runs[i]

@@ -349,6 +349,22 @@ to keep line vertices in order, so any line mesh on a run node is display
 only. `model: { glb: "site.glb#shed-eave" }` names the run node by its
 `glowstack_run` value.
 
+**Controllers.** A node whose extras carry `glowstack_controller` says
+where a controller physically is:
+
+| Extra | Required | Meaning |
+|---|---|---|
+| `glowstack_controller` | yes | Controller id. Usually one from `controllers.yaml`; a board the config doesn't list (not wired yet, say) may have one too |
+| `point` | yes | `[x, y, z]` in scene coordinates |
+| `label` | no | Human description, shown with Labels on |
+| `basis` | no | Provenance (`measured`, `estimated`, with a note) |
+
+The live map draws a square at each one, gray for a board the config
+doesn't list, with a Setup chip to hide them. In Outputs mode a dashed line
+joins a controller to each of its outputs' input rings. It shows which
+board feeds which strip, not the cable's route. Any mesh on the node is
+display only; the map hides it.
+
 **Building.** Every other mesh in the scene is drawing. Line meshes draw as
 lines and triangle meshes as faint surfaces. Each mesh node is a **scene
 layer**, named by its node name, that the map can style and toggle (see

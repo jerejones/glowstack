@@ -112,6 +112,48 @@ map:
 	}
 }
 
+// TestControllerLocations: the scene's controller nodes reach the map,
+// tied to the config's controller when the ids match and -1 otherwise.
+func TestControllerLocations(t *testing.T) {
+	dir := copyConfig(t)
+	doc := strings.Replace(shedScene, `{"name":"walls lines","mesh":0},`, `{"name":"walls lines","mesh":0},
+	  {"name":"shed box","mesh":0,"extras":{"glowstack_controller":"shed","point":[6,2.2,8],"label":"Shed loft","basis":{"kind":"estimated"}}},
+	  {"extras":{"glowstack_controller":"spare","point":[1,0.5,2]}},`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "site.glb"), scene.GLB([]byte(doc)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "layout.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Replace(string(b), "plans:", "scene: { glb: site.glb }\nplans:", 1)
+	for _, pair := range [][2]string{{"eave", "shed-eave"}, {"tower", "tower"}, {"fence-west", "fence-west"}} {
+		text = strings.Replace(text, `plan: { svg: "plan.svg#`+pair[0]+`" }`, `model: { glb: "site.glb#`+pair[1]+`" }`, 1)
+	}
+	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f := newFixtureIn(t, dir)
+	var g struct {
+		Controllers []ControllerJSON         `json:"controllers"`
+		Locations   []ControllerLocationJSON `json:"controller_locations"`
+		Plans       []PlanJSON               `json:"plans"`
+	}
+	f.get(t, "/api/map/geometry", &g)
+	if len(g.Locations) != 2 {
+		t.Fatalf("locations: %+v", g.Locations)
+	}
+	shed, spare := g.Locations[0], g.Locations[1]
+	if shed.ID != "shed" || g.Controllers[shed.Controller].ID != "shed" || shed.Label != "Shed loft" ||
+		shed.X != 6 || shed.Y != -8 || shed.Z != 2.2 || g.Plans[shed.Plan].Kind != "scene" || !strings.Contains(string(shed.Basis), "estimated") {
+		t.Errorf("shed: %+v", shed)
+	}
+	if spare.ID != "spare" || spare.Controller != -1 || spare.Z != 0.5 {
+		t.Errorf("spare: %+v", spare)
+	}
+}
+
 func TestDirectionViewJSON(t *testing.T) {
 	dir := copyConfig(t)
 	if err := os.WriteFile(filepath.Join(dir, "glowstack.yaml"), []byte("schema: 1\nmap:\n  view: {direction: [0, -3, 4]}\n"), 0o644); err != nil {

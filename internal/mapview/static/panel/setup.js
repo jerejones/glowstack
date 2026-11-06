@@ -32,7 +32,8 @@ export function createSetup(S, root) {
     <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || z.id)}</option>`).join('')}</select></div>
     <div class="chips" style="margin-top:6px">
       <button type="button" id="suNodes" title="Nodes, links, gaps and anchors">Nodes</button>
-      <button type="button" id="suLabels" title="Names on nodes and gaps">Labels</button>
+      <button type="button" id="suLabels" title="Names on nodes and gaps, descriptions on controllers">Labels</button>
+      <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
     <div id="suModel" hidden><h2>Model layers</h2><div class="chips" id="suLayers"></div></div>
@@ -99,12 +100,15 @@ export function createSetup(S, root) {
     $$('#suZone').value = ov.st.zone;
     press($$('#suNodes'), ov.st.nodes);
     press($$('#suLabels'), ov.st.labels);
+    press($$('#suControllers'), ov.st.controllers);
+    $$('#suControllers').hidden = !(g.controller_locations || []).length;
   }
   for (const b of $$('#suModes').children) b.onclick = () => setMode(b.dataset.mode);
   $$('#suMapping').onchange = (e) => { ov.st.mapping = e.target.value; refreshLegend(); };
   $$('#suZone').onchange = (e) => { ov.st.zone = e.target.value; refreshLegend(); };
   $$('#suNodes').onclick = () => { ov.st.nodes = !ov.st.nodes; renderOverlay(); refreshLegend(); };
   $$('#suLabels').onclick = () => { ov.st.labels = !ov.st.labels; renderOverlay(); S.markDirty(); };
+  $$('#suControllers').onclick = () => { ov.st.controllers = !ov.st.controllers; renderOverlay(); refreshLegend(); };
 
   // ---------- model, plan, camera ----------
   function renderView() {

@@ -35,6 +35,19 @@
 // mesh on a run node is display only. Node transforms are not applied:
 // points are scene coordinates.
 //
+// # Controllers
+//
+// A node whose extras carry glowstack_controller is where a controller
+// physically is:
+//
+//	glowstack_controller  controller id (required); usually a controllers.yaml
+//	                      id, but a board the config doesn't list may have one
+//	point                 [x, y, z] in scene coordinates (required)
+//	label                 human description (optional)
+//	basis                 provenance; kept for inspect
+//
+// Any mesh on a controller node is display only, like a run's.
+//
 // # Layers
 //
 // Every other node with a mesh is a layer of the drawing, named by its node
@@ -57,8 +70,9 @@ import (
 
 // Scene is a parsed scene model.
 type Scene struct {
-	Runs   map[string]*Run // by run id
-	Layers []Layer         // drawing layers, in node order
+	Runs        map[string]*Run        // by run id
+	Controllers map[string]*Controller // by controller id
+	Layers      []Layer                // drawing layers, in node order
 }
 
 // Run is one run's shape and the facts the model states about it.
@@ -67,6 +81,14 @@ type Run struct {
 	Path       *plan.Path // meters, Z up; Path.ID is the run id
 	Controller string     // "" if the model doesn't say
 	Basis      []json.RawMessage
+}
+
+// Controller is where a controller is in the scene.
+type Controller struct {
+	ID    string
+	Label string
+	Point plan.Point // meters, Z up
+	Basis json.RawMessage
 }
 
 // Layer kinds.
@@ -85,6 +107,16 @@ type Layer struct {
 func (s *Scene) RunIDs() []string {
 	ids := make([]string, 0, len(s.Runs))
 	for id := range s.Runs {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// ControllerIDs returns the controller ids in sorted order.
+func (s *Scene) ControllerIDs() []string {
+	ids := make([]string, 0, len(s.Controllers))
+	for id := range s.Controllers {
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
@@ -114,12 +146,36 @@ func Parse(r io.Reader) (*Scene, error) {
 	if err := g.checkFrame(); err != nil {
 		return nil, err
 	}
-	s := &Scene{Runs: map[string]*Run{}}
+	s := &Scene{Runs: map[string]*Run{}, Controllers: map[string]*Controller{}}
 	for i, n := range g.Nodes {
-		if n.Extras.Run != "" {
-			run, err := n.Extras.run()
+		// Extras that aren't an object (a modeler's string, say) aren't ours.
+		var what nodeKind
+		_ = json.Unmarshal(n.Extras, &what)
+		if id := what.Controller; id != "" {
+			var e controllerExtras
+			err := json.Unmarshal(n.Extras, &e)
+			var c *Controller
+			if err == nil {
+				c, err = e.controller()
+			}
 			if err != nil {
-				return nil, fmt.Errorf("scene: node %d (run %s): %w", i, n.Extras.Run, err)
+				return nil, fmt.Errorf("scene: node %d (controller %s): %w", i, id, err)
+			}
+			if s.Controllers[id] != nil {
+				return nil, fmt.Errorf("scene: controller %s appears twice", id)
+			}
+			s.Controllers[id] = c
+			continue
+		}
+		if what.Run != "" {
+			var e runExtras
+			err := json.Unmarshal(n.Extras, &e)
+			var run *Run
+			if err == nil {
+				run, err = e.run()
+			}
+			if err != nil {
+				return nil, fmt.Errorf("scene: node %d (run %s): %w", i, what.Run, err)
 			}
 			if s.Runs[run.Path.ID] != nil {
 				return nil, fmt.Errorf("scene: run %s appears twice", run.Path.ID)
@@ -178,9 +234,9 @@ type gltf struct {
 		} `json:"extras"`
 	} `json:"scenes"`
 	Nodes []struct {
-		Name   string    `json:"name"`
-		Mesh   *int      `json:"mesh"`
-		Extras runExtras `json:"extras"`
+		Name   string          `json:"name"`
+		Mesh   *int            `json:"mesh"`
+		Extras json.RawMessage `json:"extras"`
 	} `json:"nodes"`
 	Meshes []struct {
 		Primitives []struct {
@@ -213,6 +269,32 @@ func (g *gltf) checkFrame() error {
 		return fmt.Errorf("scene: axes %q, want \"gltf-y-up\"", f.Axes)
 	}
 	return nil
+}
+
+// nodeKind is enough of a node's extras to tell what the node is.
+type nodeKind struct {
+	Run        string `json:"glowstack_run"`
+	Controller string `json:"glowstack_controller"`
+}
+
+type controllerExtras struct {
+	ID    string          `json:"glowstack_controller"`
+	Point []float64       `json:"point"`
+	Label string          `json:"label"`
+	Basis json.RawMessage `json:"basis"`
+}
+
+func (e *controllerExtras) controller() (*Controller, error) {
+	if len(e.Point) != 3 {
+		return nil, fmt.Errorf("point: want [x, y, z]")
+	}
+	for _, v := range e.Point {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil, fmt.Errorf("point isn't finite")
+		}
+	}
+	return &Controller{ID: e.ID, Label: e.Label, Basis: e.Basis,
+		Point: plan.Point{X: e.Point[0], Y: -e.Point[2], Z: e.Point[1]}}, nil
 }
 
 type runExtras struct {

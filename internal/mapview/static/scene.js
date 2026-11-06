@@ -129,8 +129,9 @@ export async function open(glCanvas, input, opts) {
   const styles = new Map((opts.map.layers || []).map((l) => [l.name, l]));
   const saved = load(LAYERS, {}) || {};
   const groups = new Map(); // layer name → [object]
+  // Run and controller nodes are data; the overlay draws them.
   gltf.scene.traverse((o) => {
-    if (o.userData.glowstack_run) { o.visible = false; return; }
+    if (o.userData.glowstack_run || o.userData.glowstack_controller) { o.visible = false; return; }
     const name = o.userData.name;
     if (!name || !kinds.has(name)) return;
     if (!groups.has(name)) groups.set(name, []);

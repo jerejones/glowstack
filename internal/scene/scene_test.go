@@ -97,3 +97,54 @@ func TestParseErrors(t *testing.T) {
 		t.Errorf("duplicate run: err = %v", err)
 	}
 }
+
+// TestParseControllers: a controller node gives the board's location and
+// isn't a drawing layer, even with a display mesh.
+func TestParseControllers(t *testing.T) {
+	s, err := parse(t, `{`+frameOK+`,
+	 "nodes":[
+	  {"name":"walls lines","mesh":0},
+	  {"name":"shed box","mesh":0,"extras":{"glowstack_controller":"shed","point":[2,2.4,-3],
+	    "label":"Shed loft","basis":{"kind":"estimated","note":"from the plan"}}},
+	  {"name":"spare","extras":{"glowstack_controller":"spare","point":[0,0,0]}}],
+	 "meshes":[{"primitives":[{"mode":1}]}]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Layers) != 1 {
+		t.Errorf("layers = %+v", s.Layers)
+	}
+	if got := strings.Join(s.ControllerIDs(), ","); got != "shed,spare" {
+		t.Errorf("controllers = %q", got)
+	}
+	c := s.Controllers["shed"]
+	if c.Point != (plan.Point{X: 2, Y: 3, Z: 2.4}) || c.Label != "Shed loft" || !strings.Contains(string(c.Basis), "estimated") {
+		t.Errorf("shed = %+v", c)
+	}
+	if s.Controllers["spare"].Basis != nil {
+		t.Errorf("spare basis = %s", s.Controllers["spare"].Basis)
+	}
+}
+
+func TestParseControllerErrors(t *testing.T) {
+	ctl := func(extras string) string {
+		return `{` + frameOK + `,"nodes":[{"extras":{"glowstack_controller":"a"` + extras + `}}]}`
+	}
+	cases := []struct{ name, doc, want string }{
+		{"no point", ctl(``), "want [x, y, z]"},
+		{"2-d point", ctl(`,"point":[1,2]`), "want [x, y, z]"},
+		{"bad label", ctl(`,"point":[0,0,0],"label":3`), "controller a"},
+		{"twice", `{` + frameOK + `,"nodes":[{"extras":{"glowstack_controller":"a","point":[0,0,0]}},` +
+			`{"extras":{"glowstack_controller":"a","point":[1,0,0]}}]}`, "twice"},
+	}
+	for _, c := range cases {
+		_, err := parse(t, c.doc)
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: err = %v, want %q", c.name, err, c.want)
+		}
+	}
+	// Extras that aren't an object are someone else's.
+	if _, err := parse(t, `{`+frameOK+`,"nodes":[{"name":"x","extras":"note"}]}`); err != nil {
+		t.Errorf("string extras: %v", err)
+	}
+}

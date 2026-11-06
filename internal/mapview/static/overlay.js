@@ -4,11 +4,13 @@
 
 // The live map's overlays: the diagnostic colorings (flow position,
 // stretch, areas, controller outputs) with their legends, and the items
-// drawn over the map in screen space on the 2-D canvas: nodes, links,
-// anchors, labels, flow arrows, output starts, the calibration cursors
+// drawn over the map in screen space on the 2-D canvas: controllers,
+// nodes, links, anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
 import { api, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
+
+const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 
 export const MODES = [
   ['live', 'Colors'], ['flow', 'Flow'], ['stretch', 'Stretch'], ['areas', 'Areas'], ['outputs', 'Outputs'],
@@ -33,7 +35,7 @@ export function nodeLocations(g, i, plan) {
 // plan, hover, pinned, cal (the calibration session, or null).
 export function createOverlay(S) {
   const g = S.geo, px = g.pixels, n = px.count;
-  const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, legend: '' };
+  const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: true, legend: '' };
   const flows = g.mappings.filter((m) => m.kind === 'flow');
   st.mapping = (flows.find((m) => m.id === g.default_mapping) || flows[0] || g.mappings[0] || {}).id || '';
   st.zone = (g.zones[0] || {}).id || '';
@@ -121,6 +123,10 @@ export function createOverlay(S) {
         <span class="sw" style="background:#ffb347"></span>estimated
         <span class="sw" style="background:#f472b6"></span>sync node</div>`;
     }
+    if (st.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
+      st.legend += `<div><span class="sw" style="background:${CTRL}"></span>controller
+        <span class="sw" style="background:${CTRL_OFF}"></span>not in config</div>`;
+    }
     return st.legend;
   }
 
@@ -192,6 +198,33 @@ export function createOverlay(S) {
       if (!q) continue;
       ring(q, 8, `rgb(${o.color})`);
       label(`${o.controller} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
+    }
+  }
+
+  // controllers: a square where the scene model puts each board, gray
+  // for one controllers.yaml doesn't list. In Outputs mode a dashed line
+  // runs to each output's input ring; it isn't the cable's route.
+  function controllers() {
+    for (const c of g.controller_locations || []) {
+      if (c.plan !== S.plan) continue;
+      const q = at(c.x, c.y, c.z);
+      if (!q) continue;
+      const cfg = c.controller >= 0 ? g.controllers[c.controller] : null;
+      if (cfg && st.mode === 'outputs') {
+        ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+        for (const o of outputs()) {
+          if (o.controller !== cfg.id) continue;
+          const r = pixelAt(o.input);
+          if (!r) continue;
+          ctx.strokeStyle = `rgb(${o.color})`;
+          ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(r[0], r[1]); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = cfg ? CTRL : CTRL_OFF; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
+      const name = st.labels && c.label ? `${c.id} · ${c.label}` : c.id;
+      label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF);
     }
   }
 
@@ -271,6 +304,7 @@ export function createOverlay(S) {
     if (st.mode === 'stretch' && m) stretchLabels(m);
     if (st.mode === 'outputs') outputStarts();
     if (st.nodes) nodes();
+    if (st.controllers) controllers();
     calCursors();
     for (const [p, color] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
       if (p < 0) continue;
