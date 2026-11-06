@@ -182,6 +182,9 @@ func (c *Compositor) renderEffect(f clock.Frame, L *Layer, e *eval, idx []int32)
 		T: f.T, LayerT: f.T - L.Created, Dt: f.Dt, Frame: f.Seq, Seed: L.Seed,
 		Params: L.Params, Pitch: L.Pitch, Smooth: L.Common.Smooth, Count: len(g.Pixels),
 	}
+	if L.Def.Extra != nil {
+		ctx.Geometry = g
+	}
 	all := L.Def.Stateful || len(idx) == len(g.Pixels)
 	if all {
 		ctx.Pixels, ctx.U, ctx.X, ctx.Y, ctx.Z = g.Pixels, g.U, g.X, g.Y, g.Z

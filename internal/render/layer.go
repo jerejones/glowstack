@@ -82,6 +82,55 @@ type Geometry struct {
 	Spill   []float32 // aligned with Pixels; nil unless the mapping has spill (routes)
 	Index   []int32   // rank in mapping order (i.e. 0, 1, 2, …)
 	Dark    []int32   // target pixels outside the mapping's domain; drawn black
+
+	// Extra holds the coordinates of Def.Extra's mappings, by key, and
+	// Masks which of Pixels each Def.Extra area covers. Both are aligned
+	// with Pixels. nil unless the Def asked for them.
+	Extra map[string]*ExtraCoords
+	Masks map[string][]bool
+}
+
+// ExtraCoords is one extra mapping's coordinates, aligned with
+// Geometry.Pixels. U is NaN where the mapping doesn't cover a pixel.
+type ExtraCoords struct {
+	U, Stretch []float32
+	Gain       []float32 // nil unless the mapping fades pixels (routes)
+	Spill      []float32 // nil unless the mapping has spill (routes)
+}
+
+// BuildExtra gathers mapping m's coordinates for the geometry's pixels.
+func (g *Geometry) BuildExtra(m *layout.Mapping) *ExtraCoords {
+	n := len(g.Pixels)
+	x := &ExtraCoords{U: make([]float32, n), Stretch: make([]float32, n)}
+	if m.Gain != nil {
+		x.Gain = make([]float32, n)
+	}
+	if m.Spill != nil {
+		x.Spill = make([]float32, n)
+	}
+	for i, p := range g.Pixels {
+		x.U[i], x.Stretch[i] = m.U[p], m.Stretch[p]
+		if x.Gain != nil {
+			x.Gain[i] = m.Gain[p]
+		}
+		if x.Spill != nil {
+			x.Spill[i] = m.Spill[p]
+		}
+	}
+	return x
+}
+
+// BuildMask marks which of the geometry's pixels are in area (global ids).
+func (g *Geometry) BuildMask(area []int32) []bool {
+	in := make(map[int32]bool, len(area))
+	for _, p := range area {
+		in[p] = true
+	}
+	mask := make([]bool, len(g.Pixels))
+	for i, p := range g.Pixels {
+		mask[i] = in[p]
+	}
+	return mask
 }
 
 // BuildGeometry orders target pixels along mapping m for an effect that

@@ -38,7 +38,7 @@ health checks); the HTTP server carries the control API and the live map.
 | `internal/color` | Linear-light RGBW with straight alpha; gamma decode of authored colors. |
 | `internal/palette` | Palettes, the palette registry and `Builtins`: WLED's 73 fixed palettes (`wled.go`, ported) and the special palettes 0–5 with `Resolve` and `Cache` (`special.go`). |
 | `internal/render` | The `Effect` interface, `Def` and registry, the typed parameter schema with WLED bindings and their curves (`SetWLED`, `GetWLED`), common layer params, `Layer` and `Geometry`, `Buffer`, `Blend` and the `Compositor` (with `Top`, the layer showing per pixel). |
-| `internal/effects` | Effect implementations, one file each: `solid`, `bands`, `gradient`, `sparkle`, `chase`, `noise`, `breathe`, and composites (`Composite`, built-in `glitter`, `RegisterComposites` for config). `WLEDEffects`/`WLEDEffectNames` give the `/json/eff` order. |
+| `internal/effects` | Effect implementations, one file each: `solid`, `bands`, `gradient`, `sparkle`, `chase`, `noise`, `breathe`, `burst`, composites (`Composite`, built-in `glitter`, `RegisterComposites` for config) and shows (`Show`, `RegisterShows` for config `shows:`). `WLEDEffects`/`WLEDEffectNames` give the `/json/eff` order. |
 | `internal/preset` | Presets as layer specs: the effective `Library` (saved presets shadow configured ones), `Expand`/`Apply` with overrides, `Check` against the effects, palettes and mappings (`App.PresetWarnings`). |
 | `internal/stack` | The layer stack: push, edit, remove with fades, lifetimes, owners, `Prune` and `SetFades` for reloads, `state.json`. |
 | `internal/engine` | Stack layers to render layers: presets, mapping precedence, params at the target's pitch, geometry, caching. |
@@ -72,6 +72,13 @@ change them in one place when they need to grow.
   subset of their target (pixels covered from above are skipped).
   Randomness must be hashed from seed, pixel id and time, never drawn from a
   generator. See the `render` package doc.
+- **`render.Def.Extra`.** An effect that reads more than the layer's own
+  mapping and target (a show, whose cues each have their own) lists the
+  mappings (by id or inline, keyed by `render.MappingKey`) and areas it
+  needs. The engine checks them when the layer is validated and solves
+  them into `Geometry.Extra` and `Geometry.Masks`, aligned with the
+  geometry's pixels; `Context.Geometry` hands them to the effect, which
+  indexes them with `Context.Index`.
 - **`render.Def.WLED`.** Bindings from WLED controls to parameter paths,
   with curves. `Def.SetWLED` applies a control value (slider position,
   option, color or palette id) to a layer's raw params, and `Def.GetWLED`
@@ -221,6 +228,29 @@ list, numbered in the order they were made.
     float64 before adding u, so patterns stay precise at Unix-epoch times.
     Patterns move with absolute time, so an edit to `speed` makes them
     jump.
+
+### Shows
+
+65. **A show is an effect**, not a scheduler. `effects.Show` builds a
+    `render.Def` from a timeline of cues the way `Composite` builds one
+    from parts: parameters flattened under the cue's name (plus `at`,
+    `for`, `fade_in`, `fade_out`, `blend`, `opacity`, `reverse`), seeds
+    per cue, cues blended bottom first with `render.Blend`. Its clock is
+    `Context.LayerT × rate`, so a show starts when pushed, scrubs in the
+    preview and holds its last frame (or loops). Each cue's effect gets
+    `T` and `LayerT` counted from the cue's start, so motion starts at
+    phase zero when a cue comes in.
+66. **Per-cue mappings and targets** go through `render.Def.Extra`: the
+    engine solves each mapping once per layer build (inline ones through
+    the same cache as the `mapping` param) and masks each target area
+    over the layer's geometry. A pixel outside a cue's mapping (NaN u) or
+    target is left to the cues below rather than painted black.
+67. **Angular mapping** (`kind: angular`) joins the spatial kinds in
+    `layout.SolveSpatial`: u is the bearing around `center` scaled to
+    `lap` meters per turn, stretch the circumference per lap at the
+    pixel's radius. On a plan (no scene) y is flipped, as for `axis`.
+68. **Burst** keeps no state: live shells are recomputed each frame from
+    the time slots within `life` of now, hashed like sparkle's.
 
 ### Output
 

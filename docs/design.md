@@ -541,6 +541,7 @@ they need, and a layer picks the mapping.
 | `axis` | `u`: position projected onto a direction | angle (horizontal, counter-clockwise seen from above), a 3-D `direction` vector (`[0, 0, 1]` is up), or two reference points |
 | `radial` | `u`: distance from a point | center node or point; `horizontal: true` ignores height |
 | `route` | `u`: distance along a path through points, with spill onto crossing strips | `points`, `closed`, `snap`, `spread`, `spill_speed`, `lap` |
+| `angular` | `u`: bearing around a vertical axis, scaled to meters per turn | `center`, `lap` (u per full turn, default 10 m), `angle` (where u = 0, default +x) |
 | `plan` | `x`, `y`, `z` | none (spatial effects) |
 
 Kinds that need a position cover only pixels that have one. Positions are a
@@ -591,6 +592,25 @@ mappings:
   `chase` takes `spill_tail`, a factor on its tail there: with a slow
   `spill_speed` and a short spill tail, the comet bursts slowly out along
   each crossing strip and fades fast, while its own tail lingers.
+
+#### Angular mappings
+
+An angular mapping turns the site into a clock face: every pixel's u is
+its bearing around a vertical axis through `center`, counter-clockwise
+seen from above, with one full turn covering `lap` meters of u. A chase
+with `spacing` equal to `lap` is one beam going round the house, and
+`speed: 8 m/s` on a 40 m lap is one revolution every 5 s. A pixel's
+stretch is the circumference at its radius per lap, so physical lengths
+convert. Height is ignored.
+
+```yaml
+mappings:
+  - id: lighthouse
+    kind: angular
+    center: [11, 10]      # or a node id
+    lap: 40 m
+    angle: 90 deg         # optional: u = 0 towards +y
+```
 
 #### Flow solving
 
@@ -807,6 +827,7 @@ of them, or presets over them:
 | `chase` | Moving pulses | `width`, `spacing`, `speed`, `colors`, `tail`, `spill_tail`, `background`, `overlay` |
 | `noise` | Smooth noise over `u`/`x,y` and time | `palette`, `scale`, `speed`, `evolve`, `space: u\|xy`, `seed` |
 | `breathe` | Brightness over time | `color`, `background`, `period`, `min`, `max` |
+| `burst` | Fireworks: shells expanding in 3-D from launch points | `centers`, `scatter`, `rate`, `speed`, `width`, `life`, `glow`, `palette`, `seed` |
 
 - **`bands`** with `edge: soft` blend linearly from each band's center to
   the next.
@@ -820,6 +841,15 @@ of them, or presets over them:
 - **`breathe`** mixes `background` to `color` and back with a raised
   cosine. Levels are perceptual, so it looks even. With white over black
   and `blend: multiply` it makes the layers below breathe.
+- **`burst`** reads positions. Every 1/`rate` seconds a shell goes off at
+  a random one of `centers` (moved by up to `scatter`) in a random color
+  from `palette`, and expands at `speed` as a sphere whose wall is
+  `width` thick, with `glow` filling the inside dimly, fading out over
+  `life`. Each strip lights where the sphere crosses it, at its true
+  distance from the burst, so a shell from the ridge washes down the
+  eaves and across the cage roof in step. It paints only the bursts,
+  with alpha, so it overlays. Hashed from the seed and the time slot,
+  like sparkle.
 
 A composite effect is a named stack of primitives sharing one target and
 mapping, presented as a single effect. For example, `glitter = gradient +
@@ -851,6 +881,83 @@ composites:
 - **WLED.** Config composites get fx ids from 240 up, `sx` bound to their
   first speed, `ix` to their first density, `pal` to their first palette
   and `col` to their first colors. `glitter` is built in as WLED fx 87.
+
+### Shows
+
+A show is a timeline of **cues** presented as a single effect, so a whole
+light show is one layer: pushed, previewed, saved as a preset and chosen
+from Home Assistant like any other look. Each cue is an effect (a
+primitive, a composite or another show) with its own parameters, its own
+**mapping** and its own **target area**, playing from `at` for `for` with
+fades in and out. Cues are listed bottom first and blended like a
+composite's parts, so a comet cue with `overlay: true` rides over a base
+cue beneath it. Pixels no cue covers show `background` (black), or the
+layers below with `overlay`.
+
+```yaml
+# presets.yaml
+shows:
+  - id: evening
+    name: Evening
+    length: 90 s                 # default: the end of the last cue
+    loop: false                  # at the end, hold the last frame
+    cues:
+      - name: base
+        effect: solid
+        params: { color: "#1a0800" }
+      - name: comets
+        effect: chase
+        mapping: street          # this cue's mapping; default the layer's
+        target: street           # this cue's area; default the layer's target
+        at: 5 s
+        for: 30 s
+        fade_in: 1 s
+        fade_out: 3 s
+        params: { colors: ["#ffffff", "#ffb347"], spacing: 15 m, tail: 6 m, speed: 6 m/s, overlay: true }
+      - name: sweep
+        effect: chase
+        mapping: { kind: angular, center: [11, 10], lap: 40 m }   # inline mappings work too
+        at: 40 s
+        for: 30 s
+        reverse: true
+        params: { width: 2.5 m, spacing: 40 m, tail: 14 m, speed: 8 m/s, overlay: true }
+      - name: home
+        effect: solid
+        at: 70 s                 # no `for`: to the end
+        fade_in: 3 s
+        params: { color: "#ffb86b/60" }
+```
+
+- **Clock.** The show's time is the layer's age (seconds since it was
+  pushed) times `rate`, not the wall clock, so a show starts from the top
+  when it's applied, scrubs with the live map's preview clock, and after
+  a restart with `boot: restore` carries on where it was. Each cue's
+  effect sees time counted from the cue's start, so a chase comes in with
+  its pulse at u = 0 and a ring effect starts at its center.
+- **End.** With `length` unset the show ends when its last timed cue
+  does; cues without `for` run to the end. At the end the last frame
+  holds, or with `loop: true` the show starts over. A show whose cues are
+  all open-ended never ends.
+- **Parameters.** A show's parameters are each cue's parameters under
+  the cue's name (`comets.speed`), plus the cue's `at`, `for`, `fade_in`,
+  `fade_out`, `blend`, `opacity` and `reverse`, and the show's `length`,
+  `loop`, `rate`, `background` and `overlay`. So a preset can retime or
+  retune any cue, and Tweak on the live map edits a cue while the show
+  plays. Cues get their own seeds, derived from the layer's.
+- **Fades** are perceptual, like breathing, and fades longer than the cue
+  are shortened to meet in the middle.
+- **Mappings and targets.** A cue's mapping is a mapping id or an inline
+  mapping, solved once when the layer is built, and its target is any
+  area (the layer's own target bounds it). A pixel outside the cue's
+  mapping, or its target, is left to the cues below. Route spill gain
+  applies to the cue that uses the route.
+- **Nesting.** A show may be a cue in another show (an act in an evening),
+  and its parameters get two prefixes. Shows may be listed in any order;
+  a cycle is a load error. Shows live in `presets.yaml` only and, like
+  composites, take a restart to add.
+- **WLED.** Shows get fx ids from 240 up, after the composites, with
+  the same automatic slider bindings, so HA can pick a show as an
+  effect on a zone.
 
 ### Sub-pixel motion
 
@@ -1325,6 +1432,9 @@ live map (websocket) ◄──┘     │      (per frame,   (bri, power,    (on
 - Boot behavior and default mappings (zone, with segment override) are
   configurable.
 - Composites may nest, with cycles rejected at load.
+- A show is an effect: a timeline of cues on the layer's age, each cue
+  with its own effect, mapping and target. Cue mappings and areas are
+  solved with the layer's geometry, never per frame.
 
 ## Open questions
 

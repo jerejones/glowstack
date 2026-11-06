@@ -135,6 +135,16 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 			"layout.yaml:4: run \"a\": model needs the layout's `scene: { glb: s.glb }`"},
 		{"reserved mapping id", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: local, kind: local }\n"},
 			`mappings.yaml:3: mapping id "local" is built in`},
+		{"angular without center", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: round, kind: angular }\n"},
+			`mappings.yaml:3: angular mapping "round": missing center`},
+		{"lap on a radial", map[string]string{MappingsFileName: "schema: 1\nmappings:\n  - { id: r, kind: radial, center: [1, 2], lap: 3 m }\n"},
+			`mappings.yaml:3: mapping "r": lap applies only to route and angular mappings`},
+		{"show without cues", map[string]string{PresetsFileName: "schema: 1\nshows:\n  - { id: s, cues: [] }\n"},
+			`presets.yaml:3: show "s" has no cues`},
+		{"show bad time", map[string]string{PresetsFileName: "schema: 1\nshows:\n  - id: s\n    cues:\n      - { effect: solid, at: soon }\n"},
+			`presets.yaml:5: show "s": at: want a duration like "12 s"`},
+		{"show bad mapping", map[string]string{PresetsFileName: "schema: 1\nshows:\n  - id: s\n    cues:\n      - { effect: solid, mapping: { kind: nowhere } }\n"},
+			`presets.yaml:5: show "s": inline mapping`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

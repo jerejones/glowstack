@@ -114,3 +114,43 @@ func TestRouteValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestAngularMapping(t *testing.T) {
+	l, at := routeGrid()
+	m := func(v float64) units.Length { return units.Length{Value: v} }
+	lap := m(8)
+	// Center of the rectangle; u = 0 towards +x, 8 m per turn.
+	am := &config.Mapping{ID: "sweep", Kind: config.KindAngular, Lap: &lap,
+		Center: &config.PointRef{X: m(1), Y: m(0.5)}}
+	mp, err := SolveSpatial(l, am)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := func(name string) float64 { return float64(mp.U[at[name]]) }
+	// right-mid is straight +x (0). This layout is a plan, not a scene, so
+	// plan y points down: top-mid (plan y 1) is three quarters of a turn
+	// and start, the corner at (-1, -0.5) from the center, is at
+	// atan2(0.5, -1) seen from above.
+	for name, want := range map[string]float64{"right-mid": 0, "top-mid": 6, "start": math.Atan2(0.5, -1) / (2 * math.Pi) * 8} {
+		if !approx(u(name), want) {
+			t.Errorf("%s: u %v, want %v", name, u(name), want)
+		}
+	}
+	// Stretch is the circumference at the pixel's radius per lap.
+	if got := float64(mp.Stretch[at["top-mid"]]); !approx(got, 2*math.Pi*0.5/8) {
+		t.Errorf("stretch %v", got)
+	}
+	if !math.IsNaN(float64(mp.U[len(l.Pixels)-1])) {
+		t.Error("a pixel with no position should be outside the domain")
+	}
+	// A start angle turns the zero.
+	a := units.Angle(math.Pi / 2)
+	am.Angle = &a
+	mp, err = SolveSpatial(l, am)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !approx(u("top-mid"), 4) || !approx(u("right-mid"), 6) {
+		t.Errorf("with angle 90°: top-mid %v right-mid %v", u("top-mid"), u("right-mid"))
+	}
+}

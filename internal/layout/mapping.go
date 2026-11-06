@@ -232,6 +232,39 @@ func SolveSpatial(l *Layout, m *config.Mapping) (*Mapping, error) {
 		if err := l.solveRoute(m, out); err != nil {
 			return nil, err
 		}
+	case config.KindAngular:
+		// u is the bearing of the pixel around a vertical axis through
+		// center, counter-clockwise seen from above, scaled so one full
+		// turn covers `lap` meters of u; u = 0 at `angle` (default +x).
+		// Stretch is the physical circumference per lap at each pixel's
+		// radius, so physical lengths convert.
+		c, _, err := l.point(m.Center)
+		if err != nil {
+			return nil, err
+		}
+		lap := 10.0
+		if m.Lap != nil {
+			lap = m.Lap.Value
+		}
+		start := 0.0
+		if m.Angle != nil {
+			start = float64(*m.Angle)
+		}
+		for i := range l.Pixels {
+			px := &l.Pixels[i]
+			if !px.HasPlan() {
+				continue
+			}
+			dx, dy := float64(px.X)-c[0], float64(px.Y)-c[1]
+			if !l.HasScene() {
+				dy = -dy // plan y points down
+			}
+			r := math.Hypot(dx, dy)
+			a := math.Atan2(dy, dx) - start
+			a -= math.Floor(a/(2*math.Pi)) * 2 * math.Pi
+			out.U[i] = float32(a / (2 * math.Pi) * lap)
+			out.Stretch[i] = float32(2 * math.Pi * r / lap)
+		}
 	default:
 		return nil, config.Errorf(m.Pos, "mapping %s: unknown kind %q", m.ID, m.Kind)
 	}

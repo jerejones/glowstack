@@ -239,16 +239,61 @@ func (e *Engine) build(l *stack.Layer, prev *render.Layer, full bool) (*render.L
 		ID: l.ID, Def: def, Params: values, Common: common, Seed: l.Seed,
 		Created: clock.Seconds(l.Created), Pitch: env.Pitch,
 	}
+	// Extra mappings and areas (shows): check them always, solve them
+	// when building geometry.
+	var extraMaps map[string]*layout.Mapping
+	var extraAreas map[string][]int32
+	if def.Extra != nil {
+		extraMaps, extraAreas = map[string]*layout.Mapping{}, map[string][]int32{}
+		for _, em := range def.Extra.Mappings {
+			xm, err := e.extraMapping(em.Raw, env)
+			if err != nil {
+				return nil, fmt.Errorf("effect %s: mapping %s: %w", def.ID, em.Key, err)
+			}
+			extraMaps[em.Key] = xm
+		}
+		for _, id := range def.Extra.Areas {
+			a, ok := e.layout.Area(id)
+			if !ok {
+				return nil, fmt.Errorf("effect %s: no area %q", def.ID, id)
+			}
+			extraAreas[id] = a.Pixels
+		}
+	}
 	if !full {
 		return L, nil
 	}
 	L.Geometry = render.BuildGeometry(e.layout, m, area.Pixels, def.CoordsOf(values), common)
+	if def.Extra != nil {
+		L.Geometry.Extra, L.Geometry.Masks = map[string]*render.ExtraCoords{}, map[string][]bool{}
+		for k, xm := range extraMaps {
+			L.Geometry.Extra[k] = L.Geometry.BuildExtra(xm)
+		}
+		for id, pix := range extraAreas {
+			L.Geometry.Masks[id] = L.Geometry.BuildMask(pix)
+		}
+	}
 	if prev != nil && prev.Def == def {
 		L.Effect = prev.Effect
 	} else {
 		L.Effect = def.New()
 	}
 	return L, nil
+}
+
+// extraMapping resolves a Def.Extra mapping value: a mapping id or an
+// inline mapping object.
+func (e *Engine) extraMapping(raw any, env render.Env) (*layout.Mapping, error) {
+	v, err := render.Resolve([]render.Param{{Name: render.ParamMapping, Type: render.TMapping, Default: ""}},
+		map[string]any{render.ParamMapping: raw}, env)
+	if err != nil {
+		return nil, err
+	}
+	c := render.Common{Mapping: v.Mapping(render.ParamMapping), Inline: v.InlineMapping(render.ParamMapping)}
+	if c.Inline == nil && c.Mapping == "" {
+		return nil, fmt.Errorf("empty mapping")
+	}
+	return e.mapping(nil, &c)
 }
 
 // mapping finds a layer's mapping: an inline one, a named one or the

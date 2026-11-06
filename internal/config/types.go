@@ -588,32 +588,33 @@ type Pin struct {
 
 // Mapping kinds.
 const (
-	KindFlow   = "flow"
-	KindLocal  = "local"
-	KindIndex  = "index"
-	KindAxis   = "axis"
-	KindRadial = "radial"
-	KindRoute  = "route"
-	KindPlan   = "plan"
+	KindFlow    = "flow"
+	KindLocal   = "local"
+	KindIndex   = "index"
+	KindAxis    = "axis"
+	KindRadial  = "radial"
+	KindRoute   = "route"
+	KindPlan    = "plan"
+	KindAngular = "angular"
 )
 
 // Mapping is a non-flow mapping.
 type Mapping struct {
 	Pos
 	ID         string        `yaml:"id"`
-	Kind       string        `yaml:"kind"`        // local | index | axis | radial | route | plan
-	Angle      *units.Angle  `yaml:"angle"`       // axis: horizontal direction, 0 = +x, counter-clockwise seen from above
+	Kind       string        `yaml:"kind"`        // local | index | axis | radial | route | plan | angular
+	Angle      *units.Angle  `yaml:"angle"`       // axis: horizontal direction, 0 = +x, counter-clockwise seen from above; angular: where u = 0
 	Direction  []float64     `yaml:"direction"`   // axis: 3-D direction [x, y, z], Z up; [0, 0, 1] is up
 	From       *PointRef     `yaml:"from"`        // axis: u = 0 here (default origin); with To, sets direction
 	To         *PointRef     `yaml:"to"`          // axis: direction from From
-	Center     *PointRef     `yaml:"center"`      // radial
+	Center     *PointRef     `yaml:"center"`      // radial, angular
 	Horizontal bool          `yaml:"horizontal"`  // radial: ignore height
 	Order      []string      `yaml:"order"`       // index: run order (default: layout order)
 	Points     []PointRef    `yaml:"points"`      // route: the path, in order
 	Closed     *bool         `yaml:"closed"`      // route: the last point joins the first (default true)
 	Snap       *units.Length `yaml:"snap"`        // route: pixels this close are on it (default 0.15 m)
 	Spread     *units.Length `yaml:"spread"`      // route: how far it spills onto crossing strips (default 0.5 m)
-	Lap        *units.Length `yaml:"lap"`         // route: u covered by the whole path (default its length)
+	Lap        *units.Length `yaml:"lap"`         // route: u covered by the whole path (default its length); angular: u per full turn (default 10 m)
 	SpillSpeed *float64      `yaml:"spill_speed"` // route: spill spreads at this × the pattern's speed (default 1)
 }
 
@@ -698,6 +699,7 @@ type PresetsFile struct {
 	Schema     int         `yaml:"schema" json:"schema"`
 	Presets    []Preset    `yaml:"presets" json:"presets"`
 	Composites []Composite `yaml:"composites" json:"composites,omitempty"`
+	Shows      []Show      `yaml:"shows" json:"shows,omitempty"`
 }
 
 // Preset is a saved layer specification without a target. Params holds raw
@@ -723,6 +725,38 @@ type Composite struct {
 	ID     string           `yaml:"id" json:"id"`
 	Name   string           `yaml:"name" json:"name,omitempty"`
 	Layers []CompositeLayer `yaml:"layers" json:"layers"`
+}
+
+// Show is a timed sequence of cues presented as a single effect with the
+// id ID: a whole light show as one layer. Each cue is an effect with its
+// own mapping and target area, playing from `at` for `for` with fades. Cues
+// are listed bottom first, like a composite's layers. The show's clock is
+// the layer's age, so a show starts when it's pushed, scrubs in the
+// preview and continues across a restart.
+type Show struct {
+	Pos    `json:"-"`
+	ID     string    `yaml:"id" json:"id"`
+	Name   string    `yaml:"name" json:"name,omitempty"`
+	Length string    `yaml:"length" json:"length,omitempty"` // duration; default: the end of the last cue
+	Loop   bool      `yaml:"loop" json:"loop,omitempty"`     // start over at the end instead of holding the last frame
+	Cues   []ShowCue `yaml:"cues" json:"cues"`
+}
+
+// ShowCue is one cue of a show.
+type ShowCue struct {
+	Pos     `json:"-"`
+	Name    string         `yaml:"name" json:"name,omitempty"`         // parameter prefix; default the effect id
+	Effect  string         `yaml:"effect" json:"effect"`               // effect, composite or show id
+	At      string         `yaml:"at" json:"at,omitempty"`             // duration from the show's start; default 0 s
+	For     string         `yaml:"for" json:"for,omitempty"`           // duration; default: to the end of the show
+	FadeIn  string         `yaml:"fade_in" json:"fade_in,omitempty"`   // duration; default 0 s
+	FadeOut string         `yaml:"fade_out" json:"fade_out,omitempty"` // duration; default 0 s
+	Mapping any            `yaml:"mapping" json:"mapping,omitempty"`   // mapping id or inline mapping; default the layer's
+	Target  string         `yaml:"target" json:"target,omitempty"`     // area id; default the layer's target
+	Reverse bool           `yaml:"reverse" json:"reverse,omitempty"`   // flip the cue's u
+	Blend   string         `yaml:"blend" json:"blend,omitempty"`       // onto the cues below; default over
+	Opacity *float64       `yaml:"opacity" json:"opacity,omitempty"`   // default 1
+	Params  map[string]any `yaml:"params" json:"params,omitempty"`     // the cue's default params
 }
 
 // CompositeLayer is one part of a composite.

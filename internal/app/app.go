@@ -168,6 +168,9 @@ func New(opts Options) (*App, error) {
 	if err := effects.RegisterComposites(a.Effects, a.Config.Composites); err != nil {
 		return nil, err
 	}
+	if err := effects.RegisterShows(a.Effects, a.Config.Shows); err != nil {
+		return nil, err
+	}
 	a.Engine = engine.New(a.Config, a.Layout, a.Mappings, a.Effects, a.Palettes)
 	a.Engine.OnError = func(id string, err error) { a.Log.Error("layer can't be rendered", "layer", id, "err", err) }
 	a.presetWarnings = a.checkPresets(a.Current())

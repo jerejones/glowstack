@@ -37,6 +37,7 @@ func (c *Config) Validate() error {
 	v.palettes(c.Palettes)
 	v.presets(c.Presets)
 	v.composites(c.Composites)
+	v.shows(c.Shows)
 	runs := map[string]*Run{}
 	for i := range c.Layout.Runs {
 		runs[c.Layout.Runs[i].ID] = &c.Layout.Runs[i]
@@ -541,8 +542,17 @@ func (v *validator) mapping(m *Mapping) {
 		v.errorf(m.Pos, "declare flows under `flows:`")
 		return
 	}
-	v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindRoute, KindPlan)
+	v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindRoute, KindPlan, KindAngular)
 	switch m.Kind {
+	case KindAngular:
+		if m.Center == nil {
+			v.errorf(m.Pos, "angular mapping %q: missing center", m.ID)
+		}
+		if m.Lap == nil {
+			m.Lap = &units.Length{Value: 10}
+		} else if m.Lap.PX || !(m.Lap.Value > 0) {
+			v.errorf(m.Pos, "angular mapping %q: lap must be a positive length in meters", m.ID)
+		}
 	case KindAxis:
 		given := 0
 		for _, set := range []bool{m.Angle != nil, m.Direction != nil, m.To != nil} {
@@ -600,8 +610,11 @@ func (v *validator) mapping(m *Mapping) {
 			}
 		}
 	}
-	if m.Kind != KindRoute && (m.Points != nil || m.Closed != nil || m.Snap != nil || m.Spread != nil || m.Lap != nil || m.SpillSpeed != nil) {
-		v.errorf(m.Pos, "mapping %q: points, closed, snap, spread, lap and spill_speed apply only to route mappings", m.ID)
+	if m.Kind != KindRoute && (m.Points != nil || m.Closed != nil || m.Snap != nil || m.Spread != nil || m.SpillSpeed != nil) {
+		v.errorf(m.Pos, "mapping %q: points, closed, snap, spread and spill_speed apply only to route mappings", m.ID)
+	}
+	if m.Kind != KindRoute && m.Kind != KindAngular && m.Lap != nil {
+		v.errorf(m.Pos, "mapping %q: lap applies only to route and angular mappings", m.ID)
 	}
 	if m.Horizontal && m.Kind != KindRadial {
 		v.errorf(m.Pos, "mapping %q: horizontal applies only to radial mappings", m.ID)
@@ -660,6 +673,50 @@ func (v *validator) composites(cs []Composite) {
 			}
 			if l.Opacity != nil && (*l.Opacity < 0 || *l.Opacity > 1) {
 				v.errorf(l.Pos, "opacity %v is outside 0–1", *l.Opacity)
+			}
+		}
+	}
+}
+
+func (v *validator) shows(ss []Show) {
+	unique(v, "show", ss, func(s *Show) (string, Pos) { return s.ID, s.Pos })
+	for i := range ss {
+		s := &ss[i]
+		if len(s.Cues) == 0 {
+			v.errorf(s.Pos, "show %q has no cues", s.ID)
+		}
+		if s.Length != "" {
+			if d, err := units.ParseDuration(s.Length); err != nil || d < 0 {
+				v.errorf(s.Pos, "show %q: length: want a duration like \"3 min\"", s.ID)
+			}
+		}
+		for j := range s.Cues {
+			c := &s.Cues[j]
+			v.required(c.Pos, "effect", c.Effect)
+			for _, f := range []struct{ name, val string }{{"at", c.At}, {"for", c.For}, {"fade_in", c.FadeIn}, {"fade_out", c.FadeOut}} {
+				if f.val == "" {
+					continue
+				}
+				if d, err := units.ParseDuration(f.val); err != nil || d < 0 {
+					v.errorf(c.Pos, "show %q: %s: want a duration like \"12 s\"", s.ID, f.name)
+				}
+			}
+			if c.Mapping != nil {
+				switch m := c.Mapping.(type) {
+				case string:
+				case map[string]any:
+					if _, err := ParseInlineMapping(m); err != nil {
+						v.errorf(c.Pos, "show %q: %v", s.ID, err)
+					}
+				default:
+					v.errorf(c.Pos, "show %q: mapping: want a mapping id or an inline mapping", s.ID)
+				}
+			}
+			if c.Blend != "" {
+				v.oneOf(c.Pos, "blend", &c.Blend, "over", "replace", "add", "max", "multiply")
+			}
+			if c.Opacity != nil && (*c.Opacity < 0 || *c.Opacity > 1) {
+				v.errorf(c.Pos, "opacity %v is outside 0–1", *c.Opacity)
 			}
 		}
 	}

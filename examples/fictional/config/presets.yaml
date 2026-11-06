@@ -124,3 +124,52 @@ composites:
         effect: sparkle
         blend: over
         params: { density: 6 /m/s, color: "#ffd060" }
+
+# Shows: a timeline of cues played as one effect, so a whole light show is
+# one layer. Cues are bottom first; each has its own effect, parameters,
+# mapping and target area and plays from `at` for `for` with fades. The
+# show's clock is the layer's age, so it starts when pushed, scrubs with
+# the preview clock and holds its last frame at the end. Apply to
+# `everything`.
+shows:
+  - id: evening
+    name: Evening
+    length: 60 s
+    cues:
+      - name: dusk
+        effect: solid
+        for: 25 s
+        fade_out: 3 s
+        params: { color: "#1a0800" }
+      - name: comets
+        effect: chase
+        mapping: front-sweep
+        target: front
+        at: 3 s
+        for: 20 s
+        fade_in: 1 s
+        fade_out: 2 s
+        params: { colors: ["#ffffff", "#ffb347"], width: 0.3 m, spacing: 6 m, tail: 2 m, speed: 3 m/s, overlay: true }
+      - name: sweep
+        effect: chase
+        mapping: { kind: angular, center: gate-w, lap: 24 m }
+        at: 22 s
+        for: 20 s
+        fade_in: 2 s
+        fade_out: 2 s
+        params: { colors: ["#fff4d6"], width: 1.5 m, spacing: 24 m, tail: 8 m, speed: 6 m/s, overlay: true }
+      - name: fireworks
+        effect: burst
+        at: 40 s
+        for: 15 s
+        fade_out: 2 s
+        params:
+          centers: [{ x: 6 m, y: 4 m, z: 4 m }, { x: 14 m, y: 4 m, z: 4 m }]
+          scatter: 1 m
+          rate: 0.8 /s
+          speed: 5 m/s
+      - name: home
+        effect: glitter
+        at: 54 s
+        fade_in: 4 s
+        params: { gradient.palette: ember, gradient.span: 4 m, sparkle.density: 3 /m/s }

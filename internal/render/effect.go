@@ -32,6 +32,7 @@ import (
 	"slices"
 
 	"github.com/jerejones/glowstack/internal/color"
+	"github.com/jerejones/glowstack/internal/config"
 )
 
 // Coords says which coordinates an effect reads.
@@ -75,6 +76,45 @@ type Def struct {
 	// by Registry.All, so catalogs, the map and WLED's effect list leave
 	// them out.
 	Internal bool
+	// Extra names further mappings and areas the effect reads besides the
+	// layer's own (shows give each cue its own). The engine solves them
+	// and puts them in Geometry.Extra and Geometry.Masks, keyed as here.
+	Extra *Extra
+}
+
+// Extra is what a Def asks the engine for beyond the layer's own mapping
+// and target: more mappings (by id or inline, keyed by MappingKey) and
+// areas (by id), each aligned with the layer's geometry.
+type Extra struct {
+	Mappings []ExtraMapping
+	Areas    []string
+}
+
+// ExtraMapping is one extra mapping: its raw value (an id or an inline
+// mapping object) and the key it's filed under.
+type ExtraMapping struct {
+	Key string
+	Raw any
+}
+
+// MappingKey is the key an extra mapping is filed under in
+// Geometry.Extra: the id for a named mapping, the inline id (a content
+// hash) for an inline one.
+func MappingKey(raw any) (string, error) {
+	switch m := raw.(type) {
+	case string:
+		if m == "" {
+			return "", fmt.Errorf("empty mapping id")
+		}
+		return m, nil
+	case map[string]any:
+		im, err := config.ParseInlineMapping(m)
+		if err != nil {
+			return "", err
+		}
+		return im.ID, nil
+	}
+	return "", fmt.Errorf("want a mapping id or an inline mapping object")
 }
 
 // CoordsOf returns the coordinates a layer of this effect with params v
@@ -106,6 +146,11 @@ type Context struct {
 	Spill   []float32 // meters off a route's path (0 on it); nil unless the mapping is a route
 	Index   []int32   // rank in the layer's full target, in mapping order
 	Count   int       // size of the layer's full target
+
+	// Geometry is the layer's full geometry, for effects that read
+	// Def.Extra mappings and masks: Geometry.Extra[key].U[Index[i]] is
+	// pixel i's coordinate in that mapping. Only set when the Def has Extra.
+	Geometry *Geometry
 }
 
 // Len returns the number of pixels to render.
