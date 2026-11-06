@@ -45,8 +45,8 @@ func ParseInlineMapping(raw map[string]any) (*InlineMapping, error) {
 	}
 	if kind == "" {
 		if _, ok := fields["origin"]; !ok {
-			return nil, fmt.Errorf("inline mapping: give a kind (%s, %s, %s, %s, %s or %s), or an origin for a flow",
-				KindFlow, KindLocal, KindIndex, KindAxis, KindRadial, KindPlan)
+			return nil, fmt.Errorf("inline mapping: give a kind (%s, %s, %s, %s, %s, %s or %s), or an origin for a flow",
+				KindFlow, KindLocal, KindIndex, KindAxis, KindRadial, KindRoute, KindPlan)
 		}
 		kind = KindFlow
 	}

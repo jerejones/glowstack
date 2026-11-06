@@ -55,3 +55,32 @@ func TestChaseSubpixelColors(t *testing.T) {
 		})
 	}
 }
+
+func TestChaseSpillTail(t *testing.T) {
+	// Pulses every 10 m (one at u 10), standing still, with a 4 m tail.
+	// Pixel 0 is on a route's path, pixel 1 on its spill, where the tail is
+	// a fifth as long (0.8 m).
+	s := newStrip(2, 0.01, 1)
+	d := Chase()
+	v := resolve(t, d, map[string]any{
+		"width": "0.1 m", "spacing": "10 m", "speed": "0 m/s", "tail": "4 m", "spill_tail": 0.2,
+		"colors": []any{"#ff0000"}, "overlay": true,
+	}, s.pitch)
+	ctx := s.ctx(v, 0)
+	ctx.Smooth = false
+	ctx.Spill = []float32{0, 0.3}
+	out := make([]color.Color, 2)
+
+	// 2 m behind the pulse: inside the path's tail, past the spill's.
+	ctx.U = []float32{8, 8}
+	d.New().Render(ctx, out)
+	if !(out[0].A > 0) || out[1].A != 0 {
+		t.Errorf("2 m behind: path %v, spill %v; want lit, dark", out[0].A, out[1].A)
+	}
+	// 0.4 m behind: both lit, the spill dimmer.
+	ctx.U = []float32{9.6, 9.6}
+	d.New().Render(ctx, out)
+	if !(out[1].A > 0 && out[1].A < out[0].A) {
+		t.Errorf("0.4 m behind: path %v, spill %v; want 0 < spill < path", out[0].A, out[1].A)
+	}
+}

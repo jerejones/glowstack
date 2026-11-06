@@ -103,6 +103,7 @@ type Context struct {
 	X, Y, Z []float32 // position, meters, Z up; only with CoordXY
 	Dl      []float32 // physical size of each pixel, meters
 	Stretch []float32 // dl/du: >1 where the flow is stretched
+	Spill   []float32 // meters off a route's path (0 on it); nil unless the mapping is a route
 	Index   []int32   // rank in the layer's full target, in mapping order
 	Count   int       // size of the layer's full target
 }

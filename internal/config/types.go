@@ -593,21 +593,28 @@ const (
 	KindIndex  = "index"
 	KindAxis   = "axis"
 	KindRadial = "radial"
+	KindRoute  = "route"
 	KindPlan   = "plan"
 )
 
 // Mapping is a non-flow mapping.
 type Mapping struct {
 	Pos
-	ID         string       `yaml:"id"`
-	Kind       string       `yaml:"kind"`       // local | index | axis | radial | plan
-	Angle      *units.Angle `yaml:"angle"`      // axis: horizontal direction, 0 = +x, counter-clockwise seen from above
-	Direction  []float64    `yaml:"direction"`  // axis: 3-D direction [x, y, z], Z up; [0, 0, 1] is up
-	From       *PointRef    `yaml:"from"`       // axis: u = 0 here (default origin); with To, sets direction
-	To         *PointRef    `yaml:"to"`         // axis: direction from From
-	Center     *PointRef    `yaml:"center"`     // radial
-	Horizontal bool         `yaml:"horizontal"` // radial: ignore height
-	Order      []string     `yaml:"order"`      // index: run order (default: layout order)
+	ID         string        `yaml:"id"`
+	Kind       string        `yaml:"kind"`        // local | index | axis | radial | route | plan
+	Angle      *units.Angle  `yaml:"angle"`       // axis: horizontal direction, 0 = +x, counter-clockwise seen from above
+	Direction  []float64     `yaml:"direction"`   // axis: 3-D direction [x, y, z], Z up; [0, 0, 1] is up
+	From       *PointRef     `yaml:"from"`        // axis: u = 0 here (default origin); with To, sets direction
+	To         *PointRef     `yaml:"to"`          // axis: direction from From
+	Center     *PointRef     `yaml:"center"`      // radial
+	Horizontal bool          `yaml:"horizontal"`  // radial: ignore height
+	Order      []string      `yaml:"order"`       // index: run order (default: layout order)
+	Points     []PointRef    `yaml:"points"`      // route: the path, in order
+	Closed     *bool         `yaml:"closed"`      // route: the last point joins the first (default true)
+	Snap       *units.Length `yaml:"snap"`        // route: pixels this close are on it (default 0.15 m)
+	Spread     *units.Length `yaml:"spread"`      // route: how far it spills onto crossing strips (default 0.5 m)
+	Lap        *units.Length `yaml:"lap"`         // route: u covered by the whole path (default its length)
+	SpillSpeed *float64      `yaml:"spill_speed"` // route: spill spreads at this × the pattern's speed (default 1)
 }
 
 // PointRef is a node id or a point `[x, y]` or `[x, y, z]` in meters. A

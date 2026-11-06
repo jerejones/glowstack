@@ -541,7 +541,7 @@ func (v *validator) mapping(m *Mapping) {
 		v.errorf(m.Pos, "declare flows under `flows:`")
 		return
 	}
-	v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindPlan)
+	v.oneOf(m.Pos, "kind", &m.Kind, KindLocal, KindIndex, KindAxis, KindRadial, KindRoute, KindPlan)
 	switch m.Kind {
 	case KindAxis:
 		given := 0
@@ -567,6 +567,41 @@ func (v *validator) mapping(m *Mapping) {
 		if m.Center == nil {
 			v.errorf(m.Pos, "radial mapping %q: missing center", m.ID)
 		}
+	case KindRoute:
+		if len(m.Points) < 2 {
+			v.errorf(m.Pos, "route mapping %q: want at least two points", m.ID)
+		}
+		if m.Closed == nil {
+			t := true
+			m.Closed = &t
+		}
+		if m.SpillSpeed == nil {
+			one := 1.0
+			m.SpillSpeed = &one
+		} else if !(*m.SpillSpeed > 0) {
+			v.errorf(m.Pos, "route mapping %q: spill_speed must be positive", m.ID)
+		}
+		for _, f := range []struct {
+			name string
+			l    **units.Length
+			def  float64
+		}{{"snap", &m.Snap, 0.15}, {"spread", &m.Spread, 0.5}, {"lap", &m.Lap, 0}} {
+			if *f.l == nil {
+				if f.def > 0 {
+					*f.l = &units.Length{Value: f.def}
+				}
+				continue
+			}
+			if (*f.l).PX {
+				v.errorf(m.Pos, "route mapping %q: %s must be in meters, not px", m.ID, f.name)
+			}
+			if (*f.l).Value < 0 || f.name == "lap" && (*f.l).Value == 0 {
+				v.errorf(m.Pos, "route mapping %q: %s must be positive", m.ID, f.name)
+			}
+		}
+	}
+	if m.Kind != KindRoute && (m.Points != nil || m.Closed != nil || m.Snap != nil || m.Spread != nil || m.Lap != nil || m.SpillSpeed != nil) {
+		v.errorf(m.Pos, "mapping %q: points, closed, snap, spread, lap and spill_speed apply only to route mappings", m.ID)
 	}
 	if m.Horizontal && m.Kind != KindRadial {
 		v.errorf(m.Pos, "mapping %q: horizontal applies only to radial mappings", m.ID)

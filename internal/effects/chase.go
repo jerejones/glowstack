@@ -18,6 +18,10 @@ import (
 //
 // Width, spacing and tail follow the flow unless given as physical. Pulse
 // edges are anti-aliased when `smooth` is on.
+//
+// On a route's spill (the crossing strips), the tail is `spill_tail` times
+// as long, so the spill can flash and fade faster than the tail on the
+// path.
 func Chase() *render.Def {
 	return &render.Def{
 		ID:     "chase",
@@ -29,6 +33,7 @@ func Chase() *render.Def {
 			{Name: "speed", Type: render.TSpeed, Default: "0.5 m/s", Doc: "along u; negative moves backwards"},
 			{Name: "colors", Type: render.TColors, Default: []any{"#ffffff"}, Doc: "pulse colors, in turn"},
 			{Name: "tail", Type: render.TLength, Default: "0 m", Doc: "fading trail behind each pulse"},
+			{Name: "spill_tail", Type: render.TNumber, Default: 1.0, Doc: "on a route's spill, the tail is this many times as long"},
 			{Name: "background", Type: render.TColor, Default: "#000000"},
 			{Name: "overlay", Type: render.TBool, Default: false, Doc: "leave the gaps transparent instead of painting background"},
 		},
@@ -51,12 +56,16 @@ func renderChase(ctx *render.Context, out []color.Color) {
 	cols := v.Colors("colors")
 	bg := v.Color("background")
 	overlay := v.Bool("overlay")
+	spillTail := max(0, v.Number("spill_tail"))
 	if len(cols) == 0 {
 		cols = []color.Color{color.Black}
 	}
 	for i := range out {
 		st := stretchAt(ctx, i)
 		w, p, tl := width.InU(st), spacing.InU(st), tail.InU(st)
+		if ctx.Spill != nil && ctx.Spill[i] > 0 {
+			tl *= spillTail
+		}
 		if p <= 0 {
 			out[i] = bg
 			continue

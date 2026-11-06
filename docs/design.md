@@ -540,6 +540,7 @@ they need, and a layer picks the mapping.
 | `flow` | `u`: graph distance from the origin | origin node, edge orientation overrides, conflict policy |
 | `axis` | `u`: position projected onto a direction | angle (horizontal, counter-clockwise seen from above), a 3-D `direction` vector (`[0, 0, 1]` is up), or two reference points |
 | `radial` | `u`: distance from a point | center node or point; `horizontal: true` ignores height |
+| `route` | `u`: distance along a path through points, with spill onto crossing strips | `points`, `closed`, `snap`, `spread`, `spill_speed`, `lap` |
 | `plan` | `x`, `y`, `z` | none (spatial effects) |
 
 Kinds that need a position cover only pixels that have one. Positions are a
@@ -550,6 +551,46 @@ only floor plans, `z` is each plan's elevation, so height-based mappings
 work but are coarse.
 | `local` | `u`: distance along each run separately | none. The "unsynced" fallback |
 | `index` | `u`: position within the target area, 0–1 | ordering of runs. Used for WLED-exact effects |
+
+#### Routes
+
+A route is a path drawn through points, independent of how the strips are
+wired, for patterns that travel a chosen loop through a grid:
+
+```yaml
+mappings:
+  - id: roof-loop
+    kind: route
+    points: [[0, 10, 4], [12, 10, 4], [12, 6, 4], [0, 6, 4]]   # or node ids
+    closed: true      # default: the last point joins the first
+    snap: 0.15 m      # pixels this close are on the route (default 0.15 m)
+    spread: 0.5 m     # spill onto crossing strips (default 0.5 m; 0 for none)
+    spill_speed: 0.25 # spill spreads at this × the pattern's speed (default 1)
+    lap: 30 m         # optional: u covered by one trip round
+```
+
+- **On the route**, u is the distance along the path to the pixel's nearest
+  point on it.
+- **Spill.** A pixel up to `spread` past `snap` is on a strip that crosses
+  or leaves the route, d meters out. Its u is the crossing's u plus
+  d ÷ `spill_speed`, so a pattern moving forward (towards larger u)
+  reaches it after the crossing and leaks out along the crossing strip at
+  `spill_speed` times its speed round the route. Moving backwards
+  (`reverse`, or a negative speed) it would reach the spill first, so to
+  run a route the other way, list its points in the other order. The mapping also gives it a gain that fades it out,
+  perceptually even, to nothing at `spread`. The compositor applies the
+  gain to whatever the effect draws, as alpha (as color for `replace`).
+- **Everything else** is outside the domain, so it's dark.
+- **`lap`** scales u so the whole path covers `lap` meters (stretch is
+  physical ÷ u, as in flows). A pattern whose period divides `lap`, such
+  as a chase with `spacing` equal to it, then repeats round a closed
+  route with no seam.
+- Any u effect works on a route: a chase with a long tail is a comet, a
+  gradient with `span` equal to `lap` rolls round it.
+- **Effects can tell spill apart** (`Context.Spill`, meters off the path).
+  `chase` takes `spill_tail`, a factor on its tail there: with a slow
+  `spill_speed` and a short spill tail, the comet bursts slowly out along
+  each crossing strip and fades fast, while its own tail lingers.
 
 #### Flow solving
 
@@ -763,7 +804,7 @@ of them, or presets over them:
 | `bands` | A repeating sequence of colored bands over `u` | `bands: [{color, width}]`, `speed`, `edge: hard\|soft` |
 | `gradient` | A palette stretched over `u`, optionally moving | `palette`, `span` (length of one full palette cycle), `speed`, `colors` |
 | `sparkle` | Random short-lived points over the base | `density`, `color` or `palette`, `lifetime`, `decay`, `seed` |
-| `chase` | Moving pulses | `width`, `spacing`, `speed`, `colors`, `tail`, `background`, `overlay` |
+| `chase` | Moving pulses | `width`, `spacing`, `speed`, `colors`, `tail`, `spill_tail`, `background`, `overlay` |
 | `noise` | Smooth noise over `u`/`x,y` and time | `palette`, `scale`, `speed`, `evolve`, `space: u\|xy`, `seed` |
 | `breathe` | Brightness over time | `color`, `background`, `period`, `min`, `max` |
 

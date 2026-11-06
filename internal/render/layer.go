@@ -78,8 +78,10 @@ type Geometry struct {
 	X, Y, Z []float32 // aligned with Pixels; nil unless the effect reads positions
 	Dl      []float32
 	Stretch []float32
-	Index   []int32 // rank in mapping order (i.e. 0, 1, 2, …)
-	Dark    []int32 // target pixels outside the mapping's domain; drawn black
+	Gain    []float32 // aligned with Pixels; nil unless the mapping fades pixels (routes)
+	Spill   []float32 // aligned with Pixels; nil unless the mapping has spill (routes)
+	Index   []int32   // rank in mapping order (i.e. 0, 1, 2, …)
+	Dark    []int32   // target pixels outside the mapping's domain; drawn black
 }
 
 // BuildGeometry orders target pixels along mapping m for an effect that
@@ -125,6 +127,12 @@ func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords C
 	if needXY {
 		g.X, g.Y, g.Z = make([]float32, n), make([]float32, n), make([]float32, n)
 	}
+	if m.Gain != nil {
+		g.Gain = make([]float32, n)
+	}
+	if m.Spill != nil {
+		g.Spill = make([]float32, n)
+	}
 	for i, e := range entries {
 		px := &l.Pixels[e.p]
 		g.Pixels[i], g.Index[i] = e.p, int32(i)
@@ -136,6 +144,12 @@ func BuildGeometry(l *layout.Layout, m *layout.Mapping, target []int32, coords C
 		}
 		if needXY {
 			g.X[i], g.Y[i], g.Z[i] = px.X, px.Y, px.Z
+		}
+		if g.Gain != nil {
+			g.Gain[i] = m.Gain[e.p]
+		}
+		if g.Spill != nil {
+			g.Spill[i] = m.Spill[e.p]
 		}
 	}
 	return g

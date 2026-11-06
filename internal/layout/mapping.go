@@ -9,6 +9,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/jerejones/glowstack/internal/color"
 	"github.com/jerejones/glowstack/internal/config"
 )
 
@@ -21,13 +22,21 @@ import (
 // Layout.Pixels. A `plan` mapping's U is the plan x.
 //
 // Stretch is dl/du per pixel: physical meters per meter of u. It's 1
-// everywhere except in flows. The pixel's physical size dl is in
-// Layout.Pixels.
+// everywhere except in flows and routes with a `lap`. The pixel's physical
+// size dl is in Layout.Pixels.
+//
+// Gain, when not nil, is a per-pixel brightness factor (linear light, 0–1)
+// that the compositor applies to whatever the layer's effect draws. Spill,
+// when not nil, is each pixel's distance off the path in meters: 0 on it,
+// more on a crossing strip. Only routes set them, to fade their spill and
+// to let effects draw it differently (chase's spill_tail).
 type Mapping struct {
 	ID      string
-	Kind    string // flow | local | index | axis | radial | plan
+	Kind    string // flow | local | index | axis | radial | route | plan
 	U       []float32
 	Stretch []float32
+	Gain    []float32
+	Spill   []float32
 	Flow    *FlowInfo // flows only
 }
 
@@ -219,15 +228,110 @@ func SolveSpatial(l *Layout, m *config.Mapping) (*Mapping, error) {
 				out.U[i] = float32(r.len())
 			}
 		}
+	case config.KindRoute:
+		if err := l.solveRoute(m, out); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, config.Errorf(m.Pos, "mapping %s: unknown kind %q", m.ID, m.Kind)
 	}
 	return out, nil
 }
 
+// solveRoute solves a route: a path through points, open or closed. A
+// pixel within `snap` of the path is on it, and its u is the distance
+// along the path to its nearest point. A pixel farther away, up to
+// `snap + spread`, is spill: it's on a strip that crosses or leaves the
+// path, d meters past the snap distance. Its u is the nearest point's u
+// plus d ÷ spill_speed, so a pattern moving forward along the path
+// (towards larger u) reaches it after the crossing and leaks out along the
+// crossing strip at spill_speed times its speed along the path,
+// and its Gain fades with d (perceptually even, to 0 at `spread`). A
+// pattern moving backwards (reverse, or a negative speed) would reach the
+// spill first, so to run a route the other way, list its points in the
+// other order. Everything farther is outside the domain. With `lap`, u is
+// scaled so the whole path covers lap meters, which lets a pattern repeat
+// seamlessly around a closed route.
+func (l *Layout) solveRoute(m *config.Mapping, out *Mapping) error {
+	pts := make([]vec, len(m.Points))
+	flat := false
+	for i := range m.Points {
+		p, hasZ, err := l.point(&m.Points[i])
+		if err != nil {
+			return err
+		}
+		pts[i], flat = p, flat || !hasZ
+	}
+	if m.Closed == nil || *m.Closed {
+		pts = append(pts, pts[0])
+	}
+	if flat {
+		for i := range pts {
+			pts[i][2] = 0 // a point without height: distances are horizontal
+		}
+	}
+	type seg struct {
+		a, d   vec // start and direction (b − a)
+		s, len float64
+	}
+	var segs []seg
+	total := 0.0
+	for i := 1; i < len(pts); i++ {
+		d := pts[i].sub(pts[i-1])
+		if n := d.len(); n > 0 {
+			segs = append(segs, seg{pts[i-1], d, total, n})
+			total += n
+		}
+	}
+	if len(segs) == 0 {
+		return config.Errorf(m.Pos, "route mapping %s: the points are all in the same place", m.ID)
+	}
+	snap, spread := m.Snap.Value, m.Spread.Value
+	k := 1.0 // u per meter along the path
+	if m.Lap != nil {
+		k = m.Lap.Value / total
+	}
+	ss := 1.0
+	if m.SpillSpeed != nil {
+		ss = *m.SpillSpeed
+	}
+	out.Gain = newCoords(len(l.Pixels), 1)
+	out.Spill = newCoords(len(l.Pixels), 0)
+	for i := range l.Pixels {
+		px := &l.Pixels[i]
+		if !px.HasPlan() {
+			continue
+		}
+		p := px.pos()
+		if flat {
+			p[2] = 0
+		}
+		best, at := math.Inf(1), 0.0
+		for _, sg := range segs {
+			t := math.Max(0, math.Min(1, p.sub(sg.a).dot(sg.d)/(sg.len*sg.len)))
+			if dist := p.sub(sg.a.add(sg.d.scale(t))).len(); dist < best {
+				best, at = dist, sg.s+t*sg.len
+			}
+		}
+		d := math.Max(0, best-snap)
+		if d > spread || d > 0 && spread == 0 {
+			continue
+		}
+		out.U[i] = float32((at + d/ss) * k)
+		out.Stretch[i] = float32(1 / k)
+		out.Spill[i] = float32(d)
+		if d > 0 {
+			out.Stretch[i] = float32(ss / k)
+			out.Gain[i] = float32(math.Pow(1-d/spread, color.DecodeGamma))
+		}
+	}
+	return nil
+}
+
 // vec is a position or direction in meters, Z up.
 type vec [3]float64
 
+func (a vec) add(b vec) vec       { return vec{a[0] + b[0], a[1] + b[1], a[2] + b[2]} }
 func (a vec) sub(b vec) vec       { return vec{a[0] - b[0], a[1] - b[1], a[2] - b[2]} }
 func (a vec) dot(b vec) float64   { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2] }
 func (a vec) scale(k float64) vec { return vec{a[0] * k, a[1] * k, a[2] * k} }
