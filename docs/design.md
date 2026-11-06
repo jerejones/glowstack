@@ -1282,3 +1282,12 @@ enabled. The Outputs map then marks the highest index as the physical wire
 input, instead of the lowest. This is descriptive metadata only: it does
 not reverse DDP bytes, change pixel ranges, or change calibrated run geometry.
 Run-level `reverse` still describes how the path follows software indices.
+
+### Shared-node physical occurrences
+
+The map includes each run's physical location for a shared logical node.
+With nodes shown, separated occurrences have matching sync diamonds and a
+pink dotted connector. Labels include run names when a node is shared;
+coincident positions are merged to avoid duplicate markers. Calibration
+highlights the occurrence belonging to the selected run. These positions
+are display metadata and do not alter the flow graph or measured indices.

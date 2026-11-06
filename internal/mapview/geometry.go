@@ -142,15 +142,25 @@ type AnchorJSON struct {
 	Source string `json:"source"` // measured | estimated | end
 }
 
+// NodeLocationJSON is one run-specific physical occurrence of a shared node.
+type NodeLocationJSON struct {
+	Run  string `json:"run"`
+	Plan int    `json:"plan"`
+	X    float  `json:"x"`
+	Y    float  `json:"y"`
+	Z    float  `json:"z"`
+}
+
 type NodeJSON struct {
-	ID    string `json:"id"`
-	Label string `json:"label,omitempty"`
-	Sync  bool   `json:"sync,omitempty"`
-	X     float  `json:"x"`
-	Y     float  `json:"y"`
-	Z     float  `json:"z"`
-	Plan  int    `json:"plan"`
-	Edges []int  `json:"edges"`
+	Locations []NodeLocationJSON `json:"locations,omitempty"`
+	ID        string             `json:"id"`
+	Label     string             `json:"label,omitempty"`
+	Sync      bool               `json:"sync,omitempty"`
+	X         float              `json:"x"`
+	Y         float              `json:"y"`
+	Z         float              `json:"z"`
+	Plan      int                `json:"plan"`
+	Edges     []int              `json:"edges"`
 }
 
 type EdgeJSON struct {
@@ -259,6 +269,32 @@ func (m *Map) geometry(v app.View) *Geometry {
 	for _, nd := range l.Nodes {
 		g.Nodes = append(g.Nodes, NodeJSON{ID: nd.ID, Label: nd.Label, Sync: nd.Sync,
 			X: float(nd.X), Y: float(nd.Y), Z: float(nd.Z), Plan: nd.Plan, Edges: nd.Edges})
+	}
+	// A logical junction can occur at different physical positions on its runs.
+	// Preserve each occurrence rather than showing only the first run's position.
+	for _, r := range l.Runs {
+		if r.Plan < 0 || r.PlanPath == nil {
+			continue
+		}
+		pl := l.Plans[r.Plan]
+		for _, a := range r.Anchors {
+			nd := &g.Nodes[a.Node]
+			px := l.Pixels[l.Controllers[r.Controller].Base+int32(a.Index)]
+			x, y, z := float64(px.X), float64(px.Y), float64(px.Z)
+			_, d, found := r.PlanPath.Vertex(nd.ID)
+			if a.Source == layout.SourceEnd {
+				d = 0.0
+				if a.Index == r.Last {
+					d = r.DrawnLength
+				}
+				found = true
+			}
+			if found {
+				p := r.PlanPath.At(d)
+				x, y, z = p.X*pl.Scale, p.Y*pl.Scale, pl.Z+p.Z*pl.Scale
+			}
+			nd.Locations = append(nd.Locations, NodeLocationJSON{Run: r.ID, Plan: r.Plan, X: float(x), Y: float(y), Z: float(z)})
+		}
 	}
 	for i := range l.Edges {
 		e := &l.Edges[i]

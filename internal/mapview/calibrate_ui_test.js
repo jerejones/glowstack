@@ -168,3 +168,21 @@ test('output input marker honors WLED reversal without changing output ranges', 
   assert.deepEqual(overlay.outputs().map(o=>[o.first,o.last]), [[5,8],[9,14]]);
   assert.equal(overlay.outputOf(9).output, 2);
 });
+
+
+test('shared sync nodes show distinct run locations and a dotted connector', async () => {
+  const { createOverlay, nodeLocations } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
+  const g = { pixels:{count:0}, controllers:[], mappings:[], zones:[], edges:[], runs:[],
+    nodes:[{id:'junction',sync:true,plan:0,x:1,y:2,z:3,locations:[
+      {run:'eave',plan:0,x:1,y:2,z:3}, {run:'rail',plan:0,x:1,y:2,z:1},
+      {run:'return',plan:0,x:1,y:2,z:1}, {run:'other-plan',plan:1,x:1,y:2,z:5}]}] };
+  assert.equal(nodeLocations(g,0,0).length,2);
+  assert.deepEqual(nodeLocations(g,0,0)[1].runs,['rail','return']);
+  const lines=[],labels=[]; let dash=[],from;
+  const ctx={beginPath(){},moveTo(x,y){from=[x,y];},lineTo(x,y){if(dash.length) lines.push([from,[x,y],dash]);},
+    setLineDash(v){dash=v;},stroke(){},closePath(){},fill(){},strokeText(){},fillText(t){labels.push(t);} };
+  const S={geo:g,plan:0,hover:-1,pinned:-1,view:{toScreen:(x,y,z)=>[x,y+z]}};
+  const overlay=createOverlay(S);overlay.st.nodes=true;overlay.st.labels=true;overlay.draw(ctx);
+  assert.deepEqual(lines,[[[1,5],[1,3],[2,4]]]);
+  assert.deepEqual(labels,['junction · eave','junction · rail / return']);
+});

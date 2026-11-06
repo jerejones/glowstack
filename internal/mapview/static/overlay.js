@@ -14,6 +14,21 @@ export const MODES = [
   ['live', 'Colors'], ['flow', 'Flow'], ['stretch', 'Stretch'], ['areas', 'Areas'], ['outputs', 'Outputs'],
 ];
 
+// Deduplicate coincident occurrences in world space, not screen space: two
+// elevations may overlap from one camera angle and separate from another.
+export function nodeLocations(g, i, plan) {
+  const nd = g.nodes[i];
+  if (!nd) return [];
+  const out = [];
+  for (const p of nd.locations?.length ? nd.locations : [nd]) {
+    if (p.plan !== plan || p.x == null) continue;
+    const same = out.find((q) => Math.hypot(q.x-p.x, q.y-p.y, q.z-p.z) < 1e-5);
+    if (same) { if (p.run) same.runs.push(p.run); }
+    else out.push({ ...p, runs: p.run ? [p.run] : [] });
+  }
+  return out;
+}
+
 // createOverlay keeps the overlay state. S is the app state: geo, view,
 // plan, hover, pinned, cal (the calibration session, or null).
 export function createOverlay(S) {
@@ -203,14 +218,27 @@ export function createOverlay(S) {
       }
     }
     g.nodes.forEach((nd, i) => {
-      const q = nodeAt(i);
-      if (!q) return;
-      const [x, y] = q;
-      ctx.fillStyle = nd.sync ? '#f472b6' : '#e5e7eb';
-      ctx.beginPath();
-      if (nd.sync) { ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); } else ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
-      ctx.fill();
-      if (st.labels) label(nd.id, x + 8, y - 6, nd.sync ? '#f9a8d4' : '#e5e7eb');
+      const locations = nodeLocations(g, i, S.plan);
+      const shared = (nd.locations?.length || 0) > 1;
+      const sync = nd.sync || locations.length > 1;
+      const projected = locations.map((p) => ({ ...p, q: at(p.x, p.y, p.z) })).filter((p) => p.q);
+      if (projected.length > 1) {
+        const a = projected[0].q;
+        ctx.strokeStyle = '#f472b6'; ctx.lineWidth = 1.5; ctx.setLineDash([2, 4]);
+        for (const p of projected.slice(1)) {
+          ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...p.q); ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+      for (const p of projected) {
+        const [x, y] = p.q;
+        ctx.fillStyle = sync ? '#f472b6' : '#e5e7eb';
+        ctx.beginPath();
+        if (sync) { ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); } else ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+        const name = shared && p.runs.length ? `${nd.id} · ${p.runs.join(' / ')}` : nd.id;
+        if (st.labels) label(name, x + 8, y - 6, sync ? '#f9a8d4' : '#e5e7eb');
+      }
     });
   }
 
@@ -224,7 +252,8 @@ export function createOverlay(S) {
       const ci = g.controllers.findIndex((x) => x.id === c.controller);
       if (ci < 0) return;
       const ni = c.node ? g.nodes.findIndex((n) => n.id === c.node) : -1;
-      const q = ni >= 0 ? nodeAt(ni)
+      const occurrence = ni >= 0 ? g.nodes[ni].locations?.find((p) => p.run === c.run && p.plan === S.plan) : null;
+      const q = occurrence ? at(occurrence.x, occurrence.y, occurrence.z) : ni >= 0 ? nodeAt(ni)
         : pixelAt(g.controllers[ci].base + (cal.target?.kind === 'end' ? c.estimate : c.index));
       if (!q) return;
       const on = i === cal.side;

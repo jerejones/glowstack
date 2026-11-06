@@ -125,3 +125,48 @@ func TestDirectionViewJSON(t *testing.T) {
 		t.Errorf("to must be omitted: %v", v)
 	}
 }
+
+func TestSharedNodeRetainsEachRunPosition(t *testing.T) {
+	dir := copyConfig(t)
+	doc := strings.Replace(shedScene, `"fence-west","points":[[11,2.5,9],[11,2.5,17]]`, `"fence-west","points":[[11,0.5,9],[11,0.5,17]]`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "site.glb"), scene.GLB([]byte(doc)), 0644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "layout.yaml")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Replace(string(b), "plans:", "scene: { glb: site.glb }\nplans:", 1)
+	for _, pair := range [][2]string{{"eave", "shed-eave"}, {"tower", "tower"}, {"fence-west", "fence-west"}} {
+		text = strings.Replace(text, `plan: { svg: "plan.svg#`+pair[0]+`" }`, `model: { glb: "site.glb#`+pair[1]+`" }`, 1)
+	}
+	if err := os.WriteFile(path, []byte(text), 0644); err != nil {
+		t.Fatal(err)
+	}
+	f := newFixtureIn(t, dir)
+	var g struct {
+		Nodes []NodeJSON `json:"nodes"`
+	}
+	f.get(t, "/api/map/geometry", &g)
+	for _, n := range g.Nodes {
+		if n.ID != "shed-se" {
+			continue
+		}
+		if len(n.Locations) != 2 {
+			t.Fatalf("locations: %+v", n.Locations)
+		}
+		heights := map[string]float{}
+		for _, p := range n.Locations {
+			heights[p.Run] = p.Z
+			if p.Plan != 0 {
+				t.Fatalf("plan: %d", p.Plan)
+			}
+		}
+		if heights["shed-eave"] != 2.5 || heights["fence-west"] != 0.5 {
+			t.Fatalf("heights: %+v", heights)
+		}
+		return
+	}
+	t.Fatal("missing shared node")
+}
