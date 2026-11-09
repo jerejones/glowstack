@@ -2355,3 +2355,8 @@ test('wording: In front explains itself, and the apply toast points at the warni
   assert.match(applyResult('the look', four, false).text, /but they stay dark/, 'the warning variant stays');
   assert.equal(applyResult('the look', { dark: 'none', zones: [], message: 'x' }, true).text, 'Applied the look.', 'no zones to count: just the confirmation');
 });
+
+test('on a phone the worded Remove leaves the place name its room', () => {
+  assert.match(css, /\.layer \.controls \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto; \}/);
+  assert.match(css, /\.layer \.tweak \{ grid-column: 2; grid-row: 2; \}/);
+});

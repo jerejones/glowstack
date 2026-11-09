@@ -561,13 +561,14 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   /* The tab bar names the tab: on a phone the stage is the sheet's first content. */
   .tab .looks-head { display: none; }
   .stage { margin-top: 8px; }
-  /* On a phone place, Tweak and Remove share a line; brightness has the next. */
-  .layer .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
+  /* On a phone place and Remove share a line; brightness and Tweak the next, so
+   * the place's name keeps its room beside the worded Remove. */
+  .layer .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
   .layer .place-row { grid-column: 1; grid-row: 1; }
-  .layer .tweak { grid-column: 2; grid-row: 1; }
-  .layer [data-a=remove] { grid-column: 3; grid-row: 1; }
+  .layer .tweak { grid-column: 2; grid-row: 2; }
+  .layer [data-a=remove] { grid-column: 2; grid-row: 1; }
   .layer [data-a=remove]:not(.worded) span { display: inline; }
-  .layer .bri { grid-column: 1 / -1; grid-row: 2; }
+  .layer .bri { grid-column: 1; grid-row: 2; }
   /* The primary action has its own row; the choice, the note and Clear the
    * next. The bottom padding keeps Clear off the screen's edge. */
   .look-bar { display: flex; flex-wrap: wrap; gap: 4px 8px; padding-top: 6px; padding-bottom: 12px; }
