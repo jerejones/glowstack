@@ -146,6 +146,11 @@ export function layerLine(kind, name, place, brightness) {
   return { place, bri, label: `${kind}: ${String(name).replace(/\u00a0/g, ' ')} on ${place} at ${bri}. Show its controls` };
 }
 
+// kindMark is the small word at the start of an effect card's sub line that
+// says what kind of look the card is: '' for a preset, whose sub line names
+// its effect instead.
+export const kindMark = (kind) => (kind ? `<span class="kind-mark">${kind}</span> · ` : '');
+
 // liveSummary is the folded live rows' one line: how many looks are on the
 // lights and their names, in order, front first.
 export function liveSummary(house, nameOf) {
@@ -481,13 +486,15 @@ export function createLooks(S, root) {
   // ---------- presets and effects ----------
 
   // card is a library tile: its strip shows the look moving (tiles.js),
-  // over the drawn strip while the sprite loads.
-  function card(name, sub, strip, look, onclick, title, sprite) {
+  // over the drawn strip while the sprite loads. An effect's card carries
+  // its kind in the sub line (kindMark), so it is told from a preset's
+  // without reading the segment.
+  function card(name, sub, strip, look, onclick, title, sprite, mark = '') {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'preset';
     b.title = title || name;
-    b.innerHTML = `<span class="strip sprite" style="${esc(spriteStyle(sprite, strip))}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="live-badge"><span></span></span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
+    b.innerHTML = `<span class="strip sprite" style="${esc(spriteStyle(sprite, strip))}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${kindMark(mark)}${esc(sub)}</span><span class="live-badge"><span></span></span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
     guardSprite(b.querySelector('.strip'), sprite, strip);
     b.dataset.look = look;
     b.onclick = onclick;
@@ -501,7 +508,7 @@ export function createLooks(S, root) {
       const name = presetName(p), e = effectFor(S, { preset: p.id });
       return card(name, e ? cardSummary(name, e) : humanize(p.effect), lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${name} here`, spriteURL('preset', p.id, p.params, e));
     }),
-    effects: (list) => list.map((e) => card(e.name || e.id, effectMotion(e, effectKind), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }), undefined, spriteURL('effect', e.id, null, e))),
+    effects: (list) => list.map((e) => card(e.name || e.id, effectMotion(e, effectKind), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }), undefined, spriteURL('effect', e.id, null, e), 'Effect')),
   };
   function renderCatalog() {
     const grid = $$('#lkPresets');

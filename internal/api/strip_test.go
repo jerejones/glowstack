@@ -6,6 +6,7 @@ package api
 
 import (
 	"bytes"
+	"image"
 	"image/png"
 	"net/http"
 	"net/http/httptest"
@@ -234,5 +235,42 @@ func TestPlanStrip(t *testing.T) {
 	}
 	if !shows["evening"] || shows["chase"] {
 		t.Errorf("show flags: %v", shows)
+	}
+}
+
+func TestStripRestsOnALitFrame(t *testing.T) {
+	f := newFixture(t, nil)
+	// Breathe is dark at its trough: the resting row is not that frame.
+	_, breathe := f.sprite("/api/v1/effects/breathe/strip.png")
+	if lit := litPixels(breathe[StripRest]); lit < StripPixels/2 {
+		t.Errorf("Breathe rests on a frame with %d lit pixels", lit)
+	}
+	best := 0
+	for _, row := range breathe {
+		best = max(best, litPixels(row))
+	}
+	if litPixels(breathe[StripRest]) != best {
+		t.Errorf("the resting row has %d lit pixels; the best frame has %d", litPixels(breathe[StripRest]), best)
+	}
+	// The rows stay in cyclic order: the frame with most lit pixels moves to
+	// the resting row and the others follow it round.
+	img := image.NewNRGBA(image.Rect(0, 0, 2, StripFrames))
+	for y := 0; y < StripFrames; y++ {
+		img.Pix[img.PixOffset(0, y)] = uint8(y + 1) // row y's first pixel says which row it was
+		if y == 7 {
+			img.Pix[img.PixOffset(0, y)], img.Pix[img.PixOffset(1, y)] = 200, 200 // two lit pixels: the most
+		} else if y%2 == 0 {
+			img.Pix[img.PixOffset(1, y)] = 200 // one lit pixel
+		}
+	}
+	restFrame(img)
+	if got := img.Pix[img.PixOffset(0, StripRest)]; got != 200 {
+		t.Errorf("row %d holds %d, want the brightest row", StripRest, got)
+	}
+	if got := img.Pix[img.PixOffset(0, StripRest+1)]; got != 9 {
+		t.Errorf("the row after the resting row was row 8 (marked 9), got %d", got)
+	}
+	if got := img.Pix[img.PixOffset(0, StripRest-1)]; got != 7 {
+		t.Errorf("the row before the resting row was row 6 (marked 7), got %d", got)
 	}
 }

@@ -603,6 +603,8 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .preset .live-badge { margin-top: auto; min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .in-badge > span, .preset .live-badge > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
+/* An effect card's kind, one word at the sub line's start, in the text color so it reads from the card alone. */
+.preset .sub .kind-mark { color: var(--text); font-weight: 600; letter-spacing: 0.01em; }
 .layer {
   padding: 6px 4px 6px 12px; margin-top: 6px; position: relative; border-radius: 8px;
 }

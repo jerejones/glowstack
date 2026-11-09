@@ -2536,7 +2536,7 @@ test('Move B: library tiles show the effect moving, from the renderer\'s own spr
   assert.match(style, /background-position: 0 calc\(var\(--tile-row, 15\) \/ 29 \* 100%\), 0 0/);
   // When the tiles step, hold, or hold the still frame.
   assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: false }), 'running');
-  assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: true }), 'paused', 'the map is the preview');
+  assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: true }), 'slow', 'the map is the preview: the tiles step at half rate behind it (B2)');
   assert.equal(tileState({ reduced: false, hidden: false, visible: false, previewing: false }), 'paused', 'off screen');
   assert.equal(tileState({ reduced: false, hidden: true, visible: true, previewing: false }), 'paused', 'page hidden');
   assert.equal(tileState({ reduced: true, hidden: false, visible: true, previewing: false }), 'still');
@@ -2550,12 +2550,13 @@ test('Move B: library tiles show the effect moving, from the renderer\'s own spr
   assert.equal(box.style.vars['--tile-row'], MID, 'a tile starts at the still frame');
   assert.equal(tiles.state(), 'running');
   S.preview = { layers: [{}] }; handlers.preview();
-  assert.equal(tiles.state(), 'paused');
+  assert.equal(tiles.state(), 'slow');
   S.preview = null; handlers.preview();
   assert.equal(tiles.state(), 'running');
   await new Promise((r) => setTimeout(r, 1000 / FPS * 2.5));
   assert.ok(box.style.vars['--tile-row'] !== MID, 'it stepped');
-  S.preview = { layers: [{}] }; handlers.preview(); // stops the timer so the test can end
+  doc.hidden = true; handlers.preview(); // pauses: stops the timer so the test can end
+  assert.equal(tiles.state(), 'paused');
   assert.match(read('panel/presets.js'), /const sprite = spriteURL\('preset', p\.id, p\.params, effect\), drawn = lookStrip\(S, p\.effect, p\.params\);\s*row\.querySelector\('\.strip'\)\.style\.cssText = spriteStyle\(sprite, drawn\)/, 'preset rows use the preset\'s own sprite');
   assert.match(read('app.js'), /S\.tiles = createTiles\(S\)/);
 });
@@ -2788,4 +2789,43 @@ test('A2: the half sheet keeps the Library in reach while previewing; the search
   assert.match(css, /\.tab-intro-compact \{ display: none; \}/);
   assert.match(phone, /body\[data-detent=half\] \.tab-intro-compact \{ display: block;/);
   assert.doesNotMatch(/body\[data-detent=half\] \.tab-intro-compact \{[^}]*\}/.exec(phone)[0], /ellipsis|nowrap/);
+});
+
+test('B2: tiles keep moving behind a preview, rest on a lit frame, and effect cards say Effect', async () => {
+  const { tileState, rateOf, createTiles, FPS, SLOW_FPS, MID } = await import('./static/tiles.js');
+  const { kindMark } = await import('./static/panel/looks.js');
+  assert.equal(SLOW_FPS, 5);
+  assert.equal(rateOf('running'), FPS); assert.equal(rateOf('slow'), SLOW_FPS); assert.equal(rateOf('paused'), 0); assert.equal(rateOf('still'), 0);
+  // The full pause is for off-screen tiles and a hidden page; reduced motion holds the resting frame.
+  assert.equal(tileState({ reduced: false, hidden: false, visible: false, previewing: true }), 'paused');
+  assert.equal(tileState({ reduced: true, hidden: false, visible: true, previewing: true }), 'still');
+  // The clock changes rate with the state, without losing its place.
+  const handlers = {};
+  const S = { preview: { layers: [{}] }, on: (ev, fn) => { handlers[ev] = fn; } };
+  const box = { style: { vars: {}, setProperty(k, v) { this.vars[k] = v; } } };
+  const doc = { hidden: false, addEventListener() {} };
+  const tiles = createTiles(S, doc);
+  tiles.watch(box);
+  assert.equal(tiles.state(), 'slow'); assert.equal(tiles.rate(), SLOW_FPS);
+  await new Promise((r) => setTimeout(r, 1000 / SLOW_FPS * 2.5));
+  assert.ok(box.style.vars['--tile-row'] !== MID, 'it stepped behind the preview');
+  S.preview = null; handlers.preview();
+  assert.equal(tiles.rate(), FPS);
+  doc.hidden = true; handlers.preview();
+  assert.equal(tiles.rate(), 0);
+  // The resting frame is the server's: the sprite's fullest row sits at MID (api/strip.go restFrame).
+  const strip = fs.readFileSync(path.join(__dirname, '..', 'api', 'strip.go'), 'utf8');
+  assert.match(strip, /const StripRest = StripFrames \/ 2/);
+  assert.match(strip, /restFrame\(img\)/);
+  assert.equal(MID, 15);
+  // An effect card's kind is one word at its sub line's start, in the text color.
+  assert.equal(kindMark('Effect'), '<span class="kind-mark">Effect</span> · ');
+  assert.equal(kindMark(''), '');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /spriteURL\('effect', e\.id, null, e\), 'Effect'\)\)/, 'effect cards carry the mark');
+  assert.match(looks, /`Preview \$\{name\} here`, spriteURL\('preset', p\.id, p\.params, e\)\)/, 'preset cards carry none: their sub line names the effect');
+  assert.match(css, /\.preset \.sub \.kind-mark \{ color: var\(--text\); font-weight: 600;/);
+  // With the word in front, every motion phrase still fits a 176 px card's sub line whole (measured: 25 characters of these words).
+  const { MOTION } = await import('./static/tiles.js');
+  for (const [id, words] of Object.entries(MOTION)) assert.ok(`Effect · ${words}`.length <= 25, `${id}: "Effect · ${words}" is cut on a card`);
 });

@@ -7,28 +7,33 @@
 // strip.png, and a preset's own settings at /api/v1/presets/{id}/
 // strip.png). A tile shows one row and steps through them at the sprite's
 // rate: every tile reads the row from one variable on its container, so
-// a library of tiles costs one style change a frame. The animation pauses while
-// a preview is being shown (the map is the preview), when the tiles are
-// off screen or the page is hidden, and under prefers-reduced-motion,
-// where the tiles hold a frame from the middle of the sequence.
+// a library of tiles costs one style change a frame. While a preview is
+// being shown (the map is the preview, and busy) the tiles run at half
+// rate so they do not compete with it. They pause when off screen or when
+// the page is hidden, and under prefers-reduced-motion they hold the
+// resting frame: the server turns each sprite so its fullest frame (the
+// most lit pixels) is at row MID, so a still tile shows the look, never a
+// dark gap in its cycle.
 
 export const FRAMES = 30; // rows in a sprite: 3 s at FPS
 export const FPS = 10;
-export const MID = 15; // the still frame
+export const SLOW_FPS = 5; // while a preview is up
+export const MID = 15; // the resting frame
 
 // MOTION says in a few words what each built-in effect does on the lights
-// at its defaults, under its name on a tile. Bands and Gradient hold still
-// until given a speed, so their words don't promise motion.
+// at its defaults, under its name on a tile, after the word Effect (B2):
+// short enough that the two fit a 176 px card whole. Bands and Gradient
+// hold still until given a speed, so their words don't promise motion.
 export const MOTION = {
   solid: 'Steady',
   breathe: 'Fades in and out',
   bands: 'Bands of color',
   gradient: 'Palette gradient',
-  sparkle: 'Random sparkles',
+  sparkle: 'Sparkles',
   chase: 'Pulses run along',
   noise: 'Drifting noise',
   burst: 'Bursts outward',
-  glitter: 'Sparkles over a gradient',
+  glitter: 'Sparkly gradient',
   'spatial-field': 'Sweeps across',
 };
 
@@ -139,13 +144,17 @@ export function guardSprite(el, url, fallback, doc = globalThis.document) {
   img.src = url;
 }
 
-// tileState says whether the tiles step ('running'), hold where they are
-// ('paused'), or hold the middle frame ('still', reduced motion).
+// tileState says whether the tiles step ('running'), step at half rate
+// behind a preview ('slow'), hold where they are ('paused'), or hold the
+// resting frame ('still', reduced motion).
 export function tileState({ reduced, hidden, visible, previewing }) {
   if (reduced) return 'still';
-  if (hidden || !visible || previewing) return 'paused';
-  return 'running';
+  if (hidden || !visible) return 'paused';
+  return previewing ? 'slow' : 'running';
 }
+
+// rateOf is the frames per second of a tile state; 0 holds.
+export const rateOf = (state) => (state === 'running' ? FPS : state === 'slow' ? SLOW_FPS : 0);
 
 // createTiles runs the one clock the tiles share. watch(el) tells it which
 // containers' visibility matter.
@@ -153,20 +162,23 @@ export function createTiles(S, doc = document) {
   const boxes = new Set(); // the containers whose tiles step
   const reduced = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false, addEventListener() {} };
   const seen = new Map(); // container → on screen?
-  let timer = null, row = MID;
+  let timer = null, rate = 0, row = MID;
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { for (const e of es) seen.set(e.target, e.isIntersecting); sync(); }) : null;
   const state = () => tileState({ reduced: reduced.matches, hidden: doc.hidden, visible: !io || [...seen.values()].some(Boolean), previewing: !!(S.preview && S.preview.layers && S.preview.layers.length) });
   const show = (r) => { for (const b of boxes) b.style.setProperty('--tile-row', r); };
   function step() { row = (row + 1) % FRAMES; show(row); }
   function sync() {
-    const st = state();
-    if (st === 'running' && !timer) timer = setInterval(step, 1000 / FPS);
-    else if (st !== 'running' && timer) { clearInterval(timer); timer = null; }
+    const st = state(), fps = rateOf(st);
+    if (fps !== rate) {
+      if (timer) clearInterval(timer);
+      timer = fps ? setInterval(step, 1000 / fps) : null;
+      rate = fps;
+    }
     if (st === 'still') { row = MID; show(MID); }
   }
   S.on('preview', sync);
   doc.addEventListener('visibilitychange', sync);
   reduced.addEventListener('change', sync);
   sync();
-  return { watch: (el) => { boxes.add(el); el.style.setProperty('--tile-row', row); if (io) io.observe(el); else sync(); }, sync, state };
+  return { watch: (el) => { boxes.add(el); el.style.setProperty('--tile-row', row); if (io) io.observe(el); else sync(); }, sync, state, rate: () => rate };
 }

@@ -102,11 +102,47 @@ func renderStrip(def *render.Def, raw map[string]any, env render.Env) ([]byte, e
 			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = color.Encode(r), color.Encode(g), color.Encode(b), 255
 		}
 	}
+	restFrame(img)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, img); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// StripRest is the row a tile shows at rest: while paused, under reduced
+// motion, or before its clock starts (tiles.js: --tile-row).
+const StripRest = StripFrames / 2
+
+// restFrame turns the sprite's rows so the frame with the most lit pixels
+// sits at StripRest: a still tile shows the look, never a dark gap in its
+// cycle (Breathe at its trough, a chase between pulses). The rows stay in
+// order, so stepping through them cyclically is the same motion.
+func restFrame(img *image.NRGBA) {
+	w, h := img.Rect.Dx(), img.Rect.Dy()
+	best, bestLit := 0, -1
+	for y := 0; y < h; y++ {
+		lit := 0
+		for x := 0; x < w; x++ {
+			o := img.PixOffset(x, y)
+			if img.Pix[o] > 8 || img.Pix[o+1] > 8 || img.Pix[o+2] > 8 {
+				lit++
+			}
+		}
+		if lit > bestLit {
+			best, bestLit = y, lit
+		}
+	}
+	shift := (StripRest - best + h) % h
+	if shift == 0 {
+		return
+	}
+	rows := make([]byte, len(img.Pix))
+	for y := 0; y < h; y++ {
+		src, dst := img.PixOffset(0, y), img.PixOffset(0, (y+shift)%h)
+		copy(rows[dst:dst+img.Stride], img.Pix[src:src+img.Stride])
+	}
+	copy(img.Pix, rows)
 }
 
 // planStrip chooses the virtual strip for def with raw effect parameters:

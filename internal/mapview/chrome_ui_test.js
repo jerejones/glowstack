@@ -178,7 +178,7 @@ test('effect cards say something useful: the motion, else what the colors come f
   const { effectMotion, MOTION } = await import('./static/tiles.js');
   assert.equal(effectMotion({ id: 'solid' }), 'Steady');
   assert.equal(effectMotion({ id: 'breathe' }), 'Fades in and out');
-  assert.equal(effectMotion({ id: 'glitter' }), 'Sparkles over a gradient');
+  assert.equal(effectMotion({ id: 'glitter' }), 'Sparkly gradient');
   assert.notEqual(MOTION.solid, MOTION.breathe, 'Solid and Breathe read differently');
   for (const [id, words] of Object.entries(MOTION)) assert.ok(words.split(' ').length <= 4 && words.length <= 26, `${id}: ${words}`);
   // A composite from config has no entry: it says what it is made of.
