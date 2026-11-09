@@ -256,7 +256,7 @@ test('pressed chips carry a keyline and the one SVG check, with no text for scre
 
 test('single-choice sets are segmented and the show-on-map group has a name', () => {
   const setup = read('panel/setup.js');
-  assert.match(setup, /class="seg grid" id="suModes"/);
+  assert.match(setup, /class="seg five" id="suModes"/);
   assert.ok(setup.indexOf('Show on the map') > setup.indexOf('Color the map by'));
 });
 
@@ -468,7 +468,7 @@ test('labels never share pixels, and spacing labels at 1.00 stay off by default'
 test('no segment wraps, the five map colors leave no orphan, and checkboxes are styled', () => {
   const css = read('ui.css');
   assert.match(css, /\.seg > button \{[^}]*white-space: nowrap/);
-  assert.match(css, /\.seg\.grid > button:nth-child\(-n\+2\) \{ grid-column: span 3/);
+  assert.match(css, /\.tab \.seg\.five > button \{ padding: 0 3px/);
   assert.match(css, /input\[type=checkbox\] \{[^}]*appearance: none/);
 });
 
@@ -805,4 +805,45 @@ test('spacing numbers are for the run in focus, not the whole map', () => {
   const src = read('overlay.js');
   assert.match(src, /if \(!pixels\.some\(inFocus\)\) continue;/);
   assert.match(src, /a run for its percentage/);
+});
+
+test('Setup uses one segmented style and one toggle chip style', () => {
+  const setup = read('panel/setup.js');
+  assert.doesNotMatch(setup, /seg grid/);
+  assert.equal((setup.match(/class="chips toggles"/g) || []).length, 2);
+  assert.doesNotMatch(css, /\.seg\.grid/);
+  assert.match(css, /\.chips\.toggles > button::before/);
+});
+
+test('a control boundary is at least 3:1 where it identifies the control', () => {
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0); };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  for (const surface of ['#111317', '#15181d', '#1c2027']) assert.ok(ratio('#6b7480', surface) >= 3, surface);
+  assert.match(css, /^\.seg \{[^}]*var\(--control-line\)/m);
+  assert.match(css, /background: var\(--card2\); border: 1px solid var\(--control-line\)/);
+});
+
+test('jargon is gone or explained', async () => {
+  const { modelPartLabel } = await import('./static/names.js');
+  assert.equal(modelPartLabel('detail-lines', 'lines'), 'Fine detail outline');
+  assert.equal(modelPartLabel('site-lines', 'lines'), 'Ground and site outline');
+  assert.equal(modelPartLabel('walls-lines', 'lines'), 'Walls outline');
+  const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
+  assert.doesNotMatch(setup, />Even runs too</);
+  assert.doesNotMatch(setup, />Copy view</);
+  assert.match(looks, /Next look on/);
+  assert.match(looks, /The lights keep running/);
+  assert.doesNotMatch(cal, /At the estimate/);
+});
+
+test('the layer card keeps Remove beside Tweak, and long setting names take their own line', () => {
+  assert.match(read('panel/looks.js'), /class="tweak"[^\n]*data-a="remove"/);
+  assert.match(read('form.js'), /label\.length > 16 \? 'f stack' : 'f'/);
+  assert.match(css, /\.form \.f\.stack \{/);
+});
+
+test('one spinner at boot, and error bodies are all regular weight', () => {
+  assert.doesNotMatch(read('app.js'), /title: 'Loading…'/);
+  assert.match(css, /\.state-text span \{[^}]*font-weight: 400/);
+  assert.match(css, /\.verdict \.state \{[^}]*font-weight: 400/);
 });

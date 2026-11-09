@@ -33,26 +33,26 @@ export function createSetup(S, root) {
     </div>
     <div class="muted small" id="suRunsCount"></div>
     <h3 class="sub">Color the map by</h3>
-    <div class="seg grid" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
+    <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
     <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(humanize(m.id))}</option>`).join('')}</select></div>
     <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone" aria-label="Zone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
     <h3 class="sub">Show on the map</h3>
-    <div class="chips" role="group" aria-label="Show on the map">
+    <div class="chips toggles" role="group" aria-label="Show on the map">
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
       <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
-      <button type="button" id="suEven" title="Also label lights spaced just as drawn" hidden>Even runs too</button>
+      <button type="button" id="suEven" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label even runs</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
-    <div id="suModel" hidden><h3 class="sub">Parts of the model</h3><div class="chips" id="suLayers"></div></div>
+    <div id="suModel" hidden><h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
     <div id="suPlanRow" hidden><h3 class="sub">Plan</h3><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
       <h3 class="sub">Camera <small id="suCamMode"></small></h3>
       <div class="row">
         <button type="button" id="suDefault" title="Forget this device's camera and go back to the site's view">Default</button>
-        <button type="button" id="suCopy" title="Copy this camera's settings">Copy view</button>
+        <button type="button" id="suCopy" title="Copy this camera's position as text">Copy camera position</button>
       </div>
-      <div class="muted small">Copy view copies this camera, so it can be set as the view everyone starts from.</div>
+      <div class="muted small">Default goes back to the site's view. Copying gives this camera's settings as text, for making it the view every device starts from.</div>
     </div>
     <h3 class="sub">Map updates</h3>
     <div class="seg" id="suRate" role="group" aria-label="Map update rate">${[[0, 'Max'], [10, '10/s'], [5, '5/s'], [1, '1/s']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</div>
@@ -148,7 +148,7 @@ export function createSetup(S, root) {
   $$('#suCopy').onclick = async () => {
     const b = $$('#suCopy');
     const ok = await copyText(S.view.copyView());
-    if (ok) { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy view'; }, 1500); }
+    if (ok) { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy camera position'; }, 1500); }
   };
   S.on('camera', (st) => {
     $$('#suCamMode').textContent = { street: 'street view', overhead: 'overhead', free: 'where you left it', fit: 'fitted' }[st.mode] || '';

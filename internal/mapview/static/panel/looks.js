@@ -27,12 +27,12 @@ const PEEK_CHROME = 56; // the sheet's handle and tabs, above .content
 // effectKind says what an effect takes its colors from, for its card.
 export function effectKind(e) {
   const has = (type) => e.params.some((p) => p.type === type);
-  if (e.params.some((p) => p.name.includes('.'))) return 'Layered look';
+  if (e.params.some((p) => p.name.includes('.'))) return 'Effects combined';
   if (e.params.some((p) => p.name === 'bands')) return 'Color bands';
-  if (has('palette')) return 'Palette colors';
+  if (has('palette')) return 'Blended colors';
   if (has('colors')) return 'Several colors';
   if (has('color')) return 'One color';
-  return 'Effect';
+  return 'Animated effect';
 }
 
 // effectSummary names an effect with what it takes its colors from,
@@ -123,7 +123,7 @@ export function createLooks(S, root) {
   root.innerHTML = `
     <div class="looks-head">
       <h1 class="title">Looks</h1>
-      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where looks go"><span class="muted">Show on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
+      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where the next look goes"><span class="muted">Next look on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
     </div>
     <div class="target-picker" id="lkPicker" hidden>
       ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
@@ -144,6 +144,7 @@ export function createLooks(S, root) {
       <div class="list"></div>
     </div>
     <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="t" id="lkClockText"></span></summary>
+    <div class="muted small">Pause, slow or scrub the preview to look at one moment. The lights keep running.</div>
     <div class="clock" id="lkClock">
       <button type="button" id="lkPlay" class="icon-btn" title="Pause or resume the preview clock (space)" aria-label="Pause the preview clock"></button>
     </div>
@@ -359,7 +360,7 @@ export function createLooks(S, root) {
     el.className = 'layer';
     el.innerHTML = `
       <div class="top"><div class="what"><b></b><span></span></div>
-        <button type="button" class="tweak" aria-expanded="false">Tweak</button></div>
+        <button type="button" class="tweak" aria-expanded="false">Tweak</button><button type="button" data-a="remove">Remove</button></div>
       <div class="strip"></div>
       <div class="bri"><span class="bri-label" title="Layer brightness">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Layer brightness"><output></output></div>
       <div class="acts"></div>
@@ -371,14 +372,11 @@ export function createLooks(S, root) {
     const bri = el.querySelector('.bri input'), out = el.querySelector('.bri output');
     bri.oninput = () => { out.textContent = Math.round(bri.value * 100) + '%'; c.patch.set({ brightness: +bri.value }); };
     el.querySelector('.tweak').onclick = () => tweak(c);
-    const acts = el.querySelector('.acts');
+    el.querySelector('[data-a=remove]').onclick = () => remove(c, lane === 'preview' ? '/api/map/preview/layers' : '/api/v1/layers');
     if (lane === 'preview') {
-      acts.innerHTML = `<button type="button" data-a="apply" hidden title="Put only this look on the lights">Apply only this</button><button type="button" data-a="remove">Remove</button>`;
+      const acts = el.querySelector('.acts');
+      acts.innerHTML = `<button type="button" data-a="apply" hidden title="Put only this look on the lights">Apply only this</button>`;
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
-      acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/map/preview/layers');
-    } else {
-      acts.innerHTML = `<button type="button" data-a="remove">Remove</button>`;
-      acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/v1/layers');
     }
     return c;
   }
@@ -404,8 +402,8 @@ export function createLooks(S, root) {
     note.className = orig ? 'note copy-note' : 'note';
     note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
-    rm.textContent = part ? `Remove from ${nodeName(S.sel.node)}` : 'Remove';
-    rm.title = part ? `Turn off ${targetName(g, part)} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
+    rm.textContent = part ? 'Remove here' : 'Remove';
+    rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
   }
 

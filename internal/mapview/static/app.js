@@ -653,9 +653,7 @@ async function main() {
   const q = new URLSearchParams(location.search);
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
-  // The panel first, so loading shows the active tab with a state in it.
   S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
-  showState($('tab-' + S.panel.tab()), { kind: 'loading', title: 'Loading…' });
   S.geo = await api('/api/map/geometry');
   geometrySignature = geometryKey(S.geo);
   S.visibility = runVisibility(S.geo, S.allRuns);

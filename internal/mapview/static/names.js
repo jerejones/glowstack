@@ -23,10 +23,14 @@ export function controllerLabel(name, location) {
   return rest.length ? `${name} · ${rest.join(' ')}` : name;
 }
 
+// The model's layer names that say nothing on their own.
+const PART_WORDS = { detail: 'Fine detail', site: 'Ground and site' };
+
 // modelPartLabel is how a part of the 3-D model reads: "walls-lines" of
 // kind lines is "Walls outline", not its two internal words.
 export function modelPartLabel(name, kind) {
-  const base = humanize(String(name).replace(/[-_. ]+(lines|faces)$/i, ''));
+  const part = String(name).replace(/[-_. ]+(lines|faces)$/i, '');
+  const base = PART_WORDS[part.toLowerCase()] || humanize(part);
   return kind === 'lines' ? `${base} outline` : kind === 'faces' ? `${base} surfaces` : base;
 }
 

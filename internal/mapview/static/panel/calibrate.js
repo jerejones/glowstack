@@ -361,7 +361,7 @@ export function createCalibrate(S, root) {
         const step = stepTitle(st, nodeLabel, runLabel);
         const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
         parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i], st.progress.length))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
-        parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
+        parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout expects it` : 'Where the layout expects it'}</span></div>`);
         parts.push(nav());
         parts.push('<p class="cal-how">Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.</p>');
         const was = $$('#caBody details.tech');

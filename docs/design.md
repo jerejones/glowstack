@@ -1262,7 +1262,7 @@ desk.
     shape. `to` is optional (the middle of the pixels otherwise). The older
     `{ from, to, fov }` form still works: its camera is used unless the
     house wouldn't fit. Without a `view`, the map frames the model from an
-    elevated three-quarter angle. **Copy view** puts the current camera on
+    elevated three-quarter angle. **Copy camera position** puts the current camera on
     the clipboard in the direction form, for pasting into config (over plain
     http, where browsers block the clipboard API, it falls back to a dialog
     to copy from).

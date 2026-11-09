@@ -327,7 +327,8 @@ export function createForm(ctx) {
   // field adds a labeled row; body is a node; doc a hint under it.
   function field(parent, label, body, doc, title) {
     const f = document.createElement('div');
-    f.className = 'f';
+    // A long name takes its own line, rather than two ragged ones in a narrow column.
+    f.className = label.length > 16 ? 'f stack' : 'f';
     const lab = document.createElement('label');
     lab.textContent = label.replace(/ (\S{1,2})$/, '\u00a0$1'); // "color 1" doesn't break before the 1
     if (title) lab.title = title;

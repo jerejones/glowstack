@@ -15,7 +15,7 @@ const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
 
 export const MODES = [
-  ['live', 'Live colors', 'What the map or the lights are showing'],
+  ['live', 'Live', 'What the map or the lights are showing'],
   ['flow', 'Direction', 'Which way effects travel along the lights'],
   ['stretch', 'Spacing', 'Where lights are packed tighter or looser than drawn; a run Status flags is in full color'],
   ['areas', 'Areas', 'The areas that make up a zone'],
