@@ -28,6 +28,7 @@ const FREE = 'glowstack.camera.free';  // the last camera the user orbited to
 // −x, −y side.
 const THREE_QUARTER = [-0.45, -0.8, 0.5];
 const MARGIN = 1.1; // framing leaves this much room around the pixels
+const SUBDUED = 0.4; // the model's opacity while a look is showing
 
 export const toThree = (p) => new THREE.Vector3(p[0], p[2], -p[1]);
 const fromThree = (v) => [v.x, -v.z, v.y];
@@ -37,7 +38,8 @@ const zUp = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0
 
 // Pixels: a dot sized by its pitch and distance (3–21 CSS px). flags:
 // 1 dead (a gray ring), 2 gray (its controller is unreachable), 4 not
-// drawn. An unlit pixel is a dim ring, so off doesn't read as missing.
+// drawn. An unlit pixel is a dim ring, so off doesn't read as missing; a
+// lit one is half again as big, so a look reads over the model's lines.
 const PIXEL_VS = `
 attribute vec3 rgb;
 attribute float dl;
@@ -53,7 +55,8 @@ void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
   float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 1.35;
-  gl_PointSize = clamp(s, 3.0 * uDpr, 21.0 * uDpr);
+  bool lit = dot(rgb, rgb) >= 0.0004 && flags < 2.0;
+  gl_PointSize = lit ? clamp(s * 1.5, 5.0 * uDpr, 24.0 * uDpr) : clamp(s, 3.0 * uDpr, 21.0 * uDpr);
 }`;
 const PIXEL_FS = `
 uniform float uAlpha;
@@ -147,7 +150,7 @@ export async function open(glCanvas, input, opts) {
   const depthOnly = new THREE.MeshBasicMaterial({
     colorWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2,
   });
-  const layers = [];
+  const layers = [], modelMaterials = [];
   for (const l of opts.layers) {
     const objs = groups.get(l.name);
     if (!objs || layers.some((x) => x.name === l.name)) continue;
@@ -173,6 +176,7 @@ export async function open(glCanvas, input, opts) {
           o.material = new THREE.PointsMaterial({ ...common, size: 2, sizeAttenuation: false });
           o.renderOrder = ORDER.lines;
         }
+        if (o.isMesh || o.isLine || o.isPoints) modelMaterials.push({ material: o.material, opacity });
       });
     }
     const def0 = st.visible ?? true;
@@ -375,6 +379,15 @@ export async function open(glCanvas, input, opts) {
   let settle = 0;
   let glDirty = true;
   const changed = () => { glDirty = true; version++; opts.onChange(); };
+  // The lights are the point: the model steps back while any are lit.
+  let subdued = false;
+  function subdue(on) {
+    if (on === subdued) return;
+    subdued = on;
+    for (const m of modelMaterials) m.material.opacity = m.opacity * (on ? SUBDUED : 1);
+    changed();
+  }
+  const anyLit = (rgb) => { for (let i = 0; i < rgb.length; i++) if (rgb[i] > 8) return true; return false; };
   // The camera is the user's (free) once a gesture moves it; a tap
   // starts and ends a gesture without moving anything.
   let grab = null;
@@ -469,6 +482,7 @@ export async function open(glCanvas, input, opts) {
       if (want === colorAttr && !arr) return;
       colorAttr = want;
       geom.setAttribute('rgb', colorAttr);
+      subdue(anyLit(arr || opts.rgb));
       changed();
     },
     // frameArrived marks the live colors for upload.
@@ -476,6 +490,7 @@ export async function open(glCanvas, input, opts) {
       if (colorAttr !== liveAttr) return;
       liveAttr.needsUpdate = true;
       glDirty = true;
+      subdue(anyLit(opts.rgb));
     },
     // setGray grays the pixels of the given controller indices.
     setGray(ctrls) {

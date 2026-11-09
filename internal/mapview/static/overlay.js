@@ -41,7 +41,7 @@ export function nodeLocations(g, i, plan) {
 // plan, hover, pinned, cal (the calibration session, or null).
 export function createOverlay(S) {
   const g = S.geo, px = g.pixels, n = px.count;
-  const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: false, legend: '' };
+  const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: false, evenSpacing: false, legend: '' };
   const flows = g.mappings.filter((m) => m.kind === 'flow');
   st.mapping = (flows.find((m) => m.id === g.default_mapping) || flows[0] || g.mappings[0] || {}).id || '';
   st.zone = (g.zones[0] || {}).id || '';
@@ -52,11 +52,11 @@ export function createOverlay(S) {
   if (MODES.some(([mode]) => mode === prefs.mode)) st.mode = prefs.mode;
   if (g.mappings.some((m) => m.id === prefs.mapping)) st.mapping = prefs.mapping;
   if (g.zones.some((z) => z.id === prefs.zone)) st.zone = prefs.zone;
-  for (const key of ['nodes', 'labels', 'controllers']) {
+  for (const key of ['nodes', 'labels', 'controllers', 'evenSpacing']) {
     if (typeof prefs[key] === 'boolean') st[key] = prefs[key];
   }
   const remember = () => save('glowstack.overlays', Object.fromEntries([['v', OVERLAY_VERSION],
-    ...['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers'].map((key) => [key, st[key]])]));
+    ...['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers', 'evenSpacing'].map((key) => [key, st[key]])]));
   // While calibrating, the map shows the anchors over the live colors
   // whatever the saved overlays say. The mode reads through this and never
   // writes to st, so it leaves nothing behind to restore or to save.
@@ -142,13 +142,10 @@ export function createOverlay(S) {
     const o = shown();
     S.view.setColors(o.mode === 'live' ? null : await colors());
     if (o.nodes) {
-      st.legend += `<div><span class="sw" style="background:#5ddc8a"></span>measured point
-        <span class="sw" style="background:#ffb347"></span>estimated
-        <span class="sw" style="background:#f472b6"></span>shared corner</div>`;
+      st.legend += `<div class="key"><span><i class="sw" style="background:#5ddc8a"></i>measured point</span><span><i class="sw" style="background:#ffb347"></i>estimated</span><span><i class="sw" style="background:#f472b6"></i>shared corner</span></div>`;
     }
     if (o.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
-      st.legend += `<div><span class="sw" style="background:${CTRL}"></span>controller
-        <span class="sw" style="background:${CTRL_OFF}"></span>not in config</div>`;
+      st.legend += `<div class="key"><span><i class="sw" style="background:${CTRL}"></i>controller</span><span><i class="sw" style="background:${CTRL_OFF}"></i>not in config</span></div>`;
     }
     return st.legend;
   }
@@ -162,36 +159,45 @@ export function createOverlay(S) {
   // label queues text at (x, y). Labels are set after everything else is
   // drawn: each takes the first free spot near where it asked to be, on a
   // dark plate so it reads over the wireframe, and one with nowhere free is
-  // dropped rather than drawn over another. target marks the label of the
-  // point being calibrated: it goes first and clears its neighbors.
-  let queued = [];
-  const label = (text, x, y, color, target = false) => { queued.push({ text, x, y, color, target }); };
+  // dropped rather than drawn over another. rank orders them when there
+  // isn't room: TARGET, the point being calibrated, goes first, stands out
+  // and clears its neighbors.
+  const TARGET = 3, MAJOR = 2, MINOR = 0;
+  let queued = [], lastPlaced = [];
+  const label = (text, x, y, color, rank = 1) => { queued.push({ text, x, y, color, rank }); };
   const hit = (a, b, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
   function flushLabels() {
-    ctx.font = '12px system-ui, sans-serif';
     ctx.textBaseline = 'alphabetic';
     const placed = [], avoid = S.labelAvoid ? S.labelAvoid() : [];
-    const H = 15; // the plate's height
-    const width = S.view.size ? S.view.size().w : Infinity;
-    queued.sort((a, b) => b.target - a.target);
+    const { w: width, h: height } = S.view.size ? S.view.size() : { w: Infinity, h: Infinity };
+    queued.sort((a, b) => b.rank - a.rank);
+    const receding = queued.some((l) => l.rank === TARGET);
     let targetBox = null;
     for (const l of queued) {
+      const target = l.rank === TARGET;
+      const H = target ? 19 : 15; // the plate's height
+      ctx.font = `${target ? '600 14px' : '12px'} system-ui, sans-serif`;
       const w = ctx.measureText ? ctx.measureText(l.text).width : l.text.length * 6;
-      // A label near the right edge slides in rather than being cut off.
-      l.x = Math.max(4, Math.min(l.x, width - w - 4));
-      for (const dy of [0, H, -H]) {
-        const box = { x0: l.x - 3, x1: l.x + w + 3, y0: l.y + dy - 12, y1: l.y + dy + 3 };
-        if (avoid.some((a) => hit(box, a)) || placed.some((b) => hit(box, b))) continue;
-        if (!l.target && targetBox && hit(box, targetBox, 40)) continue;
-        placed.push(box);
-        if (l.target) targetBox = box;
+      for (const [dx, dy] of [[0, 0], [0, H], [0, -H], [-w - 20, 0], [-w - 20, H], [-w - 20, -H], [0, 2 * H], [0, -2 * H]]) {
+        // A label near the right edge slides in rather than being cut off.
+        const x = Math.max(4, Math.min(l.x + dx, width - w - 4)), y = l.y + dy;
+        const box = { x0: x - 3, x1: x + w + 3, y0: y - H + 3, y1: y + 3 };
+        if (box.y1 > height || (S.view.size && box.y0 < 0)) continue;
+        if (avoid.some((a) => hit(box, a, 2)) || placed.some((b) => hit(box, b, 1))) continue;
+        if (!target && targetBox && hit(box, targetBox, 40)) continue;
+        placed.push({ ...box, text: l.text });
+        if (target) targetBox = box;
+        ctx.globalAlpha = receding && !target ? 0.6 : 1;
         ctx.fillStyle = 'rgba(13, 14, 16, 0.82)';
         ctx.fillRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
+        if (target) { ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 1; ctx.strokeRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); }
         ctx.fillStyle = l.color;
-        ctx.fillText(l.text, l.x, l.y + dy);
+        ctx.fillText(l.text, x, y);
         break;
       }
     }
+    ctx.globalAlpha = 1;
+    lastPlaced = placed;
     queued = [];
   }
   function ring(q, r, color, width = 2, dash = null) {
@@ -230,7 +236,7 @@ export function createOverlay(S) {
     }
     if (m.flow) {
       const q = nodeAt(m.flow.origin);
-      if (q) { ring(q, 7, '#fff'); label(`origin ${nodeDisplay(g, g.nodes[m.flow.origin].id)}`, q[0] + 10, q[1] + 18, '#fff'); }
+      if (q) { ring(q, 7, '#fff'); label(`origin ${nodeDisplay(g, g.nodes[m.flow.origin].id)}`, q[0] + 10, q[1] + 18, '#fff', MAJOR); }
     }
   }
 
@@ -239,8 +245,9 @@ export function createOverlay(S) {
     for (const [e, pixels] of edgePixels()) {
       const s = m.flow.edge_stretch[e];
       if (s === null || pixels.length < 2) continue;
+      if (s.toFixed(2) === '1.00' && !st.evenSpacing) continue; // as drawn: nothing to say
       const q = pixelAt(pixels[Math.floor(pixels.length / 2)]);
-      if (q) label('×' + s.toFixed(2), q[0] + 6, q[1] + 14, '#eee');
+      if (q) label('×' + s.toFixed(2), q[0] + 6, q[1] + 14, '#eee', MINOR);
     }
   }
 
@@ -249,7 +256,7 @@ export function createOverlay(S) {
       const q = pixelAt(o.input);
       if (!q) continue;
       ring(q, 8, `rgb(${o.color})`);
-      label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
+      label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR);
     }
   }
 
@@ -277,7 +284,7 @@ export function createOverlay(S) {
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
       const display = controllerName(g, c.id); // a board the config doesn't list has only an id
       const name = st.labels && c.label ? `${display} · ${c.label}` : display;
-      label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF);
+      label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR);
     }
   }
 
@@ -292,7 +299,7 @@ export function createOverlay(S) {
       ctx.setLineDash(e.kind === 'link' ? [6, 4] : [2, 3]);
       ctx.strokeStyle = e.kind === 'link' ? '#c4b5fd' : '#7dd3fc';
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      if (st.labels) label(e.kind === 'link' ? 'link' : `gap ${e.length.toFixed(2)} m`, (a[0] + b[0]) / 2 - 20, (a[1] + b[1]) / 2 + 16, ctx.strokeStyle);
+      if (st.labels) label(e.kind === 'link' ? 'link' : `gap ${e.length.toFixed(2)} m`, (a[0] + b[0]) / 2 - 20, (a[1] + b[1]) / 2 + 16, ctx.strokeStyle, MINOR);
     }
     ctx.setLineDash([]);
     for (const r of g.runs) {
@@ -345,8 +352,9 @@ export function createOverlay(S) {
         : pixelAt(g.controllers[ci].base + (cal.target?.kind === 'end' ? c.estimate : c.index));
       if (!q) return;
       const on = i === cal.side;
+      if (on) ring(q, 14, 'rgba(13, 14, 16, 0.8)', 6);
       ring(q, on ? 13 : 10, on ? '#22d3ee' : 'rgba(34,211,238,.5)', on ? 3 : 2);
-      if (on) label(ni >= 0 ? g.nodes[ni].name || humanize(c.node) : c.label ? humanize(c.label) : `${controllerName(g, c.controller)}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc', true);
+      if (on) label(ni >= 0 ? g.nodes[ni].name || humanize(c.node) : c.label ? humanize(c.label) : `${controllerName(g, c.controller)}:${c.index}`, q[0] + 18, q[1] - 12, '#a5f3fc', TARGET);
     });
   }
 
@@ -354,12 +362,15 @@ export function createOverlay(S) {
   function draw(c) {
     ctx = c;
     const m = mappings.get(st.mapping), o = shown();
-    calCursors();
     if (o.mode === 'flow' && m) arrows(m);
     if (o.mode === 'stretch' && m) stretchLabels(m);
     if (o.mode === 'outputs') outputStarts();
+    // Measuring one point: every other point steps back.
+    ctx.globalAlpha = S.calibrating && S.cal?.active && S.cal.target ? 0.4 : 1;
     if (o.nodes) nodes();
     if (o.controllers) controllers();
+    ctx.globalAlpha = 1;
+    calCursors();
     for (const [p, color] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
       if (p < 0) continue;
       const q = pixelAt(p);
@@ -368,5 +379,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, placed: () => lastPlaced, live: () => shown().mode === 'live' };
 }

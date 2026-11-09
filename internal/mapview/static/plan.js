@@ -167,7 +167,13 @@ export function openPlan(canvas, plan, planIndex, opts) {
     ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const r = planRect();
+    const col = colors || opts.rgb;
+    // The lights are the point: the plan steps back while any are lit.
+    let lit = false;
+    for (let i = 0; i < col.length && !lit; i++) lit = col[i] > 8;
+    ctx.globalAlpha = lit ? 0.45 : 1;
     if (img && r) ctx.drawImage(planLayer(r), 0, 0, W, H);
+    ctx.globalAlpha = 1;
 
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (selection && selection.length) {
@@ -177,7 +183,6 @@ export function openPlan(canvas, plan, planIndex, opts) {
     }
     ctx.globalAlpha = 1;
 
-    const col = colors || opts.rgb;
     for (const p of drawn) {
       if (!isDrawn[p]) continue;
       const s = sizeOf(p);
@@ -197,7 +202,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
       }
       if (gray.has(px.controller[p])) { const l = Math.round(56 + 0.25 * (0.3 * cr + 0.59 * cg + 0.11 * cb)); cr = cg = cb = l; }
       ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
-      ctx.fillRect(x - s / 2, y - s / 2, s, s);
+      const big = gray.has(px.controller[p]) ? s : Math.min(s * 1.5, 30); // a lit pixel outweighs the plan's lines
+      ctx.fillRect(x - big / 2, y - big / 2, big, big);
     }
     return true;
   }
