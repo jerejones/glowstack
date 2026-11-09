@@ -208,7 +208,8 @@ function setInsets() {
   const { top, bottom } = frameInsets({
     height: stage.height,
     chips: below('chips'),
-    crumbs: $('crumbs').hidden ? null : below('crumbs'),
+    // The tap hint sits where the breadcrumb will be: the lights frame clear of either.
+    crumbs: !$('crumbs').hidden ? below('crumbs') : !$('mapHint').hidden ? below('mapHint') : null,
     controls: below('mapControls'),
     layout: S.panel.layout(),
     covered: S.panel.covered(),
@@ -310,6 +311,7 @@ function renderHint() {
   const box = $('mapHint');
   box.hidden = !showTapHint({ seen: hintSeen(), selected: !!S.sel, calibrating: S.calibrating, failed: !!S.mapFailed || !S.view });
   if (!box.hidden) box.textContent = tapHint(S.coarse ? 'Tap' : 'Click');
+  setInsets(); // the caption takes, or gives back, a line of the map's top
 }
 S.renderHint = renderHint;
 

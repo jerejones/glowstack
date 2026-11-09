@@ -493,6 +493,9 @@ export function createStatus(S, root) {
     const shared = sharedFact(g.controllers.map((c) => controllerFact(healthOf(st.health, c.id), nothingLit)));
     $$('#stCtlShared').textContent = shared ? asOf(`all ${shared.toLowerCase()}`, readAt) : '';
     // An unreachable controller sorts first; the rest keep the config's order.
+    // A focused row is redrawn with the list: the focus goes back to it, so
+    // a keyboard does not lose its place to a poll.
+    const focusedCtl = document.activeElement?.closest?.('#stCtl li[data-ctl]')?.dataset.ctl;
     const byFault = [...g.controllers].sort((a, b) => (healthOf(st.health, a.id)?.reachable === false ? 0 : 1) - (healthOf(st.health, b.id)?.reachable === false ? 0 : 1));
     $$('#stCtl').innerHTML = byFault.map((c) => {
       const h = healthOf(st.health, c.id);
@@ -512,6 +515,8 @@ export function createStatus(S, root) {
       }
       return `<li data-ctl="${esc(c.id)}" tabindex="0"${pointedCtl === c.id ? ' class="pointing"' : ''}>${mark(dot)}<span class="what"><b title="${esc(titled)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span>${shared ? '' : `<span class="fact ${readAt ? '' : fact.cls}">${asOf(fact.text, readAt)}</span>`}</li>`;
     }).join('');
+
+    if (focusedCtl) [...$$('#stCtl').children].find((li) => li.dataset.ctl === focusedCtl)?.focus({ preventScroll: true });
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));
     const rows = g.runs.map((r) => {

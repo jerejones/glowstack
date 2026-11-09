@@ -546,3 +546,13 @@ test('E follow-up: undo is withdrawn when the stack is no longer the one this pa
   assert.match(looks, /if \(undo\.point\(\) && S\.houseStatus === 'available' && stackKey\(\) !== undoStack\) \{ undo\.clear\(\); clearTimeout\(undoTimer\); \}/);
   assert.match(design, /the\s+offer is withdrawn rather than take that change back too/);
 });
+
+test('C follow-up: the caption has its line of the map, and a focused controller row keeps its focus', () => {
+  const app = read('app.js'), status = read('panel/status.js');
+  // The tap hint is framed around like the breadcrumb whose place it holds: no light is drawn under it.
+  assert.match(app, /crumbs: !\$\('crumbs'\)\.hidden \? below\('crumbs'\) : !\$\('mapHint'\)\.hidden \? below\('mapHint'\) : null,/);
+  assert.match(app, /box\.textContent = tapHint\(S\.coarse \? 'Tap' : 'Click'\);\s*setInsets\(\);/);
+  // A controller row that points at the map is focusable; a poll redraws the list and gives the focus back.
+  assert.match(status, /const focusedCtl = document\.activeElement\?\.closest\?\.\('#stCtl li\[data-ctl\]'\)\?\.dataset\.ctl;/);
+  assert.match(status, /if \(focusedCtl\) \[\.\.\.\$\$\('#stCtl'\)\.children\]\.find\(\(li\) => li\.dataset\.ctl === focusedCtl\)\?\.focus\(\{ preventScroll: true \}\);/);
+});
