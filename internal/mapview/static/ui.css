@@ -437,13 +437,12 @@ details[open] > summary::before { transform: rotate(90deg); }
 .layer .acts:empty { display: none; }
 .layer [data-a=remove]:hover { color: #fecaca; border-color: #7f1d1d; }
 .layer .copy-note { font-size: var(--t-help); color: var(--preview); margin-top: 4px; }
-.dark-note { font-size: var(--t-help); color: var(--warn); margin-top: 4px; }
-#stDark { margin: 0 0 10px; }
 .look-bar {
   /* The scrollport's padding counts against sticky: reach the panel's edge. */
   position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-items: center;
   margin: 12px -12px 0; padding: 8px 12px; background: #111317; border-top: 1px solid var(--line); box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
 }
+.group-head { margin: 10px 0 6px; font-size: var(--t-h3); }
 .bar-note { margin: 0; color: var(--muted); font-size: var(--t-help); }
 .look-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .look-acts #lkClear { margin-right: auto; }
@@ -504,6 +503,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .health.bad { color: #fca5a5; }
 .issues { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
 .issue { background: #2a2110; border: 1px solid #6b4b16; border-radius: var(--radius); padding: 8px 10px; }
+.issue.solo { margin: 6px 0; }
 .issue-text { display: flex; gap: 8px; align-items: flex-start; color: #fcd9a5; }
 .issue-text .icon { margin-top: 2px; color: var(--warn); }
 .issue-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
@@ -568,7 +568,6 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-read { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
 .cal-how { margin: 6px 0; }
 .cal-read .idx { font-weight: 600; font-variant-numeric: tabular-nums; }
-.cal-warn { background: #3b2a12; border: 1px solid #6b4b16; color: #fcd9a5; border-radius: 8px; padding: 6px 8px; margin: 6px 0; }
 .cal-sides { display: flex; gap: 6px; margin: 6px 0; }
 .cal-sides button { flex: 1; }
 .cal-pixel { flex: 1 1 10em; min-width: 9em; }

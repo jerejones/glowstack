@@ -6,11 +6,16 @@
 // loading never looks like an empty one, and one that failed always
 // offers Retry. stateHTML is the markup, showState fills an element.
 import { esc } from './util.js';
+import { icon } from './icons.js';
 
 export function stateHTML({ kind = 'empty', title, detail = '', retry = false }) {
   const live = kind === 'error' ? 'alert' : 'status';
   return `<div class="state ${esc(kind)}" role="${live}">${kind === 'loading' ? '<span class="spinner" aria-hidden="true"></span>' : ''}<div class="state-text"><b>${esc(title)}</b>${detail ? `<span>${esc(detail)}</span>` : ''}</div>${retry ? '<button type="button" data-retry>Retry</button>' : ''}</div>`;
 }
+
+// warningHTML is the one way a panel warns: the same card as Status's list.
+export const warningBody = (text) => `<div class="issue-text">${icon('alert')}<span>${esc(text)}</span></div>`;
+export const warningHTML = (text) => `<div class="issue solo">${warningBody(text)}</div>`;
 
 // showState puts a state in el; opts.retry is what Retry does. Retry goes
 // back to loading first, so every retry reads the same; whoever retries

@@ -854,6 +854,15 @@ test('the target control is a popover, and a long place name is not cut off', ()
   assert.doesNotMatch(/\.target-btn b \{[^}]*\}/.exec(css)[0], /ellipsis|nowrap/);
 });
 
+test('every panel warns with the same card, in the same nouns', async () => {
+  const { warningHTML } = await import('./static/states.js');
+  assert.match(warningHTML('Porch is at 0%'), /class="issue solo"[\s\S]*Porch is at 0%/);
+  assert.doesNotMatch(css, /dark-note|cal-warn/);
+  assert.doesNotMatch(read('panel/calibrate.js'), /cal-warn/);
+  assert.match(read('panel/looks.js'), /warningHTML\(dark\)/);
+  assert.doesNotMatch(read('panel/looks.js'), /Could not load your looks|Take this layer|'Layer brightness|"Layer brightness/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));

@@ -14,7 +14,7 @@ import { post, del, esc, save, load, parseQty, press, covers, sameSet, humanize 
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
 import { houseStatusMessage, darkZones, darkMessage, lightOutcome } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
-import { showState } from '../states.js';
+import { showState, warningHTML } from '../states.js';
 import { icon } from '../icons.js';
 import { textField } from '../field.js';
 import { escapeCloses } from '../picker.js';
@@ -55,7 +55,7 @@ export function clockText(st, scrubbing = false) {
 
 // previewState is the Preview lane's state when it has no layers to list.
 export function previewState(preview, status, word = 'Tap') {
-  if (preview) return preview.layers.length ? null : { kind: 'empty', title: 'No preview yet', detail: `${word} a look to preview it on the map; the lights don't change.` };
+  if (preview) return preview.layers.length ? null : { kind: 'empty', title: 'No preview yet', detail: `${word} a preset to preview it on the map; the lights don't change.` };
   return status === 'failed' ? { kind: 'error', title: 'Could not load the preview', detail: "Glowstack didn't answer. The lights are not affected." } : { kind: 'loading', title: 'Loading the preview…' };
 }
 
@@ -74,7 +74,7 @@ export function nowLine({ house, previewing, status, read, word, nameOf }) {
   if (status !== 'available' && !read) return null;
   const stale = status !== 'available';
   const main = house.length ? `On the lights: ${nameOf(house)}` : 'Nothing on the lights';
-  const sub = stale ? "Couldn't refresh. This is the last known state." : previewing || house.length ? '' : `${word} a look to preview it on the map; the lights don't change.`;
+  const sub = stale ? "Couldn't refresh. This is the last known state." : previewing || house.length ? '' : `${word} a preset to preview it on the map; the lights don't change.`;
   return { main, sub, stale };
 }
 
@@ -153,6 +153,7 @@ export function createLooks(S, root) {
       </div>
     </div>
     <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span></button>
+    <h2 class="group-head" id="lkPresetsHead">Presets</h2>
     <div class="cards" id="lkPresets"></div>
     <details id="lkOtherPresets"><summary>More presets <span class="muted"></span></summary><div class="cards"></div></details>
     <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
@@ -163,7 +164,7 @@ export function createLooks(S, root) {
     </div>
     <div class="lane" id="lkHouse">
       <div class="row"><h2>On the lights <small id="lkHouseN"></small></h2></div>
-      <div class="dark-note" id="lkDark" hidden></div>
+      <div id="lkDark" hidden></div>
       <div class="list"></div>
     </div>
     <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="t" id="lkClockText"></span></summary>
@@ -200,6 +201,7 @@ export function createLooks(S, root) {
     if (S.sel) return nodeTarget(S.sel.node);
     return target && targetRanges(g, S.tree, target) ? target : 'all';
   }
+  let shownDark = '';
   const picker = $$('#lkPicker'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch');
   const targetKey = (t) => JSON.stringify(targetRanges(g, S.tree, t));
   const sameTarget = (a, b) => a === b || targetKey(a) === targetKey(b);
@@ -273,20 +275,21 @@ export function createLooks(S, root) {
   }
   function renderCatalog() {
     const pres = $$('#lkPresets');
-    const presetCard = (p) => { const e = effectFor(S, { preset: p.id }); return card(presetName(p), e ? effectKind(e) : humanize(p.effect),
+    const presetCard = (p) => { const e = effectFor(S, { preset: p.id }); return card(presetName(p), e ? effectSummary(e) : humanize(p.effect),
       lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${presetName(p)} here`); };
     $$('#lkEffects summary span').textContent = `(${(S.catalog.effects || []).length})`;
     if (S.library.presets === 'failed' || S.library.catalog === 'failed') {
       // Failing is not the same as having nothing: say so, with Retry.
       $$('#lkOtherPresets').hidden = $$('#lkEffects').hidden = true;
       pres.classList.remove('cards');
-      showState(pres, { kind: 'error', title: S.library.presets === 'failed' ? 'Could not load your looks' : 'Could not load the effects', detail: 'Glowstack did not return them. The lights are not affected.', retry: S.retryLibrary });
+      showState(pres, { kind: 'error', title: S.library.presets === 'failed' ? 'Could not load your presets' : 'Could not load the effects', detail: 'Glowstack did not return them. The lights are not affected.', retry: S.retryLibrary });
       return;
     }
     pres.classList.add('cards');
     $$('#lkEffects').hidden = false;
     // Looks are presets first: with nothing pinned, every preset leads.
     const pinned = S.presets.filter((p) => p.pinned);
+    $$('#lkPresetsHead').textContent = pinned.length ? 'Pinned presets' : 'Presets';
     pres.replaceChildren(...(pinned.length ? pinned : S.presets).map(presetCard));
     if (!pres.childElementCount) {
       const hint = document.createElement('button');
@@ -382,7 +385,7 @@ export function createLooks(S, root) {
       if (part) await post(base, { target: part, effect: 'solid', params: { color: '#000000' } });
       else { await del(base + '/' + encodeURIComponent(c.id)); if (c.lane === 'preview') forget(c.id); }
       await S.refresh();
-    } catch (e) { S.fail('remove the layer', e); }
+    } catch (e) { S.fail('remove the look', e); }
   }
 
   function makeCard(lane, l) {
@@ -392,13 +395,13 @@ export function createLooks(S, root) {
       <div class="top"><div class="what"><b></b><span></span></div>
         <button type="button" class="tweak" aria-expanded="false">Tweak</button><button type="button" data-a="remove">Remove</button></div>
       <div class="strip"></div>
-      <div class="bri"><span class="bri-label" title="Layer brightness">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Layer brightness"><output></output></div>
+      <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
       <div class="acts"></div>
       <div class="note"></div>
       <div class="slot"></div>`;
     const c = { lane, id: l.id, el, layer: l, form: null };
     const base = lane === 'preview' ? '/api/v1/preview/layers/' : '/api/v1/layers/';
-    c.patch = patcher(() => base + encodeURIComponent(c.id), 80, (nl) => { c.layer = { ...c.layer, ...nl }; }, (e) => S.fail('change the layer', e));
+    c.patch = patcher(() => base + encodeURIComponent(c.id), 80, (nl) => { c.layer = { ...c.layer, ...nl }; }, (e) => S.fail('change the look', e));
     const bri = el.querySelector('.bri input'), out = el.querySelector('.bri output');
     bri.oninput = () => { out.textContent = Math.round(bri.value * 100) + '%'; c.patch.set({ brightness: +bri.value }); };
     el.querySelector('.tweak').onclick = () => tweak(c);
@@ -434,7 +437,7 @@ export function createLooks(S, root) {
     note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
     rm.textContent = part ? 'Remove here' : 'Remove';
-    rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
+    rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this look off the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
   }
 
@@ -497,7 +500,7 @@ export function createLooks(S, root) {
     // The zones at 0% once, for the lane: not on every card.
     const dark = darkMessage([...new Set(house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
     $$('#lkDark').hidden = !dark;
-    $$('#lkDark').textContent = dark;
+    if (dark !== shownDark) { shownDark = dark; $$('#lkDark').innerHTML = dark ? warningHTML(dark) : ''; }
     $$('#lkClockBox').hidden = !prev.length;
     const eph = S.house.length - house.length;
     $$('#lkHouseN').textContent = eph ? `+ ${eph} calibration` : '';
@@ -592,7 +595,7 @@ export function createLooks(S, root) {
         }
         if (S.show === 'house') S.setShow('');
         await S.refresh();
-      } catch (e) { S.fail('copy the layer for editing', e); return; }
+      } catch (e) { S.fail('copy the look for editing', e); return; }
       const pc = cards.get('preview:' + id);
       if (pc && !pc.form) tweak(pc);
       else if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

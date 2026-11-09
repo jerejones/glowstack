@@ -14,7 +14,7 @@
 import { esc, plural, humanize, NOT_RESPONDING } from '../util.js';
 import { icon } from '../icons.js';
 import { upgradeSelects } from '../picker.js';
-import { stateHTML } from '../states.js';
+import { stateHTML, warningHTML } from '../states.js';
 import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
 
 const BASE = '/api/v1/calibration';
@@ -397,7 +397,7 @@ export function createCalibrate(S, root) {
       parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
-      if (st.warning) parts.push(`<div class="cal-warn">${esc(humanText(g, st.warning))}</div>`);
+      if (st.warning) parts.push(warningHTML(humanText(g, st.warning)));
       // Previous and Next come first: below the instructions they fell
       // under the nudge bar's edge on a phone.
       const nav = () => `<div class="cal-nav">${btn(`${icon('chevronLeft')}Previous`, () => session.next(true), 'icon-btn')}${btn(`Next${icon('chevronRight')}`, () => session.next(), 'icon-btn')}</div>`;
@@ -432,7 +432,7 @@ export function createCalibrate(S, root) {
       const utilities = [bands ? btn('Leave test bands', leaveBands, 'on', false, 'Back to the step you were on') : tr ? btn('Show test bands', () => showBands({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''].join('');
       if (utilities) parts.push(`<div class="cal-nav cal-util">${utilities}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(humanText(g, st.message))}</div>`);
-      for (const w of st.checks || []) parts.push(`<div class="cal-warn">${esc(humanText(g, w))}</div>`);
+      for (const w of st.checks || []) parts.push(warningHTML(humanText(g, w)));
       const nudgeOff = !c || c.fixed || c.index < 0;
       for (const b of root.querySelectorAll('[data-by]')) b.disabled = nudgeOff;
       const confirmable = st.target && st.target.kind !== 'bands' && st.target.kind !== 'gap';
