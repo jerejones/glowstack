@@ -116,6 +116,7 @@ export function createSetup(S, root) {
   // ---------- overlays ----------
   async function setMode(mode) {
     ov.st.mode = mode;
+    if (mode !== 'outputs') ov.focus('');
     renderOverlay();
     S.refreshBadge();
     await refreshLegend();
@@ -141,6 +142,7 @@ export function createSetup(S, root) {
     key.firstChild.scrollTop = scrolled;
     $$('#suLegend').innerHTML = legendHTML + note;
     $$('#suLegend').hidden = key.hidden;
+    wireKey(key); wireKey($$('#suLegend'));
     // The key on the map can be folded down, so that it leaves the map free.
     const phoneCalibrating = S.calibrating && S.panel.layout() === 'sheet';
     const pref = phoneCalibrating ? KEY_FOLDED_CAL : KEY_FOLDED, folded = keyFolded(load(pref, null), phoneCalibrating);
@@ -151,6 +153,26 @@ export function createSetup(S, root) {
     key.append(toggle);
   }
   S.refreshLabelNote = paintLegend;
+  // wireKey makes the Wiring key's controller rows pick a controller out on
+  // the map: pointed at with a mouse, tapped (again to let go) on a phone.
+  // Every copy of the key shows the pick the same way.
+  function markFocus() {
+    for (const el of [$('legend'), $$('#suLegend')]) {
+      for (const row of el.querySelectorAll('.key-row[data-controller]')) {
+        row.classList.toggle('focus', row.dataset.controller === ov.st.focus);
+        row.classList.toggle('dim', !!ov.st.focus && row.dataset.controller !== ov.st.focus);
+      }
+    }
+  }
+  function wireKey(el) {
+    for (const row of el.querySelectorAll('.key-row[data-controller]')) {
+      const id = row.dataset.controller;
+      const pick = (on) => { ov.focus(on ? id : ''); markFocus(); };
+      if (S.coarse) row.onclick = () => pick(ov.st.focus !== id);
+      else { row.onpointerenter = () => pick(true); row.onpointerleave = () => pick(false); }
+    }
+    markFocus();
+  }
   function renderOverlay() {
     ov.remember();
     for (const b of $$('#suModes').children) press(b, b.dataset.mode === ov.st.mode);

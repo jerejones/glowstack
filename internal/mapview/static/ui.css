@@ -298,6 +298,10 @@ input[type=checkbox]:checked::after {
 .key > span { white-space: nowrap; }
 .key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
 .key-row > span { white-space: nowrap; }
+/* A controller's row picks it out on the map: the others step back with it. */
+.key-row[data-controller] { cursor: pointer; margin: 0 -4px; padding: 0 4px; border-radius: 4px; transition: opacity 0.12s; }
+.key-row.focus { background: rgba(255, 255, 255, 0.08); }
+.key-row.dim { opacity: 0.45; }
 
 .toasts {
   position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: 12px; /* app.js keeps it above what's on the map's bottom edge */

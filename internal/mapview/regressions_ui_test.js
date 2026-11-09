@@ -2065,7 +2065,7 @@ test('B123: output names in a tight cluster hide and are counted, never overlap'
   assert.equal(placed.length + placed.hidden, 8, 'the rest are counted for the no-room note');
   assert.ok(placed.hidden > 0);
   const overlay = read('overlay.js');
-  assert.match(overlay, /outputName\(o\)\}`, q\[0\] \+ 10, q\[1\] - 8, `rgb\(\$\{o\.color\}\)`, MAJOR, true, true\)/);
+  assert.match(overlay, /output \$\{o\.output\}`, q\[0\] \+ 10, q\[1\] - 8, `rgb\(\$\{o\.color\}\)`, MAJOR, true, true\)/);
 });
 
 test('the action bar sits right below short content and sticks over tall content', () => {
@@ -2589,4 +2589,34 @@ test('Refinement 2: sticky bars never clip', () => {
   assert.match(fade, /pointer-events: none/);
   // The connection banner stays above the fade.
   assert.match(css, /\.offline-banner \{ position: sticky; top: 0; z-index: 3;/);
+});
+
+test('Refinement 3: map labels readable', async () => {
+  const { thinArrows, ARROW_GAP, plate, placeLabels } = await import('./static/overlay.js');
+  // Direction arrows are thinned by their room on screen: none within ARROW_GAP of another, the longest edges first.
+  assert.equal(ARROW_GAP, 24);
+  const kept = thinArrows([{ x: 0, y: 0, len: 10 }, { x: 10, y: 0, len: 50 }, { x: 40, y: 0, len: 20 }, { x: 10, y: 20, len: 5 }]);
+  assert.deepEqual(kept.map((k) => k.x), [10, 40]);
+  for (let i = 0; i < kept.length; i++) for (let j = i + 1; j < kept.length; j++) assert.ok(Math.hypot(kept[i].x - kept[j].x, kept[i].y - kept[j].y) >= ARROW_GAP);
+  // Every label sits on the same dark rounded plate, colored or gray.
+  const calls = [];
+  const ctx = new Proxy({}, { get: (t, k) => (k === 'roundRect' || k === 'fill' || k === 'stroke' || k === 'beginPath' ? (...a) => calls.push([k, ...a]) : t[k]), set: (t, k, v) => { t[k] = v; return true; } });
+  plate(ctx, { x0: 10, x1: 60, y0: 20, y1: 35 });
+  assert.deepEqual(calls.find((c) => c[0] === 'roundRect'), ['roundRect', 10, 20, 50, 15, 4]);
+  const overlay = read('overlay.js');
+  assert.match(overlay, /plate\(ctx, p\);/, 'the one plate behind every placed label');
+  assert.match(overlay, /CTRL_OFF, MAJOR/, 'gray not-in-config controllers are labels like the rest, so they get it too');
+  // A Wiring label on the map never carries the GPIO: that lives in the key, with the swatch's title, so no label is cut for it.
+  assert.doesNotMatch(overlay, /label\(`\$\{controllerName\(g, o\.controller\)\} \$\{outputName\(o\)\}`/);
+  assert.match(overlay, /GPIO \$\{o\.gpio\}<\/span>/);
+  assert.match(overlay, /<span title="\$\{esc\(`\$\{name\} \$\{outputName\(o\)\}: /);
+  // Pointing at a controller in the key picks it out: the others' runs recolor dimmer and their labels fade.
+  assert.match(overlay, /async function focus\(id\)/);
+  assert.match(overlay, /dimmed\(o\.controller\) \? o\.color\.map\(\(v\) => Math\.round\(v \* DIM\)\)/);
+  const placed = placeLabels([{ text: 'a', x: 10, y: 10, color: '#fff', rank: 2, alpha: 0.35 }], { measure: () => 10 });
+  assert.equal(placed[0].alpha, 0.35, 'a faded label keeps its fade through placement');
+  const setup = read('panel/setup.js');
+  assert.match(setup, /row\.onpointerenter = \(\) => pick\(true\); row\.onpointerleave = \(\) => pick\(false\);/);
+  assert.match(setup, /if \(S\.coarse\) row\.onclick = \(\) => pick\(ov\.st\.focus !== id\);/);
+  assert.match(css, /\.key-row\.dim \{ opacity: 0\.45; \}/);
 });

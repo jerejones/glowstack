@@ -64,6 +64,31 @@ export function runCrowded(points, room = 90) {
   return gaps[gaps.length >> 1] < room;
 }
 
+// ARROW_GAP is the least room, on screen, between two direction arrows:
+// closer than that they touch and the run reads as a smear.
+export const ARROW_GAP = 24;
+
+// thinArrows keeps, of the candidate arrows, those at least gap px from
+// every other kept one, the longest edges' arrows first. Each candidate is
+// { x, y, len }; the order of the result is the order they were kept in.
+export function thinArrows(cands, gap = ARROW_GAP) {
+  const kept = [];
+  for (const c of [...cands].sort((a, b) => b.len - a.len)) {
+    if (kept.every((k) => Math.hypot(k.x - c.x, k.y - c.y) >= gap)) kept.push(c);
+  }
+  return kept;
+}
+
+// plate draws a label's rounded dark plate: the same behind every label,
+// colored or gray, so each reads against the wireframe.
+export function plate(ctx, b, radius = 4) {
+  const w = b.x1 - b.x0, h = b.y1 - b.y0;
+  ctx.fillStyle = 'rgba(13, 14, 16, 0.94)';
+  if (!ctx.roundRect) { ctx.fillRect(b.x0, b.y0, w, h); return; } // an old canvas: square corners
+  ctx.beginPath(); ctx.roundRect(b.x0, b.y0, w, h, radius); ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)'; ctx.lineWidth = 1; ctx.stroke();
+}
+
 // The labels that show whatever the room: below it, only these are readable.
 const FOCUS = 2.5;
 // The least map height, between the top chips and the sheet, worth labeling.
@@ -111,7 +136,7 @@ export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, 
         if (clearMarks && marks.some((m) => hit(box, m))) continue;
         if (clearModel && solid(box)) { blocked = true; continue; }
         if (!target && targetBox && hit(box, targetBox, 40)) continue;
-        placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank, leader: i >= NEAR_SPOTS ? [l.x, l.y] : null });
+        placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank, alpha: l.alpha ?? 1, leader: i >= NEAR_SPOTS ? [l.x, l.y] : null });
         if (target) targetBox = box;
         if (l.budget) spent++;
         done = true;
@@ -156,6 +181,9 @@ export function areaPaint(parts) {
 export function createOverlay(S) {
   const g = S.geo, px = g.pixels, n = px.count;
   const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: false, evenSpacing: false, legend: '' };
+  // focus is the controller the Wiring key points at: the others' runs and
+  // labels dim while it does. Never remembered.
+  st.focus = '';
   const flows = g.mappings.filter((m) => m.kind === 'flow');
   st.mapping = (flows.find((m) => m.id === g.default_mapping) || flows[0] || g.mappings[0] || {}).id || '';
   st.zone = (g.zones[0] || {}).id || '';
@@ -242,13 +270,15 @@ export function createOverlay(S) {
     const byController = new Map();
     for (const o of outputs()) {
       if (S.visibility && !S.visibility.pixels.subarray(o.first, o.last + 1).some(Boolean)) continue;
-      for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
+      const color = dimmed(o.controller) ? o.color.map((v) => Math.round(v * DIM)) : o.color;
+      for (let p = o.first; p <= o.last; p++) out.set(color, 3 * p);
       byController.set(o.controller, [...(byController.get(o.controller) || []), o]);
     }
-    let html = '<div class="muted">Rings mark where each output starts</div>';
+    // The GPIO lives here and in each swatch's title, not on the map's labels.
+    let html = `<div class="muted">Rings mark where each output starts. ${S.coarse ? 'Tap' : 'Point at'} a controller to pick it out.</div>`;
     for (const [id, list] of byController) {
       const name = controllerName(g, id);
-      html += `<div class="key-row"><b>${esc(name)}</b>${list.map((o) => `<span title="${esc(`${name} ${outputName(o)}: ${count(o.count)} lights`)}"><i class="sw" style="background:rgb(${o.color})"></i>${o.output}</span>`).join('')}</div>`;
+      html += `<div class="key-row" data-controller="${esc(id)}"><b>${esc(name)}</b>${list.map((o) => `<span title="${esc(`${name} ${outputName(o)}: ${count(o.count)} lights`)}"><i class="sw" style="background:rgb(${o.color})"></i>${o.output}${o.gpio != null ? `<span class="muted"> GPIO ${o.gpio}</span>` : ''}</span>`).join('')}</div>`;
     }
     return { rgb: out, legend: html };
   }
@@ -271,6 +301,19 @@ export function createOverlay(S) {
     return legend;
   }
 
+  // focus picks controller id out in Wiring: the others' runs recolor
+  // dimmer and their rings and labels fade. '' clears it.
+  async function focus(id) {
+    const next = id || '';
+    if (next === st.focus) return;
+    st.focus = next;
+    if (shown().mode === 'outputs') S.view.setColors((await colors()).rgb);
+    S.markDirty();
+  }
+  // DIM is how much of its color a run keeps while another controller is picked out.
+  const DIM = 0.3, FADE = 0.35;
+  const dimmed = (controller) => !!st.focus && controller !== st.focus;
+
   // ----- drawing -----
   let ctx = null;
   const at = (x, y, z) => S.view.toScreen(x, y, z);
@@ -287,7 +330,8 @@ export function createOverlay(S) {
   let queued = [], lastPlaced = [], marks = [], hiddenShown = -1;
   // mark notes a point drawn on the map, for the labels to keep clear of.
   const mark = (q, r) => { marks.push({ x0: q[0] - r, x1: q[0] + r, y0: q[1] - r, y1: q[1] + r }); };
-  const label = (text, x, y, color, rank = 1, budget = false, clear = false) => { queued.push({ text, x, y, color, rank, budget, clear }); };
+  let labelAlpha = 1; // what the next labels are drawn at: a dimmed controller's fade
+  const label = (text, x, y, color, rank = 1, budget = false, clear = false) => { queued.push({ text, x, y, color, rank, budget, clear, alpha: labelAlpha }); };
   // modelCells is which cells of a coarse screen grid the visible lights
   // cross, redone only when the view moves. Far-apart pixels are joined, so
   // a zoomed-in strip stays solid between its samples.
@@ -334,13 +378,12 @@ export function createOverlay(S) {
     for (const p of placed) {
       const target = p.rank === TARGET;
       ctx.font = `${target ? '600 14px' : '12px'} system-ui, sans-serif`;
-      ctx.globalAlpha = receding && !target ? 0.6 : 1;
+      ctx.globalAlpha = (receding && !target ? 0.6 : 1) * (p.alpha ?? 1);
       if (p.leader) {
         ctx.strokeStyle = 'rgba(203, 213, 225, 0.55)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(p.leader[0], p.leader[1]); ctx.lineTo(Math.max(p.x0, Math.min(p.leader[0], p.x1)), p.leader[1] < p.y0 ? p.y0 : p.y1); ctx.stroke();
       }
-      ctx.fillStyle = 'rgba(13, 14, 16, 0.94)';
-      ctx.fillRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0);
+      plate(ctx, p);
       if (target) { ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 1; ctx.strokeRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0); }
       ctx.fillStyle = readableLabel(p.color);
       ctx.fillText(p.text, p.tx, p.ty);
@@ -372,16 +415,26 @@ export function createOverlay(S) {
     return map;
   }
 
+  // arrows: one per edge at its middle, thinned so that none is within
+  // ARROW_GAP of another on screen; a far run keeps its longest edges' arrows.
+  let lastArrows = [];
   function arrows(m) {
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 1;
+    const cands = [];
     for (const pixels of edgePixels().values()) {
       const ps = pixels.filter((p) => m.u[p] !== null).sort((a, b) => m.u[a] - m.u[b]);
       if (ps.length < 4) continue;
       const i = Math.floor(ps.length / 2);
       const a = pixelAt(ps[i - 1]), b = pixelAt(ps[i + 1]), c = pixelAt(ps[i]);
-      if (!a || !b || !c) continue;
+      const s = pixelAt(ps[0]), e = pixelAt(ps[ps.length - 1]);
+      if (!a || !b || !c || !s || !e) continue;
+      cands.push({ x: c[0], y: c[1], angle: Math.atan2(b[1] - a[1], b[0] - a[0]), len: Math.hypot(e[0] - s[0], e[1] - s[1]) });
+    }
+    lastArrows = thinArrows(cands);
+    lastArrows.offered = cands.length; // for a measurement: how many there were before thinning
+    for (const c of lastArrows) {
       ctx.save();
-      ctx.translate(c[0], c[1]); ctx.rotate(Math.atan2(b[1] - a[1], b[0] - a[0]));
+      ctx.translate(c.x, c.y); ctx.rotate(c.angle);
       ctx.beginPath(); ctx.moveTo(9, 0); ctx.lineTo(-6, -6); ctx.lineTo(-3, 0); ctx.lineTo(-6, 6); ctx.closePath();
       ctx.fill(); ctx.stroke();
       ctx.restore();
@@ -422,15 +475,22 @@ export function createOverlay(S) {
     for (const o of outputs()) {
       const q = pixelAt(o.input);
       if (!q) continue;
+      const fade = dimmed(o.controller);
+      ctx.globalAlpha = fade ? FADE : 1;
       ring(q, 11, `rgb(${o.color})`, 2, null, 'rgba(0,0,0,.8)');
       // Colors can repeat on a big site: the number inside says which output.
       ctx.fillStyle = '#fff'; ctx.font = '600 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(String(o.output), q[0], q[1]);
       ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 1;
       // The phone's map strip is short: the panel's legend has the rest.
       // In a tight cluster a name is hidden, and counted, rather than crowded in.
+      // The output's GPIO is in the key and the inspect card, never here: a
+      // label that has to be cut short says less than one without it.
+      labelAlpha = fade ? FADE : 1;
       if (S.panel?.layout() === 'sheet') label(`${controllerName(g, o.controller)} ${o.output}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true, true);
-      else label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true, true);
+      else label(`${controllerName(g, o.controller)} output ${o.output}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true, true);
+      labelAlpha = 1;
     }
   }
 
@@ -444,6 +504,9 @@ export function createOverlay(S) {
       const q = at(c.x, c.y, c.z);
       if (!q || inZones(q, targetZones)) continue;
       const cfg = c.controller >= 0 ? g.controllers[c.controller] : null;
+      const fade = o.mode === 'outputs' && dimmed(cfg ? cfg.id : c.id);
+      const was = ctx.globalAlpha;
+      ctx.globalAlpha = was * (fade ? FADE : 1);
       if (cfg && o.mode === 'outputs') {
         ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
         for (const o of outputs()) {
@@ -461,7 +524,10 @@ export function createOverlay(S) {
       const display = controllerName(g, c.id); // a board the config doesn't list has only an id
       const name = o.labels ? controllerLabel(display, c.label) : display;
       // On the small map these are names like any other: only those with room.
+      labelAlpha = fade ? FADE : 1;
       label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR, S.panel?.layout?.() === 'sheet');
+      labelAlpha = 1;
+      ctx.globalAlpha = was;
     }
   }
 
@@ -609,5 +675,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, placed: () => lastPlaced, hiddenLabels: () => lastPlaced.hidden || 0, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, live: () => shown().mode === 'live' };
 }
