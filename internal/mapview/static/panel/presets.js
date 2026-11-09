@@ -9,6 +9,7 @@ import { effectKind, effectSummary } from './looks.js';
 import { showState, stateHTML } from '../states.js';
 import { confirmDialog } from '../dialog.js';
 import { icon } from '../icons.js';
+import { textField, setFieldError } from '../field.js';
 
 export function presetSlug(name, presets) {
   const base = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'preset';
@@ -25,7 +26,7 @@ export function createPresets(S, root) {
     <p class="muted small">Save looks for later. Pin favorites to keep them visible on Looks.</p>
     <div id="prMessage" role="status" class="small"></div>
     <div id="prEditor" class="preset-editor" hidden></div>
-    <label class="preset-search">Find a preset<input type="search" id="prSearch" placeholder="Search presets" autocomplete="off"></label>
+    ${textField({ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' })}
     <div id="prList" class="preset-library"></div>`;
   const $ = (s) => root.querySelector(s);
   const say = (s) => { $('#prMessage').textContent = s; };
@@ -104,8 +105,7 @@ export function createPresets(S, root) {
     if (busy) setBusy(true);
   }
   const markName = (message) => {
-    $('#prNameErr').textContent = message;
-    if (message) $('#prName').setAttribute('aria-invalid', 'true'); else $('#prName').removeAttribute('aria-invalid');
+    setFieldError($('#prName'), message);
   };
   function closeEditor() { draft = null; dirty = false; $('#prEditor').hidden = true; $('#prEditor').replaceChildren(); }
   async function openEditor(p) {
@@ -114,7 +114,7 @@ export function createPresets(S, root) {
     dirty = false;
     const box = $('#prEditor'); box.hidden = false;
     box.innerHTML = `<h3>${draft.id ? 'Edit preset' : 'New preset'}</h3>
-      <label>Name<input id="prName" type="text" maxlength="120" required autocomplete="off"><span class="field-err" id="prNameErr" role="alert"></span></label>
+      ${textField({ label: 'Name', id: 'prName', maxlength: 120, required: true })}
       <div class="field-label"><span id="prEffectLabel">Effect</span><div id="prEffectSlot"></div><span class="field-err" id="prEffectErr" role="alert"></span></div>
       <label class="check"><input type="checkbox" id="prPinned"> Pin to Looks</label>
       <p class="muted small">Changes stay here until you save. Saving does not change running lights.</p>

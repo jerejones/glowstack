@@ -124,7 +124,7 @@ test('a disabled primary action does not look like a faded primary', () => {
 test('the type scale has four named sizes and no ad hoc ones', () => {
   assert.doesNotMatch(css, /font-size: (0\.\d+em|1\.\d+em|\d+px)/);
   assert.match(css, /--t-s: 12px/);
-  assert.match(css, /h2, h3 \{[^}]*font-size: var\(--t-l\)/);
+  assert.match(css, /^h3 \{[^}]*font-size: var\(--t-h3\)/m);
 });
 
 test('icons are SVG: no glyph icons are left in the page source', async () => {
@@ -236,7 +236,7 @@ test('nothing is under the caption size, and small text uses it', () => {
   assert.match(css, /(^|\n)small \{ font-size: var\(--t-s\); \}/);
   assert.match(css, /--t-s: 12px/);
   assert.doesNotMatch(css, /--t-s: (\d|1[01])px/);
-  for (const m of css.matchAll(/font-size: ([^;]+);/g)) assert.match(m[1], /var\(--t-[a-z]+\)/, m[0]);
+  for (const m of css.matchAll(/font-size: ([^;]+);/g)) assert.match(m[1], /var\(--t-[a-z0-9]+\)/, m[0]);
 });
 
 test('every tab uses one panel width', () => {

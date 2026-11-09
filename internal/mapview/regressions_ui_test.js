@@ -607,7 +607,7 @@ test('B50: a phone preset row is one action, Pin and a More holding the rest; De
 
 test('B51: a field error is directly under its field, in one layout', () => {
   const src = read('panel/presets.js');
-  assert.match(src, /markName = \(message\)/);
+  assert.match(read('field.js'), /field-err/);
   assert.match(src, /markName\('Give the preset a name\.'\)/);
   const form = read('form.js');
   assert.match(form, /className: 'field-err'/);
@@ -651,4 +651,25 @@ test('Everything is the one term, and the Runs group says why runs are missing',
   assert.match(looks, /<details class="clock-box" id="lkClockBox" hidden><summary>Preview clock/);
   assert.match(looks, /\$\$\('#lkClockBox'\)\.hidden = !prev\.length/);
   assert.match(looks, /bri-label[^>]*>\$\{icon\('sun'\)\}Brightness/);
+});
+
+test('a real type scale: h2 and h3 differ, and body text is larger on desktop', () => {
+  assert.match(css, /--t-m: 14px/);
+  assert.match(css, /--t-h3: 15px/);
+  assert.match(css, /--t-h2: 18px/);
+  assert.match(css, /^h1, h2 \{[^}]*font-size: var\(--t-h2\)/m);
+  assert.match(css, /^h3 \{[^}]*font-size: var\(--t-h3\)/m);
+});
+
+test('the shared text input puts its error under the field', async () => {
+  const { textField } = await import('./static/field.js');
+  const html = textField({ label: 'Name', id: 'x' });
+  assert.ok(html.indexOf('<input') < html.indexOf('field-err'), 'input first, then its error');
+  assert.match(textField({ ariaLabel: 'Find', id: 'y', type: 'search' }), /aria-label="Find"/);
+  assert.match(read('panel/presets.js'), /textField\(\{ label: 'Name', id: 'prName'/);
+  assert.match(read('panel/looks.js'), /textField\(\{ ariaLabel: 'Find a place'/);
+});
+
+test('the map model is dim so the lights lead', () => {
+  assert.match(read('scene.js'), /lines: \{ color: '#cfe3ff', opacity: 0\.28 \}/);
 });

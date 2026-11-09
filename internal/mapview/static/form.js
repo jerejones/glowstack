@@ -11,6 +11,7 @@
 import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, api, patch, humanize } from './util.js';
 import { icon } from './icons.js';
 import { createPicker, escapeCloses } from './picker.js';
+import { setFieldError } from './field.js';
 
 // ---------- looks as data ----------
 
@@ -485,7 +486,7 @@ export function createForm(ctx) {
       const row = t.closest('.f');
       if (row) {
         row.classList.toggle('bad', !ok);
-        row.querySelector('.field-err').textContent = ok ? '' : `That isn't a valid value${placeholder ? ` (like ${placeholder})` : ''}.`;
+        setFieldError(t, ok ? '' : `That isn't a valid value${placeholder ? ` (like ${placeholder})` : ''}.`);
       }
       if (ok) set(t.value.trim() === '' ? null : coerce(t.value.trim()));
     };

@@ -16,6 +16,7 @@ import { houseStatusMessage, darkZones, darkMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState } from '../states.js';
 import { icon } from '../icons.js';
+import { textField } from '../field.js';
 import { escapeCloses } from '../picker.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
@@ -114,7 +115,7 @@ export function createLooks(S, root) {
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where looks go"><span class="muted">Show on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
     </div>
     <div class="target-picker" id="lkPicker" hidden>
-      <input type="search" id="lkTargetSearch" placeholder="Find a place" autocomplete="off" aria-label="Find a place">
+      ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
       <div class="muted small">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
       <div class="target-list" id="lkTargetList"></div>
     </div>
