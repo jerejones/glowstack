@@ -43,6 +43,21 @@ const DEFAULT_PALETTE = { gradient: 'rainbow', burst: 'party', noise: 'party', s
 
 const blend = (list) => (list.length === 1 ? list[0] : `linear-gradient(90deg, ${list.join(', ')})`);
 const stopsStrip = (stops) => `linear-gradient(90deg, ${stops.map(([t, c]) => `${displayColor(c)} ${(t * 100).toFixed(1)}%`).join(', ')})`;
+// stepStrip draws "interpolate: step": each stop holds until the next, as
+// in Palette.At. Before the first stop a wrapping palette shows the last.
+function stepStrip(stops, wrap) {
+  const pct = (t) => (t * 100).toFixed(1) + '%';
+  const parts = [];
+  if (stops[0][0] > 0) {
+    const c = displayColor(stops[wrap ? stops.length - 1 : 0][1]);
+    parts.push(`${c} 0.0%`, `${c} ${pct(stops[0][0])}`);
+  }
+  stops.forEach(([t, color], i) => {
+    const c = displayColor(color);
+    parts.push(`${c} ${pct(t)}`, `${c} ${pct(i + 1 < stops.length ? stops[i + 1][0] : 1)}`);
+  });
+  return `linear-gradient(90deg, ${parts.join(', ')})`;
+}
 
 // paletteStrip is the CSS for a palette value (an id, a name or inline
 // stops), resolved like Palette.Resolve; null if it can't be found.
@@ -63,7 +78,8 @@ function paletteStrip(S, value, owner, colors) {
       return `linear-gradient(90deg, ${stops.join(', ')})`;
     }
   }
-  return p.stops.length ? stopsStrip(p.stops) : null;
+  if (!p.stops.length) return null;
+  return p.interpolate === 'step' ? stepStrip(p.stops, p.wrap !== false) : stopsStrip(p.stops);
 }
 
 // lookStrip is a CSS background showing a look's colors: its bands,

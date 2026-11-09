@@ -11,6 +11,7 @@
 import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
+const OVERLAY_VERSION = 2;
 
 export const MODES = [
   ['live', 'Live colors', 'What the map or the lights are showing'],
@@ -44,14 +45,17 @@ export function createOverlay(S) {
   st.mapping = (flows.find((m) => m.id === g.default_mapping) || flows[0] || g.mappings[0] || {}).id || '';
   st.zone = (g.zones[0] || {}).id || '';
   const prefs = load('glowstack.overlays', {}) || {};
+  // Builds before v2 could save the Points overlay calibration had forced
+  // on. A saved state from one of them gives up its Points setting, once.
+  if (prefs.v !== OVERLAY_VERSION) delete prefs.nodes;
   if (MODES.some(([mode]) => mode === prefs.mode)) st.mode = prefs.mode;
   if (g.mappings.some((m) => m.id === prefs.mapping)) st.mapping = prefs.mapping;
   if (g.zones.some((z) => z.id === prefs.zone)) st.zone = prefs.zone;
   for (const key of ['nodes', 'labels', 'controllers']) {
     if (typeof prefs[key] === 'boolean') st[key] = prefs[key];
   }
-  const remember = () => save('glowstack.overlays', Object.fromEntries(
-    ['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers'].map((key) => [key, st[key]])));
+  const remember = () => save('glowstack.overlays', Object.fromEntries([['v', OVERLAY_VERSION],
+    ...['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers'].map((key) => [key, st[key]])]));
   // While calibrating, the map shows the anchors over the live colors
   // whatever the saved overlays say. The mode reads through this and never
   // writes to st, so it leaves nothing behind to restore or to save.

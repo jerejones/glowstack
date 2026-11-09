@@ -17,6 +17,9 @@ const palettes = [
   { id: 'rainbow', name: 'Rainbow', stops: [[0, '#ff0000'], [1, '#00ff00']] },
   { id: 'frost', name: 'frost', stops: [[0, '#0040ff/00'], [1, '#ffffff/ff']] },
   { id: 'Upper', name: 'Mixed name', stops: [[0, '#00ff00'], [1, '#0000ff']] },
+  { id: 'blocks', name: 'Blocks', interpolate: 'step', wrap: true, stops: [[0, '#ff0000'], [0.5, '#0000ff']] },
+  { id: 'late', name: 'Late', interpolate: 'step', wrap: true, stops: [[0.25, '#ff0000'], [0.75, '#0000ff']] },
+  { id: 'late-flat', name: 'Late flat', interpolate: 'step', wrap: false, stops: [[0.25, '#ff0000'], [0.75, '#0000ff']] },
 ];
 const orange = ['#ffa000', '#000000', '#000000'];
 const catalog = { effects: [
@@ -51,6 +54,14 @@ test('the color palettes use the look\'s colors', async () => {
 test('stops with a white channel make valid CSS', async () => {
   const { lookStrip } = await form();
   assert.doesNotMatch(lookStrip(S, 'gradient', { palette: 'frost' }), /\/|#/);
+});
+
+test('step palettes show hard edges, as the renderer holds each stop', async () => {
+  const { lookStrip } = await form();
+  assert.equal(lookStrip(S, 'gradient', { palette: 'blocks' }),
+    'linear-gradient(90deg, rgb(255,0,0) 0.0%, rgb(255,0,0) 50.0%, rgb(0,0,255) 50.0%, rgb(0,0,255) 100.0%)');
+  assert.match(lookStrip(S, 'gradient', { palette: 'late' }), /^linear-gradient\(90deg, rgb\(0,0,255\) 0\.0%, rgb\(0,0,255\) 25\.0%, rgb\(255,0,0\) 25\.0%/, 'a wrapping palette starts on its last stop');
+  assert.match(lookStrip(S, 'gradient', { palette: 'late-flat' }), /^linear-gradient\(90deg, rgb\(255,0,0\) 0\.0%, rgb\(255,0,0\) 25\.0%/, 'one that does not wrap starts on its first');
 });
 
 test('palettes are found by exact id or by name in any case', async () => {

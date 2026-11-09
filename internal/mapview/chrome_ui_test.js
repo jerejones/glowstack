@@ -147,6 +147,24 @@ test('the inspect card keeps clear of its pixel', async () => {
   assert.deepEqual(cardCorner({ ...base, pixel: null }), [752, 58]);
 });
 
+test('a Points setting leaked by an old build is dropped once, not forever', async () => {
+  const { createOverlay } = await import('./static/overlay.js');
+  const saved = new Map([['glowstack.overlays', JSON.stringify({ mode: 'live', nodes: true, labels: true })]]);
+  const was = globalThis.localStorage;
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v), removeItem: (k) => saved.delete(k) } });
+  try {
+    const S = { geo: { pixels: { count: 0 }, controllers: [], mappings: [], zones: [], edges: [], runs: [], nodes: [] }, plan: 0, view: {} };
+    const first = createOverlay(S);
+    assert.equal(first.st.nodes, false, 'the leaked setting is gone');
+    assert.equal(first.st.labels, true, 'other settings stay');
+    first.st.nodes = true;
+    first.remember();
+    assert.equal(createOverlay(S).st.nodes, true, 'turning Points on afterwards sticks');
+  } finally {
+    Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: was });
+  }
+});
+
 test('map labels never pile up', async () => {
   const { createOverlay } = await import('./static/overlay.js');
   const nodes = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 'node-name-' + i, plan: 0, x: 10, y: 10, z: 0 }));
