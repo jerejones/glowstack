@@ -235,7 +235,7 @@ export function createCalibrate(S, root) {
     $$('#caClose').hidden = !!active;
     $$('#caDock').hidden = !active;
     $$('#caLabel').textContent = active ? (st.label || 'nothing picked yet') : 'Calibration';
-    $$('#caCount').textContent = st && st.anchors ? `${st.measured} of ${st.anchors} anchors measured` : '';
+    $$('#caCount').textContent = st && st.anchors ? `${st.measured} of ${plural(st.anchors, 'anchor')} measured` : '';
 
     if (!st) parts.push('<p class="muted">Loading…</p>');
     else if (!active) {

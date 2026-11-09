@@ -7,7 +7,7 @@
 // model's drawing layers, the plan, the camera (named views, Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
-import { $, api, esc, copyText, save, press, failure } from '../util.js';
+import { $, api, esc, copyText, save, press, failure, plural } from '../util.js';
 import { MODES } from '../overlay.js';
 
 export function createSetup(S, root) {
@@ -62,7 +62,7 @@ export function createSetup(S, root) {
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
     $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} px on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every shown run is drawn.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
-    $$('#suRunsCount').textContent = `${count} of ${g.runs.length} runs shown · based on strip condition`;
+    $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown · based on strip condition`;
   }
   for (const b of $$('#suRuns').children) b.onclick = () => S.setAllRuns(b.dataset.all === 'true');
   S.on('runVisibility', renderRuns);
@@ -76,7 +76,7 @@ export function createSetup(S, root) {
     try {
       const st = await api('/api/v1/status');
       const a = st.solve.anchors;
-      $$('#suCalN').textContent = `${a.measured} of ${a.measured + a.estimated} anchors measured`;
+      $$('#suCalN').textContent = `${a.measured} of ${plural(a.measured + a.estimated, 'anchor')} measured`;
     } catch (e) { /* offline */ }
   }
 

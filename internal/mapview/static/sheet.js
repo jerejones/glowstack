@@ -17,6 +17,11 @@ const PEEK = 56;   // handle and tab bar
 const STRIP = 120; // the map above a full sheet
 const HALF = 0.45; // of the window's height
 
+// guardSelection stops text selection while dragging() says so.
+export function guardSelection(doc, dragging) {
+  doc.addEventListener('selectstart', (e) => { if (dragging()) e.preventDefault(); });
+}
+
 // createPanel wires the panel. hooks:
 //   onLayout(layout)  the layout changed: 'sheet' | 'side' | 'wide'
 //   onDetent(detent)  the sheet settled at 'peek' | 'half' | 'full'
@@ -117,6 +122,7 @@ export function createPanel(hooks) {
     if (layout !== 'sheet') return;
     drag = { id: e.pointerId, y: e.clientY, start: visible, t: e.timeStamp, vy: 0, lastY: e.clientY, lastT: e.timeStamp, el: e.currentTarget };
     dragged = false;
+    document.body.classList.add('sheet-dragging');
   };
   const move = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
@@ -137,6 +143,7 @@ export function createPanel(hooks) {
     if (!drag || e.pointerId !== drag.id) return;
     const was = drag;
     drag = null;
+    document.body.classList.remove('sheet-dragging');
     if (!dragged) return;
     panel.classList.remove('dragging');
     const h = heights();
@@ -151,6 +158,8 @@ export function createPanel(hooks) {
     // The click that ends a drag isn't a tab tap.
     setTimeout(() => { dragged = false; }, 0);
   };
+  // A mouse drag that starts here must not select the page's text.
+  guardSelection(document, () => !!drag);
   for (const el of [$('handle'), panel.querySelector('.tabs')]) {
     el.addEventListener('pointerdown', grab);
     el.addEventListener('pointermove', move);

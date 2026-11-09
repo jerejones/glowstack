@@ -9,7 +9,7 @@
 // /api/v1/status: health.controllers[id] when the server reports it,
 // else the older map keyed by controller id. A controller known to be
 // unreachable is drawn gray while the map shows the lights.
-import { api, esc, fmt } from '../util.js';
+import { api, esc, fmt, plural } from '../util.js';
 
 // healthOf normalizes a controller's health report; null if there is
 // none.
@@ -74,9 +74,9 @@ export function createStatus(S, root) {
     $$('#stStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
       stat(`${fmt(st.frame_ms, 2)} ms`, `frame (max ${fmt(st.max_frame_ms, 1)})`),
-      stat(st.late_frames, 'late frames'),
-      stat(st.layers, 'layers on the lights'),
-      stat(st.preview_layers, 'preview layers'),
+      stat(st.late_frames, st.late_frames === 1 ? 'late frame' : 'late frames'),
+      stat(st.layers, st.layers === 1 ? 'layer on the lights' : 'layers on the lights'),
+      stat(st.preview_layers, st.preview_layers === 1 ? 'preview layer' : 'preview layers'),
       stat(esc(st.uptime), 'uptime'),
       stat(st.solve.pixels, 'pixels'),
       // The median: the first draws compile shaders and would swamp a mean.
@@ -99,7 +99,7 @@ export function createStatus(S, root) {
         line = bits.join(' · ');
         if (h.error) line += `<br><span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b>${esc(c.id)}</b><small>${c.pixels} px · ${c.outputs.length} outputs · ${line}</small></span></li>`;
+      return `<li><span class="dotc ${dot}"></span><span class="what"><b>${esc(c.id)}</b><small>${c.pixels} px · ${plural(c.outputs.length, 'output')} · ${line}</small></span></li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));

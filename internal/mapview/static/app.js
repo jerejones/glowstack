@@ -22,6 +22,7 @@ import { createCalibrate } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll } from './house-status.js';
 import { createLibrary } from './library.js';
+import { mapStatus } from './map-status.js';
 import { stateHTML, bootFailure } from './states.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
@@ -485,19 +486,21 @@ S.streamRate = streamRate;
 
 S.refreshBadge = badge;
 let badgeShown = false;
+// badge shows what the map is showing, on the chip and on the toggle.
 function badge() {
   badgeShown = true;
+  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target: S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind) });
   const b = $('badge');
-  if (!S.connected) { b.textContent = 'offline'; b.className = 'badge off'; return; }
-  if (S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind)) {
-    b.textContent = 'target pattern'; b.className = 'badge preview';
-    b.title = 'Fixed reference: adjust the real lights to match'; return;
+  b.innerHTML = `${esc(m.text)}<span class="detail">${esc(m.detail)}</span>`;
+  b.className = 'badge ' + m.cls;
+  b.title = m.title;
+  for (const t of $('showSeg').querySelectorAll('button')) {
+    press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
+    if (t.dataset.show === '') {
+      t.disabled = !m.canPreview;
+      t.title = m.canPreview ? 'Your preview layers, on the map only' : 'Nothing in preview. Tap a look to try one.';
+    }
   }
-  const f = S.frame;
-  const hidden = S.show === 'house' && S.preview && S.preview.previewing;
-  b.textContent = f.preview ? (f.paused ? 'preview · paused' : 'preview') : hidden ? 'lights · preview hidden' : 'lights';
-  b.className = 'badge ' + (f.preview ? 'preview' : 'house');
-  b.title = f.preview ? 'The map shows your preview, not the lights' : 'The map shows what the lights show';
 }
 
 // setShow picks what the map shows: '' the preview (the lights' frames
@@ -505,7 +508,6 @@ function badge() {
 function setShow(v) {
   S.show = v;
   save(SHOW, v);
-  for (const b of $('showSeg').querySelectorAll('button')) press(b, b.dataset.show === v);
   subscribe();
   badge();
   if (S.pinned >= 0) inspect(S.pinned);
@@ -518,7 +520,6 @@ S.setShow = setShow;
 async function pollPreview() {
   try {
     const st = await api('/api/map/preview');
-    const changed = !S.preview || JSON.stringify(st.layers) !== JSON.stringify(S.preview.layers);
     S.preview = st;
     S.emit('preview', st);
     badge();

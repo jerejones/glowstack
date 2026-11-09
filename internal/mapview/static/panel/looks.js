@@ -331,7 +331,7 @@ export function createLooks(S, root) {
       try { await del('/api/v1/layers/' + encodeURIComponent(orig)); replaced.push(orig); } catch (e) { if (e.status !== 404) S.fail('remove the look it replaces', e); }
     }
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
-    S.toast(`Applied ${list.length === 1 ? 'the layer' : list.length + ' layers'} to the lights${replaced.length ? ', in place of ' + orig : ''}.`);
+    S.toast(`Applied ${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}.`);
     await S.refresh();
   }
   $$('#lkPushAll').onclick = () => apply([]);
