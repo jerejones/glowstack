@@ -198,3 +198,13 @@ test('library cards: three columns of one-line names, two lines only as the fall
   // A name like "Breathe the layers below" needs the second line and gets it.
   assert.match(css, /\.preset \.name \{\s*display: -webkit-box;[^}]*-webkit-line-clamp: 2/);
 });
+
+test('I69: a look on the lights says Live, and where when it is elsewhere', async () => {
+  const { liveLine } = await import('./static/panel/looks.js');
+  const same = (a, b) => a === b, name = (t) => t.toUpperCase();
+  const house = [{ preset: 'dusk', target: 'porch' }, { effect: 'solid', target: 'all' }];
+  assert.equal(liveLine(house, 'preset:dusk', 'porch', same, name), 'Live');
+  assert.equal(liveLine(house, 'preset:dusk', 'all', same, name), 'Live on PORCH');
+  assert.equal(liveLine(house, 'preset:other', 'porch', same, name), '');
+  assert.equal(liveLine(house, 'effect:solid', 'all', same, name), 'Live', 'an effect card, too');
+});

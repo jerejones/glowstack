@@ -493,6 +493,14 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .preset.elsewhere { border-color: #4c3d80; border-style: dashed; }
 .preset.in-preview .in-badge, .preset.elsewhere .in-badge { display: inline-flex; }
 .preset.in-preview .sub, .preset.elsewhere .sub { display: none; }
+.preset.live .sub { display: none; }
+/* On the lights: green line and rail, beside the purple preview state when both. */
+.preset .live-badge { display: none; align-items: center; gap: 4px; color: var(--house); }
+.preset .live-badge::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.preset.live .live-badge { display: inline-flex; }
+.preset.live { box-shadow: inset 3px 0 0 var(--house); border-color: #24543a; }
+.preset.live.in-preview { box-shadow: inset 3px 0 0 var(--house), inset 0 0 0 1px var(--preview); border-color: var(--preview); }
+.preset.live .in-badge { margin-top: 0; }
 .preset .strip { height: 12px; border-radius: 4px; border: 1px solid var(--rim); }
 /* A row of cards is as tall as its tallest name, up to two lines, with even
  * bottoms: no line is reserved for a name that fits one. The type line and
@@ -507,6 +515,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 /* A row is as tall as its name needs: it is never cut for the controls. */
 .layer .name-line b { overflow-wrap: anywhere; }
 .preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preset .live-badge { margin-top: auto; min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
 .layer {
   padding: 6px 4px 6px 12px; margin-top: 6px; position: relative; border-radius: 8px;

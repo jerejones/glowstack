@@ -106,6 +106,14 @@ export function noMatch(which, q) {
 // lookKey says which look a layer (or a card's look) is.
 export const lookKey = (l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect);
 
+// liveLine is a library card's line for a look on the lights: Live where new
+// previews would go, else where it is on. '' when it isn't on the lights.
+export function liveLine(house, key, target, sameTarget, nameOf) {
+  const on = house.filter((l) => lookKey(l) === key);
+  if (!on.length) return '';
+  return on.some((l) => sameTarget(l.target, target)) ? 'Live' : `Live on ${nameOf(on[0].target)}`;
+}
+
 // lookAction is what tapping a look does, given the preview's layers: add
 // it, or, when the target already has it, take it back off. A layer that
 // has been tweaked isn't thrown away by a tap: it is focused instead.
@@ -422,7 +430,7 @@ export function createLooks(S, root) {
     b.type = 'button';
     b.className = 'preset';
     b.title = title || name;
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
+    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="live-badge"><span></span></span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
     b.dataset.look = look;
     b.onclick = onclick;
     return b;
@@ -474,7 +482,12 @@ export function createLooks(S, root) {
     const layers = S.preview ? S.preview.layers : [];
     const on = new Set(layers.filter((l) => sameTarget(l.target, t)).map(lookKey));
     const elsewhere = new Set(layers.filter((l) => !sameTarget(l.target, t)).map(lookKey));
+    const house = S.house.filter((l) => !l.ephemeral);
     for (const b of root.querySelectorAll('.preset')) {
+      const live = liveLine(house, b.dataset.look, t, sameTarget, (x) => targetName(g, x));
+      b.classList.toggle('live', !!live);
+      b.querySelector('.live-badge').lastChild.textContent = live;
+      b.querySelector('.live-badge').title = live ? 'On the lights now' : '';
       const inPreview = on.has(b.dataset.look), other = !inPreview && elsewhere.has(b.dataset.look);
       b.classList.toggle('in-preview', inPreview);
       b.classList.toggle('elsewhere', other);
