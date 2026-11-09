@@ -489,7 +489,7 @@ input[type=checkbox]:checked::after {
  * container's heading. One that heads a section (Advanced, Diagnostics) takes
  * the section step, --t-h2/600; More settings, inside a form or layer card,
  * takes the form step, --t-h3/600; an inline one (What these words mean,
- * Preview clock, Details and the rest) stays at the body size, --t-m. */
+ * Details and the rest) stays at the body size, --t-m. */
 details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; font-size: var(--t-m); font-weight: 600; }
 details > summary::-webkit-details-marker { display: none; }
 details > summary::before {
@@ -503,7 +503,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .looks-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: var(--title-row); margin: 10px 0 8px; }
 .looks-head h1.title, .library-heading h1.title { margin: 0; flex: none; }
 .looks-head { position: relative; }
-.catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 10px 0 6px; }
+.catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 6px 0 4px; }
 .catalog-head .group-head { margin: 0; }
 .place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
 .place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
@@ -529,7 +529,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .target-group { padding: 8px 0; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
 .target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
-.stage { margin: 0 0 12px; padding: 8px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.stage { margin: 0 0 8px; padding: 8px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .stage-head { display: grid; gap: 1px; padding: 2px 4px; }
 .stage-head h2 { margin: 0; }
 .stage-head small { color: var(--muted); font-size: var(--t-meta); }
@@ -542,12 +542,20 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage-warn button { flex: none; white-space: nowrap; }
 .library { margin-top: 4px; }
-.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 8px; }
+.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 6px; }
 .lib-filters .seg { flex: none; width: auto; }
 .lib-filters .field { flex: 1 1 100%; margin: 0; min-width: 0; } /* one search field on Looks and Presets: its own row, full width */
 .lib-filters .field input { width: 100%; }
 .lib-filters .seg > button { display: inline-flex; align-items: center; gap: 6px; }
 .lib-filters .seg > button > .icon { display: none; } /* the icons are for the phone's half sheet while searching */
+/* The wide panel's filters are one row, segments and search, with the label's
+ * words folded away as on the half sheet (the placeholder says it): the row the
+ * label and field took is the Library's (D). */
+@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
+  .lib-filters { flex-wrap: nowrap; }
+  .lib-filters .field { flex: 1 1 auto; }
+  .lib-filters .field > .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 /* A clearable field: the × sits at the input's end while there is a query. */
 .field.clearable { position: relative; }
 .field.clearable input { padding-right: 36px; }
@@ -647,15 +655,6 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 /* A note too long to share a line takes its own, whole, under the buttons. */
 .look-bar.note-below .bar-line { flex-wrap: wrap; }
 .look-bar.note-below .bar-note { order: 5; flex: 0 0 100%; white-space: normal; overflow: visible; }
-.clock-box { margin: 10px 0; }
-.clock-box:not([open]) .t, .clock-box[open] .clock-hint { display: none; }
-.clock-hint { margin-left: auto; font-size: var(--t-meta); }
-.clock-box > summary .t { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
-.clock { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
-.step-pair { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
-.step-pair .muted { margin-left: 4px; }
-.clock-box .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
-.clock-more { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; margin: 6px 0; padding: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); }
 
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
   /* The tab bar names the tab: on a phone the stage is the sheet's first content. */

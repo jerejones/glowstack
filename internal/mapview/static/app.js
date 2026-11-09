@@ -709,9 +709,6 @@ function bindChrome() {
       if (S.pinned >= 0) unpin();
       else if (S.sel) select(null);
       else if (S.panel.detent() && S.panel.detent() !== 'peek') S.panel.setDetent('peek');
-    } else if (e.key === ' ' && !e.repeat && t.tagName !== 'BUTTON') {
-      e.preventDefault();
-      S.looks.togglePause();
     }
   });
 }

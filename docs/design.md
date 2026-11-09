@@ -930,7 +930,7 @@ shows:
 
 - **Clock.** The show's time is the layer's age (seconds since it was
   pushed) times `rate`, not the wall clock, so a show starts from the top
-  when it's applied, scrubs with the live map's preview clock, and after
+  when it's applied, follows the preview clock API when a tool seeks it, and after
   a restart with `boot: restore` carries on where it was. Each cue's
   effect sees time counted from the cue's start, so a chase comes in with
   its pulse at u = 0 and a ring effect starts at its center.
@@ -1284,7 +1284,7 @@ desk.
   device.
   - *Looks*: where looks go, presets first and then effects, the preview
     (a card per layer with its brightness, **Tweak**, **Apply to lights**
-    and Remove), what is on the lights, and the preview clock. Tweaking a
+    and Remove) and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy
     replaces the original.
   - *Setup*: calibration, the overlays and their legend, the model's layers
@@ -1315,10 +1315,11 @@ desk.
   - controllers and outputs: each output in its own color, a ring where its
     data enters, optionally one controller at a time
   - estimated current per output and the active power-limit scale
-- **Time control** for designing effects: pause, step a frame, slow down or
-  speed up, and scrub. It's the preview's clock only, so the house keeps
-  running normally. Because effects are functions of place and time, the
-  scrubbed view is exactly what the house would show at that moment.
+- **No time controls.** The preview runs in step with the lights; the panel
+  has no pause, step, speed or scrub (owner decision, 2026-11-09). The
+  server keeps its preview clock API (`POST /api/map/preview`: pause, step,
+  speed, seek, live) for the renderer's tests and for tools; nothing in the
+  map's UI calls it.
 - **Try before applying.** A layer can be previewed on the map only, without
   pushing it to the real stack. There is one preview stack, shared by the
   map's panel and the API (`preview: true`); it's never saved or sent to
@@ -1327,8 +1328,8 @@ desk.
   Applying is always a separate, green button; nothing on the map applies
   by itself.
 - **Preview or live.** Each viewer picks what its map shows: the preview
-  (preview layers and clock over the house; the house's own frames when
-  nothing is previewed) or live, what the lights show, even while someone
+  (preview layers over the house; the house's own frames when nothing is
+  previewed) or live, what the lights show, even while someone
   else is previewing.
 - **Calibration mode.** On a phone, calibration (see "Calibration mode"
   above) takes the screen below a strip of map that keeps the cursor in
@@ -1337,8 +1338,7 @@ desk.
 - **Light on the device.** The map draws only when a frame arrives or the
   camera moves, and the stream drops to 10 fps while the page is hidden or
   the device runs on battery. Messages share one toast area. Escape unpins
-  the inspect card, then clears the selection, then lowers the sheet; Space
-  pauses or resumes the preview clock.
+  the inspect card, then clears the selection, then lowers the sheet.
 - **Later:** embedded in HA as a dashboard panel (iframe or custom card).
 
 ## Controller health API

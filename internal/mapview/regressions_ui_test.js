@@ -58,7 +58,7 @@ test('sticky bars never cover what scrolls into view', () => {
   assert.match(css, /\.cal-body \{[^}]*scroll-padding-bottom/);
   const looks = read('panel/looks.js');
   assert.match(looks, /setProperty\('--look-bar', bar\.offsetHeight/);
-  assert.match(read('sheet.js'), /e\.target === opening && e\.target\.open/, 'opened clock controls come into view');
+  assert.match(read('sheet.js'), /e\.target === opening && e\.target\.open/, 'an opened disclosure comes into view');
 });
 
 test('a status failure is the shared state with no raw server text and no empty sections', async () => {
@@ -644,10 +644,6 @@ test('Everything is the one term, and the Runs group says why runs are missing',
   assert.equal(nodeName({ members: [{ kind: 'all', id: 'all', name: 'All' }] }), 'Everything');
   const looks = read('panel/looks.js');
   assert.match(looks, /A run that is a whole area or zone is listed there instead\./);
-  assert.match(looks, /\$\$\('#lkLive'\)\.disabled = st\.following/, 'Now is an action, not a toggle');
-  assert.doesNotMatch(looks, /press\(\$\$\('#lkLive'\)/);
-  assert.match(looks, /<details class="clock-box" id="lkClockBox" data-quiet-open hidden><summary>Preview clock/);
-  assert.match(looks, /\$\$\('#lkClockBox'\)\.hidden = !prev\.length/);
   assert.match(looks, /bri-label[^>]*>\$\{icon\('sun'\)\}<span class="bri-word">Brightness/);
 });
 
@@ -999,7 +995,6 @@ test('jargon is gone or explained', async () => {
   assert.match(looks, />Goes on</);
   assert.doesNotMatch(looks, />Apply to</);
   assert.doesNotMatch(looks, /Next look on/);
-  assert.match(looks, /The lights keep running/);
   assert.doesNotMatch(cal, /At the estimate/);
 });
 
@@ -1358,7 +1353,6 @@ test('Looks leaves the grids alone when something previews, and a preview on an 
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /hadPreview/, 'a preview no longer folds the grid under the pointer');
   assert.match(looks, /class="muted">Goes on</, 'where the look goes, in words');
-  assert.match(looks, /clock-hint/, 'the clock says what it is for while closed');
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Yard'], message: 'x' };
   assert.equal(applyResult('x', { dark: '' }, 'y').text, 'Applied x.');
@@ -2272,7 +2266,10 @@ test('Preview, Pin and More share one button style; Pinned keeps its state', () 
 test('search fields are one pattern on Looks and Presets', () => {
   assert.match(read('panel/looks.js'), /textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks', clearable: true \}\)/);
   assert.match(read('panel/presets.js'), /textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' \}\)/);
-  assert.match(css, /\.lib-filters \.field \{ flex: 1 1 100%;/, 'the full width of the panel, like Presets');
+  assert.match(css, /\.lib-filters \.field \{ flex: 1 1 100%;/, 'its own row by default (the phone\'s full sheet)');
+  const wide = css.slice(css.indexOf('@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape)'));
+  assert.match(wide, /\.lib-filters \{ flex-wrap: nowrap; \}\s*\.lib-filters \.field \{ flex: 1 1 auto; \}/, 'one row with the segments on the wide panel (D: the room is the Library\'s)');
+  assert.match(wide, /\.lib-filters \.field > \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\);/, 'folded, still the input\'s name');
 });
 
 test('Remove takes a layer off with an X and the word at every size; Delete keeps the trash can', () => {
@@ -2378,15 +2375,6 @@ test('B130: a disclosure is never larger than its container heading', () => {
   assert.match(css, /\.form-disclosure > summary \{ font-size: var\(--t-h3\); font-weight: 600;/);
   assert.match(css, /\.layer \.name-line b \{[^}]*font-size: var\(--t-h3\)/, "a layer card's title is at least its More settings");
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
-});
-
-test('opening the Preview clock leaves an open Tweak form where it is', async () => {
-  const { keepsPlace } = await import('./static/sheet.js');
-  const box = (form) => ({ querySelector: () => (form ? {} : null) });
-  assert.equal(keepsPlace({ dataset: { quietOpen: '' } }, box(true)), true);
-  assert.equal(keepsPlace({ dataset: { quietOpen: '' } }, box(false)), false, 'nothing to protect: it reveals itself');
-  assert.equal(keepsPlace({ dataset: {} }, box(true)), false);
-  assert.match(read('panel/looks.js'), /id="lkClockBox" data-quiet-open/);
 });
 
 test('Turn on shares no glyph with the brightness slider, and is never a power symbol', () => {
@@ -2828,4 +2816,18 @@ test('B2: tiles keep moving behind a preview, rest on a lit frame, and effect ca
   // With the word in front, every motion phrase still fits a 176 px card's sub line whole (measured: 25 characters of these words).
   const { MOTION } = await import('./static/tiles.js');
   for (const [id, words] of Object.entries(MOTION)) assert.ok(`Effect · ${words}`.length <= 25, `${id}: "Effect · ${words}" is cut on a card`);
+});
+
+test('D: the preview has no clock controls; the room went to the Library', () => {
+  const looks = read('panel/looks.js'), app = read('app.js');
+  for (const word of [/clock/i, /scrub/i, /lkPlay|lkBack|lkFwd|lkSpeed|lkLive\b/, /togglePause/, /'pause'|'resume'|'seek'|'step'/]) {
+    assert.doesNotMatch(looks, word, `looks.js: ${word}`);
+  }
+  assert.doesNotMatch(app, /togglePause|e\.key === ' '/, 'Space does nothing to the preview');
+  assert.doesNotMatch(css, /clock|step-pair/, 'no clock styles');
+  assert.doesNotMatch(read('sheet.js'), /keepsPlace|quietOpen/, 'nothing asks to open quietly any more');
+  assert.doesNotMatch(looks, /data-quiet-open/);
+  const design = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'design.md'), 'utf8');
+  assert.doesNotMatch(design, /\*\*Time control\*\*/);
+  assert.doesNotMatch(design, /Space\s+pauses or resumes the preview clock/);
 });

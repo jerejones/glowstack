@@ -19,10 +19,6 @@ const STRIP = 200; // the map above a full sheet: --strip in ui.css
 const HALF = 0.64; // of the window's height at the half detent, the same on every tab so the map holds still: the sheet opens to the task, and the map band above it still shows the whole lit outline
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
-// keepsPlace says opening el must not scroll the panel: it asks not to
-// (data-quiet-open), and a form it would push away is open in the panel.
-export const keepsPlace = (el, content) => 'quietOpen' in el.dataset && !!content.querySelector('.form');
-
 // guardSelection stops text selection while dragging() says so.
 export function guardSelection(doc, dragging) {
   doc.addEventListener('selectstart', (e) => { if (dragging()) e.preventDefault(); });
@@ -199,8 +195,7 @@ export function createPanel(hooks) {
       const content = $('content'), room = content.clientHeight - (parseFloat(getComputedStyle(content).scrollPaddingBottom) || 0);
       // Too tall for half a sheet: it needs the room, not half of itself.
       if (layout === 'sheet' && detent === 'half' && e.target.offsetHeight > room) setDetent('full');
-      // A quiet disclosure opens where it is while a Tweak form is being worked on.
-      if (!keepsPlace(e.target, content)) e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
     opening = null;
   }, true);

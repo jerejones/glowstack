@@ -94,18 +94,6 @@ test('tapping a look already in preview takes it off rather than stacking it', a
   assert.deepEqual(lookAction([layer], 'porch', look, { p1: 'h1' }), { focus: 'p1' }, 'nor is a copy being edited');
 });
 
-test('the clock shows hours and minutes in plain words, and milliseconds only while scrubbing', async () => {
-  const { clockText } = await import('./static/panel/looks.js');
-  const st = { t: 1_700_000_000, paused: false, following: true, speed: 1, offset: 0 };
-  const line = clockText(st);
-  assert.doesNotMatch(line, /\.\d{3}/);
-  assert.match(line, /in step with the lights$/);
-  assert.match(clockText({ ...st, paused: true }), /^Paused · /);
-  assert.match(clockText({ ...st, following: false, offset: 1.5 }), /1\.50 s ahead of the lights$/);
-  assert.match(clockText({ ...st, following: false, offset: -2 }), /2\.00 s behind the lights$/);
-  assert.match(clockText(st, true), /\d{3}/, 'scrubbing shows milliseconds');
-});
-
 test('the lanes use the shared states, including a failed load', async () => {
   const { previewState, houseState } = await import('./static/panel/looks.js');
   assert.equal(previewState(null, 'loading').kind, 'loading');

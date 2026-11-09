@@ -9,7 +9,7 @@
 // brightness slider (sent as you drag) and Tweak. Tweaking a look on the
 // lights edits a preview copy; applying the copy promotes it and then removes
 // the original, in that order, so the lights are never without the look. The
-// preview clock is a line below the library that opens to its controls.
+// preview runs in step with the lights, with no time controls of its own.
 import { api, post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize, noOrphan } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
 import { houseStatusMessage, lightOutcome, joined, turnOnLabel, turnOnZones, zoneWarning, BRIGHTNESS_RULE } from '../house-status.js';
@@ -21,7 +21,6 @@ import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
-const CLOCK = 'glowstack.clock.open';
 const TARGET = 'glowstack.looks.target';
 const FILTER = 'glowstack.looks.filter';
 
@@ -48,17 +47,6 @@ export function effectSummary(e) {
 export function cardSummary(name, e) {
   const [effect, kind] = effectSummary(e).split(' · ');
   return kind && effect.toLowerCase() === String(name).toLowerCase() ? kind : effect;
-}
-
-const speedLabel = (s) => (s >= 1 ? s.toFixed(s >= 10 ? 0 : 1) : s.toFixed(2)) + '×';
-
-// clockText is the preview clock's line, in plain words. Hours and minutes
-// are all anyone reads, but scrubbing needs to see each frame go by.
-export function clockText(st, scrubbing = false) {
-  const time = new Date(st.t * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(scrubbing ? { second: '2-digit', fractionalSecondDigits: 3 } : {}) });
-  const where = !st.following ? `${Math.abs(st.offset).toFixed(2)} s ${st.offset >= 0 ? 'ahead of' : 'behind'} the lights`
-    : st.speed !== 1 ? `${speedLabel(st.speed)} speed` : 'in step with the lights';
-  return `${st.paused ? 'Paused · ' : ''}${time} · ${where}`;
 }
 
 // previewState is the stage's state for a preview it can't list yet.
@@ -323,22 +311,6 @@ export function createLooks(S, root) {
       <div class="cards" id="lkPresets"></div>
       <details class="words" id="lkWords"><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>
     </section>
-    <details class="clock-box" id="lkClockBox" data-quiet-open hidden><summary>Preview clock <span class="clock-hint muted">Pause or scrub the preview</span><span class="t" id="lkClockText"></span></summary>
-    <div class="muted small">Pause, slow or scrub the preview to look at one moment. The lights keep running.</div>
-    <div class="clock" id="lkClock">
-      <button type="button" id="lkPlay" class="icon-btn" title="Pause or resume the preview clock (space)" aria-label="Pause the preview clock"></button>
-    </div>
-    <div class="clock-more" id="lkClockPanel">
-      <div class="step-pair" role="group" aria-label="Step one frame">
-        <button type="button" id="lkBack" class="icon-btn" title="Step back one frame" aria-label="Step back one frame">${icon('stepBack')}</button>
-        <button type="button" id="lkFwd" class="icon-btn" title="Step forward one frame" aria-label="Step forward one frame">${icon('stepForward')}</button>
-        <span class="muted">Step one frame</span>
-      </div>
-      <span>Speed</span><input type="range" id="lkSpeed" min="-1" max="1" step="0.01" value="0"><output id="lkSpeedOut">1×</output>
-      <span>Scrub</span><input type="range" id="lkScrub" min="-30" max="30" step="0.02" value="0"><span class="muted small">±30 s</span>
-      <span></span><button type="button" id="lkLive" title="Back in step with the lights">Now</button><span></span>
-    </div>
-    </details>
     <div class="look-bar" id="lkBar" hidden>
       <div class="bar-main">
         <div class="seg" id="lkMode" role="group" aria-label="What happens to what's on the lights" hidden><button type="button" data-mode="replace">Replace</button><button type="button" data-mode="add">Add</button></div>
@@ -811,7 +783,6 @@ export function createLooks(S, root) {
     fitStageHead();
     markPreviewed();
     S.refreshBadge?.();
-    $$('#lkClockBox').hidden = !prev.length;
     // A copy whose preview layer is gone is forgotten.
     const ids = new Set(prev.map((l) => l.id));
     if (Object.keys(copies).some((k) => !ids.has(k)) && S.preview) {
@@ -1009,64 +980,10 @@ export function createLooks(S, root) {
     try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.fail('clear the preview', e); }
   };
 
-  // ---------- the clock ----------
-
-  const control = async (body) => {
-    try { S.preview = await post('/api/map/preview', body); renderClock(); S.emit('preview', S.preview); } catch (e) { S.fail('change the preview clock', e); }
-  };
-  const fps = g.house_fps || 40;
-  $$('#lkPlay').onclick = () => control({ action: S.preview && S.preview.paused ? 'resume' : 'pause' });
-  $$('#lkBack').onclick = () => control({ action: 'step', seconds: -1 / fps });
-  $$('#lkFwd').onclick = () => control({ action: 'step', seconds: 1 / fps });
-  $$('#lkLive').onclick = () => control({ action: 'live' });
-  const speed = $$('#lkSpeed');
-  speed.oninput = () => { $$('#lkSpeedOut').textContent = speedLabel(10 ** +speed.value); };
-  speed.onchange = () => control({ action: 'speed', speed: 10 ** +speed.value });
-  // Scrubbing pauses, then seeks relative to where the drag started;
-  // one seek in flight at a time.
-  const scrub = $$('#lkScrub');
-  let scrubBase = null, seeking = false, want = null;
-  const seek = async () => {
-    if (seeking) return;
-    seeking = true;
-    while (want !== null) { const t = want; want = null; await control({ action: 'seek', t }); }
-    seeking = false;
-  };
-  scrub.oninput = async () => {
-    if (scrubBase === null) {
-      scrubBase = NaN;
-      try { const st = await post('/api/map/preview', { action: 'pause' }); scrubBase = st.t; S.preview = st; } catch (e) { scrubBase = null; S.fail('pause the preview clock', e); return; }
-    }
-    if (Number.isNaN(scrubBase)) return;
-    want = scrubBase + +scrub.value;
-    seek();
-  };
-  scrub.onchange = () => { scrubBase = null; scrub.value = 0; renderClock(); };
-  const clockBox = $$('#lkClockBox');
-  clockBox.open = !!load(CLOCK, false);
-  clockBox.addEventListener('toggle', () => save(CLOCK, clockBox.open));
-
-  function renderClock() {
-    const st = S.preview;
-    if (!st) return;
-    const play = $$('#lkPlay');
-    const verb = st.paused ? 'Resume' : 'Pause';
-    play.innerHTML = `${icon(st.paused ? 'play' : 'pause')}<span>${verb}</span>`;
-    play.setAttribute('aria-label', `${verb} the preview clock`);
-    press(play, st.paused);
-    $$('#lkLive').disabled = st.following; // one-shot, and already there
-    if (document.activeElement !== speed) {
-      speed.value = Math.log10(st.speed);
-      $$('#lkSpeedOut').textContent = speedLabel(st.speed);
-    }
-    $$('#lkClockText').textContent = clockText(st, scrubBase !== null);
-    $$('#lkClock').title = S.show === 'house' ? 'The preview clock; the map is showing the lights' : 'The preview clock';
-  }
-
   // ---------- wiring ----------
 
   S.on('presets', () => { renderCatalog(); renderStage(); });
-  S.on('preview', () => { renderStage(); renderClock(); });
+  S.on('preview', renderStage);
   S.on('house', renderStage);
   S.on('show', renderStage);
   // Rising to full can leave a card half under the bar: nothing just shown
@@ -1084,7 +1001,6 @@ export function createLooks(S, root) {
   S.on('layout', fitNote);
   S.on('status', renderStage); // a zone's brightness changed the warning
   S.on('statusRead', renderStage); // a status read failed, or recovered: the Apply title says
-  $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();
   S.on('ready', clearBar);
@@ -1096,8 +1012,6 @@ export function createLooks(S, root) {
     push,
     // inPreview says a preset is in the preview on the current target.
     inPreview: (preset) => (S.preview ? S.preview.layers : []).some((l) => l.preset === preset && sameTarget(l.target, currentTarget())),
-    togglePause: () => control({ action: S.preview && S.preview.paused ? 'resume' : 'pause' }),
-    fmtClock: () => $$('#lkClockText').textContent,
   };
 }
 
