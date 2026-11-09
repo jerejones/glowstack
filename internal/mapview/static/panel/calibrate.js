@@ -151,11 +151,15 @@ export function calCount(st) {
   };
 }
 
-// stepPlace says where the current step sits in the list. Steps can be
-// visited in any order, so it says its place and its own state, never a
-// count that could be read against the number done.
-export function stepPlace(index, item) {
-  return `Step ${index + 1} in the list · ${item.done ? 'done' : 'not done yet'}`;
+// stepPlace says where the current step sits in the list, against the same
+// total as the count of steps done, and the list marks the same step.
+export function stepPlace(index, item, total) {
+  return `Step ${index + 1} of ${total} · ${item.done ? 'done' : 'not done yet'}`;
+}
+
+// progCenter is the list's scroll position that puts a row in its middle.
+export function progCenter(rowTop, rowHeight, viewHeight) {
+  return Math.max(0, rowTop - (viewHeight - rowHeight) / 2);
 }
 
 // partName is an anchor's name within its run: the run's name is on the
@@ -204,7 +208,7 @@ export function createCalibrate(S, root) {
   const g = S.geo;
   const nodeLabel = (id) => nodeDisplay(g, id);
   const runLabel = (id) => runName(g, id);
-  let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false;
+  let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false, shownHere = '';
   const session = createSession({ fetch: (...a) => fetch(...a), storage: sessionStorage, onState: render });
   const C = session.C;
   // Set when the mode was left with a session still running: it doesn't
@@ -243,7 +247,7 @@ export function createCalibrate(S, root) {
     document.body.classList.toggle('calibrating', on);
     S.calibrating = on;
     if (on) hold = S.view.hold();
-    else { framed = ''; tapped = -1; }
+    else { framed = ''; tapped = -1; shownHere = ''; }
     S.refreshLegend?.();
     S.resize();
     if (!on && hold) { S.view.release(hold); hold = null; }
@@ -346,6 +350,9 @@ export function createCalibrate(S, root) {
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
       if (st.warning) parts.push(`<div class="cal-warn">${esc(humanText(g, st.warning))}</div>`);
+      // Previous and Next come first: below the instructions they fell
+      // under the nudge bar's edge on a phone.
+      const nav = () => `<div class="cal-nav">${btn(`${icon('chevronLeft')}Previous`, () => session.next(true), 'icon-btn')}${btn(`Next${icon('chevronRight')}`, () => session.next(), 'icon-btn')}</div>`;
       const cs = st.cursors || [];
       if (cs.length > 1) parts.push(`<div class="cal-sides">${cs.map((c, i) => btn(esc(nodeLabel(c.label)) + (c.fixed ? ' (fixed)' : ''), () => session.side(i), i === st.side ? 'on' : '')).join('')}</div>`);
       const c = cs[st.side];
@@ -353,8 +360,9 @@ export function createCalibrate(S, root) {
         const moved = c.index - c.estimate;
         const step = stepTitle(st, nodeLabel, runLabel);
         const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
-        parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
+        parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i], st.progress.length))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
+        parts.push(nav());
         parts.push('<p class="cal-how">Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.</p>');
         const was = $$('#caBody details.tech');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
@@ -367,8 +375,7 @@ export function createCalibrate(S, root) {
         parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9" placeholder="2.5 m"></label><button type="submit">Confirm length</button></form>`);
       }
       const tr = st.target && (st.target.run || (c && c.run));
-      // Navigation on one row, utilities on the next, by design.
-      parts.push(`<div class="cal-nav">${btn(`${icon('chevronLeft')}Previous`, () => session.next(true), 'icon-btn')}${btn(`Next${icon('chevronRight')}`, () => session.next(), 'icon-btn')}</div>`);
+      if (!c) parts.push(nav());
       const utilities = [tr ? btn('Show test bands', () => session.target({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''].join('');
       if (utilities) parts.push(`<div class="cal-nav cal-util">${utilities}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(humanText(g, st.message))}</div>`);
@@ -412,10 +419,10 @@ export function createCalibrate(S, root) {
         const row = progressRow(it, nodeLabel, runLabel);
         const raw = it.target?.node ? g.nodes.find((n) => n.id === it.target.node)?.label : '';
         if (raw) row.title += ` (${raw})`;
-        const here = JSON.stringify(it.target) === cur ? ' here' : '';
+        const isHere = JSON.stringify(it.target) === cur, here = isHere ? ' here' : '';
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
-        return `<li class="nv ${it.done ? 'done' : ''}${here}" data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${esc(row.value)}</span></li>`;
+        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? `<span class="here-tag">Step ${st.progress.indexOf(it) + 1}</span>` : ''}${esc(row.value)}</span></li>`;
       }).join('')}</ul></div>`).join('')}</div>`);
     }
 
@@ -435,12 +442,20 @@ export function createCalibrate(S, root) {
     }
 
     const body = $$('#caBody');
-    const top = body.scrollTop, fields = readFields(body);
+    const top = body.scrollTop, listTop = body.querySelector('.cal-prog')?.scrollTop || 0, fields = readFields(body);
     body.innerHTML = parts.join('');
     upgradeSelects(body);
     restoreFields(body, fields);
     if (!active && S.offline) for (const b of body.querySelectorAll('button.go')) b.disabled = true;
     body.scrollTop = top;
+    const list = body.querySelector('.cal-prog');
+    if (list) {
+      list.scrollTop = listTop;
+      // Only when the step changes: a poll mustn't take the list away from a thumb.
+      const here = list.querySelector('li.here'), key = here ? JSON.stringify(st.target) : '';
+      if (here && key !== shownHere) list.scrollTop = progCenter(here.offsetTop, here.offsetHeight, list.clientHeight);
+      shownHere = key;
+    }
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
     for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => { C.error = ''; render(); session.poll(); };
     for (const f of body.querySelectorAll('form[data-form]')) {

@@ -183,6 +183,7 @@ input[type=checkbox]:checked::after {
   background: rgba(22, 25, 30, 0.88);
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
+.map-note { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px; border: 1px solid #4c3d80; border-radius: 9px; font-size: var(--t-s); color: var(--preview); background: rgba(22, 25, 30, 0.88); }
 .map-controls .seg > button { background: transparent; }
 .map-controls .seg > button.on { background: var(--on); }
 
@@ -552,7 +553,10 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .cal-nav > .icon-btn { flex: 1; }
 .cal-util { margin-top: -2px; }
+/* Its own scroller, so showing the current step leaves the step's title in view. */
+.cal-prog { position: relative; max-height: min(42vh, 380px); overflow-y: auto; overscroll-behavior: contain; }
 .cal-prog .group { margin: 8px 0; }
+.here-tag { margin-right: 8px; color: var(--accent); font-weight: 600; }
 .cal-prog .group > div { font-weight: 600; color: #cbd5e1; margin-bottom: 2px; }
 .cal-prog ul { list-style: none; margin: 0; padding: 0; }
 .cal-prog li { min-height: var(--tap); padding: 4px 8px; border-radius: 6px; cursor: pointer; }
@@ -562,8 +566,8 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-prog li .name span { min-width: 0; overflow-wrap: break-word; }
 .cal-prog li .icon { width: 12px; height: 12px; margin-top: 4px; }
 .cal-prog li:hover { background: #1a1e24; }
-.cal-prog li.done { color: var(--house); }
-.cal-prog li.here { background: #262c36; outline: 1px solid #4b5563; }
+.cal-prog li.done .icon { color: var(--house); }
+.cal-prog li.here { background: #262c36; outline: 1px solid var(--accent); }
 .cal-tap { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px; margin: 8px 0; }
 .cal-tap .row { margin-top: 6px; }
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
@@ -573,6 +577,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   body.calibrating .chipbar { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; bottom: auto; }
   body.calibrating .brand, body.calibrating .badge .detail { display: none; }
   body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
+  .cal-prog { max-height: 220px; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
 }
 

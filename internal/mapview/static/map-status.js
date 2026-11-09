@@ -14,7 +14,7 @@ import { MODES } from './overlay.js';
 export function mapStatus({ connected, show, preview, target, mode = 'live' }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
-  const showing = previewing && show !== 'house' ? 'preview' : 'lights';
+  const showing = target ? 'target' : previewing && show !== 'house' ? 'preview' : 'lights';
   const toggle = { showing, canPreview: previewing };
   if (!connected) return { ...toggle, text: 'Offline', detail: '', cls: 'off', title: 'Not connected to Glowstack. The map may be out of date.' };
   if (target) return { ...toggle, text: 'Target pattern', detail: '', cls: 'preview', title: 'Fixed reference: adjust the real lights to match' };

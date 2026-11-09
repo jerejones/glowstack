@@ -547,6 +547,9 @@ function badge() {
   b.innerHTML = badgeHTML(m);
   b.className = 'badge ' + m.cls;
   b.title = m.title;
+  // A target pattern is neither choice: the control says what is showing.
+  $('showTarget').hidden = m.showing !== 'target';
+  $('showSeg').hidden = m.showing === 'target';
   for (const t of $('showSeg').querySelectorAll('button')) {
     press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
     if (t.dataset.show === '') {

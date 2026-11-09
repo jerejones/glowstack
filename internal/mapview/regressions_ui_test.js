@@ -101,8 +101,7 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   const { calCount, stepPlace } = await import('./static/panel/calibrate.js');
   const st = { anchors: 2, measured: 1, progress: [{ done: true }, { done: false }, { done: false }] };
   assert.equal(calCount(st).text, '1 of 3 steps done');
-  assert.equal(stepPlace(1, { done: false }), 'Step 2 in the list · not done yet');
-  assert.doesNotMatch(stepPlace(1, { done: true }), / of /, 'visited out of order, "step N of M" read as a count');
+  assert.equal(stepPlace(1, { done: false }, 3), 'Step 2 of 3 · not done yet', 'the same total as the count');
   const setup = read('panel/setup.js');
   assert.match(setup, /calCount\(st\)/);
   assert.doesNotMatch(setup, /points? measured/);
@@ -722,4 +721,33 @@ test('B60: each status verdict says what it measured', async () => {
   const g = { runs: [{ id: 'eave', name: 'Eave' }], nodes: [], controllers: [] };
   assert.equal(warningSummary(g, 'layout.yaml:3: run eave: a–b has 40 pixels where its drawn length implies about 30').kind, 'spacing');
   assert.equal(warningSummary(g, 'other').kind, undefined);
+});
+
+test('B55: during a target pattern the map control says so and neither choice is on', async () => {
+  const { mapStatus } = await import('./static/map-status.js');
+  assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: true }).showing, 'target');
+  assert.equal(mapStatus({ connected: true, show: 'house', preview: null, target: true }).showing, 'target');
+  assert.match(read('index.html'), /id="showTarget"[^>]*hidden>Showing the target pattern/);
+  assert.match(read('app.js'), /\$\('showTarget'\)\.hidden = m\.showing !== 'target'/);
+});
+
+test('B56: Previous and Next are placed before the instructions', () => {
+  const src = read('panel/calibrate.js');
+  assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));
+});
+
+test('B57: the list marks the current step and scrolls to it only when it changes', async () => {
+  const { progCenter } = await import('./static/panel/calibrate.js');
+  assert.equal(progCenter(400, 40, 200), 320);
+  assert.equal(progCenter(20, 40, 200), 0, 'never above the top');
+  const src = read('panel/calibrate.js');
+  assert.match(src, /aria-current="step"/);
+  assert.match(src, /here-tag">Step \$\{/);
+  assert.match(src, /key !== shownHere/);
+  assert.match(css, /\.cal-prog \{[^}]*overflow-y: auto/);
+});
+
+test('calibrate list: done rows are plain text with only the check in green', () => {
+  assert.doesNotMatch(css, /\.cal-prog li\.done \{ color/);
+  assert.match(css, /\.cal-prog li\.done \.icon \{ color: var\(--house\); \}/);
 });
