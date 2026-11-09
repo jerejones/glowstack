@@ -35,3 +35,18 @@ export function frameInsets({ height, chips, crumbs, controls, layout, covered, 
   top = Math.max(0, Math.min(top, height - bottom - 52));
   return { top: top + 6, bottom: bottom + 6 };
 }
+
+// centerShift is how far to move the look-at point, along the camera's right
+// and up, so that points fill the view evenly: the middle of what they span
+// on screen, at the look-at depth. points are [right, up, z] relative to it,
+// z toward the camera; dist is the camera's distance from it.
+export function centerShift(points, dist) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [r, u, z] of points) {
+    const d = Math.max(dist - z, dist * 0.05);
+    x0 = Math.min(x0, r / d); x1 = Math.max(x1, r / d);
+    y0 = Math.min(y0, u / d); y1 = Math.max(y1, u / d);
+  }
+  if (!isFinite(x0)) return [0, 0];
+  return [(x0 + x1) / 2 * dist, (y0 + y1) / 2 * dist];
+}

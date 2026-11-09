@@ -1582,3 +1582,13 @@ test('while a point is measured, marks yield to it and to the controller names',
   assert.match(src, /inZones\(p\.q, targetZones\) \|\| inZones\(p\.q, nameZones\)/, 'node marks yield to both');
   assert.match(src, /if \(!q \|\| inZones\(q, targetZones\)\) continue;/, 'a controller yields to the point being measured');
 });
+
+test('default framing centers the lights in the visible area, and leaves a placed camera alone', async () => {
+  const { centerShift } = await import('./static/map-frame.js');
+  assert.deepEqual(centerShift([[-1, -2, 0], [1, 2, 0]], 10), [0, 0], 'already centered');
+  const [sx, sy] = centerShift([[0, 0, 0], [4, 2, 0]], 10);
+  assert.ok(Math.abs(sx - 2) < 1e-9 && Math.abs(sy - 1) < 1e-9, 'the middle of what they span');
+  assert.deepEqual(centerShift([], 10), [0, 0], 'nothing to center');
+  const scene = read('scene.js');
+  assert.match(scene, /const lights = cam\.auto \? litPoints\(\) : \[\];/, 'only views chosen by name are recentered');
+});

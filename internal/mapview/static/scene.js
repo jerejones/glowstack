@@ -12,6 +12,7 @@
 //
 // Glowstack positions are meters with Z up; three.js is Y up, so
 // (x, y, z) is (x, z, −y) here. North is +y.
+import { centerShift } from './map-frame.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -334,14 +335,25 @@ export async function open(glCanvas, input, opts) {
 
   // fitDistance is how far from target along dir (unit, toward the
   // camera) the camera must be for every point to show in the free area.
+  function axes(dir) {
+    const f = dir.clone().negate();
+    const up = Math.abs(f.y) > 0.999 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+    const u = up.clone().addScaledVector(f, -up.dot(f)).normalize();
+    return { f, u, r: new THREE.Vector3().crossVectors(f, u) };
+  }
+
+  // litPoints samples the lights being drawn, enough to find their extent.
+  function litPoints() {
+    const step = Math.max(1, Math.floor(n / 1500)), out = [];
+    for (let p = 0; p < n; p += step) if (flags[p] < 4) out.push(new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]));
+    return out;
+  }
+
   function fitDistance(dir, target, points) {
     const hf = Math.max(H - insetTop - insetBottom, 1);
     const tv = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) / MARGIN;
     const th = tv * W / hf;
-    const f = dir.clone().negate();
-    const up = Math.abs(f.y) > 0.999 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
-    const u = up.clone().addScaledVector(f, -up.dot(f)).normalize();
-    const r = new THREE.Vector3().crossVectors(f, u);
+    const { f, u, r } = axes(dir);
     let d = 0;
     const rel = new THREE.Vector3();
     for (const q of points) {
@@ -365,7 +377,22 @@ export async function open(glCanvas, input, opts) {
   function frame() {
     project();
     const target = cam.target ? cam.target.clone() : box.getCenter(new THREE.Vector3());
-    const d = Math.max(fitDistance(cam.dir, target, corners()), cam.minDist);
+    let d = Math.max(fitDistance(cam.dir, target, corners()), cam.minDist);
+    // A view chosen by name centers the lights in what's left of the map; a
+    // camera someone placed stays where they put it. Perspective makes the
+    // middle move as the distance does, so this settles over a few passes.
+    const lights = cam.auto ? litPoints() : [];
+    if (lights.length) {
+      const fit = () => Math.max(fitDistance(cam.dir, target, lights), cam.minDist);
+      const { r, u, f } = axes(cam.dir);
+      d = fit();
+      const rel = new THREE.Vector3();
+      for (let i = 0; i < 6; i++) {
+        const [sx, sy] = centerShift(lights.map((q) => { rel.subVectors(q, target); return [rel.dot(r), rel.dot(u), -rel.dot(f)]; }), d);
+        target.addScaledVector(r, sx).addScaledVector(u, sy);
+        d = fit();
+      }
+    }
     place(cam.dir, target, d);
   }
 

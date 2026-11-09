@@ -1259,7 +1259,10 @@ desk.
 
     `direction` points from what the camera looks at toward the camera, and
     the map works out the distance so the model fits whatever the screen's
-    shape. `to` is optional (the middle of the pixels otherwise). The older
+    shape. `to` is optional. Either way the framing centers the lights being
+    drawn in the part of the map left visible by the panel or sheet, so a
+    named view keeps its angle but not an exact aim point; a camera placed
+    by hand and saved stays exactly where it was. The older
     `{ from, to, fov }` form still works: its camera is used unless the
     house wouldn't fit. Without a `view`, the map frames the model from an
     elevated three-quarter angle. **Copy camera position** puts the current camera on
