@@ -230,12 +230,12 @@ export function createStatus(S, root) {
     <div id="stHealth" class="health" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
-    <h2>Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
-    <div id="stRunsBox"><h2>Runs <small>drawn vs measured length</small></h2>
+    <h2 class="status-head">Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
+    <div id="stRunsBox"><h2 class="status-head">Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details></div>
-    <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
+    <h2 class="status-head">Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     <p class="meta-line" id="stStats"></p>
     <details id="stDiag" class="section-disclosure"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
     </div>`;

@@ -68,7 +68,7 @@ test('a status failure is the shared state with no raw server text and no empty 
   assert.doesNotMatch(st.detail, /Internal Server Error/);
   assert.match(loadFailure({ network: true }).detail, /isn't responding/);
   const status = read('panel/status.js');
-  assert.match(status, /<div id="stBody" hidden>[\s\S]*<h2>Controllers/, 'sections wait for a reading');
+  assert.match(status, /<div id="stBody" hidden>[\s\S]*<h2 class="status-head">Controllers/, 'sections wait for a reading');
   assert.match(status, /stBody'\)\.hidden = false/);
 });
 
@@ -2638,4 +2638,13 @@ test('Refinement 4: the phone footer says Replace once', async () => {
   // The desktop keeps its Replace/Add pair and never shows the link; the phone the reverse.
   assert.match(css, /^\.bar-main \.swap \{ display: none; \}/m);
   assert.match(css, /  \.bar-main \.seg \{ display: none; \}\n  \.bar-main \.swap \{ display: inline-block; margin: -4px 0 -6px auto; min-height: 36px;/);
+});
+
+test('Refinement 5: a section status has its own slot', () => {
+  const status = read('panel/status.js');
+  assert.equal((status.match(/<h2 class="status-head">/g) || []).length, 3, 'Controllers, Runs and Power');
+  assert.match(css, /\.status-head \{ display: flex; align-items: baseline; gap: 8px; \}/, 'heading and status share a baseline');
+  assert.match(css, /\.status-head > small \{ margin-left: auto; min-width: 0; white-space: nowrap;/, 'right-aligned, never wrapping');
+  // A phone keeps the status on its own line under the words.
+  assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block;[^}]*\}\s*\.status-head \{ display: block; \}/);
 });

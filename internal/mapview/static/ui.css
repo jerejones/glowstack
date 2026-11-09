@@ -91,9 +91,16 @@ small { font-size: var(--t-s); }
 b, strong { font-weight: 600; }
 h2 small, h3 small { font-weight: 400; color: var(--muted); margin-left: 4px; }
 h2 small:empty, h3 small:empty { display: none; }
+/* A section's status ("all sending", "drawn vs measured length") has its own
+ * slot: right-aligned on the heading's baseline, never running on after the
+ * words. On a phone it takes the line under them instead (below). */
+.status-head { display: flex; align-items: baseline; gap: 8px; }
+.status-head > small { margin-left: auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
 /* On a phone a qualifier takes its own line and never strands a word. */
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
   h2 small, h3 small { display: block; margin-left: 0; font-size: var(--t-meta); }
+  .status-head { display: block; }
+  .status-head > small { white-space: normal; text-align: left; }
 }
 h1.title { font-size: var(--t-xl); font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; min-height: var(--title-row); margin: 10px 0 8px; }
 p { margin: 6px 0; }
