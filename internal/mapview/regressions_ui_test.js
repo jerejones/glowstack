@@ -1387,3 +1387,11 @@ test('Looks folds the long grids once something previews, and a preview on an em
   assert.match(applyResult('x', { dark: 'part', zones: [], message: '' }, true).text, /part of it stays dark/);
   assert.equal(applyResult('x', { dark: '' }, true).text, 'Applied x.');
 });
+
+test('one section heading style, Setup in order, and matching segments', () => {
+  const setup = read('panel/setup.js');
+  assert.doesNotMatch(setup, /<h3 class="sub">(Color the map by|Which lights|Show on the map)/);
+  assert.ok(setup.indexOf('<h1') < setup.indexOf('<h2 class="sub">Color') && setup.indexOf('<h2 class="sub">Color') < setup.indexOf('<h3 class="sub">Model detail'));
+  assert.match(css, /\.group-head \{ margin: 10px 0 6px; \}/, 'Pinned presets is an h2 like Preview');
+  assert.doesNotMatch(css, /\.seg\.five > button \{[^}]*font-size/, 'segments match the 14px segments below');
+});

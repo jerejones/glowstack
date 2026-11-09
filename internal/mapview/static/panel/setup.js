@@ -14,6 +14,7 @@ import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
 
 const ADVANCED = 'glowstack.setup.advanced';
+const KEY_FOLDED = 'glowstack.legend.folded';
 const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
 const MAX_FIT = 64;     // past this the sheet would stop being a half
 
@@ -42,17 +43,17 @@ export function createSetup(S, root) {
       <div class="row"><button type="button" id="suCal" class="go grow">Calibrate</button></div>
       <div class="muted small" id="suCalN"></div>
     </section>
-    <h3 class="sub">Color the map by</h3>
+    <h2 class="sub">Color the map by</h2>
     <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
     <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(humanize(m.id))}</option>`).join('')}</select></div>
     <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone" aria-label="Zone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
-    <h3 class="sub">Which lights to show</h3>
+    <h2 class="sub">Which lights to show</h2>
     <div class="seg" id="suRuns" role="group" aria-label="Runs shown">
       <button type="button" data-all="false">Working lights</button>
       <button type="button" data-all="true">All lights</button>
     </div>
     <div class="muted small help" id="suRunsCount"></div>
-    <h3 class="sub">Show on the map</h3>
+    <h2 class="sub">Show on the map</h2>
     <div class="chips toggles" role="group" aria-label="Show on the map">
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
@@ -77,7 +78,7 @@ export function createSetup(S, root) {
     <div class="seg" id="suRate" role="group" aria-label="Map update rate">${[[0, 'Max'], [10, '10/s'], [5, '5/s'], [1, '1/s']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</div>
     <div class="muted small help" id="suStream"></div>
     </details>
-    <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
+    <h2 class="sub">${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
     ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
     : '<li class="muted">Every light is on the map.</li>'}</ul>`;
@@ -92,11 +93,11 @@ export function createSetup(S, root) {
     const at = root.getBoundingClientRect().top;
     const rows = [];
     let heading = null; // a heading is one row with the control under it
-    for (const el of root.querySelectorAll('h1, .setup-cal, h3.sub, .seg, .chips, .help, #suAdvanced > summary, h2')) {
+    for (const el of root.querySelectorAll('h1, .setup-cal, .sub, .seg, .chips, .help, #suAdvanced > summary, h2')) {
       if (!el.offsetHeight) continue;
       const r = el.getBoundingClientRect(), row = { top: r.top - at + top, bottom: r.bottom - at + top };
       if (heading) row.top = heading.top;
-      heading = el.matches('h3.sub') ? row : null;
+      heading = el.matches('.sub') ? row : null;
       if (!heading) rows.push(row);
     }
     return base + halfSpill(rows, base - PEEK_CHROME);
@@ -147,6 +148,13 @@ export function createSetup(S, root) {
     const n = ov.hiddenLabels();
     const note = n ? `<div class="muted label-note">${plural(n, 'label')} hidden: no room. ${S.coarse ? 'Pinch to zoom in' : 'Hover or zoom in'} to see ${n === 1 ? 'it' : 'them'}.</div>` : '';
     for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = legendHTML + note; el.hidden = !(legendHTML + note); }
+    // The key on the map can be folded down, so that it leaves the map free.
+    const key = $('legend'), folded = !!load(KEY_FOLDED, false);
+    key.classList.toggle('folded', folded);
+    if (key.hidden) return;
+    const toggle = Object.assign(document.createElement('button'), { type: 'button', className: 'legend-toggle', textContent: folded ? 'Show key' : 'Hide key' });
+    toggle.onclick = () => { save(KEY_FOLDED, !folded); paintLegend(); S.setInsets(); S.markDirty(); };
+    key.append(toggle);
   }
   S.refreshLabelNote = paintLegend;
   function renderOverlay() {
