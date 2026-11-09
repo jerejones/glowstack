@@ -1317,8 +1317,8 @@ desk.
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
   - *Looks*: where looks go (**Preview on**), presets first and then effects, the preview
-    (a card per layer with its brightness, **Tweak**, **Apply to lights**
-    and Remove) and what is on the lights. Tweaking a
+    (a card per layer with its brightness, **Tweak** and Remove), the bar
+    that puts the preview on the lights, and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy
     replaces the original.
   - *Setup*: calibration, the overlays and their legend, the model's layers
@@ -1387,7 +1387,11 @@ desk.
 - **Primary actions.** One shape per role. A primary (the green `.go`
   button) is full width only in a sticky action bar: the Looks footer
   (push to live), the calibration dock (Confirm) and the preset editor's
-  bar (Save preset). Everywhere else a primary is inline and content
+  bar (Save preset). The Looks footer is one apply bar: it sits at the
+  foot of the panel in every state, with **Clear preview** (secondary) on
+  the same row as the primary, tops level; a phone has the same pair in
+  its sticky bar, Clear as a compact button beside the green one. The
+  action has one verb in every string: looks are **put on the lights**. Everywhere else a primary is inline and content
   width: Setup's Calibrate, Calibrate's Start, an empty state's action, a
   dialog's confirm. Heights are one value per pointer type (28 px on a fine
   pointer, 44 px on a coarse one); the calibration dock's buttons are the

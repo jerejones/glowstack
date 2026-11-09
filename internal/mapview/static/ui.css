@@ -497,7 +497,6 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   body[data-detent=half] .stage-head.sub-below > small::before { content: none; }
   body[data-detent=half] .stage-head.sub-below > small::first-letter { text-transform: uppercase; }
   /* Clear keeps its full tap height without adding to the line's. */
-  body[data-detent=half] .stage-head > #lkClear { flex: none; margin: -8px 0 -8px auto; padding: 0; align-self: center; }
   body[data-detent=half] .stage-warn { padding: 0 8px; margin-top: 4px; }
   body[data-detent=half] .layer.two-line .name-line { padding: 2px 0; }
   body[data-detent=half] .catalog-head { margin: 2px 0; }
@@ -713,14 +712,20 @@ html:not(.coarse) { --swatch-h: 36px; }
   position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; align-items: center;
   margin: 12px -12px 0; padding: 8px 12px; background: #111317; border-top: 1px solid var(--line); box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
 }
-.bar-main { display: flex; gap: 8px; align-items: center; }
+/* One apply bar (round 3): Clear preview (secondary) and the primary share
+ * one row, tops level, on every layout; the bar is at the panel's foot in
+ * every state, not floating under short content (see #tab-looks below). */
+.bar-main { display: flex; gap: 8px; align-items: stretch; }
+.bar-clear { flex: none; white-space: nowrap; background: transparent; }
+#tab-looks:not([hidden]) { display: flex; flex-direction: column; min-height: 100%; }
+#tab-looks > .look-bar { margin-top: auto; margin-bottom: calc(-1 * var(--content-bottom)); }
+#tab-looks > .library { margin-bottom: 12px; }
 .bar-main .seg { flex: none; width: auto; }
 .bar-main .swap { display: none; } /* the phone's link to the other mode */
-.bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; }
+.bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; text-wrap: balance; }
 .group-head { margin: 10px 0 6px; }
 .bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-line button { flex: none; white-space: nowrap; margin-left: auto; }
 /* A note too long to share a line takes its own, whole, under the buttons. */
 .look-bar.note-below .bar-line { flex-wrap: wrap; }
 .look-bar.note-below .bar-note { order: 5; flex: 0 0 100%; white-space: normal; overflow: visible; }
@@ -758,8 +763,6 @@ html:not(.coarse) { --swatch-h: 36px; }
   .layer.open .line-place, .layer.open .line-level { display: none; }
   .stage-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .stage-head > h2, .stage-head > small { grid-column: 1; }
-  #lkClear { grid-column: 2; grid-row: 1 / span 2; padding: 0 4px; border: 0; background: transparent; color: var(--accent); white-space: nowrap; }
-  #lkClear .icon { display: none; }
   /* On a phone place and Remove share a line; brightness and Tweak the next, so
    * the place's name keeps its room beside the worded Remove. */
   .layer .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
@@ -779,6 +782,10 @@ html:not(.coarse) { --swatch-h: 36px; }
   .bar-main .go { flex: 1 1 auto; }
   .bar-main .seg { display: none; }
   .bar-main .swap { display: inline-block; flex: none; min-height: var(--tap); font-size: var(--t-help); text-align: right; }
+  /* Clear is compact beside the green button: its word, a full tap target. */
+  .bar-clear { min-width: var(--tap); padding: 0 8px; }
+  .bar-clear .wide, .bar-clear .icon { display: none; } /* its word alone: the green button keeps its two lines */
+  .bar-main { gap: 6px; }
   .bar-line { display: none; }
 }
 

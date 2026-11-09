@@ -429,3 +429,36 @@ test('Refinement 3: one toggle idiom: a box with a check, never a circle', () =>
   assert.doesNotMatch(css, /\.seg > button::before/);
   assert.match(design, /\*\*Toggles\.\*\*[\s\S]{0,400}a box with a check/);
 });
+
+test('Refinement 4: one apply bar: Clear beside the primary, at the panel\'s foot, and one verb', async () => {
+  const looks = read('panel/looks.js');
+  // Clear preview is in the bar's one row with the primary, on every layout; it has left the card's header.
+  const bar = /<div class="bar-main">[\s\S]*?<\/div>\s*<div class="bar-line">/.exec(looks)[0];
+  assert.ok(bar.indexOf('id="lkClear"') >= 0 && bar.indexOf('id="lkClear"') < bar.indexOf('id="lkPushAll"'), 'Clear, then the primary, in one row');
+  assert.match(bar, /id="lkClear" class="icon-btn bar-clear" aria-label="Clear preview"/);
+  assert.doesNotMatch(looks, /placeClear|stage-head'\)\.append|clearHome/);
+  assert.doesNotMatch(css, /stage-head > #lkClear|^\s*#lkClear \{/m);
+  // Tops level: the row stretches its buttons to one height.
+  assert.match(css, /\.bar-main \{ display: flex; gap: 8px; align-items: stretch; \}/);
+  // The bar is at the panel's foot in every state: the tab is a column as tall as the panel, the bar pushed down.
+  assert.match(css, /#tab-looks:not\(\[hidden\]\) \{ display: flex; flex-direction: column; min-height: 100%; \}/);
+  assert.match(css, /#tab-looks > \.look-bar \{ margin-top: auto; margin-bottom: calc\(-1 \* var\(--content-bottom\)\); \}/);
+  // On a phone Clear is compact, its word alone, and a full tap target (44 px on coarse pointers).
+  const phone = css.slice(css.indexOf('.bar-main .swap { display: inline-block;'));
+  assert.match(phone, /\.bar-clear \{ min-width: var\(--tap\); padding: 0 8px; \}/);
+  assert.match(css, /html\.coarse \{ --tap: 44px;/);
+  // One verb for the action: "put on the lights". No "apply" in any string a person reads.
+  const { stageSub, applyPlan, onLights, applyResult, swapLabel } = await import('./static/panel/looks.js');
+  assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap', compact: true }), 'Tap a look to preview it. The lights change only when you put it on them.');
+  assert.equal(applyPlan({ n: 2, updates: false, house: 0, hidden: [], mode: 'replace' }).label, 'Put 2 looks on the lights');
+  assert.equal(onLights('The look'), 'The look is on the lights');
+  assert.equal(onLights('2 looks', true), '2 looks are on the lights');
+  assert.equal(applyResult(onLights('The look'), { dark: '' }).text, 'The look is on the lights.');
+  assert.equal(swapLabel('replace'), 'Add instead'); assert.equal(swapLabel('add'), 'Replace instead');
+  const strings = looks.match(/(['"`])(?:\\.|(?!\1)[^\\\n])*\1/g) || [];
+  // The icon's name and a class name are not words anyone reads.
+  const said = strings.filter((q) => /\bappl(y|ied|ies|ying)\b/i.test(q.replace(/icon\('apply'\)|apply-one|^'apply'$/g, '')));
+  assert.deepEqual(said, [], 'the string audit: one verb, and it is not "apply"');
+  assert.match(looks, /S\.fail\('put the look on the lights', e\)/);
+  assert.match(looks, /It goes on the lights when you update them\./);
+});

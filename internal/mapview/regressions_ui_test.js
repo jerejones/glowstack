@@ -346,7 +346,7 @@ test('B35: a warning toast is the warning color', () => {
 });
 
 test('B36: Apply closes Show on', () => {
-  assert.match(read('panel/looks.js'), /S\.fail\('apply the look', e\);[^\n]*\n\s+openPicker\(false\);/);
+  assert.match(read('panel/looks.js'), /S\.fail\('put the look on the lights', e\);[^\n]*\n\s+openPicker\(false\);/);
 });
 
 test('B37: the inspect card reads like the panel', async () => {
@@ -796,10 +796,10 @@ test('B64: Apply reports what really happened, and the chip says so too', async 
   assert.equal(lightOutcome(geo, dark, [[[0, 19]]]).dark, 'part');
   assert.equal(lightOutcome(geo, dark, [[[10, 19]]]).dark, '');
   assert.equal(lightOutcome(geo, { master: 0, zones: {} }, [[[10, 19]]]).dark, 'none', 'the master at 0 is dark too');
-  assert.equal(applyResult('the look to the lights', { dark: '' }).warn, false);
-  const r = applyResult('the look to the lights', none);
+  assert.equal(applyResult('The look is on the lights', { dark: '' }).warn, false);
+  const r = applyResult('The look is on the lights', none);
   assert.equal(r.warn, true);
-  assert.equal(r.text, 'Applied the look to the lights. Yard is at 0%, so it stays dark.');
+  assert.equal(r.text, 'The look is on the lights. Yard is at 0%, so it stays dark.');
   const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
   assert.equal(chip.text, 'Lights: dark');
   assert.equal(chip.detail, ', zones at 0%');
@@ -1137,9 +1137,9 @@ test('B75: the dark warning is said once on a screen', async () => {
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Porch'], message: 'Porch is at 0% brightness, so nothing shows there.' };
   // The toast stands alone, wherever the banner is.
-  const shown = applyResult('the look to the lights', dark, 'Lantern');
+  const shown = applyResult('The look is on the lights', dark, 'Lantern is on the lights');
   assert.equal(shown.warn, true);
-  assert.equal(shown.text, 'Applied Lantern. Porch is at 0%, so it stays dark.');
+  assert.equal(shown.text, 'Lantern is on the lights. Porch is at 0%, so it stays dark.');
   // The chip steps back while a card on the open tab explains it.
   assert.doesNotMatch(read('app.js'), /darkInPanel/, 'the chip says the same with or without the tab\'s warning');
   // Status: the verdict carries the fix instead of a card repeating it.
@@ -1355,7 +1355,7 @@ test('Looks leaves the grids alone when something previews, and a preview on an 
   assert.match(looks, /class="muted">\$\{pc\.label\}</, 'where the look goes, in words');
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Yard'], message: 'x' };
-  assert.equal(applyResult('x', { dark: '' }, 'y').text, 'Applied x.');
+  assert.equal(applyResult('x', { dark: '' }, 'y').text, 'x.');
   assert.equal(applyResult('x', dark, 'y').warn, true);
 });
 
@@ -1368,7 +1368,8 @@ test('one section heading style, Setup in order, and matching segments', () => {
 });
 
 test('desktop footer keeps to the panel bottom; legend folds; boot has the tab icons; labels fit a phone', async () => {
-  assert.doesNotMatch(css, /#tab-looks > \.look-bar/, 'the bar follows the content; sticky covers the tall case');
+  // Round 3 (one apply bar): the bar is at the panel's foot in every state; sticky still covers the tall case.
+  assert.match(css, /#tab-looks > \.look-bar \{ margin-top: auto;/);
   assert.match(read('panel/setup.js'), /legend-toggle/);
   assert.match(css, /\.legend\.folded > :not\(\.legend-toggle\) \{ display: none/);
   assert.match(css, /\.target-list \{[^}]*padding-bottom: 12px/, 'the last chips clear the sticky bar');
@@ -1499,7 +1500,7 @@ test('every secondary action on a card or row has its icon and word, and categor
   assert.match(presets, /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
   assert.match(looks, /\$\{icon\('tweak'\)\}Tweak/);
   assert.match(looks, /\$\{icon\('close'\)\}<span>Remove/);
-  assert.match(looks, /\$\{icon\('apply'\)\}Apply only this/);
+  assert.match(looks, /\$\{icon\('apply'\)\}Put only this on the lights/);
   for (const m of overlay.matchAll(/<span class="(sw[^"]*)" style="background:rgb/g)) assert.equal(m[1], 'sw', 'categories are the plain swatch');
 });
 
@@ -1803,11 +1804,11 @@ test('B103: Preview and Lights are off until the map is ready, and say why', asy
 
 test('Applying into a 0% zone never reports plain success alone', async () => {
   const { applyResult } = await import('./static/panel/looks.js');
-  const master = applyResult('the look to the lights', { dark: 'none', message: 'Brightness is at 0%, so nothing shows.', zones: [] }, 'Lantern');
+  const master = applyResult('The look is on the lights', { dark: 'none', message: 'Brightness is at 0%, so nothing shows.', zones: [] }, 'Lantern is on the lights');
   assert.equal(master.warn, true);
-  assert.equal(master.text, 'Applied Lantern. Brightness is at 0%, so nothing shows.');
+  assert.equal(master.text, 'Lantern is on the lights. Brightness is at 0%, so nothing shows.');
   assert.equal(master.zones, undefined, 'no zones to turn on, so no button');
-  assert.equal(applyResult('the look', { dark: '' }).text, 'Applied the look.');
+  assert.equal(applyResult('The look is on the lights', { dark: '' }).text, 'The look is on the lights.');
 });
 
 test('the stage says why it is dark, once, inside the stage', () => {
@@ -1840,7 +1841,7 @@ test('one control language: one slider, one selected fill, one readout', () => {
 test('action buttons lead with an icon; the header says it sets new previews', () => {
   const looks = read('panel/looks.js'), setup = read('panel/setup.js'), status = read('panel/status.js'), presets = read('panel/presets.js'), cal = read('panel/calibrate.js');
   assert.match(looks, /html = `\$\{icon\('apply'\)\}<span>\$\{esc\(plan\.label\)\}/);
-  assert.match(looks, /\$\{icon\('close'\)\}Clear preview/);
+  assert.match(looks, /\$\{icon\('close'\)\}<span>Clear<span class="wide"> preview<\/span><\/span>/);
   assert.match(presets, /id="prNew" class="icon-btn">\$\{icon\('plus'\)\}/);
   assert.match(setup, /icon\('target'\)\}\$\{running/);
   assert.match(status, /\$\{icon\('target'\)\}Calibrate/);
@@ -1990,7 +1991,7 @@ test('one 0% line in the stage, short enough for one row beside Turn on', async 
 });
 
 test('B109: the bar\'s secondary controls never wrap, and its note stays on one line', () => {
-  assert.match(css, /\.bar-line button \{ flex: none; white-space: nowrap;/);
+  assert.match(css, /\.bar-clear \{ flex: none; white-space: nowrap;/);
   assert.match(css, /\.bar-note \{[^}]*white-space: nowrap/);
 });
 
@@ -2331,10 +2332,10 @@ test('wording: In front explains itself, and the apply toast stands alone', asyn
   assert.match(read('panel/looks.js'), /'Shown over the layers below it'/);
   const { applyResult } = await import('./static/panel/looks.js');
   const four = { dark: 'none', zones: ['A', 'B', 'C', 'D'], message: 'x' };
-  assert.equal(applyResult('the look', four, 'Lantern').text, 'Applied Lantern. 4 zones are at 0%, so they stay dark.');
+  assert.equal(applyResult('The look is on the lights', four, 'Lantern is on the lights').text, 'Lantern is on the lights. 4 zones are at 0%, so they stay dark.');
   const two = { dark: 'part', zones: ['Street', 'Yard'], ids: ['s', 'y'], message: 'x' };
-  const r = applyResult('the look', two, 'Lantern');
-  assert.equal(r.text, 'Applied Lantern. Street and Yard are at 0%, so they stay dark.');
+  const r = applyResult('The look is on the lights', two, 'Lantern is on the lights');
+  assert.equal(r.text, 'Lantern is on the lights. Street and Yard are at 0%, so they stay dark.');
   assert.deepEqual(r.zones, { ids: ['s', 'y'], names: ['Street', 'Yard'] }, 'carries the same fix as the banner');
   for (const o of [four, two]) assert.doesNotMatch(applyResult('the look', o, 'x').text, /\b(above|below)\b/);
   assert.match(read('app.js'), /opts\.action/, 'a toast can carry its fix');
@@ -2616,7 +2617,7 @@ test('Refinement 4: the phone footer says Replace once', async () => {
   const { swapLabel, applyPlan } = await import('./static/panel/looks.js');
   const looks = read('panel/looks.js');
   // One primary button whose label states the mode, and a text link to the other mode under it.
-  assert.equal(swapLabel('replace'), 'Add on top instead');
+  assert.equal(swapLabel('replace'), 'Add instead');
   assert.equal(swapLabel('add'), 'Replace instead');
   for (const mode of ['replace', 'add']) {
     const plan = applyPlan({ n: 1, house: 1, hidden: ['Dusk'], mode });
@@ -2832,10 +2833,10 @@ test('Refinement 7 (round 2): a designed loading state, painted before the scrip
 test('B138: the compact state card never cuts its own words', async () => {
   const { stageSub, compactStage, subBelow } = await import('./static/panel/looks.js');
   // The half sheet's first-use hint is short and complete, with the lights' rule in it.
-  assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap', compact: true }), 'Tap a look to preview it. The lights change only when you apply.');
+  assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap', compact: true }), 'Tap a look to preview it. The lights change only when you put it on them.');
   assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap' }), "Tap a look below to preview it on the map; the lights don't change.", 'the full sheet keeps the long one');
   assert.equal(stageSub({ rows: 1, stale: false, word: 'Tap', compact: true }), '');
-  assert.equal(compactStage({ title: 'Nothing on the lights', sub: 'Tap a look to preview it. The lights change only when you apply.', preview: 0, live: 0 }).sub, 'tap a look to preview it. The lights change only when you apply.');
+  assert.equal(compactStage({ title: 'Nothing on the lights', sub: 'Tap a look to preview it. The lights change only when you put it on them.', preview: 0, live: 0 }).sub, 'tap a look to preview it. The lights change only when you put it on them.');
   // The sub takes its own line when it does not fit whole beside the state; an empty sub never does.
   assert.equal(subBelow('replaces Lantern and Porch glitter', 240, 120), true);
   assert.equal(subBelow('replaces Lantern', 100, 120), false);

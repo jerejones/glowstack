@@ -97,7 +97,7 @@ export function stageSub({ rows, stale, word, read = true, status = 'available',
   if (stale) return "Couldn't refresh. This is the last known state.";
   if (!read && !rows && status === 'unavailable') return "Glowstack didn't answer, so what's on the lights isn't known.";
   if (rows) return '';
-  return compact ? `${word} a look to preview it. The lights change only when you apply.` : `${word} a look below to preview it on the map; the lights don't change.`;
+  return compact ? `${word} a look to preview it. The lights change only when you put it on them.` : `${word} a look below to preview it on the map; the lights don't change.`;
 }
 
 const FILTER_WORDS = { pinned: 'Pinned', presets: 'All presets', effects: 'Effects' };
@@ -288,7 +288,7 @@ export function applyPlan({ n, updates, house, hidden, mode }) {
 
 // swapLabel is the phone bar's link to the other mode: the one the button
 // doesn't say.
-export const swapLabel = (mode) => (mode === 'add' ? 'Replace instead' : 'Add on top instead');
+export const swapLabel = (mode) => (mode === 'add' ? 'Replace instead' : 'Add instead');
 
 // applyTitle is the Apply button's tooltip; a failed status read says so
 // there, and Apply still works.
@@ -297,16 +297,23 @@ export function applyTitle(plan, unknown) {
   return unknown ? `${base.replace(/\.?$/, '.')} The lights' current state is unknown.` : base;
 }
 
-// applyResult is what Apply reports: plain success only when the look can
-// be seen. outcome is lightOutcome for the applied looks; name is the look,
-// or how many, for the sentence that has to name the zones. The toast stands
-// alone: it says what stayed dark and carries the fix.
+// onLights says looks are on the lights, in the one verb this panel uses
+// for the action ("put on the lights": the button, the hint, the result).
+// what is the looks as the sentence's subject ("The look", "2 looks",
+// "Lantern"); plural picks is or are.
+export const onLights = (what, plural = false) => `${what} ${plural ? 'are' : 'is'} on the lights`;
+
+// applyResult is what putting looks on the lights reports: plain success
+// only when the look can be seen. what is the whole success sentence
+// without its full stop; outcome is lightOutcome for those looks; name is
+// the sentence that has to name the zones. The toast stands alone: it says
+// what stayed dark and carries the fix.
 export function applyResult(what, outcome, name = what) {
-  if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
-  if (!outcome.zones?.length) return { text: `Applied ${name}. ${outcome.message}`, warn: true };
+  if (!outcome.dark) return { text: `${what}.`, warn: false };
+  if (!outcome.zones?.length) return { text: `${name}. ${outcome.message}`, warn: true };
   const zones = outcome.zones, list = joined(zones);
   const who = zones.length < 3 && list.length <= 40 ? list : `${zones.length} zones`;
-  return { text: `Applied ${name}. ${who} ${zones.length === 1 ? 'is' : 'are'} at 0%, so ${zones.length === 1 ? 'it stays' : 'they stay'} dark.`, warn: true, zones: { ids: outcome.ids, names: zones } };
+  return { text: `${name}. ${who} ${zones.length === 1 ? 'is' : 'are'} at 0%, so ${zones.length === 1 ? 'it stays' : 'they stay'} dark.`, warn: true, zones: { ids: outcome.ids, names: zones } };
 }
 // The confirmation carries Undo for TOAST_MS (undo: {label, run}, or null
 // when the change could not be marked), beside the dark toast's Turn on.
@@ -405,11 +412,12 @@ export function createLooks(S, root) {
     </section>
     <div class="look-bar" id="lkBar" hidden>
       <div class="bar-main">
+        <button type="button" id="lkClear" class="icon-btn bar-clear" aria-label="Clear preview" title="Remove everything from the preview; the lights don't change">${icon('close')}<span>Clear<span class="wide"> preview</span></span></button>
         <div class="seg" id="lkMode" role="group" aria-label="What happens to what's on the lights" hidden><button type="button" data-mode="replace">Replace</button><button type="button" data-mode="add">Add</button></div>
         <button type="button" class="go icon-btn" id="lkPushAll"></button>
         <button type="button" class="target-btn swap" id="lkSwap" hidden></button>
       </div>
-      <div class="bar-line"><p class="bar-note" id="lkBarNote"></p><button type="button" id="lkClear" class="quiet icon-btn" title="Remove everything from the preview; the lights don't change">${icon('close')}Clear preview</button></div>
+      <div class="bar-line"><p class="bar-note" id="lkBarNote"></p></div>
     </div>`;
   const $$ = (sel) => root.querySelector(sel);
 
@@ -824,7 +832,7 @@ export function createLooks(S, root) {
     const note = el.querySelector('.note');
     const orig = c.lane === 'preview' ? copies[l.id] : '';
     note.className = orig ? 'note copy-note' : 'note';
-    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
+    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. It goes on the lights when you update them.` : '';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
     rm.querySelector('span').textContent = part ? 'Remove here' : 'Remove';
     rm.classList.toggle('worded', !!part);
@@ -1055,12 +1063,9 @@ export function createLooks(S, root) {
   }
   for (const b of $$('#lkMode').children) b.onclick = () => { mode = b.dataset.mode; renderStage(); };
   $$('#lkSwap').onclick = () => { mode = mode === 'add' ? 'replace' : 'add'; renderStage(); };
-  // placeClear keeps Clear in the bar beside the map, and in the stage's
-  // header on a phone, whose bar is one row.
-  const clearHome = $$('#lkClear').parentElement;
-  function placeClear() { (S.panel.layout() === 'sheet' ? $$('.stage-head') : clearHome).append($$('#lkClear')); }
-  placeClear();
-  S.on('layout', () => { placeClear(); renderStage(); });
+  // One apply bar (round 3): Clear preview sits in the bar beside the
+  // primary on every layout, never in the card's header.
+  S.on('layout', renderStage);
   let revealing = false; // opening a form places it: nothing else scrolls then
   let darkToast = null;
   S.on('tab', () => { darkToast?.remove(); darkToast = null; });
@@ -1115,7 +1120,7 @@ export function createLooks(S, root) {
     }
     // With two or more previews, the form is where this one can go on alone.
     if (c.lane === 'preview') {
-      c.only = Object.assign(document.createElement('button'), { type: 'button', className: 'icon-btn apply-one', title: 'Put only this look on the lights', innerHTML: `${icon('apply')}Apply only this` });
+      c.only = Object.assign(document.createElement('button'), { type: 'button', className: 'icon-btn apply-one', title: 'Put only this look on the lights', innerHTML: `${icon('apply')}Put only this on the lights` });
       c.only.hidden = (S.preview?.layers.length || 0) < 2;
       c.only.onclick = () => apply([c.id]);
       form.el.prepend(c.only);
@@ -1140,7 +1145,7 @@ export function createLooks(S, root) {
     const point = await mark(api);
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
-    } catch (e) { applying = false; S.fail('apply the look', e); await S.refresh(); return; }
+    } catch (e) { applying = false; S.fail('put the look on the lights', e); await S.refresh(); return; }
     openPicker(false); // the result, not the list of places, is what to see
     const replaced = [], replaceIds = replace.map((l) => l.id);
     for (const id of list) {
@@ -1160,10 +1165,11 @@ export function createLooks(S, root) {
     // The result is at the top: the panel's heading and the new rows in view.
     root.parentElement.scrollTop = 0;
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
-    const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
+    const many = list.length !== 1;
+    const what = `${onLights(many ? list.length + ' looks' : 'The look', many)}${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
-    offerUndo(point, `applied ${list.length === 1 ? names[0] || 'the look' : list.length + ' looks'}`);
-    darkToast = applyToast(S, what, outcome, names.length === 1 ? names[0] : `${names.length} looks`, undoAction()[0] || null);
+    offerUndo(point, `put ${many ? list.length + ' looks' : names[0] || 'the look'} on the lights`);
+    darkToast = applyToast(S, what, outcome, onLights(many ? `${names.length} looks` : String(names[0] || 'The look').replace(/\u00a0/g, ' '), many), undoAction()[0] || null);
   }
   $$('#lkUndo').onclick = undoLast;
   $$('#lkPushAll').onclick = () => apply([], plan?.replace ? hidden : []);
