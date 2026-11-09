@@ -470,7 +470,9 @@ export function createForm(ctx) {
         for (const c of unusedColors) c.row.hidden = c.ignored();
         const names = unusedColors.filter((c) => c.ignored()).map((c) => c.label);
         line.hidden = !names.length;
-        line.textContent = `Not used by this palette: ${names.join(', ')}`;
+        // A name is never split across lines; the whole note fits one on a phone.
+        line.textContent = `Not used: ${names.map((n) => n.replace(/ /g, '\u00a0')).join(', ')}`;
+        line.title = 'This palette does not use these colors';
       };
       sync();
       noted.push(sync);
@@ -608,10 +610,10 @@ export function createForm(ctx) {
       const list = [...(get() || [])];
       list.forEach((_, i) => { if (i >= from) box.append(colorInput(() => (get() || [])[i], (v) => { const l = [...(get() || [])]; l[i] = v; set(l); })); });
       const add = document.createElement('button');
-      add.type = 'button'; add.innerHTML = `${icon('plus')}Add color`; add.title = 'Add a color';
+      add.type = 'button'; add.className = 'icon-btn'; add.innerHTML = `${icon('plus')}Add color`; add.title = 'Add a color';
       add.onclick = () => { set([...(get() || []), '#ffffff']); build(); };
       const rm = document.createElement('button');
-      rm.type = 'button'; rm.innerHTML = `${icon('minus')}Remove`; rm.title = 'Remove the last color';
+      rm.type = 'button'; rm.className = 'icon-btn'; rm.innerHTML = `${icon('minus')}Remove`; rm.title = 'Remove the last color';
       rm.disabled = list.length <= Math.max(1, from);
       rm.onclick = () => { set((get() || []).slice(0, -1)); build(); };
       box.append(add, rm);

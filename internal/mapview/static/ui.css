@@ -190,7 +190,7 @@ input[type=checkbox]:checked::after {
 .seg > button + button { border-left: 0; box-shadow: inset 1px 0 0 var(--control-line); }
 .seg > button.on { background: var(--on); color: #fff; box-shadow: inset 0 0 0 1px var(--accent); }
 .seg > button.on + button { box-shadow: none; } /* the selected edge is the divider */
-.seg > button:disabled, .seg > button[aria-disabled=true]:not(.on) { color: var(--muted); opacity: .5; cursor: not-allowed; }
+.seg > button:disabled, .seg > button[aria-disabled=true]:not(.on) { color: var(--muted); cursor: not-allowed; }
 .tab .seg { display: flex; width: 100%; }
 .tab .seg > button { flex: 1; min-width: 0; }
 /* Five choices share one row, at the size of the page's other segments. */
@@ -569,15 +569,18 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .form .f > label { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; }
 .form .f .ctl { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .form .f .ctl input[type=text], .form .f .ctl input:not([type]) { flex: 1; min-width: 0; }
-.form .f .doc { grid-column: 1 / -1; color: var(--muted); font-size: var(--t-help); margin-top: -2px; }
+.form .f .doc { grid-column: 1 / -1; color: var(--muted); font-size: var(--t-help); margin-top: -2px; text-wrap: pretty; }
 .form .f.bad input { border-color: var(--bad); }
 .form .colors { display: flex; width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; align-items: center; }
 .form .color-picker { width: 100%; min-width: 0; }
 .form .color-picker summary { gap: 8px; justify-content: flex-start; }
 .form .color-picker > summary::before { order: 2; }
-.unused-note { margin: 6px 0 2px; }
+.unused-note { margin: 6px 0 2px; text-wrap: pretty; }
 .form .color-swatch { display: inline-block; width: 32px; height: 28px; border: 1px solid #64748b; border-radius: 7px; }
-.form .f:has(.color-picker[open]) > .ctl, .form .f:has(.picker.open) > .ctl { grid-column: 1 / -1; }
+.form .f:has(.picker.open) > .ctl { grid-column: 1 / -1; }
+/* Open, the mixer reaches under the label; the row itself stays side by side. */
+.form .f .color-picker[open] > .color-mixer { margin-left: calc(-8.5em - 8px); }
+.form .f:has(.color-picker[open]) { align-items: start; }
 .form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 1px solid var(--line); border-radius: 10px; }
 .form .channel-row { display: grid; grid-template-columns: 84px minmax(40px, 1fr) 48px; align-items: center; gap: 8px; margin: 10px 0; }
 .form .channel-row label { font-size: var(--t-meta); color: #e2e8f0; }
@@ -595,8 +598,11 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .setup-cal { margin: 0 0 16px; padding: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .setup-cal p { margin-top: 0; }
 .help { margin-top: 6px; }
-#suAdvanced { margin-top: 12px; }
-#suAdvanced > summary { font-weight: 600; }
+#suAdvanced { margin-top: 16px; }
+#suAdvanced > summary { font-size: var(--t-h3); font-weight: 600; color: #cbd5e1; }
+/* Its sections sit under Advanced: indented, and a size below the top-level ones. */
+#suAdvanced > :not(summary) { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-strong); }
+#suAdvanced h3.sub { font-size: var(--t-m); margin-top: 10px; }
 /* One rhythm on Setup: 16 above a heading, 6 to its control, 6 to its help. */
 .tab h2.sub, .tab h3.sub { margin: 16px 0 6px; font-size: var(--t-h3); color: #cbd5e1; }
 .nv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }

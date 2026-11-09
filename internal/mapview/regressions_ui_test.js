@@ -1688,7 +1688,8 @@ test('wording: one phrase for scope, a calm empty list, amber real-lights warnin
 });
 
 test('polish: disabled segment, labeled color buttons, nothing to clear, quieter controllers', async () => {
-  assert.match(css, /\.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*opacity: \.5/);
+  assert.doesNotMatch(/\.seg > button:disabled, \.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*\}/.exec(css)[0], /opacity/, 'a readable color, not half strength');
+  assert.match(/\.seg > button:disabled, \.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*\}/.exec(css)[0], /color: var\(--muted\)/);
   assert.match(css, /\.form \.color-picker > summary::before \{ order: 2; \}/);
   const form = read('form.js');
   assert.match(form, /\$\{icon\('plus'\)\}Add color/);
@@ -2031,7 +2032,8 @@ test('polish: apply and stop have their own icons, Calibrate no longer looks lik
 
 test('unused palette colors fold into one line', () => {
   const form = read('form.js');
-  assert.match(form, /`Not used by this palette: \$\{names\.join\(', '\)\}`/);
+  assert.match(form, /`Not used: \$\{names\.map/, 'one line on a phone');
+  assert.match(form, /replace\(\/ \/g, '\\u00a0'\)/, 'a color name never splits across lines');
   assert.match(form, /c\.row\.hidden = c\.ignored\(\)/);
 });
 
@@ -2081,10 +2083,23 @@ test('B114: library cards are one height, with the name in two lines and the sub
   assert.match(css, /\.cards:has\(> \.preset:nth-child\(4\):last-child\)/, 'four pins fill one row at the wide panel');
 });
 
+test('B115: icon buttons in the Tweak form keep the icon beside the label', () => {
+  const form = read('form.js');
+  assert.match(form, /add\.className = 'icon-btn'; add\.innerHTML = `\$\{icon\('plus'\)\}Add color/);
+  assert.match(form, /rm\.className = 'icon-btn'; rm\.innerHTML = `\$\{icon\('minus'\)\}Remove/);
+  assert.match(css, /button\.icon-btn \{ display: inline-flex;/);
+});
+
 test('Tweak has its own icon, not the Setup tab\'s sliders', () => {
   const icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
   assert.notEqual(path('tweak'), path('setup'));
   assert.notEqual(path('tweak'), path('edit'));
+});
+
+test('Setup: Advanced is nested under Advanced, a size below the top-level sections', () => {
+  assert.match(css, /#suAdvanced > :not\(summary\) \{[^}]*border-left/);
+  assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
+  assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*font-size: var\(--t-h3\)/);
 });
 
 test('a phone: the stage is the first content, and the sheet rises for a preview or Tweak', () => {
@@ -2096,3 +2111,7 @@ test('a phone: the stage is the first content, and the sheet rises for a preview
   assert.match(read('sheet.js'), /panel\.classList\.add\('dragging'\);\n\s+refresh\(true\)/, 'no rise from the peek on load');
 });
 
+test('opening the color editor keeps the row side by side', () => {
+  assert.doesNotMatch(css, /\.form \.f:has\(\.color-picker\[open\]\) > \.ctl/);
+  assert.match(css, /\.color-picker\[open\] > \.color-mixer \{ margin-left:/);
+});
