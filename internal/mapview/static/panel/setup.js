@@ -44,7 +44,9 @@ export function createSetup(S, root) {
       <button type="button" id="suEven" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label even runs</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
-    <div id="suModel" hidden><h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
+    <div id="suModel" hidden><h3 class="sub">Model detail</h3>
+      <div class="seg" id="suDetail" role="group" aria-label="Model detail"><button type="button" data-detail="simple" title="A dim outline, so the lights and targets lead">Simple</button><button type="button" data-detail="full" title="Every line of the model, including what's behind walls">Full detail</button></div>
+      <h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
     <div id="suPlanRow" hidden><h3 class="sub">Plan</h3><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
       <h3 class="sub">Camera <small id="suCamMode"></small></h3>
@@ -139,6 +141,10 @@ export function createSetup(S, root) {
       b.onclick = () => { v.setVisible(l.name, !l.visible); press(b, l.visible); };
       return b;
     }));
+    for (const b of $$('#suDetail').children) {
+      press(b, b.dataset.detail === v.detail?.());
+      b.onclick = () => { v.setDetail(b.dataset.detail); renderView(); };
+    }
     $$('#suModel').hidden = !v.layers.length;
     $$('#suCamera').hidden = v.kind !== '3d';
   }

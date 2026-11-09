@@ -29,6 +29,11 @@ const FREE = 'glowstack.camera.free';  // the last camera the user orbited to
 const THREE_QUARTER = [-0.45, -0.8, 0.5];
 const MARGIN = 1.04; // framing leaves this much room around the pixels
 const SUBDUED = 0.4; // the model's opacity while a look is showing
+const DETAIL = 'glowstack.model.detail'; // 'simple' or 'full', per device
+const SIMPLE_LINES = 0.5; // simple detail's line opacity, of full's
+// A layer with one of these words in its name is fine detail: left out of
+// the simple drawing.
+export const isFineDetail = (name) => /(^|[-_. ])(detail|details|fine|trim)([-_. ]|$)/i.test(name);
 
 export const toThree = (p) => new THREE.Vector3(p[0], p[2], -p[1]);
 const fromThree = (v) => [v.x, -v.z, v.y];
@@ -151,6 +156,16 @@ export async function open(glCanvas, input, opts) {
     colorWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 2,
   });
   const layers = [], modelMaterials = [];
+  // Simple: dimmer lines with the ones behind a wall hidden, so lights and
+  // targets lead. Full is every line, see-through.
+  let detail = load(DETAIL, 'simple') === 'full' ? 'full' : 'simple';
+  const lineScale = () => (detail === 'simple' ? SIMPLE_LINES : 1);
+  function applyDetail() {
+    for (const m of modelMaterials) {
+      m.scale = m.line ? lineScale() : 1;
+      if (m.line) m.material.depthTest = detail === 'simple';
+    }
+  }
   for (const l of opts.layers) {
     const objs = groups.get(l.name);
     if (!objs || layers.some((x) => x.name === l.name)) continue;
@@ -176,14 +191,16 @@ export async function open(glCanvas, input, opts) {
           o.material = new THREE.PointsMaterial({ ...common, size: 2, sizeAttenuation: false });
           o.renderOrder = ORDER.lines;
         }
-        if (o.isMesh || o.isLine || o.isPoints) modelMaterials.push({ material: o.material, opacity });
+        if (o.isMesh || o.isLine || o.isPoints) modelMaterials.push({ material: o.material, opacity, line: !o.isMesh });
       });
     }
     const def0 = st.visible ?? true;
-    const visible = l.name in saved ? !!saved[l.name] : def0;
+    const fine = isFineDetail(l.name);
+    const visible = l.name in saved ? !!saved[l.name] : def0 && !(fine && detail === 'simple');
     for (const o of objs) o.visible = visible;
-    layers.push({ name: l.name, kind: l.kind, visible, initial: def0 });
+    layers.push({ name: l.name, kind: l.kind, visible, initial: def0, fine });
   }
+  applyDetail();
 
   // ----- pixels -----
   const pos = new Float32Array(3 * n), dl = new Float32Array(n), flags = new Float32Array(n);
@@ -384,9 +401,13 @@ export async function open(glCanvas, input, opts) {
   function subdue(on) {
     if (on === subdued) return;
     subdued = on;
-    for (const m of modelMaterials) m.material.opacity = m.opacity * (on ? SUBDUED : 1);
+    paintModel();
     changed();
   }
+  function paintModel() {
+    for (const m of modelMaterials) m.material.opacity = m.opacity * m.scale * (subdued ? SUBDUED : 1);
+  }
+  paintModel();
   const anyLit = (rgb) => { for (let i = 0; i < rgb.length; i++) if (rgb[i] > 8) return true; return false; };
   // The camera is the user's (free) once a gesture moves it; a tap
   // starts and ends a gesture without moving anything.
@@ -449,6 +470,23 @@ export async function open(glCanvas, input, opts) {
     kind: '3d',
     layers,
     bounds: [lo, hi],
+    detail: () => detail,
+    // setDetail picks the drawing's detail. It decides the fine layers
+    // again, whatever they were last toggled to.
+    setDetail(value) {
+      detail = value === 'full' ? 'full' : 'simple';
+      save(DETAIL, detail);
+      applyDetail();
+      paintModel();
+      for (const l of layers) {
+        if (!l.fine) continue;
+        delete saved[l.name];
+        l.visible = l.initial && detail === 'full';
+        for (const o of groups.get(l.name) || []) o.visible = l.visible;
+      }
+      save(LAYERS, saved);
+      changed();
+    },
     setVisible(name, on) {
       for (const o of groups.get(name) || []) o.visible = on;
       const l = layers.find((x) => x.name === name);

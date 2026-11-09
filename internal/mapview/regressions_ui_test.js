@@ -667,6 +667,21 @@ test('the shared text input puts its error under the field', async () => {
   assert.match(read('panel/looks.js'), /textField\(\{ ariaLabel: 'Find a place'/);
 });
 
+test('the default model is dimmer and simpler, with full detail in Setup', () => {
+  const scene = read('scene.js');
+  assert.match(scene, /load\(DETAIL, 'simple'\) === 'full' \? 'full' : 'simple'/, 'simple unless this device chose otherwise');
+  assert.match(scene, /m\.material\.depthTest = detail === 'simple'/, 'lines behind a wall are hidden');
+  assert.match(scene, /const SIMPLE_LINES = 0\.5;/);
+  assert.match(read('panel/setup.js'), /data-detail="full"/);
+});
+
+test('fine-detail layers are named, not guessed from the rest', async () => {
+  const src = read('scene.js').match(/const isFineDetail = (.*);/)[1];
+  const isFine = eval(src);
+  for (const n of ['detail lines', 'fine-detail', 'trim_lines']) assert.ok(isFine(n), n);
+  for (const n of ['walls lines', 'detailed', 'walls faces']) assert.ok(!isFine(n), n);
+});
+
 test('the map model is dim so the lights lead', () => {
   assert.match(read('scene.js'), /lines: \{ color: '#cfe3ff', opacity: 0\.2 \}/);
 });
