@@ -107,11 +107,17 @@ function paletteStrip(S, value, owner, colors) {
 
 // Palettes built from a look's own colors, by id.
 const COLOR_BASED = new Set(['color-1', 'colors-1-2', 'color-gradient', 'colors-only']);
-const NO_COLORS = 'repeating-linear-gradient(135deg, #4a5361 0 3px, #20242c 3px 6px)';
+// Three neutral dots: this entry takes its colors from the look.
+const DOTS = (fill, x) => `<circle cx='${x}' cy='6' r='3' fill='${fill}'/>`;
+const NO_COLORS = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='30' height='12'>${DOTS('#a6aebb', 6)}${DOTS('#7c8594', 15)}${DOTS('#565e6b', 24)}</svg>`)}") center / 30px 12px repeat-x, #20242c`;
 const isBlack = (c) => { const x = parseColor(c); return !x || !(x.r || x.g || x.b || x.w); };
 
+// layerPrefix is a layered effect's namespace on a parameter name, with its
+// dot: a palette reads the colors of its own layer.
+export const layerPrefix = (name = '') => name.slice(0, name.lastIndexOf('.') + 1);
+
 // choiceStrip is a palette row's swatch. A palette built from the look's
-// colors shows them; with none set, or all of them black, a hatch says so
+// colors shows them; with none set, or all of them black, a glyph says so
 // where a black bar would read as a broken row.
 export function choiceStrip(S, id, owner, colors) {
   const resolved = id === 'default' ? DEFAULT_PALETTE[owner] || 'party' : id;
@@ -417,7 +423,7 @@ export function createForm(ctx) {
       if (lf.type === 'color') {
         field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
       } else if (lf.type === 'palette' || b.slider === 'pal') {
-        field(wled, label, paletteSelect(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
+        field(wled, label, paletteSelect(() => lf.get(vals), (v) => apply(lf.set(vals, v)), layerPrefix(b.param)), null, title);
       } else if (lf.type === 'bool') {
         field(wled, label, checkbox(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
       } else if (lf.type === 'enum') {
@@ -452,14 +458,14 @@ export function createForm(ctx) {
     return [r, out];
   }
 
-  function paletteSelect(get, set) {
+  function paletteSelect(get, set, prefix = '') {
     // The look's own colors: its list or single color, set or by default.
     const colors = () => {
       const value = (name) => (vals[name] !== undefined ? vals[name] : (schema.find((q) => q.name === name) || {}).default);
-      const list = value('colors'), one = value('color');
+      const list = value(`${prefix}colors`), one = value(`${prefix}color`);
       return Array.isArray(list) ? list : one !== undefined ? [one] : [];
     };
-    const choices = () => (S.palettes || []).map((p) => ({ value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch: choiceStrip(S, p.id, effect.id, colors()) }));
+    const choices = () => (S.palettes || []).map((p) => { const swatch = choiceStrip(S, p.id, effect.id, colors()); return { value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch, note: swatch === NO_COLORS ? "uses the look's colors" : undefined }; });
     const s = createPicker(choices());
     const sync = () => {
       if (s.isOpen) return;
@@ -523,7 +529,7 @@ export function createForm(ctx) {
     switch (p.type) {
       case 'color': return colorInput(get, set);
       case 'colors': return colorsList(get, set, from);
-      case 'palette': return paletteSelect(get, set);
+      case 'palette': return paletteSelect(get, set, layerPrefix(p.name));
       case 'enum': return enumSelect(p.enum || [], get, set);
       case 'bool': return checkbox(get, set);
       case 'mapping': return enumSelect(['', ...S.geo.mappings.map((m) => m.id)], () => get() || '', (v) => set(v || null));

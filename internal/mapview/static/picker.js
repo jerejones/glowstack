@@ -91,6 +91,7 @@ export function createPicker(options = [], { label = '', id = '', name = '' } = 
       const t = document.createElement('span');
       t.textContent = o.label;
       row.append(t);
+      if (o.note) row.append(Object.assign(document.createElement('span'), { className: 'picker-note', textContent: o.note }));
       row.onclick = () => choose(o);
       return row;
     }));

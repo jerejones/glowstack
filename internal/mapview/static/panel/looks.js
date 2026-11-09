@@ -14,7 +14,7 @@ import { post, del, patch, esc, save, load, parseQty, press, covers, sameSet, hu
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
 import { houseStatusMessage, darkZones, darkMessage, lightOutcome, effectiveNote } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
-import { showState, warningHTML } from '../states.js';
+import { showState, stateHTML, warningHTML } from '../states.js';
 import { icon } from '../icons.js';
 import { textField } from '../field.js';
 import { escapeCloses } from '../picker.js';
@@ -163,7 +163,7 @@ export function createLooks(S, root) {
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
     <div class="looks-head"><h1 class="title">Looks</h1></div>
-    <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span></button>
+    <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><span class="now-go">Manage${icon('chevronDown')}</span></button>
     <div class="catalog-head" id="lkCatalogHead">
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Goes on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
@@ -351,11 +351,9 @@ export function createLooks(S, root) {
     $$('#lkPresetsHead').textContent = pinned.length ? 'Pinned presets' : 'Presets';
     pres.replaceChildren(...(pinned.length ? pinned : S.presets).map(presetCard));
     if (!pres.childElementCount) {
-      const hint = document.createElement('button');
-      hint.type = 'button'; hint.className = 'quiet';
-      hint.textContent = 'Create your first preset';
-      hint.onclick = () => S.panel.openTab('presets');
-      pres.append(hint);
+      pres.classList.remove('cards');
+      pres.innerHTML = stateHTML({ kind: 'empty', title: 'No presets yet', detail: 'Save a look as a preset and it appears here.', action: { id: 'lkEmptyNew', label: 'New preset' } });
+      pres.querySelector('#lkEmptyNew').onclick = () => { S.panel.openTab('presets'); S.presetLibrary.openEditor(); };
     }
     const other = pinned.length ? S.presets.filter((p) => !p.pinned) : [];
     $$('#lkOtherPresets').hidden = !other.length;
@@ -628,6 +626,7 @@ export function createLooks(S, root) {
     const idle = !house.length;
     now.classList.toggle('idle', idle);
     now.tabIndex = idle ? -1 : 0;
+    now.title = idle ? '' : 'Go to what is on the lights, to adjust or remove it';
     now.onclick = () => $$('#lkHouse').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
   // renderBar keeps what's in preview, and the way to apply it, in view
@@ -719,7 +718,8 @@ export function createLooks(S, root) {
     // Measured and immediate: a smooth scroll is still on its way, and can be
     // interrupted, while the sheet rises. Rects are relative, so its motion
     // doesn't matter.
-    const view = content.getBoundingClientRect(), f = form.el.getBoundingClientRect();
+    // The whole card is the aim, so its name and Tweak stay in view.
+    const view = content.getBoundingClientRect(), f = c.el.getBoundingClientRect();
     content.scrollTop += revealDelta(f, view.top + 8, view.bottom - barH() - 8);
   }
 

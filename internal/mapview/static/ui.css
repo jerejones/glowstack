@@ -138,6 +138,7 @@ button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 button.on, .toast, .cal-prog li.here, .cal-prog li:hover { --muted: var(--muted-raised); }
 button.quiet { background: transparent; }
 button.go, .go { background: var(--go); border-color: var(--go); color: #fff; font-weight: 600; }
+.setup-cal button.go, .calibrate button.go { min-height: max(40px, var(--tap)); }
 button.go:hover { background: var(--go-hover); border-color: var(--go-hover); }
 button.go:active { background: var(--go-active); border-color: var(--go-active); }
 button.go:disabled { background: transparent; border-color: var(--line); color: var(--muted); font-weight: 400; }
@@ -170,8 +171,9 @@ input[type=checkbox]:checked::after {
 }
 .seg { display: inline-flex; border-radius: 9px; overflow: hidden; border: 1px solid var(--control-line); }
 .seg > button { border: 0; border-radius: 0; background: var(--card2); white-space: nowrap; }
-.seg > button + button { border-left: 1px solid var(--control-line); }
+.seg > button + button { border-left: 0; box-shadow: inset 1px 0 0 var(--control-line); }
 .seg > button.on { background: var(--on); color: #fff; box-shadow: inset 0 0 0 1px var(--accent); }
+.seg > button.on + button { box-shadow: none; } /* the selected edge is the divider */
 .tab .seg { display: flex; width: 100%; }
 .tab .seg > button { flex: 1; min-width: 0; }
 /* Five choices share one row, at the size of the page's other segments. */
@@ -439,6 +441,8 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .now .what { min-width: 0; flex: 1; display: grid; line-height: 1.25; }
 .now b, .now small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .now small { color: var(--muted); font-size: var(--t-meta); }
+.now .now-go { display: inline-flex; align-items: center; gap: 2px; flex: none; color: var(--muted); font-size: var(--t-meta); }
+.now.idle .now-go { display: none; }
 .now.idle { cursor: default; pointer-events: none; }
 .now.stale small, .now.dark small { color: var(--warn); }
 .now small { white-space: normal; }
@@ -524,8 +528,8 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .form .channel-row label { font-size: var(--t-meta); color: #e2e8f0; }
 .form .channel-row input[type=number] { width: 48px; min-width: 0; padding: 0 3px; text-align: center; }
 .form .channel-row input[type=range] { appearance: none; -webkit-appearance: none; height: 14px; border-radius: 8px; border: 1px solid #64748b; touch-action: pan-y; }
-.form .channel-row input[type=range]::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #475569; box-shadow: 0 1px 4px #0008; }
-.form .channel-row input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #475569; box-shadow: 0 1px 4px #0008; }
+.form .channel-row input[type=range]::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #0d0e10; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6), 0 1px 4px #0008; }
+.form .channel-row input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #0d0e10; box-shadow: 0 0 0 1px rgba(255, 255, 255, .6), 0 1px 4px #0008; }
 .form .channel-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .form .color-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
 .form .color-choices button { font-size: var(--t-s); padding: 4px 7px; }
@@ -721,6 +725,7 @@ dialog.confirm .row { margin-top: 10px; }
 .picker.open { flex-basis: 100%; }
 .picker-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); background: var(--field); border-color: var(--field-line); text-align: left; }
 .picker-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-note { color: var(--muted); font-size: var(--t-meta); margin-left: 6px; }
 .picker-swatch { flex: none; width: 34px; height: 12px; border-radius: 3px; border: 1px solid var(--rim); }
 .picker-pop { display: grid; gap: 6px; margin-top: 4px; padding: 6px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); scroll-margin: 8px; }
 .picker-pop input { width: 100%; }

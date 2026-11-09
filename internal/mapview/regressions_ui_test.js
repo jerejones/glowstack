@@ -926,8 +926,8 @@ test('B59: swatches carry a light rim, and a color palette with only black color
   assert.doesNotMatch(css, /solid #000?[67]/);
   const { choiceStrip } = await import('./static/form.js');
   const S = { palettes: [{ id: 'color-1', name: 'Color 1' }] };
-  assert.match(choiceStrip(S, 'color-1', 'solid', ['#000000']), /repeating-linear-gradient/);
-  assert.match(choiceStrip(S, 'color-1', 'solid', []), /repeating-linear-gradient/);
+  assert.match(choiceStrip(S, 'color-1', 'solid', ['#000000']), /svg\+xml/);
+  assert.match(choiceStrip(S, 'color-1', 'solid', []), /svg\+xml/);
   assert.equal(choiceStrip(S, 'color-1', 'solid', ['#ff0000']), 'rgb(255,0,0)');
 });
 
@@ -1547,4 +1547,27 @@ test('every secondary action on a card or row has its icon and word, and categor
   assert.match(looks, /\$\{icon\('trash'\)\}<span>Remove/);
   assert.match(looks, /\$\{icon\('check'\)\}Apply only this/);
   for (const m of overlay.matchAll(/<span class="(sw[^"]*)" style="background:rgb/g)) assert.equal(m[1], 'sw', 'categories are the plain swatch');
+});
+
+test('the polish round: tall primaries, ringed thumbs, a real glyph, even segments, empty actions and the bar says what it does', async () => {
+  assert.match(css, /\.setup-cal button\.go, \.calibrate button\.go \{ min-height: max\(40px, var\(--tap\)\)/);
+  assert.match(css, /channel-row input\[type=range\]::-webkit-slider-thumb \{[^}]*border: 2px solid #0d0e10/);
+  assert.match(css, /channel-row input\[type=range\]::-moz-range-thumb \{[^}]*border: 2px solid #0d0e10/);
+  assert.doesNotMatch(read('form.js'), /repeating-linear-gradient\(135deg, #4a5361/, 'no hatch');
+  assert.match(read('form.js'), /uses the look's colors/);
+  assert.match(css, /\.seg > button \+ button \{ border-left: 0;/, 'a selected segment has no heavier left edge');
+  const { stateHTML } = await import('./static/states.js');
+  assert.match(stateHTML({ title: 'x', action: { id: 'a1', label: 'New preset' } }), /<button type="button" class="go" id="a1">New preset<\/button>/);
+  assert.doesNotMatch(stateHTML({ title: 'x' }), /class="go"/);
+  assert.match(read('panel/presets.js'), /id: 'prEmptyNew', label: 'New preset'/);
+  assert.match(read('panel/looks.js'), /id: 'lkEmptyNew', label: 'New preset'/);
+  assert.match(read('panel/looks.js'), /now-go">Manage/);
+  assert.match(css, /\.now\.idle \.now-go \{ display: none; \}/);
+});
+
+test('a layered effect palette reads the colors of its own layer', async () => {
+  const { layerPrefix } = await import('./static/form.js');
+  assert.equal(layerPrefix('gradient.palette'), 'gradient.');
+  assert.equal(layerPrefix('palette'), '');
+  assert.match(read('form.js'), /value\(`\$\{prefix\}colors`\)/);
 });
