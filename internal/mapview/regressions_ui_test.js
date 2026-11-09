@@ -1662,3 +1662,14 @@ test('the 0% warning is said once on a screen, with how the brightnesses combine
   assert.match(read('panel/status.js'), /BRIGHTNESS_RULE/);
   assert.doesNotMatch(read('map-status.js'), /at 0%`/);
 });
+
+test('while previewing, "nothing on the lights" is a status line under it, and a hidden preview says so', async () => {
+  const { nowTrails } = await import('./static/panel/looks.js');
+  assert.equal(nowTrails(0, 1), true);
+  assert.equal(nowTrails(1, 1), false, 'a look on the lights keeps its row at the top');
+  assert.equal(nowTrails(0, 0), false, 'idle: the row is the hint');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /lkMapNote'\)\.hidden = !\(prev\.length && S\.show === 'house'\)/);
+  assert.match(looks, /if \(S\.show === 'house'\) \{ S\.setShow\(''\)/, 'opening a preview switches the map to it');
+  assert.match(css, /\.now\.plain \{[^}]*border: 0/);
+});

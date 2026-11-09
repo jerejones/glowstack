@@ -90,6 +90,10 @@ export function nowLine({ house, previewing, status, read, word, nameOf }) {
   return { main, sub, stale };
 }
 
+// nowTrails says the row is only a status line under the preview: with
+// nothing on the lights, a preview is what the panel is about.
+export const nowTrails = (house, previews) => !house && previews > 0;
+
 // lookKey says which look a layer (or a card's look) is.
 export const lookKey = (l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect);
 
@@ -188,6 +192,7 @@ export function createLooks(S, root) {
     <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
     <div class="lane" id="lkPreview">
       <div class="row"><h2>Preview <small>on the map only</small></h2></div>
+      <p class="muted small lane-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
       <p class="muted small stack-note" id="lkStack" hidden>Looks stack. The top one in this list is in front wherever they overlap.</p>
       <div class="list"></div>
     </div>
@@ -560,7 +565,8 @@ export function createLooks(S, root) {
   function orderPreview() {
     const lane = $$('#lkPreview');
     const next = previewFirst(S.panel.layout?.(), S.preview?.layers?.length ?? 0) ? head : $$('#lkHouse');
-    if (lane.nextElementSibling !== next) next.before(lane);
+    const after = lane.nextElementSibling === $$('#lkNow') ? $$('#lkNow').nextElementSibling : lane.nextElementSibling;
+    if (after !== next) next.before(lane);
   }
 
   function renderLanes() {
@@ -573,6 +579,8 @@ export function createLooks(S, root) {
     // An empty lane says nothing the current-state line doesn't.
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     $$('#lkStack').hidden = prev.length < 2;
+    // The toggle can be on Lights with a preview open: this section says so.
+    $$('#lkMapNote').hidden = !(prev.length && S.show === 'house');
     // Once something is previewing it's the thing being worked on: the long
     // grids fold away so its card sits close to the heading.
     if (prev.length && !hadPreview) $$('#lkEffects').open = $$('#lkOtherPresets').open = false;
@@ -616,7 +624,10 @@ export function createLooks(S, root) {
   function renderNow(prev, house) {
     const names = (ls) => (ls.length > 1 ? `${layerName(S, ls[0])} and ${ls.length - 1} more` : layerName(S, ls[0]));
     const line = nowLine({ house, previewing: prev.length > 0, status: S.houseStatus, read: S.houseRead, word, nameOf: names });
-    const now = $$('#lkNow');
+    const now = $$('#lkNow'), trails = nowTrails(house.length, prev.length);
+    const place = trails ? $$('#lkPreview') : $$('.looks-head');
+    if (place.nextElementSibling !== now) place.after(now);
+    now.classList.toggle('plain', trails);
     // What's in preview says so on its bar, card and map: this line is the lights.
     now.hidden = !line;
     if (now.hidden) return;
@@ -633,6 +644,7 @@ export function createLooks(S, root) {
   }
   // Adjust goes to the cards on the lights, and marks them: already on
   // screen there is no scroll to see.
+  $$('#lkShowPreview').onclick = () => S.setShow('');
   $$('#lkNowGo').onclick = () => {
     const list = $$('#lkHouse .list'), first = list.querySelector('.layer');
     if (!first) return;

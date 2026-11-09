@@ -438,6 +438,10 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
 .target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
 .now { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 8px; margin: 0 0 8px; border: 1px solid var(--line); border-radius: var(--radius); }
+/* While previewing with nothing on the lights: a line of status, not a card. */
+.now.plain { min-height: 0; padding: 0 2px; margin: 6px 0 10px; border: 0; }
+.now.plain b { font-weight: 400; color: var(--muted); }
+.lane-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0; }
 .now .strip { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid var(--rim); }
 .now .what { min-width: 0; flex: 1; display: grid; line-height: 1.25; }
 .now small { color: var(--muted); font-size: var(--t-meta); }
