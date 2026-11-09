@@ -48,6 +48,18 @@ export function palette(S, name) {
   return S.palettes.find((p) => p.id === name) || S.palettes.find((p) => p.name.toLowerCase() === k) || null;
 }
 
+// paletteChoice is what the Palette picker shows for a value: a catalog
+// palette's id, a name the catalog doesn't have, Default when nothing is set,
+// or Custom for a palette written out inline as colors.
+export function paletteChoice(S, value) {
+  const p = palette(S, value);
+  if (p) return { value: p.id };
+  if (value === undefined || value === null) return { value: 'default' };
+  if (typeof value === 'string') return { value, label: value };
+  return { value: CUSTOM, label: 'Custom' };
+}
+const CUSTOM = '__custom';
+
 // What "Default" means for each effect: the dflt it gives Palette.Resolve.
 const DEFAULT_PALETTE = { gradient: 'rainbow', burst: 'party', noise: 'party', sparkle: 'color-1' };
 
@@ -310,6 +322,7 @@ export function createForm(ctx) {
     c.append(...[].concat(body));
     f.append(lab, c);
     if (doc) { const d = document.createElement('div'); d.className = 'doc'; d.textContent = doc; f.append(d); }
+    f.append(Object.assign(document.createElement('span'), { className: 'field-err', role: 'alert' }));
     parent.append(f);
     return f;
   }
@@ -430,14 +443,13 @@ export function createForm(ctx) {
     const sync = () => {
       if (s.isOpen) return;
       s.options = choices(); // the color-based palettes follow the colors
-      const p = palette(S, get());
-      if (p) s.value = p.id;
-      else if (typeof get() === 'string') {
-        if (!s.options.some((o) => o.value === get())) s.options = [...s.options, { value: get(), label: get() }];
-        s.value = get();
+      const shown = paletteChoice(S, get());
+      if (shown.label && !s.options.some((o) => o.value === shown.value)) {
+        s.options = [...s.options, { ...shown, swatch: shown.value === CUSTOM ? paletteStrip(S, get(), effect.id, []) : undefined }];
       }
+      s.value = shown.value;
     };
-    s.onchange = () => set(s.value);
+    s.onchange = () => { if (s.value !== CUSTOM) set(s.value); };
     sync();
     ctrls.push({ sync });
     return s;
@@ -470,7 +482,11 @@ export function createForm(ctx) {
     const sync = () => { if (document.activeElement !== t) t.value = get() == null ? '' : String(get()); };
     const commit = () => {
       const ok = t.value.trim() === '' || valid(t.value.trim());
-      t.closest('.f') && t.closest('.f').classList.toggle('bad', !ok);
+      const row = t.closest('.f');
+      if (row) {
+        row.classList.toggle('bad', !ok);
+        row.querySelector('.field-err').textContent = ok ? '' : `That isn't a valid value${placeholder ? ` (like ${placeholder})` : ''}.`;
+      }
       if (ok) set(t.value.trim() === '' ? null : coerce(t.value.trim()));
     };
     t.onchange = commit;
@@ -594,8 +610,9 @@ export function createForm(ctx) {
   const yaml = document.createElement('details');
   yaml.innerHTML = `<summary>Edit every setting as YAML</summary>
     <textarea id="${id('yaml')}" spellcheck="false" placeholder="speed: 40" aria-label="Every setting, written as YAML"></textarea>
-    <div class="row end"><span class="err grow" role="alert"></span><button type="button">Replace settings</button></div>`;
-  const ta = yaml.querySelector('textarea'), err = yaml.querySelector('.err'), replaceBtn = yaml.querySelector('button');
+    <span class="field-err" role="alert"></span>
+    <div class="row end"><button type="button">Replace settings</button></div>`;
+  const ta = yaml.querySelector('textarea'), err = yaml.querySelector('.field-err'), replaceBtn = yaml.querySelector('button');
   let yamlAsk = 0;
   const convert = (to, body) => api(`/api/map/params/${to}`, { method: 'POST', headers: { 'Content-Type': to === 'yaml' ? 'application/json' : 'text/yaml' }, body });
   async function syncYaml() {

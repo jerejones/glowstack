@@ -328,7 +328,7 @@ test('B33: toasts sit above the map toggle and legend, and over the phone calibr
   assert.equal(toastBottom({ height: 900, layout: 'wide', calibrating: false, calTop: 0, floats: 120 }), 128);
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: false, calTop: 354, floats: 450 }), 458, 'above the sheet and its toggle');
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 800 }), 498);
-  assert.match(read('app.js'), /\.filter\(\(r\) => r\.height\)/, 'a legend hidden by CSS has no top');
+  assert.match(read('app.js'), /\.filter\(\(r\) => r\.height/, 'a legend hidden by CSS has no top');
 });
 
 test('B34: picker lists show whole rows, and Show on has no scroll of its own', () => {
@@ -538,4 +538,79 @@ test('two overlay applies in flight write the legend once', async () => {
   const src = read('overlay.js');
   assert.match(src, /let legend = made\.legend;/);
   assert.doesNotMatch(src, /st\.legend \+=/);
+});
+
+test('B41: a tab change resets the panel scroller, and picking a look shows its card', () => {
+  assert.match(read('sheet.js'), /if \(name !== tab\) \$\('content'\)\.scrollTop = 0/);
+  assert.match(read('panel/looks.js'), /cards\.get\('preview:' \+ added\.id\)\?\.el\.scrollIntoView/);
+});
+
+test('B42: a palette the catalog has no name for still reads as something', async () => {
+  const { paletteChoice } = await import('./static/form.js');
+  const S = { palettes: [{ id: 'party', name: 'Party' }] };
+  assert.deepEqual(paletteChoice(S, 'party'), { value: 'party' });
+  assert.deepEqual(paletteChoice(S, [[0, '#ff0000'], [1, '#00ff00']]), { value: '__custom', label: 'Custom' }, 'inline stops');
+  assert.deepEqual(paletteChoice(S, 'gone'), { value: 'gone', label: 'gone' });
+  assert.deepEqual(paletteChoice(S, undefined), { value: 'default' });
+});
+
+test('B43: hover is not the keyboard cursor', () => {
+  assert.match(css, /\.picker-option:hover \{ background: var\(--card2\); \}/);
+  assert.match(css, /\.picker-option\.active \{ background: var\(--on\); \}/);
+});
+
+test('B44: Escape closes the inline editor the same way Cancel does', () => {
+  const src = read('panel/presets.js');
+  assert.match(src, /escapeCloses\(\$\('#prEditor'\), \(\) => !!draft && !busy, cancelEditor\)/);
+  assert.match(src, /\$\('#prCancel'\)\.onclick = cancelEditor/);
+  assert.match(read('app.js'), /S\.presetLibrary\.closeEditor\(\)/);
+});
+
+test('B45: whatever a tap opens in the panel scrolls clear of the bar', () => {
+  const sheet = read('sheet.js');
+  assert.match(sheet, /addEventListener\('toggle'/);
+  assert.match(sheet, /e\.target === opening && e\.target\.open/, 'only when opened by hand, not by a poll');
+  assert.match(read('panel/looks.js'), /S\.panel\.fitHalf = /);
+  assert.match(read('panel/looks.js'), /S\.panel\.tab\(\) !== 'looks'\) content\.style\.removeProperty\('--look-bar'\)/, "another tab's scroll isn't padded for a bar it doesn't have");
+});
+
+test('B46: the phone boot loader is under the chip bar, not on the toggle', () => {
+  const sheet = css.slice(css.indexOf('/* bottom sheet */'));
+  assert.match(sheet, /\.boot-loading \{ top: calc\(max\(8px, env\(safe-area-inset-top\)\) \+ var\(--tap\) \+ 8px\); transform: translateX\(-50%\); \}/);
+});
+
+test('B47: offline controls look disabled', () => {
+  assert.match(css, /\[inert\] button, \[inert\] \.picker-btn/);
+  assert.match(read('app.js'), /\.inert = off/);
+});
+
+test('B49: a full sheet leaves the map room, with chip and toggle above it', async () => {
+  const { frameInsets } = await import('./static/map-frame.js');
+  assert.match(css, /--strip: 200px/);
+  assert.match(read('sheet.js'), /const STRIP = 200/);
+  assert.match(css, /body\[data-detent=full\] \.map-controls \{ top:/);
+  const f = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 52, layout: 'sheet', full: true, covered: 644, calibrating: false, calTop: 0, floats: 0 });
+  assert.equal(f.top, 58, 'framing starts below the row');
+  const c = frameInsets({ height: 844, chips: 52, crumbs: 96, controls: 52, layout: 'sheet', full: true, covered: 644, calibrating: false, calTop: 0, floats: 0 });
+  assert.equal(c.top, 102, 'and below the crumbs when they are up');
+});
+
+test('B50: a phone preset row is one action, Pin and a More holding the rest; Delete is one style', () => {
+  const src = read('panel/presets.js');
+  assert.match(src, /data-act="more" class="preset-more"/);
+  assert.match(src, /<span class="preset-overflow">.*data-act="edit".*data-act="copy".*data-act="delete" class="danger"/s);
+  assert.match(css, /\.preset-overflow \{ display: none; flex-basis: 100%/);
+  assert.match(css, /\.preset-more \{ display: none; \}/, 'desktop has no More');
+  assert.match(css, /\.preset-overflow \{ display: contents; \}/);
+  assert.match(css, /\.preset-actions button\.danger \{ color: #fca5a5; \}/);
+});
+
+test('B51: a field error is directly under its field, in one layout', () => {
+  const src = read('panel/presets.js');
+  assert.match(src, /id="prName"[^\n]*<span class="field-err" id="prNameErr"/);
+  assert.match(src, /markName\('Give the preset a name\.'\)/);
+  const form = read('form.js');
+  assert.match(form, /className: 'field-err'/);
+  assert.doesNotMatch(form, /class="err grow"/);
+  assert.match(css, /\.field-err \{ display: block; margin-top: 4px; \}/);
 });

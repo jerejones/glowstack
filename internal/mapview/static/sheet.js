@@ -15,7 +15,7 @@ const RAIL = 'glowstack.rail';
 const DETENT = 'glowstack.sheet.detent';
 const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
 const PEEK = 56;   // handle and tab bar
-const STRIP = 120; // the map above a full sheet
+const STRIP = 200; // the map above a full sheet: --strip in ui.css
 const HALF = 0.45; // of the window's height
 const HALF_READING = 0.62; // the same, for tabs that are lists to read
 const READING = new Set(['presets', 'status']);
@@ -42,12 +42,15 @@ export function createPanel(hooks) {
   if (!tabs.some((b) => b.dataset.tab === tab)) tab = 'looks';
   let rail = !!load(RAIL, false);
   let visible = PEEK;
+  const panelApi = {};
 
   const safeBottom = () => parseFloat(getComputedStyle(panel).paddingBottom) || 0;
   const heights = () => {
     const h = innerHeight, sb = safeBottom();
-    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * (READING.has(tab) ? HALF_READING : HALF))), full: h - STRIP };
+    return { peek: PEEK + sb, half: fitHalf(Math.max(HALF_MIN + sb, Math.round(h * (READING.has(tab) ? HALF_READING : HALF)))), full: h - STRIP };
   };
+  // fitHalf lets the active tab settle the half detent on a whole row.
+  const fitHalf = (base) => (panelApi.fitHalf ? panelApi.fitHalf(base) ?? base : base);
   function setVisible(px) {
     visible = px;
     root.style.setProperty('--sheet-visible', px + 'px');
@@ -55,6 +58,7 @@ export function createPanel(hooks) {
 
   function showTab(name, navigation = 'push') {
     if (!tabs.some((b) => b.dataset.tab === name)) return;
+    if (name !== tab) $('content').scrollTop = 0; // the panel's one scroller
     tab = name;
     root.dataset.tab = name;
     const url = new URL(location.href);
@@ -187,6 +191,20 @@ export function createPanel(hooks) {
     stepUp();
   });
 
+  // Anything opened by hand scrolls clear of the sticky bar: scroll-padding
+  // on .content is that bar's height. Polls that reopen a disclosure don't.
+  let opening = null;
+  $('content').addEventListener('click', (e) => { opening = e.target.closest?.('summary')?.parentElement || null; }, true);
+  $('content').addEventListener('toggle', (e) => {
+    if (e.target === opening && e.target.open) {
+      const content = $('content'), room = content.clientHeight - (parseFloat(getComputedStyle(content).scrollPaddingBottom) || 0);
+      // Too tall for half a sheet: it needs the room, not half of itself.
+      if (layout === 'sheet' && detent === 'half' && e.target.offsetHeight > room) setDetent('full');
+      e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+    opening = null;
+  }, true);
+
   refresh(true);
   showTab(tab, 'replace');
   window.addEventListener('popstate', () => {
@@ -194,7 +212,7 @@ export function createPanel(hooks) {
     if (layout === 'sheet' && detent === 'peek') setDetent('half');
     showTab(routeTab() || 'looks', 'none');
   });
-  return {
+  Object.assign(panelApi, {
     layout: () => layout,
     detent: () => (layout === 'sheet' ? detent : null),
     setDetent,
@@ -212,5 +230,8 @@ export function createPanel(hooks) {
     // contents can't be seen.
     collapsed: () => (layout === 'sheet' ? detent === 'peek' : layout === 'side' && rail),
     refresh: () => refresh(false),
-  };
+    // refit re-measures a settled half detent after its content changed.
+    refit() { if (layout === 'sheet' && detent === 'half') setVisible(heights().half); },
+  });
+  return panelApi;
 }

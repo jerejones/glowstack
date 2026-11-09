@@ -21,6 +21,7 @@ import { escapeCloses } from '../picker.js';
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
 const TARGET = 'glowstack.looks.target';
+const PEEK_CHROME = 56; // the sheet's handle and tabs, above .content
 
 // effectKind says what an effect takes its colors from, for its card.
 export function effectKind(e) {
@@ -279,15 +280,18 @@ export function createLooks(S, root) {
     const key = t + '|' + lookKey(look);
     if (!t || tapping.has(key)) return;
     tapping.add(key);
+    let added = null;
     try {
       const act = lookAction(S.preview ? S.preview.layers : [], t, look, copies, sameTarget);
       if (act.focus) { focusLayer(act.focus); return; }
       if (act.remove) await del('/api/map/preview/layers/' + encodeURIComponent(act.remove));
       else {
-        await post('/api/map/preview/layers', { target: t, ...look });
+        added = await post('/api/map/preview/layers', { target: t, ...look });
         if (S.show === 'house') { S.setShow(''); S.toast('Showing your preview on the map.'); }
       }
       await S.refresh();
+      // The new layer's card, where it can be seen: not under the bar.
+      if (added && !S.panel.collapsed()) cards.get('preview:' + added.id)?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } catch (e) { S.fail('preview the look', e); } finally { tapping.delete(key); }
   }
 
@@ -465,12 +469,22 @@ export function createLooks(S, root) {
   // renderBar keeps what's in preview, and the way to apply it, in view
   // however far the lists scroll. It is the one primary action here.
   let hidden = []; // the lights' layers that Apply would replace
+  // syncBarInset keeps scrolling into view short of the bar, whatever its
+  // height, while the bar is what's at the panel's bottom edge.
+  function syncBarInset() {
+    const bar = $$('#lkBar'), content = root.parentElement;
+    queueMicrotask(() => {
+      if (bar.hidden || S.panel.tab() !== 'looks') content.style.removeProperty('--look-bar');
+      else content.style.setProperty('--look-bar', bar.offsetHeight + 'px');
+    });
+  }
+  let prevBar = false;
   function renderBar(prev) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
-    // Scrolling into view stops short of the bar, whatever its height.
-    if (!prev.length) { root.parentElement.style.removeProperty('--look-bar'); return; }
-    queueMicrotask(() => root.parentElement.style.setProperty('--look-bar', bar.offsetHeight + 'px'));
+    syncBarInset();
+    if (bar.hidden !== !prevBar) { prevBar = !bar.hidden; S.panel.refit(); }
+    if (!prev.length) return;
     const l = prev[0];
     const eff = effectFor(S, l);
     $$('#lkBarStrip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
@@ -623,14 +637,30 @@ export function createLooks(S, root) {
 
   // ---------- wiring ----------
 
+  // At half, a card edge meets the Apply bar (or the sheet's edge): no row is
+  // left half showing. From the first row that doesn't fit, by what it spills.
+  S.panel.fitHalf = (base) => {
+    if (S.panel.tab() !== 'looks') return base;
+    const content = root.parentElement, top = content.getBoundingClientRect().top - content.scrollTop;
+    const shown = base;
+    const room = shown - PEEK_CHROME - ($$('#lkBar').hidden ? 0 : $$('#lkBar').offsetHeight);
+    let spill = 0;
+    for (const c of $$('#lkPresets').children) {
+      const r = c.getBoundingClientRect(), cTop = r.top - top, cBottom = r.bottom - top;
+      if (cTop < room && cBottom > room) spill = Math.max(spill, cBottom - room);
+    }
+    return spill ? base + Math.ceil(spill) + 8 : base;
+  };
   S.on('presets', () => { renderCatalog(); renderLanes(); });
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);
+  S.on('tab', () => { syncBarInset(); });
   S.on('status', renderLanes); // a zone's brightness changed the notes
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();
+  S.on('ready', () => S.panel.refit());
 
   return {
     push,

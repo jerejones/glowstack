@@ -181,9 +181,10 @@ S.setInsets = setInsets;
 // floatsBottom is how much of the map's bottom edge the side-layout toggle
 // and legend take up.
 function floatsBottom(stage) {
-  // Height 0 is a legend ui.css hides on phones.
-  const tops = [$('mapControls'), $('legend')].map((el) => el.getBoundingClientRect()).filter((r) => r.height).map((r) => r.top);
-  return Math.max(0, stage.bottom - Math.min(stage.bottom, ...tops));
+  // Height 0 is a legend ui.css hides on phones. A full sheet takes the
+  // toggle to the top of the map, where it doesn't count.
+  const tops = [$('mapControls'), $('legend')].map((el) => el.getBoundingClientRect()).filter((r) => r.height && r.top - stage.top > stage.height / 2).map((r) => r.top);
+  return Math.max(S.panel.layout() === 'sheet' ? S.panel.covered() : 0, stage.bottom - Math.min(stage.bottom, ...tops));
 }
 S.resize = resize;
 
@@ -247,8 +248,7 @@ function renderCrumbs() {
 
 function placeCrumbs() {
   const stage = $('stage').getBoundingClientRect();
-  const full = S.panel && S.panel.detent() === 'full';
-  $('crumbs').style.top = (full ? 6 : $('chips').getBoundingClientRect().bottom - stage.top + 6) + 'px';
+  $('crumbs').style.top = ($('chips').getBoundingClientRect().bottom - stage.top + 6) + 'px';
 }
 
 // applySelection draws the halo along the selected pixels.
@@ -606,6 +606,7 @@ function bindChrome() {
     if (t && t.closest?.('dialog')) return; // Escape there is the dialog's
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.key === 'Escape') {
+      if (S.presetLibrary.closeEditor()) return;
       if (S.pinned >= 0) unpin();
       else if (S.sel) select(null);
       else if (S.panel.detent() && S.panel.detent() !== 'peek') S.panel.setDetent('peek');

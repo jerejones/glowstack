@@ -40,7 +40,7 @@
   --rail-w: 52px;
   --panel-space: var(--panel-w);
   --peek: 56px;
-  --strip: 120px;
+  --strip: 200px;        /* the map above a full sheet: STRIP in sheet.js */
   --sheet-visible: var(--peek);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --layout: wide;
@@ -78,8 +78,10 @@ a { color: var(--accent); }
 code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .muted { color: var(--muted); }
 .small { font-size: var(--t-help); }
-.error, .err { color: #fca5a5; font-size: var(--t-s); }
-.err:empty { display: none; }
+/* The one error layout: directly under the field it is about. */
+.error, .err, .field-err { color: #fca5a5; font-size: var(--t-s); }
+.err:empty, .field-err:empty { display: none; }
+.field-err { display: block; margin-top: 4px; }
 [aria-invalid=true] { border-color: var(--bad) !important; }
 .grow { flex: 1; }
 
@@ -94,6 +96,7 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 .boot-loading { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100% - 32px)); margin: 0; }
+
 .boot-error { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
 .boot-error .state { max-width: 460px; width: 100%; }
 .link-button { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card2); color: var(--fg); text-decoration: none; }
@@ -117,6 +120,9 @@ button.go:hover { background: var(--go-hover); border-color: var(--go-hover); }
 button.go:active { background: var(--go-active); border-color: var(--go-active); }
 button.go:disabled { background: transparent; border-color: var(--line); color: var(--muted); font-weight: 400; }
 button.danger { color: #fecaca; border-color: #7f1d1d; }
+/* Offline the controls are inert, and look it: the banner says so. */
+[inert] button, [inert] .picker-btn, [inert] .chip { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; font-weight: 400; }
+[inert] input, [inert] .preset .strip, [inert] .layer .strip { opacity: 0.45; }
 input[type=text], input[type=number], input[type=search], input:not([type]), textarea {
   min-height: var(--tap); background: var(--field); border: 1px solid var(--field-line); border-radius: 8px; padding: 0 8px;
 }
@@ -307,9 +313,12 @@ input[type=checkbox]:checked::after {
   .tabs button { height: var(--tap); }
   .content { flex: none; height: calc(var(--sheet-visible) - var(--peek) - var(--safe-b)); overflow-y: hidden; --content-bottom: 16px; }
   body[data-detent=half] .content, body[data-detent=full] .content { overflow-y: auto; }
-  /* a full sheet leaves a strip of map: the chip stays, beside the toggle */
-  body[data-detent=full] .chipbar { top: auto; left: auto; right: 8px; bottom: calc(var(--sheet-visible) + 8px); }
+  /* Under the chip bar, so it can't sit on the Preview/Lights toggle. */
+  .boot-loading { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
+  /* A full sheet leaves a strip of map: chip and toggle share one row at its
+   * top, as they do while calibrating, and framing keeps the map below it. */
   body[data-detent=full] .brand, body[data-detent=full] .badge .detail { display: none; }
+  body[data-detent=full] .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .crumbs::-webkit-scrollbar { display: none; }
   .crumbs > * { flex: none; }
@@ -330,6 +339,8 @@ input[type=checkbox]:checked::after {
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }
+  .preset-more { display: none; }
+  .preset-overflow { display: contents; }
 }
 
 .tab > h2:first-child, .tab > .row:first-child { margin-top: 10px; }
@@ -568,8 +579,10 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-title { display: grid; gap: 4px; margin: 8px 0; overflow-wrap: anywhere; }
 .preset-actions { display: flex; gap: 2px; flex-wrap: wrap; margin-left: -8px; }
 .preset-actions button { background: transparent; border-color: transparent; color: var(--muted); padding: 0 8px; }
+.preset-overflow { display: none; flex-basis: 100%; gap: 2px; }
+.preset-actions.more-open .preset-overflow { display: flex; }
 .preset-actions button:hover, .preset-actions button:focus-visible { color: var(--fg); border-color: var(--line); }
-.preset-actions button.danger { color: var(--muted); }
+.preset-actions button.danger { color: #fca5a5; }
 .preset-actions button.danger:hover, .preset-actions button.danger:focus-visible { color: #fecaca; border-color: #7f1d1d; }
 .preset-actions button { display: inline-flex; align-items: center; justify-content: center; }
 .preset-actions [data-act=try] { min-width: 4.6em; color: var(--fg); border-color: var(--line-strong); }
@@ -601,7 +614,8 @@ dialog.confirm .row { margin-top: 10px; }
 .picker-list { position: relative; max-height: calc(var(--tap) * var(--picker-rows)); overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; }
 .picker-option { display: flex; align-items: center; gap: 8px; height: var(--tap); padding: 0 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; scroll-snap-align: start; }
 .picker-option > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.picker-option:hover, .picker-option.active { background: var(--on); }
+.picker-option:hover { background: var(--card2); }
+.picker-option.active { background: var(--on); }
 .picker-option[aria-selected=true] { font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); }
 .picker-none { padding: 6px 8px; }
 

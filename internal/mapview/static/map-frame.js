@@ -21,9 +21,8 @@ export function toastBottom({ height, layout, calibrating, calTop, floats }) {
 // calibrating, calTop (the calibration sheet's top) and floats (the height
 // the side layout's toggle and legend take from the map's bottom edge).
 export function frameInsets({ height, chips, crumbs, controls, layout, full, covered, calibrating, calTop, floats }) {
-  const atFull = full && !calibrating;
-  let top = atFull ? 0 : chips;
-  if (atFull && crumbs !== null) top = crumbs;
+  // At full, the chip, the toggle and the crumbs are all in the strip's top row.
+  let top = full && !calibrating ? Math.max(chips, controls, crumbs ?? 0) : chips;
   let bottom = covered;
   if (calibrating) {
     if (layout === 'sheet') {
