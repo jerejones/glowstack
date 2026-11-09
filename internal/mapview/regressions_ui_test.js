@@ -654,7 +654,7 @@ test('Everything is the one term, and the Runs group says why runs are missing',
 test('a real type scale: h2 and h3 differ, and body text is larger on desktop', () => {
   assert.match(css, /--t-m: 14px/);
   assert.match(css, /--t-h3: 15px/);
-  assert.match(css, /--t-h2: 18px/);
+  assert.match(css, /--t-h2: 17px/);
   assert.match(css, /^h1, h2 \{[^}]*font-size: var\(--t-h2\)/m);
   assert.match(css, /^h3 \{[^}]*font-size: var\(--t-h3\)/m);
 });
@@ -2081,6 +2081,15 @@ test('the action bar sits right below short content and sticks over tall content
   assert.match(css, /\.look-bar \{\s*\/\*[^*]*\*\/\s*position: sticky; bottom: calc\(-1 \* var\(--content-bottom\)\)/);
 });
 
+test('one section-heading step, with a smaller h3 nested under Advanced', () => {
+  assert.doesNotMatch(css, /\.stage-head h2 \{[^}]*font-size/, 'the stage heading is a section heading');
+  assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*color: #f3f4f6/);
+  assert.doesNotMatch(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*font-size: var\(--t-h3\)/);
+  assert.match(css, /#suAdvanced > summary \{ font-size: var\(--t-h2\)/);
+  assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
+  assert.match(css, /\.calibrate h3 \{ font-size: var\(--t-h2\); \}/, 'Progress');
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 580px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);
@@ -2165,7 +2174,6 @@ test('Tweak has its own icon, not the Setup tab\'s sliders', () => {
 test('Setup: Advanced is nested under Advanced, a size below the top-level sections', () => {
   assert.match(css, /#suAdvanced > :not\(summary\) \{[^}]*border-left/);
   assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
-  assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*font-size: var\(--t-h3\)/);
 });
 
 test('a phone: the stage is the first content, and the sheet rises for a preview or Tweak', () => {
