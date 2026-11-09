@@ -172,8 +172,13 @@ export function calCount(st) {
 // screen is the count of steps done: steps can be done in any order, so a
 // step's own number beside it reads as a mistake.
 export function stepPlace(item) {
-  return item.done ? 'Done' : 'Not done yet';
+  if (item.done) return 'Done';
+  return ['anchor', 'end'].includes(item.target?.kind) ? "This point isn't measured yet" : "This step isn't done yet";
 }
+
+// MOVE_HOW is the instruction, the same at the intro and on each step: the
+// real pixel moves, and the map is the fixed reference.
+export const MOVE_HOW = 'Use −/+ to move the lit pixel along the real strip until it matches the circled point on the map.';
 
 // sourceWords says where a point's position came from.
 const SOURCE_WORDS = { measured: 'Measured', estimated: 'Estimated from the layout', partial: 'Partly measured', end: 'End of the run' };
@@ -448,7 +453,7 @@ export function createCalibrate(S, root) {
     else if (!active) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
-      parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm.</p>${warningHTML('This changes the real lights until you stop.')}`);
+      parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point. ${MOVE_HOW} Then confirm.</p>${warningHTML('This changes the real lights until you stop.')}`);
       parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
@@ -468,7 +473,7 @@ export function createCalibrate(S, root) {
         const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
         if (!isGap) parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout puts it` : 'Not moved yet: still where the layout puts it'}</span></div>`);
         parts.push(nav());
-        parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : 'Move the real white pixel onto the circled corner.'}</p>`);
+        parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : MOVE_HOW}</p>`);
         const was = $$('#caBody details.tech'), wasIds = $$('#caBody details.ids');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Test pixel</th><td>${c.index < 0 ? '—' : `Pixel ${c.index} on ${esc(controllerName(g, c.controller))}`}</td></tr>

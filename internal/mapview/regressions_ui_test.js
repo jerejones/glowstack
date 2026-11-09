@@ -101,7 +101,7 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   const { calCount, stepPlace } = await import('./static/panel/calibrate.js');
   const st = { anchors: 2, measured: 1, progress: [{ done: true }, { done: false }, { done: false }] };
   assert.equal(calCount(st).text, '1 of 3 steps done');
-  assert.equal(stepPlace({ done: false }), 'Not done yet', 'no step number to read against the count');
+  assert.equal(stepPlace({ done: false }), "This step isn't done yet", 'no step number to read against the count');
   const setup = read('panel/setup.js');
   assert.match(setup, /calCount\(st\)/);
   assert.doesNotMatch(setup, /points? measured/);
@@ -1858,4 +1858,22 @@ test('a place that reads Everything is everything, even when one zone holds ever
   assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }, { kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }, { kind: 'all' }] }), 'all');
   assert.equal(nodeTarget({ members: [{ kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }] }), 'a');
   assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }] }), 'run:r');
+});
+
+test('calibration says what is unmeasured and gives one instruction', async () => {
+  const { stepPlace, MOVE_HOW } = await import('./static/panel/calibrate.js');
+  assert.equal(stepPlace({ done: false, target: { kind: 'anchor' } }), "This point isn't measured yet");
+  assert.equal(stepPlace({ done: false, target: { kind: 'gap' } }), "This step isn't done yet");
+  assert.equal(stepPlace({ done: true, target: { kind: 'anchor' } }), 'Done');
+  assert.match(MOVE_HOW, /−\/\+ to move the lit pixel along the real strip until it matches the circled point/);
+  const cal = read('panel/calibrate.js');
+  assert.equal((cal.match(/MOVE_HOW\}/g) || []).length, 2, 'used at the intro and on the step');
+  assert.doesNotMatch(cal, /Move the white pixel onto/);
+});
+
+test('server messages read in place names, even for ids with no name', async () => {
+  const { humanText, warningSummary } = await import('./static/names.js');
+  const g = { runs: [{ id: 'shed-eave' }], nodes: [{ id: 'gate-post' }], controllers: [] };
+  assert.equal(humanText(g, 'pixel out of range at gate-post on shed-eave'), 'pixel out of range at Gate post on Shed eave');
+  assert.equal(warningSummary(g, 'run shed-eave: something else changed').summary, 'Shed eave: something else changed');
 });

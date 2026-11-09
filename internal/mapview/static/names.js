@@ -43,9 +43,10 @@ export function modelPartLabel(name, kind) {
 }
 
 // allNames is [id, name] for every id a server message can mention, the
-// longest id first so that "shed-eave-mid" wins over "shed-eave".
+// longest id first so that "shed-eave-mid" wins over "shed-eave". An id with
+// no name of its own still reads as words.
 function allNames(g) {
-  const pairs = [...(g.runs || []), ...(g.nodes || []), ...(g.controllers || [])].filter((x) => x.name).map((x) => [x.id, x.name]);
+  const pairs = [...(g.runs || []), ...(g.nodes || []), ...(g.controllers || [])].map((x) => [x.id, x.name || humanize(x.id)]);
   return pairs.sort((a, b) => b[0].length - a[0].length);
 }
 
@@ -92,6 +93,6 @@ export function warningSummary(g, text) {
   else if (/measurements? in anchors\.yaml w/.test(body)) summary = `Some saved measurements ${known ? `on ${runName(g, run)} ` : ''}no longer match the layout and need measuring again.`;
   else if (/pixels .* are in no run/.test(body)) summary = `Some lights on ${controllerName(g, /^controller (\S+):/.exec(body)?.[1] || '')} aren't part of any run.`;
   else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, plain, detail: text, fix: g.mapless ? RETRY : { label: 'Open Setup', tab: 'setup' } };
-  else summary = humanText(g, body.replace(/^flow \S+: /, '')).replace(/^./, (c) => c.toUpperCase());
+  else summary = humanText(g, body.replace(/^flow \S+: /, '').replace(/^run (\S+): /, (_, id) => `${runName(g, id)}: `)).replace(/^./, (c) => c.toUpperCase());
   return { summary, plain, detail: text, fix, kind: density ? 'spacing' : undefined };
 }
