@@ -104,6 +104,9 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
 .boot-loading { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100% - 32px)); margin: 0; }
 
+.map-error { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); }
+.map-error .state { margin: 0; }
+
 .boot-error { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
 .boot-error .state { max-width: 460px; width: 100%; }
 .not-found .state { display: grid; gap: 12px; }
@@ -336,6 +339,7 @@ input[type=checkbox]:checked::after {
   body[data-detent=half] .content, body[data-detent=full] .content { overflow-y: auto; }
   /* Under the chip bar, so it can't sit on the Preview/Lights toggle. */
   .boot-loading { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
+  .map-error { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
   /* Chip and toggle share one row at the top at every detent, so the toggle
    * never moves as the sheet does, and framing keeps the map below it. */
   .brand, .badge .detail { display: none; }

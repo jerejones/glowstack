@@ -197,14 +197,19 @@ async function openView(i) {
   const runs = S.geo.runs.map((r, ri) => (r.plan === i ? { ranges: S.tree.runSets[ri] } : null));
   S.pickRuns = runs;
   const common = { px: S.geo.pixels, rgb: S.rgb, onChange: markDirty, onCamera: cameraChanged };
-  if (plan && plan.kind === 'scene') {
-    $('gl').hidden = false;
-    const scene = await import('./scene.js');
-    S.view = await scene.open($('gl'), canvas, { ...common, url: plan.url, layers: plan.layers || [], map: S.geo.map || {}, plan: i });
-  } else if (plan) {
-    S.view = openPlan(canvas, plan, i, common);
-  } else {
-    S.view = openPlan(canvas, { url: '', view_box: [0, 0, 10, 10], scale: 1 }, -1, common);
+  const blank = () => openPlan(canvas, { url: '', view_box: [0, 0, 10, 10], scale: 1 }, -1, common);
+  try {
+    if (plan && plan.kind === 'scene') {
+      $('gl').hidden = false;
+      const scene = await import('./scene.js');
+      S.view = await scene.open($('gl'), canvas, { ...common, url: plan.url, layers: plan.layers || [], map: S.geo.map || {}, plan: i });
+    } else S.view = plan ? openPlan(canvas, plan, i, common) : blank();
+  } catch (e) {
+    // The drawing failed, not the page: every tab goes on without it.
+    console.error(e);
+    $('gl').hidden = true;
+    showMapError('draw the map', e);
+    S.view = blank();
   }
   S.view.setPixelVisibility(S.visibility.pixels);
   resize();
@@ -651,6 +656,40 @@ function onDetent(d) {
 
 // ---------- boot ----------
 
+// showMapError puts a map failure in the map's pane, with Retry.
+function showMapError(step, e) {
+  const box = $('mapError');
+  box.innerHTML = stateHTML({ ...bootFailure(step, e), retry: true });
+  box.hidden = false;
+  box.querySelector('[data-retry]').onclick = () => location.reload();
+}
+
+// NEEDS_MAP are the tabs that can't draw without the geometry.
+const NEEDS_MAP = [['looks', 'Looks'], ['setup', 'Set up the map'], ['status', 'Status']];
+
+// startWithoutMap keeps the page usable when the geometry can't be read:
+// the navigation, and the preset library, which doesn't need it.
+async function startWithoutMap(e) {
+  console.error(e);
+  $('bootLoading').remove();
+  showMapError('load the map', e);
+  $('badge').textContent = 'Map unavailable';
+  $('badge').className = 'badge off';
+  $('mapControls').hidden = true;
+  addEventListener('resize', () => { S.panel.refresh(); resize(); });
+  S.geo = { mappings: [] };
+  const loadLibrary = createLibrary(S, api);
+  await loadLibrary();
+  S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };
+  S.refresh = async () => {};
+  S.looks = { push: () => toast('Previewing needs the map. Use Retry on the map.', { warn: true }), inPreview: () => false };
+  S.presetLibrary = createPresets(S, $('tab-presets'));
+  for (const [id, name] of NEEDS_MAP) {
+    $('tab-' + id).innerHTML = `<h1 class="title">${name}</h1>`;
+    $('tab-' + id).append(Object.assign(document.createElement('div'), { innerHTML: stateHTML({ kind: 'empty', title: 'This needs the map', detail: 'It comes back when the map loads. Use Retry on the map.' }) }));
+  }
+}
+
 let bootStep = 'load the map';
 async function main() {
   fillIcons(document);
@@ -658,7 +697,7 @@ async function main() {
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
   S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
-  S.geo = await api('/api/map/geometry');
+  try { S.geo = await api('/api/map/geometry'); } catch (e) { await startWithoutMap(e); return; }
   geometrySignature = geometryKey(S.geo);
   S.visibility = runVisibility(S.geo, S.allRuns);
   S.rgb = new Uint8Array(S.geo.pixels.count * 3);

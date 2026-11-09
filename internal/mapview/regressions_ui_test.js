@@ -811,6 +811,15 @@ test('B65: the phone keeps a color key above the sheet, not at the toggle', asyn
   assert.equal(f.bottom, 166, 'framing keeps the house above the key');
 });
 
+test('B70: a failed map load keeps the navigation and the preset library', () => {
+  const app = read('app.js');
+  assert.match(app, /try \{ S\.geo = await api\('\/api\/map\/geometry'\); \} catch \(e\) \{ await startWithoutMap\(e\); return; \}/);
+  assert.match(app, /showMapError\('load the map', e\)/);
+  assert.match(app, /S\.presetLibrary = createPresets\(S, \$\('tab-presets'\)\);\n  for \(const \[id, name\] of NEEDS_MAP\)/);
+  assert.match(app, /showMapError\('draw the map', e\);\n    S\.view = blank\(\);/, 'a model that fails to draw leaves the tabs working');
+  assert.match(read('index.html'), /id="mapError"/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));
