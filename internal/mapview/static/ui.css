@@ -128,6 +128,20 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .spinner { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--fg); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+/* A tab's skeleton (states.js skeletonHTML): still gray shapes in the content's own places. */
+.skel { display: block; background: var(--card2); border-radius: 6px; }
+.skel-title { width: 7em; height: 24px; }
+.skel-line { width: 60%; height: 14px; margin: 6px 0; }
+.skel-row { height: 20px; margin: 10px 0 0; }
+.skel-seg { flex: 1 1 0; height: 28px; }
+.skel-field { height: var(--tap); margin: 6px 0 12px; }
+.skel-stage { min-height: 132px; padding: 10px 12px; }
+.skel-card { gap: 10px; }
+.skel-card .skel-strip { height: 12px; }
+.skel-card .skel-name { width: 70%; height: 16px; }
+.skel-card .skel-sub { width: 50%; height: 12px; }
+.skel-tile { height: 80px; border-radius: 8px; }
+.skeleton .stage, .skeleton .preset, .skeleton .preset-entry { background: var(--card); }
 .boot-loading { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100% - 32px)); margin: 0; }
 
 .map-error { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); }

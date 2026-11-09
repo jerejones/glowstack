@@ -13,6 +13,23 @@ export function stateHTML({ kind = 'empty', title, detail = '', retry = false, a
   return `<div class="state ${esc(kind)}" role="${live}">${kind === 'loading' ? '<span class="spinner" aria-hidden="true"></span>' : icon(kind === 'error' ? 'alert' : 'info')}<div class="state-text"><b>${esc(title)}</b>${detail ? `<span>${esc(detail)}</span>` : ''}</div>${action ? `<button type="button" class="go" id="${esc(action.id)}">${esc(action.label)}</button>` : ''}${retry ? '<button type="button" data-retry>Retry</button>' : ''}</div>`;
 }
 
+// skeletonHTML is a tab's loading state: gray shapes where its content will
+// be, in the content's own classes, so the widths and columns follow the
+// same rules and the real content takes the same places. index.html carries
+// the Looks one verbatim so it paints before any script runs; keep the two
+// the same (a test does). No animation: a still shape is calmer, and it
+// needs no reduced-motion exception.
+export function skeletonHTML(tab) {
+  const bar = (cls = '') => `<span class="skel ${cls}"></span>`;
+  const card = () => `<div class="preset skel-card">${bar('skel-strip')}${bar('skel-name')}${bar('skel-sub')}</div>`;
+  const label = { looks: 'Loading Looks…', presets: 'Loading presets…', setup: 'Loading Setup…', status: 'Loading Status…' }[tab];
+  const body = tab === 'looks' ? `<div class="looks-head">${bar('skel-title')}</div><div class="stage skel-stage">${bar('skel-line')}${bar('skel-row')}${bar('skel-row')}</div><div class="lib-filters">${bar('skel-seg')}${bar('skel-seg')}${bar('skel-seg')}</div><div class="cards">${card()}${card()}${card()}${card()}${card()}${card()}</div>`
+    : tab === 'presets' ? `<div class="library-heading">${bar('skel-title')}</div>${bar('skel-line')}${bar('skel-field')}${['', '', '', ''].map(() => `<div class="preset-entry skel-card">${bar('skel-strip')}${bar('skel-name')}${bar('skel-sub')}</div>`).join('')}`
+    : tab === 'status' ? `<div class="looks-head">${bar('skel-title')}</div><div class="tiles">${bar('skel-tile')}${bar('skel-tile')}${bar('skel-tile')}${bar('skel-tile')}</div>${bar('skel-line')}${bar('skel-row')}${bar('skel-row')}`
+    : `<div class="looks-head">${bar('skel-title')}</div>${bar('skel-line')}${bar('skel-row')}${bar('skel-line')}${bar('skel-row')}`;
+  return `<div class="skeleton" role="status" aria-busy="true" aria-label="${label}">${body}</div>`;
+}
+
 // warningHTML is the one way a panel warns: the same card as Status's list.
 export const warningBody = (text) => `<div class="issue-text">${icon('alert')}<span>${esc(text)}</span></div>`;
 export const warningHTML = (text) => `<div class="issue solo">${warningBody(text)}</div>`;

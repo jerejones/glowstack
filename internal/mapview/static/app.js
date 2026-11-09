@@ -26,7 +26,7 @@ import { createHousePoll, lightOutcome, zeroRanges, dimSent } from './house-stat
 import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML, showButton } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
-import { stateHTML, showState, bootFailure } from './states.js';
+import { stateHTML, showState, bootFailure, skeletonHTML } from './states.js';
 import { frameInsets, toastBottom, toastHome } from './map-frame.js';
 import { foldable, merged } from './toast-merge.js';
 import { createTiles } from './tiles.js';
@@ -794,8 +794,10 @@ async function startWithoutMap(e) {
 }
 
 // showLoadingTabs says each tab is on its way, until its own code draws it.
+// showLoadingTabs puts each tab's skeleton in place (Looks already has its
+// own from index.html) until the catalog arrives.
 function showLoadingTabs() {
-  for (const [id, name] of [['looks', 'Looks'], ['presets', 'presets'], ['setup', 'Setup'], ['status', 'Status']]) $('tab-' + id).innerHTML = stateHTML({ kind: 'loading', title: `Loading ${name}…` });
+  for (const id of ['looks', 'presets', 'setup', 'status']) $('tab-' + id).innerHTML = skeletonHTML(id);
 }
 
 let bootStep = 'load the map';

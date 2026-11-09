@@ -1621,7 +1621,8 @@ test('B97: a failed calibration read or action is said in words, with Retry that
 test('each tab says it is loading until its own code draws it', () => {
   const app = read('app.js');
   assert.ok(app.indexOf('showLoadingTabs();') < app.lastIndexOf("await api('/api/map/geometry')"), 'before the first wait');
-  assert.match(app, /kind: 'loading', title: `Loading \$\{name\}…`/);
+  assert.match(app, /\$\('tab-' \+ id\)\.innerHTML = skeletonHTML\(id\)/, 'as a skeleton of its layout (round 2, refinement 7), labeled for a screen reader');
+  assert.match(read('states.js'), /aria-label="\$\{label\}"/);
 });
 
 test('the 0% warning is said once on a screen, with how the brightnesses combine', async () => {
@@ -2799,6 +2800,34 @@ test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay be
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px)'));
   assert.match(phone, /\.tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/, 'two by two on a phone');
   assert.match(css, /\.verdict\.warn \{ color: var\(--warn\); \}/, 'the warning beneath stays amber');
+});
+
+test('Refinement 7 (round 2): a designed loading state, painted before the script runs', async () => {
+  const { skeletonHTML } = await import('./static/states.js');
+  const html = read('index.html');
+  // The shell is static: dark page, brand, chip, tab bar with its icons, the map's loading card.
+  assert.match(html, /<meta name="theme-color" content="#0d0e10">/);
+  assert.match(html, /<div id="bootLoading" class="state loading boot-loading" role="status">[^<]*<span class="spinner" aria-hidden="true"><\/span><div class="state-text"><b>Loading Glowstack…<\/b>/);
+  assert.match(html, /<div class="tabs" role="tablist">\s*<button type="button" role="tab" data-tab="looks" title="Looks"><span class="ico" data-icon="looks"><svg/);
+  // The Looks skeleton is in the HTML, verbatim the same as the helper's, so the first paint has it.
+  const looks = skeletonHTML('looks');
+  assert.ok(html.includes(`<section id="tab-looks" class="tab" role="tabpanel">${looks}</section>`), 'index.html carries skeletonHTML(\'looks\')');
+  assert.match(looks, /^<div class="skeleton" role="status" aria-busy="true" aria-label="Loading Looks…">/);
+  assert.equal((looks.match(/<div class="preset skel-card">/g) || []).length, 6, 'two rows of three cards at the wide panel');
+  for (const cls of ['looks-head', 'stage skel-stage', 'lib-filters', 'cards']) assert.ok(looks.includes(`class="${cls}"`), `${cls}: the real layout's classes, so the columns follow the same rules`);
+  assert.doesNotMatch(looks, /Loading Looks…<\/b>|spinner/, 'shapes, not a sentence card');
+  assert.match(skeletonHTML('presets'), /class="preset-entry skel-card"/);
+  assert.match(skeletonHTML('status'), /class="tiles"/);
+  assert.match(skeletonHTML('setup'), /aria-label="Loading Setup…"/);
+  // The script fills the other tabs the same way, before its first wait.
+  const app = read('app.js');
+  assert.match(app, /function showLoadingTabs\(\) \{\s*for \(const id of \['looks', 'presets', 'setup', 'status'\]\) \$\('tab-' \+ id\)\.innerHTML = skeletonHTML\(id\);/);
+  assert.doesNotMatch(app, /title: `Loading \$\{name\}…`/);
+  // Still shapes: no animation, so nothing to exempt for reduced motion.
+  const skel = css.slice(css.indexOf('.skel {'), css.indexOf('.skeleton .stage'));
+  assert.doesNotMatch(skel, /animation/);
+  assert.match(css, /\.skel-stage \{ min-height: 132px;/, 'the stage block is the size of the common first state');
+  assert.match(css, /\.skel-tile \{ height: 80px;/, 'a tile\'s height');
 });
 
 test('B138: the compact state card never cuts its own words', async () => {
