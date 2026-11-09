@@ -416,7 +416,12 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 .content::before {
   content: ''; position: sticky; top: 0; z-index: 2; display: block; height: 14px; margin: 0 -12px -14px;
   background: linear-gradient(var(--panel-bg), transparent); pointer-events: none;
+  /* Only once something has scrolled under the edge (sheet.js: .scrolled). At
+   * rest the first card's top border and corners are whole (B146). */
+  opacity: 0; transition: opacity 0.12s;
 }
+.content.scrolled::before { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .content::before { transition: none; } }
 
 /* side panel, collapsible to an icon rail */
 @media (max-width: 1099.98px) {
@@ -452,6 +457,10 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   }
   .panel.dragging { transition: none; }
   body.sheet-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+  /* The grabber and the tab strip are the sheet's fixed header, with their own
+   * opaque background; the content scrolls in its own region below them (B146). */
+  .handle, .tabs { background: var(--panel-bg); }
+  .handle { border-radius: 16px 16px 0 0; }
   .handle { display: flex; justify-content: center; align-items: center; height: var(--handle); flex: none; touch-action: none; cursor: grab; }
   .handle i { width: 40px; height: 5px; border-radius: 3px; background: #6b7480; }
   .tabs { padding: 0 10px; border-bottom: 1px solid var(--line); touch-action: none; height: calc(var(--peek) - var(--handle)); align-items: center; }
@@ -488,7 +497,7 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
    * replaces Porch glitter", Clear preview at the right), the filters and
    * search on one line. Presets keeps its title and New preset and folds
    * its explanation away. Full shows everything. */
-  body[data-detent=half] .stage { padding: 6px 8px; margin: 4px 0 6px; }
+  body[data-detent=half] .stage { padding: 6px 8px; margin: 4px 0 6px; } /* a 4 px gap under the tab strip: the card's top border and corners are whole at rest (B146) */
   body[data-detent=half] .stage-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 4px; padding: 0; }
   body[data-detent=half] .stage-head > h2 { flex: none; }
   /* The hint or the replaced-look list follows the state on its line while it

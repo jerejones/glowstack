@@ -96,3 +96,22 @@ test('B145: the fit margin scales with the pane and counts a marker\'s ring', as
   assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar/i, 'default framing only: no new control');
   assert.match(design, /at least 4% of the free rectangle/);
 });
+
+test('B146: the sheet\'s grabber and tabs are an opaque header; the first card is whole at rest', () => {
+  // The fade that says "scrolled" is drawn only while something is scrolled under the content's top edge.
+  const fade = /\.content::before \{[^}]*\}/.exec(css)[0];
+  assert.match(fade, /opacity: 0;/, 'at rest the fade is not drawn over the first card\'s top border');
+  assert.match(css, /\.content\.scrolled::before \{ opacity: 1; \}/);
+  const sheet = read('sheet.js');
+  assert.match(sheet, /classList\.toggle\('scrolled', \$\('content'\)\.scrollTop > 0\)/);
+  assert.match(sheet, /addEventListener\('scroll', markScrolled/);
+  // On the phone the grabber and the tab strip have their own opaque background, and the content is its own scroller below them.
+  const phone = css.slice(css.indexOf('/* bottom sheet */'));
+  assert.match(phone, /\.handle, \.tabs \{ background: var\(--panel-bg\); \}/);
+  assert.match(phone, /body\[data-detent=half\] \.content, body\[data-detent=full\] \.content \{ overflow-y: auto; \}/);
+  const html = read('index.html');
+  assert.ok(html.indexOf('id="handle"') < html.indexOf('class="tabs"') && html.indexOf('class="tabs"') < html.indexOf('id="content"'), 'header first, then the scroller');
+  assert.doesNotMatch(/\.tabs \{[^}]*\}/.exec(phone)[0], /position: (sticky|absolute)/, 'the tabs are not laid over the content');
+  // The first card starts with a gap under the tab strip, so its border and both corners show.
+  assert.match(css, /body\[data-detent=half\] \.stage \{ padding: 6px 8px; margin: 4px 0 6px; \}/);
+});

@@ -200,6 +200,12 @@ export function createPanel(hooks) {
     opening = null;
   }, true);
 
+  // The fade under the content's top edge shows only while something has
+  // scrolled under it: at rest the first card's top is whole (B146).
+  const markScrolled = () => $('content').classList.toggle('scrolled', $('content').scrollTop > 0);
+  $('content').addEventListener('scroll', markScrolled, { passive: true });
+  markScrolled();
+
   // The first paint is already at the right height: no rise from the peek.
   panel.classList.add('dragging');
   refresh(true);
