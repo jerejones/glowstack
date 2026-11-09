@@ -383,7 +383,7 @@ test('B39: map controller labels use display names, even for a board the config 
 });
 
 test('B40: an opened Tweak form scrolls into view', () => {
-  assert.match(read('panel/looks.js'), /content\.scrollTop \+= revealDelta\(/);
+  assert.match(read('panel/looks.js'), /reveal\(c\.el\);/);
 });
 
 test('Escape on a confirm dialog leaves the sheet where it is', () => {
@@ -543,7 +543,7 @@ test('two overlay applies in flight write the legend once', async () => {
 
 test('B41: a tab change resets the panel scroller, and picking a look shows its card', () => {
   assert.match(read('sheet.js'), /if \(name !== tab\) \$\('content'\)\.scrollTop = 0/);
-  assert.match(read('panel/looks.js'), /cards\.get\('preview:' \+ added\.id\)\?\.el\.scrollIntoView/);
+  assert.match(read('panel/looks.js'), /reveal\(cards\.get\('preview:' \+ added\.id\)\.el, true\)/);
 });
 
 test('B42: a palette the catalog has no name for still reads as something', async () => {
@@ -1600,4 +1600,14 @@ test('B95: names on cards wrap to two lines instead of being cut, and rows set t
   assert.equal(cardSummary('Ember drift', gradient), 'Gradient', 'the family suffix goes');
   assert.equal(cardSummary('Gradient', gradient), 'Blended colors', 'never the card name twice');
   assert.equal(cardSummary('Stripes', { id: 'bands', name: 'Bands', params: [{ name: 'bands', type: 'list' }] }), 'Color bands');
+});
+
+test('B96: revealing a lane\'s first card brings the lane\'s heading, not a sliver of it', async () => {
+  const { laneAim, revealDelta } = await import('./static/panel/looks.js');
+  const card = { top: 540, bottom: 700 };
+  // The sheet starts at 533: the heading above is what used to be cut.
+  assert.equal(revealDelta(laneAim(card, 485, true), 541, 800), 485 - 541, 'scrolls back to the heading');
+  assert.equal(revealDelta(laneAim({ top: 540, bottom: 900 }, 560, true), 541, 800), 19, 'a tall form never takes the heading past the top');
+  assert.deepEqual(laneAim(card, 485, false), card, 'a later card has its own name for a heading');
+  assert.doesNotMatch(read('panel/looks.js'), /el\.scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'cards go through reveal');
 });

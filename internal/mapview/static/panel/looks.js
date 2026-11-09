@@ -162,6 +162,10 @@ export function revealDelta({ top, bottom }, viewTop, viewBottom) {
   return Math.min(Math.max(0, bottom - viewBottom), top - viewTop);
 }
 
+// laneAim is what revealing a card has to show. A lane's first card brings
+// the lane's heading with it, so the heading is never left clipped at the top.
+export function laneAim(card, headTop, first) { return first ? { top: headTop, bottom: card.bottom } : card; }
+
 export function createLooks(S, root) {
   const g = S.geo;
   let copies = load(COPIES, {}) || {};
@@ -390,7 +394,7 @@ export function createLooks(S, root) {
   function focusLayer(id) {
     const c = cards.get('preview:' + id);
     if (!c) return;
-    c.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    reveal(c.el, true);
     c.el.classList.add('sel');
     setTimeout(() => c.el.classList.remove('sel'), 1200);
   }
@@ -414,7 +418,7 @@ export function createLooks(S, root) {
       }
       await S.refresh();
       // The new layer's card, where it can be seen: not under the bar.
-      if (added && !S.panel.collapsed()) cards.get('preview:' + added.id)?.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (added && !S.panel.collapsed() && cards.has('preview:' + added.id)) reveal(cards.get('preview:' + added.id).el, true);
     } catch (e) { S.fail('preview the look', e); } finally { tapping.delete(key); }
   }
 
@@ -636,6 +640,14 @@ export function createLooks(S, root) {
     now.title = idle ? '' : 'Go to what is on the lights, to adjust or remove it';
     now.onclick = () => $$('#lkHouse').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
+  // reveal brings a card into view, below the tabs and above the Apply bar.
+  function reveal(el, smooth = false) {
+    const content = root.parentElement, bar = $$('#lkBar'), view = content.getBoundingClientRect();
+    const heading = el.closest('.lane').querySelector('.row').getBoundingClientRect().top;
+    const aim = laneAim(el.getBoundingClientRect(), heading, !el.previousElementSibling);
+    const top = content.scrollTop + revealDelta(aim, view.top + 8, view.bottom - (bar.hidden ? 0 : bar.offsetHeight) - 8);
+    content.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+  }
   // renderBar keeps what's in preview, and the way to apply it, in view
   // however far the lists scroll. It is the one primary action here.
   let hidden = []; // the lights' layers that Apply would replace
@@ -701,7 +713,7 @@ export function createLooks(S, root) {
       } catch (e) { S.fail('copy the look for editing', e); return; }
       const pc = cards.get('preview:' + id);
       if (pc && !pc.form) tweak(pc);
-      else if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      else if (pc) reveal(pc.el, true);
       return;
     }
     const form = createForm({
@@ -726,8 +738,7 @@ export function createLooks(S, root) {
     // interrupted, while the sheet rises. Rects are relative, so its motion
     // doesn't matter.
     // The whole card is the aim, so its name and Tweak stay in view.
-    const view = content.getBoundingClientRect(), f = c.el.getBoundingClientRect();
-    content.scrollTop += revealDelta(f, view.top + 8, view.bottom - barH() - 8);
+    reveal(c.el);
   }
 
   // apply promotes preview layers (all with ids empty) onto the lights,
@@ -847,7 +858,7 @@ export function createLooks(S, root) {
     if (revealing || S.panel.tab() !== 'looks' || S.panel.collapsed() || bar.hidden) return;
     const barTop = bar.getBoundingClientRect().top;
     const cut = [...$$('#lkPreview .list').children].find((el) => underBar(el.getBoundingClientRect(), barTop));
-    cut?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (cut) reveal(cut, true);
   }
   S.on('detent', clearBar);
   S.on('tab', () => { syncBarInset(); });
