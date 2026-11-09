@@ -1410,11 +1410,7 @@ test('B93: a preset card has no reserved row, and its name is the largest text',
   assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\)/, 'the name takes the heading size');
   assert.match(css, /--t-meta: 14px/);
   assert.match(css, /--t-h3: 15px/, 'above the type line on desktop as well');
-  const oneLine = /\.preset \.name, \.preset \.sub, \.preset \.in-badge \{[^}]*\}/.exec(css)[0];
-  assert.match(oneLine, /white-space: nowrap/);
-  assert.match(oneLine, /text-overflow: ellipsis/);
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ min-height: 1\.4em;/, 'Previewing takes the type line\'s slot');
-  assert.match(css, /\.cards \{[^}]*grid-auto-rows: 1fr/, 'every card in a grid is one height');
 });
 
 test('B90: the chip says connecting until the first socket result, with status data already in', async () => {
@@ -1591,4 +1587,17 @@ test('default framing centers the lights in the visible area, and leaves a place
   assert.deepEqual(centerShift([], 10), [0, 0], 'nothing to center');
   const scene = read('scene.js');
   assert.match(scene, /const lights = cam\.auto \? litPoints\(\) : \[\];/, 'only views chosen by name are recentered');
+});
+
+test('B95: names on cards wrap to two lines instead of being cut, and rows set their own height', async () => {
+  const css = read('ui.css');
+  const wrap = /\.preset \.name, \.preset \.sub, \.preset \.in-badge span, \.now b, \.layer \.top \.what b \{[^}]*\}/.exec(css)[0];
+  assert.match(wrap, /-webkit-line-clamp: 2/);
+  assert.doesNotMatch(wrap, /nowrap|ellipsis/);
+  assert.doesNotMatch(/^\.cards \{[^}]*\}/m.exec(css)[0], /grid-auto-rows/, 'a tall row must not stretch every other row');
+  const { cardSummary } = await import('./static/panel/looks.js');
+  const gradient = { id: 'gradient', name: 'Gradient', params: [{ name: 'palette', type: 'palette' }] };
+  assert.equal(cardSummary('Ember drift', gradient), 'Gradient', 'the family suffix goes');
+  assert.equal(cardSummary('Gradient', gradient), 'Blended colors', 'never the card name twice');
+  assert.equal(cardSummary('Stripes', { id: 'bands', name: 'Bands', params: [{ name: 'bands', type: 'list' }] }), 'Color bands');
 });

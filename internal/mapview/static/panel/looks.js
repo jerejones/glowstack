@@ -42,6 +42,13 @@ export function effectSummary(e) {
   return kind.toLowerCase().includes(String(name).toLowerCase()) ? kind : `${name} · ${kind}`;
 }
 
+// cardSummary is a preset card's second line, short enough for the grid: the
+// effect's name, or what it takes its colors from when the name says the same.
+export function cardSummary(name, e) {
+  const [effect, kind] = effectSummary(e).split(' · ');
+  return kind && effect.toLowerCase() === String(name).toLowerCase() ? kind : effect;
+}
+
 const speedLabel = (s) => (s >= 1 ? s.toFixed(s >= 10 ? 0 : 1) : s.toFixed(2)) + '×';
 
 // clockText is the preview clock's line, in plain words. Hours and minutes
@@ -334,7 +341,7 @@ export function createLooks(S, root) {
   }
   function renderCatalog() {
     const pres = $$('#lkPresets');
-    const presetCard = (p) => { const e = effectFor(S, { preset: p.id }); return card(presetName(p), e ? effectSummary(e) : humanize(p.effect),
+    const presetCard = (p) => { const e = effectFor(S, { preset: p.id }); return card(presetName(p), e ? cardSummary(presetName(p), e) : humanize(p.effect),
       lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${presetName(p)} here`); };
     $$('#lkEffects summary span').textContent = `(${(S.catalog.effects || []).length})`;
     if (S.library.presets === 'failed' || S.library.catalog === 'failed') {
