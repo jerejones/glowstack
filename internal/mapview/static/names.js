@@ -23,6 +23,13 @@ export function controllerLabel(name, location) {
   return rest.length ? `${name} · ${rest.join(' ')}` : name;
 }
 
+// modelPartLabel is how a part of the 3-D model reads: "walls-lines" of
+// kind lines is "Walls outline", not its two internal words.
+export function modelPartLabel(name, kind) {
+  const base = humanize(String(name).replace(/[-_. ]+(lines|faces)$/i, ''));
+  return kind === 'lines' ? `${base} outline` : kind === 'faces' ? `${base} surfaces` : base;
+}
+
 // allNames is [id, name] for every id a server message can mention, the
 // longest id first so that "shed-eave-mid" wins over "shed-eave".
 function allNames(g) {

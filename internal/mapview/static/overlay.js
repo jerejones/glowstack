@@ -8,7 +8,7 @@
 // nodes, links, anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
-import { api, load, save, esc, outputName, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize } from './util.js';
+import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize } from './util.js';
 import { controllerName, controllerLabel, nodeDisplay } from './names.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
@@ -132,7 +132,7 @@ export function createOverlay(S) {
       if (S.visibility && !S.visibility.pixels.subarray(o.first, o.last + 1).some(Boolean)) continue;
       for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
       if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(controllerName(g, ctrl))}</b></div>`; }
-      html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
+      html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${count(o.count)} lights</div>`;
     }
     return { rgb: out, legend: html };
   }

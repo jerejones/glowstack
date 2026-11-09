@@ -109,6 +109,7 @@ function isAncestor(a, b) {
 // name is how a node reads: its biggest member, with the others after.
 export function nodeName(nd) {
   const top = nd.members[nd.members.length - 1];
+  if (top.kind === 'all') return 'Everything'; // one word for it, wherever it's said
   return top.name || humanize(top.id);
 }
 

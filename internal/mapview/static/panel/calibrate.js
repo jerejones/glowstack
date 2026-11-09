@@ -155,7 +155,7 @@ export function calCount(st) {
 // visited in any order, so it says its place and its own state, never a
 // count that could be read against the number done.
 export function stepPlace(index, item) {
-  return `Step ${index + 1} · ${item.done ? 'done' : 'not done yet'}`;
+  return `Step ${index + 1} in the list · ${item.done ? 'done' : 'not done yet'}`;
 }
 
 // partName is an anchor's name within its run: the run's name is on the
@@ -343,7 +343,7 @@ export function createCalibrate(S, root) {
       const first = r && r.anchors.find((a) => a.source === 'estimated');
       parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm. This changes the real lights until you stop.</p>`);
       parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
-      parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved to <code>anchors.yaml</code> in the data folder.</div></details>');
+      parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
       if (st.warning) parts.push(`<div class="cal-warn">${esc(humanText(g, st.warning))}</div>`);
       const cs = st.cursors || [];

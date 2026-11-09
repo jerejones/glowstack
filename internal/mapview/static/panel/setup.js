@@ -7,9 +7,9 @@
 // model's drawing layers, the plan, the camera (named views, Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
-import { $, esc, copyText, save, press, failure, plural, humanize } from '../util.js';
+import { $, esc, copyText, save, press, failure, plural, count, humanize } from '../util.js';
 import { calCount } from './calibrate.js';
-import { controllerName } from '../names.js';
+import { controllerName, modelPartLabel } from '../names.js';
 import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
 
@@ -59,7 +59,7 @@ export function createSetup(S, root) {
     <div class="muted small" id="suStream"></div>
     <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
-    ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${r.count} lights on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
+    ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
     : '<li class="muted">Every light is on the map.</li>'}</ul>`;
   upgradeSelects(root);
   const $$ = (s) => root.querySelector(s);
@@ -67,7 +67,7 @@ export function createSetup(S, root) {
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
-    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${r.count} lights on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
+    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
     $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown, based on the condition of each strip`;
   }
@@ -134,8 +134,7 @@ export function createSetup(S, root) {
       const b = document.createElement('button');
       b.type = 'button';
       press(b, l.visible);
-      b.textContent = humanize(l.name);
-      b.title = l.kind;
+      b.textContent = modelPartLabel(l.name, l.kind);
       b.onclick = () => { v.setVisible(l.name, !l.visible); press(b, l.visible); };
       return b;
     }));
@@ -160,7 +159,7 @@ export function createSetup(S, root) {
     for (const b of $$('#suRate').children) press(b, +b.dataset.fps === +S.fps);
     const m = S.stream;
     const now = S.streamRate();
-    $$('#suStream').textContent = m ? `${m.count} lights, up to ${m.fps} updates a second` + (now && now !== +S.fps ? ` (${now} while hidden or on battery)` : '') + (m.unknown ? ` · unknown: ${m.unknown.join(', ')}` : '') : '';
+    $$('#suStream').textContent = m ? `${count(m.count)} lights, up to ${m.fps} updates a second` + (now && now !== +S.fps ? ` (${now} while hidden or on battery)` : '') + (m.unknown ? ` · unknown: ${m.unknown.join(', ')}` : '') : '';
   }
   for (const b of $$('#suRate').children) b.onclick = () => { S.setRate(+b.dataset.fps); renderRate(); };
   S.on('stream', renderRate);

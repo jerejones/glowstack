@@ -34,6 +34,13 @@ export function effectKind(e) {
   return 'Effect';
 }
 
+// effectSummary names an effect with what it takes its colors from,
+// without saying the same word twice.
+export function effectSummary(e) {
+  const name = e.name || e.id, kind = effectKind(e);
+  return kind.toLowerCase().includes(String(name).toLowerCase()) ? kind : `${name} · ${kind}`;
+}
+
 const speedLabel = (s) => (s >= 1 ? s.toFixed(s >= 10 ? 0 : 1) : s.toFixed(2)) + '×';
 
 // clockText is the preview clock's line, in plain words. Hours and minutes
@@ -121,14 +128,14 @@ export function createLooks(S, root) {
     </div>
     <div class="lane" id="lkHouse">
       <div class="row"><h2>On the lights <small id="lkHouseN"></small></h2></div>
+      <div class="dark-note" id="lkDark" hidden></div>
       <div class="list"></div>
     </div>
+    <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="t" id="lkClockText"></span></summary>
     <div class="clock" id="lkClock">
       <button type="button" id="lkPlay" class="icon-btn" title="Pause or resume the preview clock (space)" aria-label="Pause the preview clock"></button>
-      <span class="t" id="lkClockText"></span>
-      <button type="button" class="quiet icon-btn" id="lkClockMore" aria-expanded="false" title="Clock controls" aria-label="Clock controls"></button>
     </div>
-    <div class="clock-more" id="lkClockPanel" hidden>
+    <div class="clock-more" id="lkClockPanel">
       <div class="step-pair" role="group" aria-label="Step one frame">
         <button type="button" id="lkBack" class="icon-btn" title="Step back one frame" aria-label="Step back one frame">${icon('stepBack')}</button>
         <button type="button" id="lkFwd" class="icon-btn" title="Step forward one frame" aria-label="Step forward one frame">${icon('stepForward')}</button>
@@ -138,6 +145,7 @@ export function createLooks(S, root) {
       <span>Scrub</span><input type="range" id="lkScrub" min="-30" max="30" step="0.02" value="0"><span class="muted small">±30 s</span>
       <span></span><button type="button" id="lkLive" title="Back in step with the lights">Now</button><span></span>
     </div>
+    </details>
     <div class="look-bar" id="lkBar" hidden>
       <span class="strip" id="lkBarStrip"></span>
       <div class="what"><b id="lkBarName"></b><span id="lkBarSub"></span></div>
@@ -178,7 +186,12 @@ export function createLooks(S, root) {
         b.onclick = () => choose(it.value);
         return b;
       }));
-      return [head, box];
+      if (grp.kind === 'all') return [box]; // its chip says Everything already
+      if (grp.kind !== 'run') return [head, box];
+      const hint = document.createElement('div');
+      hint.className = 'muted small';
+      hint.textContent = 'A run that is a whole area or zone is listed there instead.';
+      return [head, box, hint];
     }));
     if (!groups.length) showState($$('#lkTargetList'), { kind: 'empty', title: 'No place by that name' });
   }
@@ -336,7 +349,7 @@ export function createLooks(S, root) {
       <div class="top"><div class="what"><b></b><span></span></div>
         <button type="button" class="tweak" aria-expanded="false">Tweak</button></div>
       <div class="strip"></div>
-      <div class="bri"><span title="Layer brightness">${icon('sun')}</span><input type="range" min="0" max="1" step="0.01" aria-label="Layer brightness"><output></output></div>
+      <div class="bri"><span class="bri-label" title="Layer brightness">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Layer brightness"><output></output></div>
       <div class="acts"></div>
       <div class="note"></div>
       <div class="slot"></div>`;
@@ -376,9 +389,8 @@ export function createLooks(S, root) {
     }
     const note = el.querySelector('.note');
     const orig = c.lane === 'preview' ? copies[l.id] : '';
-    const dark = c.lane === 'house' ? darkMessage(darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))) : '';
-    note.className = orig ? 'note copy-note' : dark ? 'note dark-note' : 'note';
-    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : dark;
+    note.className = orig ? 'note copy-note' : 'note';
+    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
     rm.textContent = part ? `Remove from ${nodeName(S.sel.node)}` : 'Remove';
     rm.title = part ? `Turn off ${targetName(g, part)} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
@@ -435,6 +447,11 @@ export function createLooks(S, root) {
     const houseNote = houseState(S.houseStatus, S.house.length);
     laneState(hbox, houseNote);
     $$('#lkHouse').hidden = !S.house.length && (!houseNote || houseNote.kind === 'empty');
+    // The zones at 0% once, for the lane: not on every card.
+    const dark = darkMessage([...new Set(house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
+    $$('#lkDark').hidden = !dark;
+    $$('#lkDark').textContent = dark;
+    $$('#lkClockBox').hidden = !prev.length;
     const eph = S.house.length - house.length;
     $$('#lkHouseN').textContent = eph ? `+ ${eph} calibration` : '';
     renderNow(prev, house);
@@ -452,19 +469,20 @@ export function createLooks(S, root) {
     const known = S.houseStatus === 'available';
     const lights = house.length ? `On the lights: ${names(house)}` : known ? 'Nothing on the lights' : '';
     const now = $$('#lkNow');
-    now.hidden = !prev.length && !lights;
+    // What's in preview says so on its bar, card and map: this line is the lights.
+    now.hidden = !lights;
     if (now.hidden) return;
-    const l = prev[0] || house[0];
+    const l = house[0];
     const strip = $$('#lkNowStrip');
     strip.hidden = !l;
     if (l) { const eff = effectFor(S, l); strip.style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l)); }
-    $$('#lkNowMain').textContent = prev.length ? `In preview: ${names(prev)}` : lights;
-    $$('#lkNowSub').textContent = prev.length ? lights : `${word} a look to try it on the map; the lights don't change.`;
+    $$('#lkNowMain').textContent = lights;
+    $$('#lkNowSub').textContent = prev.length || house.length ? '' : `${word} a look to try it on the map; the lights don't change.`;
     // With nothing listed below there's nowhere for it to go.
-    const idle = !prev.length && !house.length;
+    const idle = !house.length;
     now.classList.toggle('idle', idle);
     now.tabIndex = idle ? -1 : 0;
-    now.onclick = () => $$(prev.length ? '#lkPreview' : '#lkHouse').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    now.onclick = () => $$('#lkHouse').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
   // renderBar keeps what's in preview, and the way to apply it, in view
   // however far the lists scroll. It is the one primary action here.
@@ -489,7 +507,7 @@ export function createLooks(S, root) {
     const eff = effectFor(S, l);
     $$('#lkBarStrip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
     $$('#lkBarName').textContent = prev.length === 1 ? layerName(S, l) : `${prev.length} looks in preview`;
-    $$('#lkBarSub').textContent = prev.length === 1 ? 'in preview' : prev.map((x) => layerName(S, x)).join(', ');
+    $$('#lkBarSub').textContent = prev.length === 1 ? `on ${l.target === 'all' ? 'everything' : targetName(g, l.target)}` : prev.map((x) => layerName(S, x)).join(', ');
     const updates = prev.some((x) => copies[x.id]);
     const n = prev.length === 1 ? '' : prev.length + ' ';
     hidden = updates ? [] : replacedBy(S.house.filter((x) => !x.ephemeral), prev, (t) => targetRanges(g, S.tree, t), new Set(Object.values(copies)));
@@ -499,6 +517,8 @@ export function createLooks(S, root) {
       : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`
         : "Adds this to the lights; whatever is on them stays underneath";
   }
+  let darkToast = null;
+  S.on('tab', () => { darkToast?.remove(); darkToast = null; });
   const forget = (id) => { if (copies[id]) { delete copies[id]; save(COPIES, copies); } };
 
   // tweak opens the form. On the lights it first copies the layer to the
@@ -569,7 +589,9 @@ export function createLooks(S, root) {
     // The status poll's brightness can be seconds old: read it now.
     await S.status?.poll();
     const dark = darkMessage([...new Set(S.house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
-    if (dark) S.toast(dark, { ms: 9000, warn: true });
+    // Shown once: on the lane where it can be read, as a toast only when it can't.
+    if (dark && !S.panel.collapsed()) $$('#lkDark').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    else if (dark) darkToast = S.toast(dark, { ms: 9000, warn: true });
   }
   $$('#lkPushAll').onclick = () => apply([], hidden);
   $$('#lkAdd').onclick = () => apply([]);
@@ -610,13 +632,9 @@ export function createLooks(S, root) {
     seek();
   };
   scrub.onchange = () => { scrubBase = null; scrub.value = 0; renderClock(); };
-  const more = $$('#lkClockMore'), panel = $$('#lkClockPanel');
-  const openClock = (on) => { panel.hidden = !on; more.innerHTML = icon(on ? 'chevronUp' : 'chevronDown'); more.setAttribute('aria-expanded', on); save(CLOCK, on); };
-  more.onclick = () => {
-    openClock(panel.hidden);
-    if (!panel.hidden) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  };
-  openClock(!!load(CLOCK, false));
+  const clockBox = $$('#lkClockBox');
+  clockBox.open = !!load(CLOCK, false);
+  clockBox.addEventListener('toggle', () => save(CLOCK, clockBox.open));
 
   function renderClock() {
     const st = S.preview;
@@ -626,7 +644,7 @@ export function createLooks(S, root) {
     play.innerHTML = `${icon(st.paused ? 'play' : 'pause')}<span>${verb}</span>`;
     play.setAttribute('aria-label', `${verb} the preview clock`);
     press(play, st.paused);
-    press($$('#lkLive'), st.following);
+    $$('#lkLive').disabled = st.following; // one-shot, and already there
     if (document.activeElement !== speed) {
       speed.value = Math.log10(st.speed);
       $$('#lkSpeedOut').textContent = speedLabel(st.speed);

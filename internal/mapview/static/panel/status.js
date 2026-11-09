@@ -9,7 +9,7 @@
 // /api/v1/status: health.controllers[id] when the server reports it,
 // else the older map keyed by controller id. A controller known to be
 // unreachable is drawn gray while the map shows the lights.
-import { api, esc, fmt, plural, humanize, covers, normRanges } from '../util.js';
+import { api, esc, fmt, plural, count, humanize, covers, normRanges } from '../util.js';
 import { showState, stateHTML } from '../states.js';
 import { darkZones, darkMessage, joined } from '../house-status.js';
 import { targetRanges } from '../select.js';
@@ -89,7 +89,7 @@ export function powerSummary(pw, name = (id) => id) {
     limiting,
     overall: !anyKnown ? 'Unknown' : unknown.length ? `At least ${amps(knownMA)}` : amps(knownMA),
     partial: anyKnown && unknown.length > 0,
-    notSet: groups.length ? `No LED current is set for ${joined(groups)}, so ${unknown.length === 1 ? 'its' : 'their'} draw and any power limiting can't be estimated.` : '',
+    notSet: !anyKnown && unknown.length ? "No LED current is set for any output, so the draw and any power limiting can't be estimated." : groups.length ? `No LED current is set for ${joined(groups)}, so ${unknown.length === 1 ? 'its' : 'their'} draw and any power limiting can't be estimated.` : '',
   };
 }
 
@@ -126,7 +126,6 @@ export function createStatus(S, root) {
     <h1 class="title">Status</h1>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
     <div id="stHealth" class="health" hidden></div>
-    <div id="stDark" class="dark-note" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
@@ -181,12 +180,13 @@ export function createStatus(S, root) {
   // words, each with its fix. It redraws only when they change, so an open
   // disclosure survives the poll.
   let shownIssues = '';
-  function renderIssues(list) {
-    const key = list.join('\n');
+  function renderIssues(list, dark) {
+    const key = dark + list.join('\n');
     if (key === shownIssues) return;
     shownIssues = key;
-    const items = list.map((w) => warningSummary(g, w));
-    const row = (it, i) => `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><code>${esc(it.detail)}</code></details></div></li>`;
+    // Most urgent first: nothing lit before a run that's a little off.
+    const items = [...(dark ? [{ summary: dark, detail: '', fix: null }] : []), ...list.map((w) => warningSummary(g, w))];
+    const row = (it, i) => `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><code>${esc(it.detail)}</code></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
     for (const b of box.querySelectorAll('[data-fix]')) {
@@ -207,19 +207,17 @@ export function createStatus(S, root) {
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
     $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
-    $$('#stDark').hidden = !dark;
-    $$('#stDark').textContent = dark;
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     $$('#stStats').innerHTML = [
-      stat(st.layers, 'on the lights', 'Layers on the lights'),
-      stat(st.preview_layers, 'in preview', 'Layers in preview'),
+      stat(count(st.layers), 'on the lights', 'Layers on the lights'),
+      stat(count(st.preview_layers), 'in preview', 'Layers in preview'),
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
-      stat(`${fmt(st.frame_ms, 2)} ms`, `frame, max ${fmt(st.max_frame_ms, 1)}`),
-      stat(st.late_frames, 'frames late', 'Frames that took longer than the frame rate allows'),
+      stat(`${fmt(st.frame_ms, 2)} ms`, `per frame, max ${fmt(st.max_frame_ms, 1)}`),
+      stat(count(st.late_frames), 'frames late', 'Frames that took longer than the frame rate allows'),
       stat(esc(st.uptime), 'uptime'),
-      stat(st.solve.pixels, 'pixels'),
+      stat(count(st.solve.pixels), 'lights'),
       // The median: the first draws compile shaders and would swamp a mean.
-      stat(`${fmt(perf.draw.p50, 2)} ms`, 'map draw', `this device; median of the last ${perf.draw.n} draws, p95 ${fmt(perf.draw.p95, 2)} ms`),
+      stat(`${fmt(perf.draw.p50, 2)} ms`, 'to draw the map', `this device; median of the last ${perf.draw.n} draws, p95 ${fmt(perf.draw.p95, 2)} ms`),
     ].join('');
 
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
@@ -268,7 +266,7 @@ export function createStatus(S, root) {
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
     markOffline();
 
-    renderIssues(st.solve.warnings || []);
+    renderIssues(st.solve.warnings || [], dark);
   }
 
   let shownPower = false;
@@ -284,6 +282,11 @@ export function createStatus(S, root) {
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
     const limit = (ma) => (ma ? (ma / 1000).toFixed(1) + ' A' : '—');
     const known = pw.estimate.filter((o) => o.known);
+    if (!known.length && pw.controllers.every((c) => c.known === false)) {
+      // Nothing known: a table of Unknown says less than the sentence.
+      box.innerHTML = `<p class="muted">${esc(powerSummary(pw, (id) => controllerName(g, id)).notSet || "Glowstack can't estimate the power yet.")}</p>`;
+      return;
+    }
     const rows = known.map((o) => {
       const pct = o.max_ma ? Math.min(100, 100 * o.ma / o.max_ma) : 0;
       return `<tr><td>${esc(controllerName(g, o.controller))} output ${o.output}${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</td><td>${amps(o.ma)}</td><td>${limit(o.max_ma)}</td></tr>`;

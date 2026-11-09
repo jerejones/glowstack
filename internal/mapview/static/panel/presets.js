@@ -2,10 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { api, patch, del, esc, failure } from '../util.js';
+import { api, patch, del, esc, failure, humanize } from '../util.js';
 import { createForm, lookStrip, presetName } from '../form.js';
 import { createPicker, escapeCloses } from '../picker.js';
-import { effectKind } from './looks.js';
+import { effectKind, effectSummary } from './looks.js';
 import { showState, stateHTML } from '../states.js';
 import { confirmDialog } from '../dialog.js';
 import { icon } from '../icons.js';
@@ -60,7 +60,7 @@ export function createPresets(S, root) {
     for (const p of list) {
       const row = document.createElement('article'); row.className = 'preset-entry';
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
-      row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? `${effect.name || effect.id} · ${effectKind(effect)}` : p.effect)}</span></div><div class="preset-actions">
+      row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div><div class="preset-actions">
         <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
         <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'presetsFilled' : 'presets')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <button type="button" data-act="more" class="preset-more" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}">More</button>

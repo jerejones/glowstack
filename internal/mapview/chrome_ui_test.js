@@ -164,7 +164,7 @@ test('status gives one verdict', async () => {
 test('Setup chips do not repeat their kind', () => {
   const src = fs.readFileSync(path.join(__dirname, 'static/panel/setup.js'), 'utf8');
   assert.doesNotMatch(src, /<small[^>]*>\$\{esc\(l\.kind\)\}/);
-  assert.match(src, /b\.title = l\.kind/);
+  assert.match(src, /modelPartLabel\(l\.name, l\.kind\)/);
 });
 
 test('calibration leads with the step in words, not an internal id', async () => {

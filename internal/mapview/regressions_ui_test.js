@@ -58,7 +58,7 @@ test('sticky bars never cover what scrolls into view', () => {
   assert.match(css, /\.cal-body \{[^}]*scroll-padding-bottom/);
   const looks = read('panel/looks.js');
   assert.match(looks, /setProperty\('--look-bar', bar\.offsetHeight/);
-  assert.match(looks, /if \(!panel\.hidden\) panel\.scrollIntoView/, 'opened clock controls come into view');
+  assert.match(read('sheet.js'), /e\.target === opening && e\.target\.open/, 'opened clock controls come into view');
 });
 
 test('a status failure is the shared state with no raw server text and no empty sections', async () => {
@@ -101,7 +101,7 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   const { calCount, stepPlace } = await import('./static/panel/calibrate.js');
   const st = { anchors: 2, measured: 1, progress: [{ done: true }, { done: false }, { done: false }] };
   assert.equal(calCount(st).text, '1 of 3 steps done');
-  assert.equal(stepPlace(1, { done: false }), 'Step 2 · not done yet');
+  assert.equal(stepPlace(1, { done: false }), 'Step 2 in the list · not done yet');
   assert.doesNotMatch(stepPlace(1, { done: true }), / of /, 'visited out of order, "step N of M" read as a count');
   const setup = read('panel/setup.js');
   assert.match(setup, /calCount\(st\)/);
@@ -419,7 +419,7 @@ test('B30: unknown outputs read as unknown or partial, by name', async () => {
   const none = powerSummary({ estimate: [bare(1)], controllers: [{ ma: 0, known: false }], stage: { scale: 1 } }, name);
   assert.equal(none.limiting, 'Unknown');
   assert.equal(none.overall, 'Unknown');
-  assert.match(none.notSet, /its draw/);
+  assert.match(none.notSet, /any output/);
   const all = powerSummary({ estimate: [known], controllers: [{ ma: 2000, known: true }], stage: { scale: 1 } }, name);
   assert.equal(all.limiting, 'None needed');
   assert.equal(all.overall, '2.00 A');
@@ -607,10 +607,48 @@ test('B50: a phone preset row is one action, Pin and a More holding the rest; De
 
 test('B51: a field error is directly under its field, in one layout', () => {
   const src = read('panel/presets.js');
-  assert.match(src, /id="prName"[^\n]*<span class="field-err" id="prNameErr"/);
+  assert.match(src, /markName = \(message\)/);
   assert.match(src, /markName\('Give the preset a name\.'\)/);
   const form = read('form.js');
   assert.match(form, /className: 'field-err'/);
   assert.doesNotMatch(form, /class="err grow"/);
   assert.match(css, /\.field-err \{ display: block; margin-top: 4px; \}/);
+});
+
+test('plain words: model parts, effect subtitles, and numbers with commas', async () => {
+  const { modelPartLabel } = await import('./static/names.js');
+  assert.equal(modelPartLabel('walls-lines', 'lines'), 'Walls outline');
+  assert.equal(modelPartLabel('roofs faces', 'faces'), 'Roofs surfaces');
+  assert.equal(modelPartLabel('trim', 'points'), 'Trim');
+  const { effectSummary } = await import('./static/panel/looks.js');
+  assert.equal(effectSummary({ id: 'bands', name: 'Bands', params: [{ name: 'bands', type: 'list' }] }), 'Color bands');
+  assert.equal(effectSummary({ id: 'solid', name: 'Solid', params: [{ name: 'color', type: 'color' }] }), 'Solid · One color');
+  const { count, plural } = await import('./static/util.js');
+  assert.equal(count(22322), '22,322');
+  assert.equal(plural(22322, 'light'), '22,322 lights');
+  assert.equal(plural(1, 'light'), '1 light');
+  assert.doesNotMatch(read('panel/calibrate.js'), /anchors\.yaml<\/code>/);
+  assert.doesNotMatch(read('panel/status.js'), /'map draw'/);
+});
+
+test('the brightness warning is said once per screen, and its toast leaves with the tab', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /else if \(dark\) darkToast = S\.toast\(dark/, 'a toast only when the lane can\'t be read');
+  assert.match(looks, /S\.on\('tab', \(\) => \{ darkToast\?\.remove\(\)/);
+  assert.doesNotMatch(looks, /note\.className = orig \? 'note copy-note' : dark/, 'not on every card as well');
+  const status = read('panel/status.js');
+  assert.doesNotMatch(status, /stDark/, 'one issues list on Status');
+  assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], dark\)/);
+});
+
+test('Everything is the one term, and the Runs group says why runs are missing', async () => {
+  const { nodeName } = await import('./static/select.js');
+  assert.equal(nodeName({ members: [{ kind: 'all', id: 'all', name: 'All' }] }), 'Everything');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /A run that is a whole area or zone is listed there instead\./);
+  assert.match(looks, /\$\$\('#lkLive'\)\.disabled = st\.following/, 'Now is an action, not a toggle');
+  assert.doesNotMatch(looks, /press\(\$\$\('#lkLive'\)/);
+  assert.match(looks, /<details class="clock-box" id="lkClockBox" hidden><summary>Preview clock/);
+  assert.match(looks, /\$\$\('#lkClockBox'\)\.hidden = !prev\.length/);
+  assert.match(looks, /bri-label[^>]*>\$\{icon\('sun'\)\}Brightness/);
 });

@@ -20,6 +20,7 @@ var (
 	listIndex = regexp.MustCompile(`\.(\d+)`)
 	separator = regexp.MustCompile(`[._-]+`)
 	colorsN   = regexp.MustCompile(`\bcolors (\d)`)
+	bandsN    = regexp.MustCompile(`\bbands (\d)`)
 	compass   = regexp.MustCompile(`(?i)\b(ne|nw|se|sw|n|s|e|w)\b`)
 )
 
@@ -35,6 +36,7 @@ func Humanize(id string) string {
 	})
 	s = strings.TrimSpace(separator.ReplaceAllString(s, " "))
 	s = colorsN.ReplaceAllString(s, "color $1")
+	s = bandsN.ReplaceAllString(s, "band $1")
 	s = compass.ReplaceAllStringFunc(s, func(m string) string {
 		switch strings.ToLower(m) {
 		case "n":

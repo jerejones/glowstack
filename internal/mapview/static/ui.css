@@ -331,7 +331,6 @@ input[type=checkbox]:checked::after {
   body[data-detent=half] .now { margin-bottom: 0; }
   body[data-detent=half] .now:not(.idle) small { display: none; }
   .look-bar > .strip { display: none; }
-  .clock #lkPlay span { display: none; }
   .look-bar { padding-top: 4px; padding-bottom: 4px; }
   .run-rows li { flex-wrap: wrap; }
   .run-rows li .what { flex-basis: 100%; }
@@ -404,6 +403,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .layer .top .what span { color: var(--muted); font-size: var(--t-s); }
 .layer .strip { height: 8px; border-radius: 3px; margin: 6px 0 2px; border: 1px solid #0007; }
 .layer .bri { display: flex; align-items: center; gap: 8px; }
+.bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-s); }
 .crumbs .sep { display: inline-flex; }
 .layer .bri output { width: 3.2em; text-align: right; color: var(--muted); }
 .layer .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
@@ -422,10 +422,12 @@ details[open] > summary::before { transform: rotate(90deg); }
 .look-bar .strip { height: 6px; border-radius: 3px; }
 .look-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .look-acts #lkClear { margin-right: auto; }
+.clock-box { margin: 10px 0; }
+.clock-box > summary .t { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 .clock { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
 .step-pair { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
 .step-pair .muted { margin-left: 4px; }
-.clock .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.clock-box .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 .clock-more { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; margin: 6px 0; padding: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); }
 
 /* the Tweak form */

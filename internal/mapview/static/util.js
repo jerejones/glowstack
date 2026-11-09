@@ -19,12 +19,14 @@ export function press(b, on) {
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
 // plural is a count with its noun: "1 output", "2 outputs".
-export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+export const plural = (n, one, many = one + 's') => `${count(n)} ${n === 1 ? one : many}`;
+// count groups a number's thousands: "22,322".
+export const count = (n) => Number(n).toLocaleString('en-US');
 // humanize turns an id or parameter key into words: "sparkle.fade_in" is
 // "Sparkle fade in"; "colors.0" is "Color 1". The server's internal/names
 // follows the same rules.
 export function humanize(id) {
-  const s = String(id).replace(/\.(\d+)/g, (_, i) => ` ${+i + 1}`).replace(/[._-]+/g, ' ').trim().replace(/\bcolors (?=\d)/, 'color ').replace(/\b(ne|nw|se|sw|n|s|e|w)\b/gi, (c) => ({ n: 'north', s: 'south', e: 'east', w: 'west' }[c.toLowerCase()] || c.toUpperCase()));
+  const s = String(id).replace(/\.(\d+)/g, (_, i) => ` ${+i + 1}`).replace(/[._-]+/g, ' ').trim().replace(/\bcolors (?=\d)/, 'color ').replace(/\bbands (?=\d)/, 'band ').replace(/\b(ne|nw|se|sw|n|s|e|w)\b/gi, (c) => ({ n: 'north', s: 'south', e: 'east', w: 'west' }[c.toLowerCase()] || c.toUpperCase()));
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 

@@ -85,6 +85,7 @@ function toast(msg, opts = {}) {
   box.appendChild(el);
   while (box.children.length > 3) box.firstChild.remove();
   setTimeout(() => el.remove(), opts.ms || (err || opts.error ? 8000 : 3500));
+  return el;
 }
 S.toast = toast;
 function placeToasts() {
