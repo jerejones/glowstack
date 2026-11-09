@@ -12,7 +12,7 @@
 // is a line at the bottom that opens to its controls.
 import { post, del, esc, accentFor, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
-import { houseStatusMessage } from '../house-status.js';
+import { houseStatusMessage, darkZones, darkMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState } from '../states.js';
 import { icon } from '../icons.js';
@@ -333,8 +333,9 @@ export function createLooks(S, root) {
     }
     const note = el.querySelector('.note');
     const orig = c.lane === 'preview' ? copies[l.id] : '';
-    note.className = orig ? 'note copy-note' : 'note';
-    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
+    const dark = c.lane === 'house' ? darkMessage(darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))) : '';
+    note.className = orig ? 'note copy-note' : dark ? 'note dark-note' : 'note';
+    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : dark;
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
     rm.textContent = part ? `Remove from ${nodeName(S.sel.node)}` : 'Remove';
     rm.title = part ? `Turn off ${targetName(g, part)} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
@@ -416,8 +417,11 @@ export function createLooks(S, root) {
   // renderBar keeps what's in preview, and the way to apply it, in view
   // however far the lists scroll. It is the one primary action here.
   function renderBar(prev) {
-    $$('#lkBar').hidden = !prev.length;
-    if (!prev.length) return;
+    const bar = $$('#lkBar');
+    bar.hidden = !prev.length;
+    // Scrolling into view stops short of the bar, whatever its height.
+    if (!prev.length) { root.parentElement.style.removeProperty('--look-bar'); return; }
+    queueMicrotask(() => root.parentElement.style.setProperty('--look-bar', bar.offsetHeight + 'px'));
     const l = prev[0];
     const eff = effectFor(S, l);
     $$('#lkBarStrip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
@@ -461,7 +465,7 @@ export function createLooks(S, root) {
       return;
     }
     const form = createForm({
-      S, layer: c.layer, pitch: pitchFor(c.layer.target),
+      S, layer: c.layer, pitch: pitchFor(c.layer.target), outside: ['brightness'], // on the card
       send: (params) => c.patch.set(params),
       replace: (params) => c.patch.replace(params),
     });
@@ -488,6 +492,10 @@ export function createLooks(S, root) {
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     S.toast(`Applied ${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}.`);
     await S.refresh();
+    // The status poll's brightness can be seconds old: read it now.
+    await S.status?.poll();
+    const dark = darkMessage([...new Set(S.house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
+    if (dark) S.toast(dark, { ms: 9000 });
   }
   $$('#lkPushAll').onclick = () => apply([]);
   $$('#lkClear').onclick = async () => {
@@ -529,7 +537,10 @@ export function createLooks(S, root) {
   scrub.onchange = () => { scrubBase = null; scrub.value = 0; renderClock(); };
   const more = $$('#lkClockMore'), panel = $$('#lkClockPanel');
   const openClock = (on) => { panel.hidden = !on; more.innerHTML = icon(on ? 'chevronUp' : 'chevronDown'); more.setAttribute('aria-expanded', on); save(CLOCK, on); };
-  more.onclick = () => openClock(panel.hidden);
+  more.onclick = () => {
+    openClock(panel.hidden);
+    if (!panel.hidden) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
   openClock(!!load(CLOCK, false));
 
   function renderClock() {
@@ -555,6 +566,7 @@ export function createLooks(S, root) {
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);
+  S.on('status', renderLanes); // a zone's brightness changed the notes
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();

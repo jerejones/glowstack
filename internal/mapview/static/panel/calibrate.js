@@ -131,6 +131,13 @@ export function calCount(st) {
   };
 }
 
+// stepPlace says where the current step sits in the list. Steps can be
+// visited in any order, so it says its place and its own state, never a
+// count that could be read against the number done.
+export function stepPlace(index, item) {
+  return `Step ${index + 1} in the list · ${item.done ? 'done' : 'not done yet'}`;
+}
+
 // partName is an anchor's name within its run: the run's name is on the
 // group already, so the part that tells two rows apart comes first.
 export function partName(run, node, label) {
@@ -289,6 +296,7 @@ export function createCalibrate(S, root) {
     if (!running && left) { left = false; remember(false); }
     if (running && !open && !left) show(true);
     if (running !== wasActive) { wasActive = running; S.emit('calibration', running); }
+    S.emit('calprogress', C.st);
     if (!open) { S.markDirty(); return; }
     const st = C.st;
     acts.length = 0;
@@ -323,7 +331,7 @@ export function createCalibrate(S, root) {
         const moved = c.index - c.estimate;
         const step = stepTitle(st, nodeLabel);
         const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
-        parts.push(`<div class="cal-step">${i >= 0 ? `<small>Step ${i + 1} of ${st.progress.length}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
+        parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
         parts.push('<p class="cal-how">Move the real white pixel onto the circled corner.<br>+ goes toward the end of the run.</p>');
         const was = $$('#caBody details.tech');

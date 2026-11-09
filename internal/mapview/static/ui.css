@@ -242,7 +242,7 @@ label.check { display: inline-flex; align-items: center; gap: 6px; min-height: v
 .tabs button.on { background: #222833; border-color: #39414d; color: #fff; }
 .tabs .ico { display: inline-flex; opacity: 0.85; }
 .tabs .rail-toggle { flex: none; display: none; }
-.content { --content-bottom: calc(16px + var(--safe-b)); flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px var(--content-bottom); -webkit-overflow-scrolling: touch; }
+.content { --content-bottom: calc(16px + var(--safe-b)); flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px var(--content-bottom); -webkit-overflow-scrolling: touch; scroll-padding-bottom: calc(var(--look-bar, 0px) + 8px); }
 
 /* side panel, collapsible to an icon rail */
 @media (max-width: 1099.98px) {
@@ -358,6 +358,8 @@ details[open] > summary::before { transform: rotate(90deg); }
 .layer .bri output { width: 3.2em; text-align: right; color: var(--muted); }
 .layer .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .layer .copy-note { font-size: var(--t-s); color: var(--preview); margin-top: 4px; }
+.dark-note { font-size: var(--t-s); color: var(--warn); margin-top: 4px; }
+#stDark { margin: 0 0 10px; }
 .look-bar {
   /* The scrollport's padding counts against sticky: reach the panel's edge. */
   position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center;
@@ -451,7 +453,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-top .what { flex: 1; min-width: 0; }
 .cal-top .what b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-top .what small { color: var(--muted); }
-.cal-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 12px; }
+.cal-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; scroll-padding-bottom: 16px; }
 .cal-step { margin: 10px 0 4px; }
 .cal-step small { color: var(--muted); font-size: var(--t-s); }
 .cal-step h2 { font-size: var(--t-xl); margin: 2px 0; overflow-wrap: anywhere; }
@@ -503,7 +505,9 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-actions button:hover, .preset-actions button:focus-visible { color: var(--fg); border-color: var(--line); }
 .preset-actions button.danger { color: var(--muted); }
 .preset-actions button.danger:hover, .preset-actions button.danger:focus-visible { color: #fecaca; border-color: #7f1d1d; }
-.preset-actions .pin { display: inline-flex; align-items: center; gap: 5px; }
+.preset-actions .pin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+/* Wide enough for Pinned, so the row lines up whichever a card says. */
+.preset-actions [data-act=pin] { width: 6.6em; padding: 0; }
 .preset-actions [aria-pressed=true] { color: #ffd878; border-color: #8b723e; }
 .preset-entry > .strip { display: block; height: 10px; border-radius: 3px; }
 .preset-editor h3 { margin-top: 0; }

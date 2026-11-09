@@ -4,6 +4,7 @@
 
 // What the map is showing, worked out once: the chip's words and the
 // Preview/Lights toggle both come from here, so they can't disagree.
+import { esc } from './util.js';
 
 // mapStatus takes the page's state: connected, show ('' or 'house'),
 // preview (the /api/map/preview state, or null before the first read),
@@ -19,4 +20,10 @@ export function mapStatus({ connected, show, preview, target }) {
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · nothing in preview', cls: 'house', title: 'The map shows what the lights show' };
+}
+
+// badgeHTML is the chip's content. One element holds both parts: the chip
+// is a flex box, and a direct child span would lose its leading space.
+export function badgeHTML(m) {
+  return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }

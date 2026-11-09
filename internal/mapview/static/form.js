@@ -224,9 +224,28 @@ export function paramLabel(name) {
   return humanize(name.replace(/(^|\.)span$/, '$1repeat_length'));
 }
 
+// boundEntries counts the entries at the start of list or colors param p
+// that WLED controls already edit in full.
+function boundEntries(p, bindings) {
+  const bound = new Set(bindings.map((b) => b.param));
+  const whole = (i) => (p.type === 'colors' ? bound.has(`${p.name}.${i}`) : (p.fields || []).length > 0 && p.fields.every((f) => bound.has(`${p.name}.${i}.${f.name}`)));
+  let n = 0;
+  while (whole(n)) n++;
+  return n;
+}
+
+// moreParams is what the More list shows: every param not already on the
+// WLED list above it, or (outside) elsewhere on the page. from is how many
+// entries of a list param the WLED list covers.
+export function moreParams(schema, bindings, outside = []) {
+  return schema.filter((p) => !outside.includes(p.name) && !bindings.some((b) => b.param === p.name))
+    .map((p) => ({ p, from: p.type === 'colors' || p.type === 'list' ? boundEntries(p, bindings) : 0 }));
+}
+
 // createForm builds the Tweak form for a layer. ctx: S, layer (kept
 // current with update), pitch (meters per pixel, for px), send(params)
-// and replace(params) to edit the layer.
+// and replace(params) to edit the layer, outside (param names the page
+// offers elsewhere, left out of More).
 export function createForm(ctx) {
   const { S } = ctx;
   const el = document.createElement('div');
@@ -423,10 +442,10 @@ export function createForm(ctx) {
   const coerce = (s) => (/^-?[\d.]+(e-?\d+)?$/.test(s) ? Number(s) : s);
 
   // control builds the editor for one schema param.
-  function control(p, get, set) {
+  function control(p, get, set, from = 0) {
     switch (p.type) {
       case 'color': return colorInput(get, set);
-      case 'colors': return colorsList(get, set);
+      case 'colors': return colorsList(get, set, from);
       case 'palette': return paletteSelect(get, set);
       case 'enum': return enumSelect(p.enum || [], get, set);
       case 'bool': return checkbox(get, set);
@@ -445,7 +464,7 @@ export function createForm(ctx) {
         ctrls.push({ sync });
         return [r, out];
       }
-      case 'list': return listEditor(p, get, set);
+      case 'list': return listEditor(p, get, set, from);
     }
     if (QTY.has(p.type)) {
       return textInput(get, set, (s) => Number.isFinite(parseQty(p.type, s, ctx.pitch)), String(p.default ?? ''));
@@ -453,19 +472,21 @@ export function createForm(ctx) {
     return textInput(get, set, (s) => (p.type === 'int' || p.type === 'seed' ? /^-?\d+$/.test(s) : Number.isFinite(Number(s)) || p.type === 'string'), String(p.default ?? ''));
   }
 
-  function colorsList(get, set) {
+  // colorsList edits a list of colors from index from; earlier ones are
+  // on the WLED list.
+  function colorsList(get, set, from = 0) {
     const box = document.createElement('span');
     box.className = 'colors';
     const build = () => {
       box.replaceChildren();
       const list = [...(get() || [])];
-      list.forEach((_, i) => box.append(colorInput(() => (get() || [])[i], (v) => { const l = [...(get() || [])]; l[i] = v; set(l); })));
+      list.forEach((_, i) => { if (i >= from) box.append(colorInput(() => (get() || [])[i], (v) => { const l = [...(get() || [])]; l[i] = v; set(l); })); });
       const add = document.createElement('button');
       add.type = 'button'; add.className = 'icon-btn'; add.innerHTML = icon('plus'); add.title = 'Add a color'; add.setAttribute('aria-label', 'Add a color');
       add.onclick = () => { set([...(get() || []), '#ffffff']); build(); };
       const rm = document.createElement('button');
       rm.type = 'button'; rm.className = 'icon-btn'; rm.innerHTML = icon('minus'); rm.title = 'Remove the last color'; rm.setAttribute('aria-label', 'Remove the last color');
-      rm.disabled = list.length <= 1;
+      rm.disabled = list.length <= Math.max(1, from);
       rm.onclick = () => { set((get() || []).slice(0, -1)); build(); };
       box.append(add, rm);
     };
@@ -473,13 +494,14 @@ export function createForm(ctx) {
     return box;
   }
 
-  function listEditor(p, get, set) {
+  function listEditor(p, get, set, from = 0) {
     const box = document.createElement('div');
     box.className = 'list';
     const build = () => {
       box.replaceChildren();
       const list = get() || [];
       list.forEach((item, i) => {
+        if (i < from) return;
         const row = document.createElement('div');
         row.className = 'item';
         for (const f of p.fields || []) {
@@ -512,18 +534,20 @@ export function createForm(ctx) {
     return box;
   }
 
-  // ---- More: every param ----
+  // ---- More: the rest of the params ----
+  const rest = moreParams(schema, (effect.wled && effect.wled.bindings) || [], ctx.outside);
   const more = document.createElement('details');
-  more.innerHTML = `<summary>More settings <span class="muted">(${schema.length})</span></summary>`;
-  for (const p of schema) {
+  more.innerHTML = `<summary>More settings <span class="muted">(${rest.length})</span></summary>`;
+  for (const { p, from } of rest) {
     const get = () => (vals[p.name] !== undefined ? vals[p.name] : p.default);
     const set = (v) => apply({ [p.name]: v });
-    const c = control(p, get, set);
+    const c = control(p, get, set, from);
+    const label = from ? `More ${paramLabel(p.name).toLowerCase()}` : paramLabel(p.name);
     if (p.type === 'list') {
-      const f = field(more, paramLabel(p.name), [], p.doc, p.name);
+      const f = field(more, label, [], p.doc, p.name);
       f.querySelector('.ctl').remove();
       f.append(c);
-    } else field(more, paramLabel(p.name), c, p.doc, p.name);
+    } else field(more, label, c, p.doc, p.name);
   }
 
   // ---- every setting as text, under More ----

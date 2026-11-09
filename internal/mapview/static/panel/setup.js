@@ -7,7 +7,8 @@
 // model's drawing layers, the plan, the camera (named views, Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
-import { $, api, esc, copyText, save, press, failure, plural, humanize } from '../util.js';
+import { $, esc, copyText, save, press, failure, plural, humanize } from '../util.js';
+import { calCount } from './calibrate.js';
 import { MODES } from '../overlay.js';
 
 export function createSetup(S, root) {
@@ -73,14 +74,14 @@ export function createSetup(S, root) {
   // ---------- calibration ----------
   $$('#suCal').onclick = () => S.calib.open();
   const calLabel = (running) => { $$('#suCal').textContent = running ? 'Resume calibrating' : 'Calibrate'; };
-  S.on('calibration', (running) => { calLabel(running); calCount(); });
-  async function calCount() {
-    try {
-      const st = await api('/api/v1/status');
-      const a = st.solve.anchors;
-      $$('#suCalN').textContent = `${a.measured} of ${plural(a.measured + a.estimated, 'point')} measured`;
-    } catch (e) { /* offline */ }
-  }
+  S.on('calibration', calLabel);
+  // The same count the calibration screen shows, from the same reading.
+  const showCount = (st) => {
+    const count = st ? calCount(st) : null;
+    $$('#suCalN').textContent = count ? count.text : '';
+    $$('#suCalN').title = count ? count.title : '';
+  };
+  S.on('calprogress', showCount);
 
   // ---------- overlays ----------
   async function setMode(mode) {
@@ -157,10 +158,9 @@ export function createSetup(S, root) {
   S.on('stream', renderRate);
 
   S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); });
-  S.on('tab', (t) => { if (t === 'setup') { calCount(); renderRate(); } });
+  S.on('tab', (t) => { if (t === 'setup') renderRate(); });
   renderOverlay();
   renderRate();
-  if (S.panel.tab() === 'setup') calCount();
   calLabel(false);
-  return { setMode, calCount };
+  return { setMode };
 }

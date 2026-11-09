@@ -11,6 +11,7 @@
 // unreachable is drawn gray while the map shows the lights.
 import { api, esc, fmt, plural, humanize } from '../util.js';
 import { showState, stateHTML } from '../states.js';
+import { darkZones, darkMessage } from '../house-status.js';
 
 // healthOf normalizes a controller's health report; null if there is
 // none.
@@ -44,6 +45,15 @@ export function verdict(ids, health) {
   return { cls: 'ok', text: ids.length === 1 ? 'The controller is healthy' : `All ${ids.length} controllers healthy` };
 }
 
+// loadFailure is the failure state for a status read that never worked.
+// Whatever the server's error text was, the person gets words and Retry.
+export function loadFailure(e) {
+  return {
+    kind: 'error', title: 'Could not load the status',
+    detail: e && e.network ? "Glowstack isn't responding. Check that it is running, then try again." : 'Glowstack could not read its status. Try again; if it keeps happening, check the Glowstack log.',
+  };
+}
+
 // nb keeps a value and its unit on one line.
 const nb = (s) => `<span class="nb">${s}</span>`;
 
@@ -67,25 +77,39 @@ export function createStatus(S, root) {
   root.innerHTML = `
     <h2 class="title">Status</h2>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
+    <div id="stDark" class="dark-note" hidden></div>
+    <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
     <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
     <h2>Runs <small>drawn vs measured length</small></h2><ul class="list-rows" id="stRuns"></ul>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
-    <div id="stWarn"></div>`;
+    <div id="stWarn"></div>
+    </div>`;
   const $$ = (s) => root.querySelector(s);
-  let last = null;
+  let last = null, shownFailure = false;
 
   const visible = () => S.panel.tab() === 'status' && !S.panel.collapsed();
 
   async function poll() {
     let st;
     try { st = await api('/api/v1/status'); } catch (e) {
-      if (!last) showState($$('#stVerdict'), { kind: 'error', title: 'Could not load the status', detail: e.network ? "Glowstack isn't responding." : e.message, retry: poll });
-      else $$('#stVerdict').textContent = "Couldn't refresh. Showing the last reading.";
+      if (!last) {
+        // A poll mustn't redraw the card out from under a tap on Retry.
+        if (shownFailure) return;
+        shownFailure = true;
+        showState($$('#stVerdict'), { ...loadFailure(e), retry: () => { shownFailure = false; return poll(); } });
+      } else {
+        $$('#stVerdict').className = 'verdict';
+        $$('#stVerdict').textContent = "Couldn't refresh. Showing the last reading.";
+      }
       return;
     }
+    const levels = JSON.stringify(st.brightness);
+    const changed = levels !== JSON.stringify(last?.brightness);
     last = st;
+    shownFailure = false;
     S.statusData = st;
+    if (changed) S.emit('status', st);
     gray();
     if (visible()) { render(st); power(); }
   }
@@ -103,8 +127,12 @@ export function createStatus(S, root) {
   function render(st) {
     const perf = S.perf();
     const v = verdict(g.controllers.map((c) => c.id), st.health);
+    $$('#stBody').hidden = false;
     $$('#stVerdict').className = `verdict ${v.cls}`;
     $$('#stVerdict').textContent = v.text;
+    const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
+    $$('#stDark').hidden = !dark;
+    $$('#stDark').textContent = dark;
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     $$('#stStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
@@ -148,7 +176,7 @@ export function createStatus(S, root) {
       const drawn = s.drawn_m || r.drawn_m;
       const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
       return `<li class="${warn ? 'warn' : ''}"><span class="what"><b>${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(`${r.count} px`)} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
-        <span class="val" title="Points measured">${a.measured}/${a.measured + a.estimated}</span>
+        <span class="val" title="Points on this run that have been measured">${a.measured} of ${a.measured + a.estimated} points</span>
         <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button></li>`;
     }).join('');
     for (const b of $$('#stRuns').querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });

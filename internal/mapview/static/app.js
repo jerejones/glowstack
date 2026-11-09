@@ -23,9 +23,10 @@ import { createCalibrate } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll } from './house-status.js';
 import { createLibrary } from './library.js';
-import { mapStatus } from './map-status.js';
+import { mapStatus, badgeHTML } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, bootFailure } from './states.js';
+import { frameInsets } from './map-frame.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -151,21 +152,20 @@ function resize() {
 function setInsets() {
   if (!S.view) return;
   const stage = $('stage').getBoundingClientRect();
-  const full = S.panel.detent() === 'full' && !S.calibrating;
-  // At full the chip sits by the toggle, in the strip of map above the sheet.
-  let top = full ? 0 : $('chips').getBoundingClientRect().bottom - stage.top;
-  if (full && !$('crumbs').hidden) top = $('crumbs').getBoundingClientRect().bottom - stage.top;
-  let bottom = S.panel.covered();
-  // Calibration frames its target clear of whatever floats over the map.
-  if (S.calibrating) {
-    top = Math.max(top, $('mapControls').getBoundingClientRect().bottom - stage.top);
-    bottom = S.panel.layout() === 'sheet'
-      ? stage.bottom - $('calibrate').getBoundingClientRect().top
-      : floatsBottom(stage);
-  }
-  // Leave the framing some room, whatever covers the map.
-  top = Math.max(0, Math.min(top, stage.height - bottom - 52));
-  S.view.setInsets(top + 6, bottom + 6);
+  const below = (id) => $(id).getBoundingClientRect().bottom - stage.top;
+  const { top, bottom } = frameInsets({
+    height: stage.height,
+    chips: below('chips'),
+    crumbs: $('crumbs').hidden ? null : below('crumbs'),
+    controls: below('mapControls'),
+    layout: S.panel.layout(),
+    full: S.panel.detent() === 'full',
+    covered: S.panel.covered(),
+    calibrating: S.calibrating,
+    calTop: $('calibrate').getBoundingClientRect().top - stage.top,
+    floats: floatsBottom(stage),
+  });
+  S.view.setInsets(top, bottom);
 }
 S.setInsets = setInsets;
 
@@ -514,7 +514,7 @@ function badge() {
   badgeShown = true;
   const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target: S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind) });
   const b = $('badge');
-  b.innerHTML = `${esc(m.text)}<span class="detail">${esc(m.detail)}</span>`;
+  b.innerHTML = badgeHTML(m);
   b.className = 'badge ' + m.cls;
   b.title = m.title;
   for (const t of $('showSeg').querySelectorAll('button')) {
