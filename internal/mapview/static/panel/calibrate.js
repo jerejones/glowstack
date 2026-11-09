@@ -555,6 +555,7 @@ export function createCalibrate(S, root) {
       next = sheetShift(rows, body.clientHeight);
     }
     root.style.top = next ? `calc(var(--cal-map) - ${next}px)` : '';
+    document.body.style?.setProperty('--cal-shift', next + 'px');
     if (next !== shift) { shift = next; S.resize(); }
   }
 

@@ -327,7 +327,8 @@ test('B33: toasts sit above the map toggle and legend, and over the phone calibr
   const { toastBottom } = await import('./static/map-frame.js');
   assert.equal(toastBottom({ height: 900, layout: 'wide', calibrating: false, calTop: 0, floats: 120 }), 128);
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: false, calTop: 354, floats: 450 }), 458, 'above the sheet and its toggle');
-  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 800 }), 498);
+  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 0 }), 498);
+  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 530 }), 538, 'above the key too');
   assert.match(read('app.js'), /\.filter\(\(\[r, keep\]\) => r\.height && keep\(r\)\)/, 'a legend hidden by CSS has no top');
 });
 
@@ -830,7 +831,7 @@ test('B65: the phone keeps a color key above the sheet, not at the toggle', asyn
 test('B70: a failed map load keeps the navigation and the preset library', () => {
   const app = read('app.js');
   assert.match(app, /try \{ S\.geo = await api\('\/api\/map\/geometry'\); \} catch \(e\) \{ await startWithoutMap\(e\); return; \}/);
-  assert.match(app, /showMapError\('load the map', e\)/);
+  assert.match(app, /showMapError\('load the map', e, serverUp\)/);
   assert.match(app, /S\.presetLibrary = createPresets\(S, \$\('tab-presets'\)\);\n  for \(const \[id, name\] of NEEDS_MAP\)/);
   assert.match(app, /showMapError\('draw the map', e\);\n    S\.view = blank\(\);/, 'a model that fails to draw leaves the tabs working');
   assert.match(read('index.html'), /id="mapError"/);
@@ -1161,4 +1162,37 @@ test('B75: the dark warning is said once on a screen', async () => {
   assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
   // A failed refresh: the now-line says so; the lane doesn't say it again.
   assert.match(read('panel/looks.js'), /S\.houseStatus === 'unavailable' && S\.houseRead \? null : houseState/);
+});
+
+test('B74: without the map Status still works, and the error names the real cause', async () => {
+  const { bootFailure } = await import('./static/states.js');
+  const e = { network: true };
+  assert.match(bootFailure('load the map', e).detail, /isn't responding/, 'nothing answered');
+  const partial = bootFailure('load the map', e, true);
+  assert.match(partial.detail, /running, but the map data/);
+  assert.doesNotMatch(partial.detail, /isn't responding/);
+  const app = read('app.js');
+  assert.match(app, /const NEEDS_MAP = \[\['looks', 'Looks'\], \['setup', 'Set up the map'\]\];/);
+  assert.match(app, /S\.status = createStatus\(S, \$\('tab-status'\)\);\n[\s\S]*const loadLibrary/, 'Status starts in the mapless path');
+  const { maplessVerdict } = await import('./static/panel/status.js');
+  assert.equal(maplessVerdict({ layers: 2, brightness: { master: 1 } }).text, '2 looks on the lights');
+  assert.equal(maplessVerdict({ layers: 0 }).text, 'Nothing is lit: no looks are on the lights');
+  assert.equal(maplessVerdict({ layers: 2, brightness: { master: 0 } }).cls, 'warn');
+});
+
+test('B81: the phone calibrate map carries the point key, and framing keeps clear of it', async () => {
+  assert.match(css, /body\.calibrating \.legend \{ display: flex; bottom: calc\(100% - var\(--cal-map\)/);
+  const { frameInsets, toastBottom } = await import('./static/map-frame.js');
+  const key = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 60, layout: 'sheet', covered: 700, calibrating: true, calTop: 354, floats: 530 });
+  assert.equal(key.bottom, 536, 'framing stops above the key');
+  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 530 }), 538);
+});
+
+test('calibrate key: each entry is drawn as the map draws it', () => {
+  const src = read('overlay.js');
+  assert.match(src, /sw ring" style="color:#5ddc8a"/);
+  assert.match(src, /sw ring dash" style="color:#ffb347"/);
+  assert.match(src, /sw dot/);
+  assert.match(src, /sw diamond/);
+  assert.match(src, /ring\(q, 8, measured \? '#5ddc8a' : '#ffb347', 2, measured \? null : \[3, 3\]\)/);
 });

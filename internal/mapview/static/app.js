@@ -184,8 +184,9 @@ function floatsBottom(stage) {
   // Height 0 is a legend ui.css hides. The toggle at the top of a phone's
   // map doesn't count; the key above its sheet does.
   const low = (r) => r.top - stage.top > stage.height / 2;
+  const sheet = S.panel.layout() === 'sheet' && !S.calibrating;
   const tops = [[$('mapControls'), low], [$('legend'), () => true]].map(([el, keep]) => [el.getBoundingClientRect(), keep]).filter(([r, keep]) => r.height && keep(r)).map(([r]) => r.top);
-  return Math.max(S.panel.layout() === 'sheet' ? S.panel.covered() : 0, stage.bottom - Math.min(stage.bottom, ...tops));
+  return Math.max(sheet ? S.panel.covered() : 0, stage.bottom - Math.min(stage.bottom, ...tops));
 }
 S.resize = resize;
 
@@ -661,27 +662,31 @@ function onDetent(d) {
 // ---------- boot ----------
 
 // showMapError puts a map failure in the map's pane, with Retry.
-function showMapError(step, e) {
+function showMapError(step, e, serverUp = false) {
   const box = $('mapError');
-  box.innerHTML = stateHTML({ ...bootFailure(step, e), retry: true });
+  box.innerHTML = stateHTML({ ...bootFailure(step, e, serverUp), retry: true });
   box.hidden = false;
   box.querySelector('[data-retry]').onclick = () => location.reload();
 }
 
 // NEEDS_MAP are the tabs that can't draw without the geometry.
-const NEEDS_MAP = [['looks', 'Looks'], ['setup', 'Set up the map'], ['status', 'Status']];
+const NEEDS_MAP = [['looks', 'Looks'], ['setup', 'Set up the map']];
 
 // startWithoutMap keeps the page usable when the geometry can't be read:
-// the navigation, and the preset library, which doesn't need it.
+// the navigation, the preset library and Status, which don't need it.
 async function startWithoutMap(e) {
   console.error(e);
   $('bootLoading').remove();
-  showMapError('load the map', e);
+  const serverUp = await api('/api/v1/status').then(() => true, () => false);
+  showMapError('load the map', e, serverUp);
   $('badge').textContent = 'Map unavailable';
   $('badge').className = 'badge off';
   $('mapControls').hidden = true;
   addEventListener('resize', () => { S.panel.refresh(); resize(); });
-  S.geo = { mappings: [] };
+  const controllers = await api('/api/v1/controllers').then((r) => r.controllers || [], () => []);
+  // The API counts a controller's outputs; the geometry lists them.
+  S.geo = { mapless: true, mappings: [], controllers: controllers.map((c) => ({ ...c, outputs: Array(c.outputs || 0).fill({}) })), zones: [], areas: [], runs: [], nodes: [], plans: [] };
+  S.status = createStatus(S, $('tab-status'));
   const loadLibrary = createLibrary(S, api);
   await loadLibrary();
   S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };

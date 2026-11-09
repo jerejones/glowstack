@@ -255,6 +255,11 @@ input[type=checkbox]:checked::after {
 .legend .ramp, .legend-inline .ramp { height: 10px; border-radius: 3px; margin: 4px 0; }
 .legend .row, .legend-inline .row { display: flex; justify-content: space-between; gap: 8px; }
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+/* The key draws each mark the way the map does. */
+.sw.ring { background: none; border: 2px solid currentColor; border-radius: 50%; }
+.sw.ring.dash { border-style: dashed; }
+.sw.dot { border-radius: 50%; }
+.sw.diamond { transform: rotate(45deg) scale(0.85); border-radius: 1px; }
 .key { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; }
 .key > span { white-space: nowrap; }
 
@@ -622,6 +627,8 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   body.calibrating .chipbar { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; bottom: auto; }
   body.calibrating .brand, body.calibrating .badge .detail { display: none; }
   body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
+  /* The point key, on the map just above the calibration sheet. */
+  body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); }
   .cal-prog { max-height: 220px; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
 }

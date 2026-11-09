@@ -84,6 +84,13 @@ export function lightsVerdict(g, st, layers) {
   return hit.length ? { cls: 'warn', text: `Partly lit: ${joined(hit)} at 0%` } : { cls: 'ok', text: `Lit: ${look} on the lights` };
 }
 
+// maplessVerdict is the verdict without the map: which zones the looks are
+// in is the map's to say, so it reports what's known and no more.
+export function maplessVerdict(st) {
+  if (st.brightness?.master === 0) return { cls: 'warn', text: 'Nothing is lit: brightness is at 0%' };
+  return st.layers ? { cls: '', text: `${plural(st.layers, 'look')} on the lights` } : { cls: '', text: 'Nothing is lit: no looks are on the lights' };
+}
+
 // powerSummary is the power estimate in words: name(id) reads a
 // controller. An output with no LED current is unknown, never zero, and
 // that carries through the totals and the limiting line.
@@ -173,10 +180,10 @@ export function createStatus(S, root) {
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
     <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
-    <h2>Runs <small>drawn vs measured length</small></h2>
+    <div id="stRunsBox"><h2>Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
-    <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details>
+    <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details></div>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     <details id="stDiag"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
     </div>`;
@@ -248,8 +255,9 @@ export function createStatus(S, root) {
   function render(st) {
     const perf = S.perf();
     const health = verdict(g.controllers.map((c) => c.id), st.health);
-    const lit = lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
+    const lit = g.mapless ? maplessVerdict(st) : lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
     $$('#stBody').hidden = false;
+    $$('#stRunsBox').hidden = !!g.mapless; // run lengths are the map's
     $$('#stVerdict').className = `verdict ${lit.cls}`;
     // The verdict says why and what to do: no second card for the same thing.
     const isDark = lit.cls === 'warn';

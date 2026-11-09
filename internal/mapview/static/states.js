@@ -31,12 +31,16 @@ export function showState(el, opts) {
 
 // bootFailure says in plain words why the page could not start. It never
 // carries a stack trace; the console has that.
-export function bootFailure(step, e) {
+// serverUp says another call just worked, so the fault is this one's and
+// "isn't responding" would be untrue.
+export function bootFailure(step, e, serverUp = false) {
   const noServer = !!(e && e.network);
   return {
     kind: 'error',
     title: `Glowstack could not ${step}`,
-    detail: noServer
+    detail: serverUp
+      ? "Glowstack is running, but the map data didn't load. Try again; if it keeps happening, check the Glowstack log."
+      : noServer
       ? "Glowstack isn't responding. Check that it is running, then try again."
       : 'Something went wrong while starting up. Try again; if it keeps happening, check the Glowstack log.',
   };

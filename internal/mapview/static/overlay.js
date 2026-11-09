@@ -195,7 +195,7 @@ export function createOverlay(S) {
     S.view.setColors(made.rgb);
     let legend = made.legend;
     if (o.nodes) {
-      legend += `<div class="key"><span><i class="sw" style="background:#5ddc8a"></i>measured point</span><span><i class="sw" style="background:#ffb347"></i>estimated</span><span><i class="sw" style="background:#f472b6"></i>shared corner</span></div>`;
+      legend += `<div class="key"><span><i class="sw ring" style="color:#5ddc8a"></i>measured</span><span><i class="sw ring dash" style="color:#ffb347"></i>estimated</span><span><i class="sw dot" style="background:#e5e7eb"></i>point</span><span><i class="sw diamond" style="background:#f472b6"></i>shared corner</span></div>`;
     }
     if (o.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
       legend += `<div class="key"><span><i class="sw" style="background:${CTRL}"></i>controller</span><span><i class="sw" style="background:${CTRL_OFF}"></i>not in config</span></div>`;

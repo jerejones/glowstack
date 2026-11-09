@@ -11,7 +11,7 @@
 // toggle, the legend and the sheet, or on a phone that's calibrating, over
 // the calibration sheet.
 export function toastBottom({ height, layout, calibrating, calTop, floats }) {
-  return (calibrating && layout === 'sheet' ? height - calTop : floats) + 8;
+  return (calibrating && layout === 'sheet' ? Math.max(height - calTop, floats ?? 0) : floats) + 8;
 }
 
 // frameInsets takes the page's measurements, in px from the stage's top:
@@ -28,7 +28,7 @@ export function frameInsets({ height, chips, crumbs, controls, layout, covered, 
   if (calibrating) {
     if (layout === 'sheet') {
       top = Math.max(top, controls);
-      bottom = height - calTop;
+      bottom = Math.max(height - calTop, floats ?? 0); // the key sits above the calibration sheet
     } else bottom = floats;
   }
   // Leave the framing some room, whatever covers the map.
