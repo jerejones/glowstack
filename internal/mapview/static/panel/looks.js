@@ -100,6 +100,16 @@ export function stageSub({ rows, stale, word, read = true, status = 'available',
 }
 
 const FILTER_WORDS = { pinned: 'Pinned', presets: 'All presets', effects: 'Effects' };
+// MORE_GAP is how much of the desktop panel the Pinned list may leave empty,
+// in px, before the rest of the library follows it under "More looks".
+export const MORE_GAP = 120;
+// showMore says whether that second group shows: beside the map only (never
+// on a phone's sheet), on the Pinned list with no search in it, when there
+// are looks the list does not show and more than MORE_GAP px left empty
+// between the end of the list and the action bar.
+export function showMore({ layout, filter, query, rest, empty }) {
+  return layout !== 'sheet' && filter === 'pinned' && !query && rest > 0 && empty > MORE_GAP;
+}
 // chipFilter is the list a tap on a segment shows: that segment's, or, when
 // it is the chip left beside an open search (already the one listed), the
 // next in the bar's order, so the lists can still be switched while searching.
@@ -412,7 +422,9 @@ export function createLooks(S, root) {
         <div class="seg" id="lkFilter" role="group" aria-label="Which looks to list"><button type="button" data-filter="pinned">${icon('pin')}<span>Pinned</span></button><button type="button" data-filter="presets">${icon('presets')}<span>All presets</span></button><button type="button" data-filter="effects">${icon('looks')}<span>Effects</span></button></div>
         ${textField({ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks', clearable: true })}
       </div>
+      <h3 class="group-head lib-group" id="lkPinnedHead" hidden>Pinned</h3>
       <div class="cards" id="lkPresets"></div>
+      <div id="lkMoreBox" hidden><h3 class="group-head lib-group" id="lkMoreHead">More looks</h3><div class="cards" id="lkMore"></div></div>
       <details class="words" id="lkWords"><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>
     </section>
     <div class="look-bar" id="lkBar" hidden>
@@ -621,7 +633,29 @@ export function createLooks(S, root) {
         grid.querySelector('#lkEmptyNew').onclick = () => { S.panel.openTab('presets'); S.presetLibrary.openEditor(); };
       }
     }
+    renderMore();
     markPreviewed();
+  }
+  // renderMore fills the room the Pinned list leaves on the desktop panel
+  // with the rest of the library: the unpinned presets, then the effects,
+  // as the same cards under "More looks". The segments stay filters and the
+  // action bar stays where it is. Its cards are built once and kept while it
+  // shows, so a poll or a resize does not reload their swatches.
+  let moreKey = '';
+  function renderMore() {
+    const box = $$('#lkMoreBox'), more = $$('#lkMore'), grid = $$('#lkPresets');
+    const which = activeFilter(), q = $$('#lkFind').value.trim();
+    const ready = S.library.presets !== 'failed' && S.library.catalog !== 'failed';
+    const unpinned = ready ? S.presets.filter((p) => !p.pinned) : [], effects = ready ? S.catalog.effects || [] : [];
+    const content = root.parentElement, bar = $$('#lkBar');
+    const floor = bar && !bar.hidden && bar.offsetParent ? bar.getBoundingClientRect().top : content.getBoundingClientRect().bottom;
+    const show = showMore({ layout: S.panel.layout(), filter: which, query: q, rest: unpinned.length + effects.length, empty: floor - grid.getBoundingClientRect().bottom + content.scrollTop });
+    box.hidden = !show;
+    $$('#lkPinnedHead').hidden = !show;
+    const key = show ? JSON.stringify([unpinned.map((p) => [p.id, p.name, p.effect, p.params]), effects.map((e) => e.id)]) : '';
+    if (key === moreKey) return;
+    moreKey = key;
+    more.replaceChildren(...(show ? [...lookCards.presets(unpinned), ...lookCards.effects(effects)] : []));
   }
   // A tap on a segment lists that segment. While the search has the row the
   // one segment left is a chip: a tap on it moves to the next list, and the
@@ -634,6 +668,7 @@ export function createLooks(S, root) {
   // the same halo at rest on a phone's half sheet (restPoint).
   const here = () => targetRanges(g, S.tree, currentTarget());
   pointOn($$('#lkPresets'), '.preset', here, S);
+  pointOn($$('#lkMore'), '.preset', here, S);
   // The search grows to the row while in use on the half sheet (field.js
   // marks it); clearing puts the library back where it was scrolled to.
   wireClear($$('#lkFind'), renderCatalog, document.getElementById('content'));
@@ -1232,6 +1267,11 @@ export function createLooks(S, root) {
   renderCatalog();
   S.on('ready', clearBar);
   S.tiles?.watch($$('#lkPresets'));
+  S.tiles?.watch($$('#lkMore'));
+  // The room the Pinned list leaves changes with the stage and the window.
+  const refitMore = () => { renderMore(); markPreviewed(); };
+  for (const ev of ['layout', 'preview', 'house', 'ready']) S.on(ev, refitMore);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(refitMore).observe($$('#lkStage'));
   // The rows' words are fitted to the width they have, so refit on a resize.
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); fitStageHead(); fitDark(); }).observe($$('#lkRows'));
 

@@ -567,3 +567,32 @@ test('Refinement 5: a selected segment is 3:1 and heavier; the phone chip keeps 
   assert.doesNotMatch(badgeHTML({ text: 'Showing your preview', detail: '' }), /stack|reserved/, 'the desktop chip is one line, as before');
   assert.match(css, /body\.calibrating \.badge \.detail \{ visibility: hidden; \}/, 'kept while calibrating too');
 });
+
+test('Refinement 6: the desktop Looks panel fills with "More looks" when the Pinned list leaves room', async () => {
+  const { showMore, MORE_GAP } = await import('./static/panel/looks.js');
+  assert.equal(MORE_GAP, 120);
+  const base = { layout: 'wide', filter: 'pinned', query: '', rest: 8, empty: 400 };
+  assert.equal(showMore(base), true);
+  assert.equal(showMore({ ...base, empty: 120 }), false, 'only when more than 120 px would be empty');
+  assert.equal(showMore({ ...base, empty: 121 }), true);
+  assert.equal(showMore({ ...base, layout: 'sheet' }), false, 'not on the phone');
+  assert.equal(showMore({ ...base, layout: 'side' }), true);
+  assert.equal(showMore({ ...base, filter: 'presets' }), false, 'the other segments list everything they have already');
+  assert.equal(showMore({ ...base, query: 'glit' }), false, 'a search is the list it asked for');
+  assert.equal(showMore({ ...base, rest: 0 }), false, 'nothing left to show');
+  const looks = read('panel/looks.js');
+  // Pinned first and labeled, then More looks: the unpinned presets, then the effects, as the same cards.
+  assert.match(looks, /<h3 class="group-head lib-group" id="lkPinnedHead" hidden>Pinned<\/h3>\s*<div class="cards" id="lkPresets"><\/div>\s*<div id="lkMoreBox" hidden><h3 class="group-head lib-group" id="lkMoreHead">More looks<\/h3><div class="cards" id="lkMore"><\/div><\/div>/);
+  assert.match(looks, /\[\.\.\.lookCards\.presets\(unpinned\), \.\.\.lookCards\.effects\(effects\)\]/);
+  assert.match(looks, /\$\$\('#lkPinnedHead'\)\.hidden = !show;/);
+  // Measured against the apply bar's place; the segments and the bar are not touched.
+  assert.match(looks, /const floor = bar && !bar\.hidden && bar\.offsetParent \? bar\.getBoundingClientRect\(\)\.top : content\.getBoundingClientRect\(\)\.bottom;/);
+  const more = looks.slice(looks.indexOf('function renderMore()'), looks.indexOf('// A tap on a segment lists that segment.'));
+  assert.doesNotMatch(more, /lkFilter|lkBar'\)\.hidden =|filter =/);
+  // Its cards behave as the list's own: marked while previewing or live, pointing at the map, their swatches animated.
+  assert.match(looks, /for \(const b of root\.querySelectorAll\('\.preset'\)\)/);
+  assert.match(looks, /pointOn\(\$\$\('#lkMore'\), '\.preset', here, S\);/);
+  assert.match(looks, /S\.tiles\?\.watch\(\$\$\('#lkMore'\)\);/);
+  // The stage is still the first thing in the tab: a preview leads.
+  assert.ok(looks.indexOf('<section class="stage" id="lkStage"') < looks.indexOf('<section class="library"'));
+});

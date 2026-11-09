@@ -1398,7 +1398,12 @@ desk.
     (a card per layer with its brightness, **Tweak** and Remove), the bar
     that puts the preview on the lights, and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy
-    replaces the original.
+    replaces the original. Beside the map, when the Pinned list would leave
+    more than 120 px of the panel empty, the rest of the library follows it
+    under **More looks** (the unpinned presets, then the effects, as the
+    same cards), and the pinned group is labeled **Pinned**. The segments
+    stay filters, a search lists only what it found, and a phone's sheet
+    shows the one list.
   - *Setup*: calibration first (a card with its progress bar while anything
     is left to measure), the overlays and their legend, the model's layers
     or the plan, the camera, the stream rate, and the runs the
