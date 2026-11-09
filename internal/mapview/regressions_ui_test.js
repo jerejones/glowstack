@@ -1136,11 +1136,11 @@ test('B72: anything cut by the sticky bar is scrolled clear after the sheet rise
 test('B75: the dark warning is said once on a screen', async () => {
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Porch'], message: 'Porch is at 0% brightness, so nothing shows there.' };
-  // The card in the lane says why: the toast only confirms, neutrally.
+  // The card says why: the toast only confirms, neutrally, and not as plain success.
   const shown = applyResult('the look to the lights', dark, true);
   assert.equal(shown.warn, false);
   assert.equal(shown.neutral, true);
-  assert.equal(shown.text, 'Applied the look to the lights.');
+  assert.equal(shown.text, 'Applied the look to the lights, but they stay dark.');
   // No card on screen (a collapsed panel): the toast is the warning.
   const hidden = applyResult('the look to the lights', dark, false);
   assert.equal(hidden.warn, true);
@@ -1212,7 +1212,7 @@ test('polish: plain labels and counts', async () => {
   assert.equal(controllerFact({ reachable: true, sending: false }).text, 'Output off');
   assert.equal(controllerFact(null).text, 'No report');
   const status = read('panel/status.js'), cal = read('panel/calibrate.js');
-  assert.match(status, /st\.layers === 1 \? 'look' : 'looks'\} on the lights/);
+  assert.match(status, /'look'\)\} in preview/);
   assert.doesNotMatch(status, /'sending'\)/);
   assert.match(cal, /const BETWEEN = 'Between runs'/);
   assert.match(cal, /test bands across a whole controller/);
@@ -1820,4 +1820,35 @@ test('B103: Preview and Lights are off until the map is ready, and say why', asy
   const empty = showButton('', { ...base, canPreview: false, ready: true, failed: false });
   assert.equal(empty.disabled, false);
   assert.equal(empty.ariaDisabled, true);
+});
+
+test('Applying into a 0% zone warns first and never reports plain success', async () => {
+  const { applyWarning, applyResult } = await import('./static/panel/looks.js');
+  assert.equal(applyWarning({ dark: '' }), '');
+  assert.match(applyWarning({ dark: 'none', message: 'Yard is at 0% brightness, so nothing shows there. Raise the brightness in Home Assistant.' }), /^This will stay dark on the lights\. Yard is at 0%/);
+  assert.match(applyWarning({ dark: 'part', message: 'Yard is at 0%.' }), /^Part of this will stay dark/);
+  const shown = applyResult('the look to the lights', { dark: 'none', message: 'Yard is at 0%.' }, true);
+  assert.equal(shown.text, 'Applied the look to the lights, but they stay dark.');
+  assert.equal(shown.warn, false);
+  const alone = applyResult('the look to the lights', { dark: 'part', message: 'Yard is at 0%.' }, false);
+  assert.match(alone.text, /part of it stays dark\. Yard is at 0%/);
+  assert.equal(applyResult('the look', { dark: '' }).text, 'Applied the look.');
+});
+
+test('the dark reason sits right under the line naming what is on the lights', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /now\.after\(\$\$\('#lkDark'\)\)/);
+  assert.doesNotMatch(/id="lkHouse"[\s\S]*?<\/div>\s*<\/div>/.exec(looks)[0], /lkDark/);
+});
+
+test('Status: the verdict leads, the counts are a line, healthy is a check', async () => {
+  assert.match(css, /\.verdict \{[^}]*font-size: var\(--t-verdict\)/);
+  const status = read('panel/status.js');
+  assert.ok(status.indexOf('id="stStats"') > status.indexOf('id="stPower"'), 'counts below the answers');
+  assert.doesNotMatch(status, /stat\(count\(st\.layers\)/, 'the count of looks repeats the verdict');
+  const { asOf, mark } = await import('./static/panel/status.js');
+  assert.equal(asOf('Controllers: all 8 reachable', '6:10 PM'), 'Controllers: all 8 reachable at 6:10 PM');
+  assert.equal(asOf('all sending', ''), 'all sending');
+  assert.match(mark('ok'), /class="mark ok"[\s\S]*<svg/);
+  assert.match(mark('bad'), /class="mark bad"/);
 });

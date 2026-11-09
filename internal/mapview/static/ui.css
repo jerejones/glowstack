@@ -10,6 +10,7 @@
  * app.js which one applies. Calibration mode is at the end. */
 
 :root {
+  --t-verdict: 22px;     /* Status's one-line answer */
   --field: #0f1115; --field-line: #6b7480; --title-row: 44px;
   --control-line: #6b7480; /* a control's edge: 3:1 on every surface it sits on */
   --bg: #0d0e10;
@@ -503,6 +504,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 }
 .group-head { margin: 10px 0 6px; }
 .bar-note { margin: 0; color: var(--muted); font-size: var(--t-help); }
+.bar-note.warn { color: #fcd9a5; }
 .look-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .look-acts #lkClear { margin-right: auto; }
 .clock-box { margin: 10px 0; }
@@ -560,13 +562,18 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .nv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .nv > .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
-.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-l); font-weight: 600; margin: 4px 0 10px; }
-.verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; color: #fcd9a5; }
+.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-verdict); line-height: 1.25; font-weight: 650; letter-spacing: -0.01em; margin: 4px 0 10px; }
+.verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; letter-spacing: 0; color: #fcd9a5; }
 .verdict.bad { color: #fca5a5; }
 .verdict.ok { color: var(--house); }
 .verdict.warn { color: var(--warn); }
 .stale-note { margin: -6px 0 10px; color: var(--warn); font-size: var(--t-help); }
 .health { display: flex; align-items: center; gap: 8px; margin: -6px 0 10px; color: var(--muted); }
+/* Healthy is a mark as well as a color: a check, not a dot. */
+.mark { display: inline-flex; flex: none; width: 16px; justify-content: center; }
+.mark.ok { color: var(--house); }
+.mark.bad { color: var(--bad); }
+.meta-line { margin: 14px 0 0; color: var(--muted); font-size: var(--t-meta); }
 .health.bad { color: #fca5a5; }
 .issues { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
 .issue { background: #2a2110; border: 1px solid #6b4b16; border-radius: var(--radius); padding: 8px 10px; }

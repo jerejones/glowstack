@@ -144,10 +144,16 @@ export function replaceNote(names) {
 // be seen. outcome is lightOutcome for the applied looks.
 export function applyResult(what, outcome, cardShown = false) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
-  // The card in the lane says why, once: this only confirms, and not in green.
-  if (cardShown) return { text: `Applied ${what}.`, warn: false, neutral: true };
   const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
-  return { text: `${lead} ${outcome.message}`, warn: true };
+  // The warning on screen says why, once: this confirms, never as plain success.
+  return cardShown ? { text: lead, warn: false, neutral: true } : { text: `${lead} ${outcome.message}`, warn: true };
+}
+
+// applyWarning is the Apply bar's word before it's pressed: the looks in
+// preview would land in zones at 0%. '' when they would show.
+export function applyWarning(outcome) {
+  if (!outcome.dark) return '';
+  return `${outcome.dark === 'none' ? 'This will stay dark' : 'Part of this will stay dark'} on the lights. ${outcome.message}`;
 }
 const applyToast = (S, what, outcome, cardShown) => {
   const r = applyResult(what, outcome, cardShown);
@@ -178,6 +184,7 @@ export function createLooks(S, root) {
   root.innerHTML = `
     <div class="looks-head"><h1 class="title">Looks</h1></div>
     <div class="now" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><button type="button" class="now-go quiet" id="lkNowGo" title="Go to what is on the lights, to adjust or remove it">Adjust</button></div>
+    <div id="lkDark" data-dark hidden></div>
     <div class="catalog-head" id="lkCatalogHead">
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Goes on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
@@ -199,7 +206,6 @@ export function createLooks(S, root) {
     </div>
     <div class="lane" id="lkHouse">
       <div class="row"><h2>On the lights <small id="lkHouseN"></small></h2></div>
-      <div id="lkDark" data-dark hidden></div>
       <div class="list"></div>
     </div>
     <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="clock-hint muted">Pause or scrub the preview</span><span class="t" id="lkClockText"></span></summary>
@@ -602,10 +608,11 @@ export function createLooks(S, root) {
       // With one look, Clear preview in the footer is this same action.
       c.el.querySelector('[data-a=remove]').hidden = prev.length < 2 && !removeScope(c.layer);
     }
-    renderBar(prev);
+    const house = S.house.filter((l) => !l.ephemeral);
+    const lit = lightOutcome(g, S.statusData?.brightness, house.map((l) => targetRanges(g, S.tree, l.target)));
+    renderBar(prev, !!lit.dark);
     markPreviewed();
 
-    const house = S.house.filter((l) => !l.ephemeral);
     const hbox = $$('#lkHouse .list');
     renderLane(hbox, 'house', house);
     // A failed refresh with a last reading: the line above says it, once.
@@ -614,7 +621,6 @@ export function createLooks(S, root) {
     $$('#lkHouse').hidden = !S.house.length && (!houseNote || houseNote.kind === 'empty');
     // The zones at 0% once on this screen, here: not on the chip, the row
     // above the catalog or every card.
-    const lit = lightOutcome(g, S.statusData?.brightness, house.map((l) => targetRanges(g, S.tree, l.target)));
     const dark = lit.dark ? `${lit.message} ${BRIGHTNESS_RULE}` : '';
     $$('#lkDark').hidden = !dark;
     S.refreshBadge?.();
@@ -638,6 +644,8 @@ export function createLooks(S, root) {
     const now = $$('#lkNow'), trails = nowTrails(house.length, prev.length);
     const place = trails ? $$('#lkPreview') : $$('.looks-head');
     if (place.nextElementSibling !== now) place.after(now);
+    // Why what's on the lights is dark, right under the line that names it.
+    if (now.nextElementSibling !== $$('#lkDark')) now.after($$('#lkDark'));
     now.classList.toggle('plain', trails);
     // What's in preview says so on its bar, card and map: this line is the lights.
     now.hidden = !line;
@@ -684,7 +692,7 @@ export function createLooks(S, root) {
     });
   }
   let prevBar = false, hadPreview = false;
-  function renderBar(prev) {
+  function renderBar(prev, darkShown = false) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
     syncBarInset();
@@ -695,9 +703,12 @@ export function createLooks(S, root) {
     hidden = updates ? [] : replacedBy(S.house.filter((x) => !x.ephemeral), prev, (t) => targetRanges(g, S.tree, t), new Set(Object.values(copies)));
     $$('#lkAdd').hidden = !hidden.length;
     $$('#lkClear').textContent = clearLabel(prev.length);
-    const note = replaceNote(hidden.map((x) => layerName(S, x)));
+    // One 0% message on the screen: the lights' own, if they already have one.
+    const landing = darkShown ? '' : applyWarning(lightOutcome(g, S.statusData?.brightness, prev.map((x) => targetRanges(g, S.tree, x.target))));
+    const note = [landing, replaceNote(hidden.map((x) => layerName(S, x)))].filter(Boolean).join(' ');
     $$('#lkBarNote').textContent = note;
     $$('#lkBarNote').hidden = !note;
+    $$('#lkBarNote').classList.toggle('warn', !!landing);
     $$('#lkPushAll').textContent = updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`;
     $$('#lkPushAll').title = updates ? 'Put your changes on the lights in place of the original'
       : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`

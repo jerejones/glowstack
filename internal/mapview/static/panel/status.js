@@ -178,6 +178,16 @@ export function runLabel(id) {
   return m ? { name: humanize(m[1]), unassigned: true } : { name: humanize(id), unassigned: false };
 }
 
+// asOf ties a reassuring line to when it was read, while refreshing fails.
+export const asOf = (text, time) => (time && text ? `${text} at ${time}` : text);
+
+// mark is a health state as a shape: a check, an alert, or a plain dot.
+export function mark(state) {
+  if (state === 'ok') return `<span class="mark ok" title="Healthy">${icon('check')}</span>`;
+  if (state === 'bad') return `<span class="mark bad" title="Not reachable">${icon('alert')}</span>`;
+  return '<span class="dotc idle"></span>';
+}
+
 const ago = (t) => {
   const s = (Date.now() - new Date(t).getTime()) / 1000;
   if (!Number.isFinite(s)) return '';
@@ -195,17 +205,17 @@ export function createStatus(S, root) {
     <div id="stHealth" class="health" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
-    <div class="stats" id="stStats"></div>
     <h2>Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
     <div id="stRunsBox"><h2>Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details></div>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
+    <p class="meta-line" id="stStats"></p>
     <details id="stDiag"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
     </div>`;
   const $$ = (s) => root.querySelector(s);
-  let last = null, lastAt = 0, shownFailure = false;
+  let last = null, lastAt = 0, shownFailure = false, staleSince = false;
 
   const markOffline = () => { for (const b of root.querySelectorAll('[data-run], [data-fix]')) b.disabled = !!S.offline; };
   const visible = () => S.panel.tab() === 'status' && !S.panel.collapsed();
@@ -223,10 +233,13 @@ export function createStatus(S, root) {
         // Its own line: the other polls redraw the verdict from the last reading.
         $$('#stStale').textContent = `Couldn't refresh. Showing the reading from ${new Date(lastAt).toLocaleTimeString()}.`;
         $$('#stStale').hidden = false;
+        staleSince = true;
+        if (visible()) render(last);
       }
       return;
     }
     lastAt = Date.now();
+    staleSince = false;
     $$('#stStale').hidden = true;
     const levels = JSON.stringify(st.brightness);
     const changed = levels !== JSON.stringify(last?.brightness);
@@ -288,16 +301,13 @@ export function createStatus(S, root) {
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
     $$('#stHealth').title = 'Whether Glowstack can reach each controller over the network';
-    $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' && !nothingLit ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
+    const readAt = staleSince ? new Date(lastAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+    $$('#stHealth').innerHTML = `${mark(health.cls === 'ok' && !nothingLit && !readAt ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle')}<span>${esc(asOf(health.text, readAt))}</span>`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
+    // Facts about the installation, once: the verdict above answers the question.
+    $$('#stStats').textContent = [`${count(st.solve.pixels)} lights`, `${plural(st.preview_layers, 'look')} in preview`, `Up ${readableDuration(st.uptime)}`].join(' · ');
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     // What the owner asks; how the renderer is doing is below, in Diagnostics.
-    $$('#stStats').innerHTML = [
-      stat(count(st.layers), `${st.layers === 1 ? 'look' : 'looks'} on the lights`, 'Looks on the lights'),
-      stat(count(st.preview_layers), `${st.preview_layers === 1 ? 'look' : 'looks'} in preview`, 'Looks in preview'),
-      stat(count(st.solve.pixels), 'lights'),
-      stat(esc(readableDuration(st.uptime)), 'uptime'),
-    ].join('');
     $$('#stDiagStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
       stat(`${fmt(st.frame_ms, 2)} ms`, `per frame, max ${fmt(st.max_frame_ms, 1)}`),
@@ -307,7 +317,7 @@ export function createStatus(S, root) {
     ].join('');
 
     const shared = sharedFact(g.controllers.map((c) => controllerFact(healthOf(st.health, c.id), nothingLit)));
-    $$('#stCtlShared').textContent = shared ? `all ${shared.toLowerCase()}` : '';
+    $$('#stCtlShared').textContent = shared ? asOf(`all ${shared.toLowerCase()}`, readAt) : '';
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
       const h = healthOf(st.health, c.id);
       let dot = 'idle', line = '';
@@ -315,7 +325,7 @@ export function createStatus(S, root) {
       const kit = [nb(plural(c.pixels, 'light')), nb(plural(c.outputs.length, 'output'))];
       const titled = h?.version ? `${c.id} · version ${h.version}` : c.id;
       if (h) {
-        dot = h.reachable === true && !nothingLit ? 'ok' : h.reachable === false ? 'bad' : 'idle';
+        dot = h.reachable === true && !nothingLit && !readAt ? 'ok' : h.reachable === false ? 'bad' : 'idle';
         // Only worth saying when it isn't simply working.
         if (h.lastSeen && !(h.reachable === true && h.sending === true)) line = nb('Last answered ' + ago(h.lastSeen));
         const faults = [];
@@ -324,7 +334,7 @@ export function createStatus(S, root) {
         if (faults.length) line += `${line ? '<br>' : ''}${faults.join(' · ')}`;
         if (h.error) line += `${line ? '<br>' : ''}<span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(titled)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span>${shared ? '' : `<span class="fact ${fact.cls}">${fact.text}</span>`}</li>`;
+      return `<li>${mark(dot)}<span class="what"><b title="${esc(titled)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span>${shared ? '' : `<span class="fact ${readAt ? '' : fact.cls}">${asOf(fact.text, readAt)}</span>`}</li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));
