@@ -33,11 +33,17 @@ export function overlayShown(st, { calibrating = false, tab = 'setup' } = {}) {
 }
 
 const hit = (a, b, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
-const SPOTS = (w, H) => [[0, 0], [0, H], [0, -H], [-w - 20, 0], [-w - 20, H], [-w - 20, -H], [0, 2 * H], [0, -2 * H]];
+// Nearest first; the far ones get a leader line back to their point.
+const NEAR_SPOTS = 8;
+const SPOTS = (w, H) => [[0, 0], [0, H], [0, -H], [-w - 20, 0], [-w - 20, H], [-w - 20, -H], [0, 2 * H], [0, -2 * H],
+  ...[3, 4, 6, 8].flatMap((r) => [[0, r * H], [0, -r * H], [-w - 20, r * H], [-w - 20, -r * H], [40, r * H], [40, -r * H]])];
 const NAME_ROOM = 10;     // px of clear space around a name label
 const NAME_AREA = 16000;  // px² of free map each name label may have
 const LABEL_GAP = 3;      // px between any two labels
 const NAME_LENGTH = 26;   // longer names are cut short; hovering shows them whole
+const FOCUS_LENGTH = 40;  // the name of what's being pointed at, cut less
+const PHONE_LENGTH = 18;  // any name on a phone's narrow map
+const PHONE_WIDTH = 480;  // px of map narrower than that
 
 // shortLabel fits text in max characters on a word boundary: it never ends
 // mid-word or on punctuation.
@@ -70,7 +76,9 @@ const MIN_MAP_ROOM = 150;
 // their boxes and text positions, and on the array, hidden: how many on the
 // visible map were left out. marks are the map's points: a label goes clear
 // of them when it can, and on top of one only if nothing else is free.
-export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, height = Infinity, measure, clipTop = true }) {
+// solid(box) says a box lies across the model's lights. No label goes there,
+// except the point being measured or pointed at, and only if nothing else is free.
+export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, height = Infinity, measure, clipTop = true, solid = () => false }) {
   const placed = [];
   // What a full-width sheet along the bottom leaves of the map.
   const free = Math.min(height, ...avoid.filter((a) => a.x0 <= 0 && a.x1 >= width && a.y1 >= height).map((a) => a.y0));
@@ -83,20 +91,26 @@ export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, 
   const order = [...queued].sort((a, b) => b.rank - a.rank || (a.budget && b.budget ? a.text.length - b.text.length : 0));
   for (const raw of order) {
     if ((cramped && raw.rank < FOCUS) || (raw.budget && spent >= budget)) { if (inView(raw)) hidden++; continue; }
-    const l = raw.budget && raw.text.length > NAME_LENGTH ? { ...raw, text: shortLabel(raw.text) } : raw;
-    const target = l.rank === 3, H = target ? 19 : 15; // the plate's height
+    const target = raw.rank === 3, H = target ? 19 : 15; // the plate's height
+    const most = width < PHONE_WIDTH ? PHONE_LENGTH : raw.rank >= FOCUS ? FOCUS_LENGTH : NAME_LENGTH;
+    const l = !target && raw.text.length > most ? { ...raw, text: shortLabel(raw.text, most) } : raw;
     const w = measure(l);
+    const passes = [...(marks.length ? [[true, true]] : []), [false, true], ...(raw.rank >= FOCUS ? [[false, false]] : [])];
     let done = false;
-    for (const clearMarks of marks.length ? [true, false] : [false]) {
-      for (const [dx, dy] of SPOTS(w, H)) {
+    // Only a label the model blocks moves far: neighbors don't push one away.
+    let blocked = false;
+    for (const [clearMarks, clearModel] of passes) {
+      for (const [i, [dx, dy]] of SPOTS(w, H).entries()) {
+        if (i >= NEAR_SPOTS && !blocked) break;
         // A label near the right edge slides in rather than being cut off.
         const x = Math.max(4, Math.min(l.x + dx, width - w - 4)), y = l.y + dy;
         const box = { x0: x - 3, x1: x + w + 3, y0: y - H + 3, y1: y + 3 };
         if (box.y1 > height || (clipTop && box.y0 < 0)) continue;
         if (avoid.some((a) => hit(box, a, 2)) || placed.some((b) => hit(box, b, l.budget ? NAME_ROOM : LABEL_GAP))) continue;
         if (clearMarks && marks.some((m) => hit(box, m))) continue;
+        if (clearModel && solid(box)) { blocked = true; continue; }
         if (!target && targetBox && hit(box, targetBox, 40)) continue;
-        placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank });
+        placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank, leader: i >= NEAR_SPOTS ? [l.x, l.y] : null });
         if (target) targetBox = box;
         if (l.budget) spent++;
         done = true;
@@ -258,19 +272,57 @@ export function createOverlay(S) {
   // mark notes a point drawn on the map, for the labels to keep clear of.
   const mark = (q, r) => { marks.push({ x0: q[0] - r, x1: q[0] + r, y0: q[1] - r, y1: q[1] + r }); };
   const label = (text, x, y, color, rank = 1, budget = false) => { queued.push({ text, x, y, color, rank, budget }); };
+  // modelCells is which cells of a coarse screen grid the visible lights
+  // cross, redone only when the view moves. Far-apart pixels are joined, so
+  // a zoomed-in strip stays solid between its samples.
+  const CELL = 6, MAX_SAMPLES = 4000;
+  let cells = null, cellsKey = '', cellsFor = null;
+  function modelCells(width, height) {
+    const stride = Math.max(1, Math.floor(n / MAX_SAMPLES));
+    const key = [S.plan, width, height, pixelAt(0), pixelAt(n >> 1), pixelAt(n - 1)].join();
+    if (cells && key === cellsKey && cellsFor === S.visibility) return cells;
+    const cols = Math.ceil(width / CELL) + 1, rows = Math.ceil(height / CELL) + 1;
+    const grid = new Uint8Array(cols * rows);
+    const fill = (x, y) => { if (x >= 0 && y >= 0 && x <= width && y <= height) grid[Math.floor(y / CELL) * cols + Math.floor(x / CELL)] = 1; };
+    let last = null, lastRun = -2;
+    for (let p = 0; p < n; p += stride) {
+      const q = pixelAt(p);
+      if (!q) { last = null; continue; }
+      fill(q[0], q[1]);
+      if (last && px.run[p] === lastRun) {
+        const steps = Math.min(200, Math.ceil(Math.hypot(q[0] - last[0], q[1] - last[1]) / CELL));
+        for (let i = 1; i < steps; i++) fill(last[0] + (q[0] - last[0]) * i / steps, last[1] + (q[1] - last[1]) * i / steps);
+      }
+      last = q; lastRun = px.run[p];
+    }
+    cells = { grid, cols, rows };
+    cellsKey = key; cellsFor = S.visibility;
+    return cells;
+  }
   function flushLabels() {
     ctx.textBaseline = 'alphabetic';
     const avoid = S.labelAvoid ? S.labelAvoid() : [];
     const { w: width, h: height } = S.view.size ? S.view.size() : { w: Infinity, h: Infinity };
     const receding = queued.some((l) => l.rank === TARGET);
+    const model = queued.length && n && px.plan && Number.isFinite(width * height) ? modelCells(width, height) : null;
+    const solid = model ? (b) => {
+      for (let y = Math.max(0, Math.floor(b.y0 / CELL)); y <= Math.min(model.rows - 1, Math.floor(b.y1 / CELL)); y++) {
+        for (let x = Math.max(0, Math.floor(b.x0 / CELL)); x <= Math.min(model.cols - 1, Math.floor(b.x1 / CELL)); x++) if (model.grid[y * model.cols + x]) return true;
+      }
+      return false;
+    } : undefined;
     const placed = placeLabels(queued, {
-      avoid, marks, width, height, clipTop: !!S.view.size,
+      avoid, marks, width, height, clipTop: !!S.view.size, solid,
       measure: (l) => { ctx.font = `${l.rank === TARGET ? '600 14px' : '12px'} system-ui, sans-serif`; return ctx.measureText ? ctx.measureText(l.text).width : l.text.length * 6; },
     });
     for (const p of placed) {
       const target = p.rank === TARGET;
       ctx.font = `${target ? '600 14px' : '12px'} system-ui, sans-serif`;
       ctx.globalAlpha = receding && !target ? 0.6 : 1;
+      if (p.leader) {
+        ctx.strokeStyle = 'rgba(203, 213, 225, 0.55)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(p.leader[0], p.leader[1]); ctx.lineTo(Math.max(p.x0, Math.min(p.leader[0], p.x1)), p.leader[1] < p.y0 ? p.y0 : p.y1); ctx.stroke();
+      }
       ctx.fillStyle = 'rgba(13, 14, 16, 0.94)';
       ctx.fillRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0);
       if (target) { ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 1; ctx.strokeRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0); }

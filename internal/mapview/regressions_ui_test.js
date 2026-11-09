@@ -1746,3 +1746,44 @@ test('B102: a palette with its own colors says the look colors are unused', asyn
   const member = [{ name: 'sparks.palette', type: 'palette', default: 'Default' }];
   assert.equal(ignoredColor(S, member, {}, 'sparks.color', 'ember-glitter'), false);
 });
+
+const boxesHit = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+test('B101: no label is drawn across the model, and a far one has a leader', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  // A strip right under where the label asked to be.
+  const strip = { x0: 90, x1: 500, y0: 60, y1: 150 };
+  const solid = (b) => boxesHit(b, strip);
+  const placed = placeLabels([{ text: 'origin Shed corner', x: 100, y: 110, color: '#fff', rank: 2 }], { width: 800, height: 400, measure: (l) => l.text.length * 7, solid });
+  assert.equal(placed.length, 1);
+  assert.equal(solid(placed[0]), false);
+  assert.ok(placed[0].leader, 'moved far enough to need a line back');
+});
+
+test('B101: a label with nowhere clear is left out and counted, but the point being measured still shows', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  const everywhere = () => true;
+  const dropped = placeLabels([{ text: 'Porch', x: 100, y: 110, color: '#fff', rank: 1 }], { width: 800, height: 400, measure: () => 40, solid: everywhere });
+  assert.equal(dropped.length, 0);
+  assert.equal(dropped.hidden, 1);
+  assert.equal(placeLabels([{ text: 'Corner', x: 100, y: 110, color: '#fff', rank: 3 }], { width: 800, height: 400, measure: () => 40, solid: everywhere }).length, 1);
+});
+
+test('B101: long labels are shortened on a phone, whatever their kind', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  const placed = placeLabels([{ text: 'origin Northwest Garden Corner Post', x: 100, y: 100, color: '#fff', rank: 2 }], { width: 390, height: 300, measure: (l) => l.text.length * 7 });
+  assert.ok(placed[0].text.length <= 18, placed[0].text);
+  assert.ok(placed[0].x1 <= 390);
+});
+
+test('B101: a crowded map draws no two labels on each other or over the lights', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  for (const [width, height] of [[1040, 900], [390, 300]]) {
+    const strip = [{ x0: 0, x1: width, y0: height * 0.48, y1: height * 0.52 }, { x0: width * 0.48, x1: width * 0.52, y0: 0, y1: height }];
+    const solid = (b) => strip.some((s) => boxesHit(b, s));
+    const queued = Array.from({ length: 300 }, (_, i) => ({ text: `Crowded point number ${i}`, x: 40 + (i * 37) % (width - 80), y: 40 + (i * 53) % (height - 80), color: '#fff', rank: [1, 1.2, 2, 2.5][i % 4], budget: i % 4 < 2 }));
+    const placed = placeLabels(queued, { width, height, measure: (l) => l.text.length * 6.5, solid });
+    placed.forEach((a, i) => placed.slice(i + 1).forEach((b) => assert.equal(boxesHit(a, b), false, `${a.text} / ${b.text}`)));
+    for (const l of placed) if (l.rank < 2.5) assert.equal(solid(l), false, l.text);
+  }
+});
