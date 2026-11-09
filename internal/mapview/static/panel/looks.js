@@ -32,6 +32,19 @@ export function effectKind(e) {
   return 'Effect';
 }
 
+// lookKey says which look a layer (or a card's look) is.
+export const lookKey = (l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect);
+
+// lookAction is what tapping a look does, given the preview's layers: add
+// it, or, when the target already has it, take it back off. A layer that
+// has been tweaked isn't thrown away by a tap: it is focused instead.
+export function lookAction(layers, target, look, copies = {}) {
+  const key = lookKey(look);
+  const same = layers.find((l) => l.target === target && lookKey(l) === key);
+  if (!same) return { add: true };
+  return copies[same.id] || Object.keys(same.params || {}).length ? { focus: same.id } : { remove: same.id };
+}
+
 export function createLooks(S, root) {
   const g = S.geo;
   let copies = load(COPIES, {}) || {};
@@ -104,6 +117,7 @@ export function createLooks(S, root) {
     target = targetSel.value;
     save(TARGET, target);
     if (S.sel && targetSel.value !== nodeTarget(S.sel.node)) S.select(null);
+    markPreviewed();
   };
   S.on('select', () => { fillTargets(); renderLanes(); });
 
@@ -149,20 +163,45 @@ export function createLooks(S, root) {
     markPreviewed();
   }
 
-  // markPreviewed shows which cards are in the preview right now.
+  // markPreviewed shows which cards are in the preview on the current
+  // target: the same look on somewhere else isn't this one.
   function markPreviewed() {
-    const on = new Set((S.preview ? S.preview.layers : []).map((l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect)));
-    for (const b of root.querySelectorAll('.preset')) b.classList.toggle('in-preview', on.has(b.dataset.look));
+    const t = targetSel.value;
+    const on = new Set((S.preview ? S.preview.layers : []).filter((l) => l.target === t).map(lookKey));
+    for (const b of root.querySelectorAll('.preset')) {
+      const inPreview = on.has(b.dataset.look);
+      b.classList.toggle('in-preview', inPreview);
+      b.setAttribute('aria-pressed', inPreview ? 'true' : 'false');
+    }
   }
 
+  // focusLayer brings a preview layer's card into view and marks it.
+  function focusLayer(id) {
+    const c = cards.get('preview:' + id);
+    if (!c) return;
+    c.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    c.el.classList.add('sel');
+    setTimeout(() => c.el.classList.remove('sel'), 1200);
+  }
+
+  // push toggles a look on the current target. One tap at a time per
+  // look, so a double tap can't add it twice.
+  const tapping = new Set();
   async function push(look) {
     const t = targetSel.value;
-    if (!t) return;
+    const key = t + '|' + lookKey(look);
+    if (!t || tapping.has(key)) return;
+    tapping.add(key);
     try {
-      await post('/api/map/preview/layers', { target: t, ...look });
-      if (S.show === 'house') { S.setShow(''); S.toast('Showing your preview on the map.'); }
+      const act = lookAction(S.preview ? S.preview.layers : [], t, look, copies);
+      if (act.focus) { focusLayer(act.focus); return; }
+      if (act.remove) await del('/api/map/preview/layers/' + encodeURIComponent(act.remove));
+      else {
+        await post('/api/map/preview/layers', { target: t, ...look });
+        if (S.show === 'house') { S.setShow(''); S.toast('Showing your preview on the map.'); }
+      }
       await S.refresh();
-    } catch (e) { S.fail('preview the look', e); }
+    } catch (e) { S.fail('preview the look', e); } finally { tapping.delete(key); }
   }
 
   // ---------- lanes ----------

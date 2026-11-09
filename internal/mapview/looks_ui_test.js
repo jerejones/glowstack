@@ -82,6 +82,18 @@ test('plain color lists still draw', async () => {
   assert.equal(lookStrip(S, 'chase', { colors: ['#ff0000', '#0000ff'] }), 'linear-gradient(90deg, rgb(255,0,0), rgb(0,0,255))');
 });
 
+test('tapping a look already in preview takes it off rather than stacking it', async () => {
+  const { lookAction } = await import('./static/panel/looks.js');
+  const look = { preset: 'dusk' };
+  const layer = { id: 'p1', target: 'porch', preset: 'dusk' };
+  assert.deepEqual(lookAction([], 'porch', look), { add: true });
+  assert.deepEqual(lookAction([layer], 'porch', look), { remove: 'p1' });
+  assert.deepEqual(lookAction([layer], 'yard', look), { add: true }, 'in preview is per target');
+  assert.deepEqual(lookAction([layer], 'porch', { effect: 'dusk' }), { add: true }, 'an effect is not a preset of the same name');
+  assert.deepEqual(lookAction([{ ...layer, params: { speed: 2 } }], 'porch', look), { focus: 'p1' }, 'a tweak is not thrown away');
+  assert.deepEqual(lookAction([layer], 'porch', look, { p1: 'h1' }), { focus: 'p1' }, 'nor is a copy being edited');
+});
+
 test('palettes are in before the first panel renders', async () => {
   const { createLibrary } = await import('./static/library.js');
   const seen = {};
