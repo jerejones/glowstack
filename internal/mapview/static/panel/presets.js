@@ -107,7 +107,7 @@ export function createPresets(S, root) {
   const markName = (message) => {
     setFieldError($('#prName'), message);
   };
-  function closeEditor() { draft = null; dirty = false; $('#prEditor').hidden = true; $('#prEditor').replaceChildren(); }
+  function closeEditor() { draft = null; dirty = false; $('#prEditor').hidden = true; $('#prEditor').replaceChildren(); root.parentElement.style.removeProperty('--look-bar'); }
   async function openEditor(p) {
     if (busy || !(await discard())) return;
     draft = structuredClone(p || { id: '', name: '', effect: S.catalog.effects?.[0]?.id || '', params: {}, pinned: false });
@@ -119,7 +119,7 @@ export function createPresets(S, root) {
       <label class="check"><input type="checkbox" id="prPinned"> Pin to Looks</label>
       <p class="muted small">Changes stay here until you save. Saving does not change running lights.</p>
       <div id="prParams"></div><div class="err" id="prError" role="alert"></div>
-      <div class="row"><button type="button" id="prSave" class="go">Save preset</button><button type="button" id="prCancel">Cancel</button></div>`;
+      <div class="row editor-actions" id="prActions"><button type="button" id="prSave" class="go">Save preset</button><button type="button" id="prCancel">Cancel</button></div>`;
     $('#prName').value = draft.id ? presetName(draft) : draft.name;
     $('#prPinned').checked = !!draft.pinned;
     $('#prName').oninput = () => { draft.name = $('#prName').value; dirty = true; markName(''); };
@@ -134,8 +134,17 @@ export function createPresets(S, root) {
     $('#prCancel').onclick = cancelEditor;
     $('#prSave').onclick = saveDraft;
     renderForm();
-    $('#prName').focus();
-    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    placeEditor(box);
+  }
+  // placeEditor sets the form where it can be used: on a phone the sheet
+  // rises and the card starts just under the tabs, whatever autofocus would
+  // have scrolled, with Save pinned at the bottom.
+  function placeEditor(box) {
+    const sheet = S.panel.layout() === 'sheet';
+    if (sheet) S.panel.setDetent('full');
+    $('#prName').focus({ preventScroll: true });
+    box.scrollIntoView(sheet ? { block: 'start' } : { block: 'nearest', behavior: 'smooth' });
+    root.parentElement.style.setProperty('--look-bar', $('#prActions').offsetHeight + 'px');
   }
   function renderForm() {
     const layer = () => ({ effect: draft.effect, params: draft.params || {} });
@@ -187,6 +196,8 @@ export function createPresets(S, root) {
   S.on('preview', markTry);
   S.on('select', markTry);
   S.on('presets', renderList);
+  // The sticky Save bar's height, again after Looks clears its own.
+  S.on('tab', (name) => { if (name === 'presets' && draft) root.parentElement.style.setProperty('--look-bar', $('#prActions').offsetHeight + 'px'); });
   S.on('tab', (name) => { if (name === 'presets' || name === 'looks') S.refreshPresets().catch((e) => say(failure('refresh the presets', e))); });
   addEventListener('beforeunload', (event) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
   renderList();

@@ -12,12 +12,18 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 <title>Page not found · Glowstack</title>
 <link rel="icon" href="/map/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/map/ui.css">
+<script>if (new URLSearchParams(location.search).get('pointer') === 'coarse') document.documentElement.classList.add('coarse');</script>
 </head>
 <body>
-<main class="boot-error">
+<main class="boot-error not-found">
   <div class="state" role="status">
     <div class="state-text"><b>That page doesn't exist</b><span>The address may be out of date. The lights are not affected.</span></div>
-    <a class="link-button" href="/">Back to the map</a>
+    <nav class="not-found-nav" aria-label="Glowstack">
+      <a class="link-button" href="/looks">Looks</a>
+      <a class="link-button" href="/presets">Presets</a>
+      <a class="link-button" href="/setup">Setup</a>
+      <a class="link-button" href="/status">Status</a>
+    </nav>
   </div>
 </main>
 </body>

@@ -105,6 +105,19 @@ function paletteStrip(S, value, owner, colors) {
   return p.interpolate === 'step' ? stepStrip(p.stops, p.wrap !== false) : stopsStrip(p.stops);
 }
 
+// Palettes built from a look's own colors, by id.
+const COLOR_BASED = new Set(['color-1', 'colors-1-2', 'color-gradient', 'colors-only']);
+const NO_COLORS = 'repeating-linear-gradient(135deg, #4a5361 0 3px, #20242c 3px 6px)';
+const isBlack = (c) => { const x = parseColor(c); return !x || !(x.r || x.g || x.b || x.w); };
+
+// choiceStrip is a palette row's swatch. A palette built from the look's
+// colors shows them; with none set, or all of them black, a hatch says so
+// where a black bar would read as a broken row.
+export function choiceStrip(S, id, owner, colors) {
+  const resolved = id === 'default' ? DEFAULT_PALETTE[owner] || 'party' : id;
+  return COLOR_BASED.has(resolved) && colors.every(isBlack) ? NO_COLORS : paletteStrip(S, id, owner, colors);
+}
+
 // A dark layer with gaps, over the colors: sparkles are specks, not a bar.
 const SPECKS = 'linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 22%, transparent 22% 24%, #0b0d10 24% 37%, transparent 37% 38.5%, #0b0d10 38.5% 55%, transparent 55% 57%, #0b0d10 57% 66%, transparent 66% 67.5%, #0b0d10 67.5% 84%, transparent 84% 86%, #0b0d10 86% 100%)';
 
@@ -439,7 +452,13 @@ export function createForm(ctx) {
   }
 
   function paletteSelect(get, set) {
-    const choices = () => (S.palettes || []).map((p) => ({ value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch: paletteStrip(S, p.id, effect.id, Array.isArray(vals.colors) ? vals.colors : []) }));
+    // The look's own colors: its list or single color, set or by default.
+    const colors = () => {
+      const value = (name) => (vals[name] !== undefined ? vals[name] : (schema.find((q) => q.name === name) || {}).default);
+      const list = value('colors'), one = value('color');
+      return Array.isArray(list) ? list : one !== undefined ? [one] : [];
+    };
+    const choices = () => (S.palettes || []).map((p) => ({ value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch: choiceStrip(S, p.id, effect.id, colors()) }));
     const s = createPicker(choices());
     const sync = () => {
       if (s.isOpen) return;

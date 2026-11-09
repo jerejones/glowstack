@@ -751,3 +751,35 @@ test('calibrate list: done rows are plain text with only the check in green', ()
   assert.doesNotMatch(css, /\.cal-prog li\.done \{ color/);
   assert.match(css, /\.cal-prog li\.done \.icon \{ color: var\(--house\); \}/);
 });
+
+test('B58: the phone preset form is placed on purpose, with Save pinned', () => {
+  const src = read('panel/presets.js');
+  assert.match(src, /S\.panel\.setDetent\('full'\)/);
+  assert.match(src, /focus\(\{ preventScroll: true \}\)/, 'autofocus must not scroll the heading away');
+  assert.match(src, /id="prActions"/);
+  assert.match(css, /\.editor-actions \{[^}]*position: sticky/);
+  assert.match(css, /\.preset-editor \{[^}]*scroll-margin-top/);
+});
+
+test('B59: swatches carry a light rim, and a color palette with only black colors is not a black bar', async () => {
+  for (const rule of [/^\.preset \.strip \{[^}]*\}/m, /^\.layer \.strip \{[^}]*\}/m, /^\.now \.strip \{[^}]*\}/m, /^\.picker-swatch \{[^}]*\}/m, /^\.inspect \.chip-color \{[^}]*\}/m]) {
+    assert.match(rule.exec(css)[0], /var\(--rim\)/, String(rule));
+  }
+  assert.doesNotMatch(css, /solid #000?[67]/);
+  const { choiceStrip } = await import('./static/form.js');
+  const S = { palettes: [{ id: 'color-1', name: 'Color 1' }] };
+  assert.match(choiceStrip(S, 'color-1', 'solid', ['#000000']), /repeating-linear-gradient/);
+  assert.match(choiceStrip(S, 'color-1', 'solid', []), /repeating-linear-gradient/);
+  assert.equal(choiceStrip(S, 'color-1', 'solid', ['#ff0000']), 'rgb(255,0,0)');
+});
+
+test('B61: a nav tab has a hover state', () => {
+  assert.match(css, /\.tabs button:not\(\.on\):hover \{[^}]*background/);
+});
+
+test('the 404 page keeps the way around and puts its sentence above the links', () => {
+  const page = read('404.html');
+  for (const tab of ['looks', 'presets', 'setup', 'status']) assert.match(page, new RegExp(`href="/${tab}"`));
+  assert.match(page, /classList\.add\('coarse'\)/, '?pointer=coarse works here too');
+  assert.match(css, /\.not-found \.state \{ display: grid/);
+});
