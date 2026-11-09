@@ -12,6 +12,8 @@
 import { api, esc, fmt, plural, humanize } from '../util.js';
 import { showState, stateHTML } from '../states.js';
 import { darkZones, darkMessage } from '../house-status.js';
+import { runName, controllerName, warningSummary } from '../names.js';
+import { icon } from '../icons.js';
 
 // healthOf normalizes a controller's health report; null if there is
 // none.
@@ -78,12 +80,12 @@ export function createStatus(S, root) {
     <h2 class="title">Status</h2>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
     <div id="stDark" class="dark-note" hidden></div>
+    <div id="stIssues"></div>
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
     <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
     <h2>Runs <small>drawn vs measured length</small></h2><ul class="list-rows" id="stRuns"></ul>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
-    <div id="stWarn"></div>
     </div>`;
   const $$ = (s) => root.querySelector(s);
   let last = null, shownFailure = false;
@@ -124,6 +126,24 @@ export function createStatus(S, root) {
     if (key !== S.grayKey) { S.grayKey = key; S.gray = set; if (S.view) S.view.setGray(set); }
   }
 
+  // renderIssues keeps layout warnings right under the verdict, in plain
+  // words, each with its fix. It redraws only when they change, so an open
+  // disclosure survives the poll.
+  let shownIssues = '';
+  function renderIssues(list) {
+    const key = list.join('\n');
+    if (key === shownIssues) return;
+    shownIssues = key;
+    const items = list.map((w) => warningSummary(g, w));
+    const row = (it, i) => `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><code>${esc(it.detail)}</code></details></div></li>`;
+    const box = $$('#stIssues');
+    box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
+    for (const b of box.querySelectorAll('[data-fix]')) {
+      const { fix } = items[+b.dataset.fix];
+      b.onclick = () => (fix.run ? S.calib.open({ run: fix.run }) : S.panel.openTab(fix.tab));
+    }
+  }
+
   function render(st) {
     const perf = S.perf();
     const v = verdict(g.controllers.map((c) => c.id), st.health);
@@ -149,20 +169,22 @@ export function createStatus(S, root) {
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
       const h = healthOf(st.health, c.id);
       let dot = 'idle', line = 'no health report';
+      const kit = [nb(`${c.pixels} px`), nb(plural(c.outputs.length, 'output'))];
       if (h) {
         dot = h.reachable === true ? 'ok' : h.reachable === false ? 'bad' : 'idle';
-        const bits = [];
-        bits.push(h.reachable === true ? 'reachable' : h.reachable === false ? 'unreachable' : 'not checked');
-        if (h.sending === false) bits.push('output off');
-        else if (h.sending === true) bits.push('sending');
-        if (h.lastSeen) bits.push(nb('seen ' + ago(h.lastSeen)));
-        if (h.version) bits.push(nb(esc(h.version)));
-        if (h.errors) bits.push(`${h.errors} send error${h.errors === 1 ? '' : 's'}`);
-        if (h.reboots) bits.push(`${h.reboots} reboot${h.reboots === 1 ? '' : 's'}`);
-        line = bits.join(' · ');
+        const state = [h.reachable === true ? 'reachable' : h.reachable === false ? 'unreachable' : 'not checked'];
+        if (h.sending === false) state.push('output off');
+        else if (h.sending === true) state.push('sending');
+        if (h.lastSeen) state.push(nb('seen ' + ago(h.lastSeen)));
+        line = state.join(' · ');
+        if (h.version) kit.push(nb('version ' + esc(h.version)));
+        const faults = [];
+        if (h.errors) faults.push(`${h.errors} send error${h.errors === 1 ? '' : 's'}`);
+        if (h.reboots) faults.push(`${h.reboots} reboot${h.reboots === 1 ? '' : 's'}`);
+        if (faults.length) line += `<br>${faults.join(' · ')}`;
         if (h.error) line += `<br><span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b>${esc(c.id)}</b><small>${nb(`${c.pixels} px`)} · ${nb(plural(c.outputs.length, 'output'))} · ${line}</small></span></li>`;
+      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(c.id)}">${esc(c.name || c.id)}</b><small>${line}<br>${kit.join(' · ')}</small></span></li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));
@@ -170,19 +192,18 @@ export function createStatus(S, root) {
       const s = runs.get(r.id) || {};
       // Signed: a run can be shorter than drawn as well as longer.
       const mis = Math.abs(s.mismatch || r.length_mismatch || 0);
-      const label = runLabel(r.id);
+      const label = { ...runLabel(r.id), name: r.name || runName(g, r.id) };
       const warn = mis >= 0.05 && !label.unassigned;
       const a = s.anchors || { measured: 0, estimated: 0 };
       const drawn = s.drawn_m || r.drawn_m;
       const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
-      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b>${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(`${r.count} px`)} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
+      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(`${r.count} px`)} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
         <span class="val" title="Points on this run that have been measured">${a.measured} of ${a.measured + a.estimated} points</span>
         <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button></li>`;
     }).join('');
     for (const b of $$('#stRuns').querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
 
-    const w = st.solve.warnings || [];
-    $$('#stWarn').innerHTML = w.length ? `<h2>Warnings</h2><ul class="list-rows">${w.map((x) => `<li><span class="what">${esc(x)}</span></li>`).join('')}</ul>` : '';
+    renderIssues(st.solve.warnings || []);
   }
 
   let shownPower = false;
@@ -198,15 +219,15 @@ export function createStatus(S, root) {
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
     const limit = (ma) => (ma ? (ma / 1000).toFixed(1) + ' A' : '—');
     const rows = pw.estimate.map((o) => {
-      if (!o.known) return `<tr><td>${esc(o.controller)} output ${o.output}</td><td class="muted" title="Set led_ma for this output in controllers.yaml to estimate its current">Not set</td><td>${limit(o.max_ma)}</td></tr>`;
+      if (!o.known) return `<tr><td>${esc(controllerName(g, o.controller))} output ${o.output}</td><td class="muted" title="Set led_ma for this output in controllers.yaml to estimate its current">Not set</td><td>${limit(o.max_ma)}</td></tr>`;
       const pct = o.max_ma ? Math.min(100, 100 * o.ma / o.max_ma) : 0;
-      return `<tr><td>${esc(o.controller)} output ${o.output}${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</td><td>${amps(o.ma)}</td><td>${limit(o.max_ma)}</td></tr>`;
+      return `<tr><td>${esc(controllerName(g, o.controller))} output ${o.output}${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</td><td>${amps(o.ma)}</td><td>${limit(o.max_ma)}</td></tr>`;
     }).join('');
-    const totals = pw.controllers.map((c) => `<tr><td>${esc(c.controller)} total</td><td>${amps(c.ma)}</td><td>${limit(c.max_ma)}</td></tr>`).join('');
+    const totals = pw.controllers.map((c) => `<tr><td>${esc(controllerName(g, c.controller))} total</td><td>${amps(c.ma)}</td><td>${limit(c.max_ma)}</td></tr>`).join('');
     const unknown = pw.estimate.some((o) => !o.known);
     const stg = pw.stage;
     const scale = stg ? (stg.scale >= 0.9995 ? 'None needed' : `Dimmed to ${(stg.scale * 100).toFixed(1)}%${stg.group ? ` (group ${esc(stg.group)})` : ''}`) : 'Not reporting';
-    const stageRow = (o) => `<tr><td>${esc(o.controller)}${o.output ? ' output ' + o.output : ' total'}</td><td>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}</td><td>${limit(o.max_ma)}${o.need < 0.9995 ? ` · ×${o.need.toFixed(3)}` : ''}</td></tr>`;
+    const stageRow = (o) => `<tr><td>${esc(controllerName(g, o.controller))}${o.output ? ' output ' + o.output : ' total'}</td><td>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}</td><td>${limit(o.max_ma)}${o.need < 0.9995 ? ` · ×${o.need.toFixed(3)}` : ''}</td></tr>`;
     const stage = stg ? `<details><summary>After limiting</summary><table class="power"><tbody>${(stg.outputs || []).map(stageRow).join('')}${(stg.controllers || []).map(stageRow).join('')}</tbody></table></details>` : '';
     box.innerHTML = `<table class="power"><thead><tr><th>Output</th><th>Draw</th><th>Limit</th></tr></thead><tbody>${rows}</tbody><tfoot>${totals}</tfoot></table>
       ${unknown ? '<p class="muted small">“Not set” means the output has no LED current in its settings, so its draw can\'t be estimated.</p>' : ''}

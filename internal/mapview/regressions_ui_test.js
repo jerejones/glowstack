@@ -107,3 +107,102 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   assert.match(setup, /calCount\(st\)/);
   assert.doesNotMatch(setup, /points? measured/);
 });
+
+test('the page humanizes ids as the server does', async () => {
+  const { humanize } = await import('./static/util.js');
+  for (const [id, want] of JSON.parse(fs.readFileSync(path.join(__dirname, '../names/testdata/humanize.json'), 'utf8'))) assert.equal(humanize(id), want, id);
+});
+
+const G = {
+  runs: [{ id: 'shed-eave', name: 'Shed eave' }, { id: 'unmapped-yard', name: 'Yard' }],
+  nodes: [{ id: 'shed-sw', name: 'Shed SW' }, { id: 'shed-sw-2', name: 'Shed SW 2' }],
+  controllers: [{ id: 'unassigned-board', name: 'Board' }],
+  areas: [], zones: [],
+};
+
+test('server messages read with names, and a longer id is not cut by a shorter one', async () => {
+  const { humanText } = await import('./static/names.js');
+  assert.equal(humanText(G, 'shed-sw-2 at unassigned-board:12 on run shed-eave'), 'Shed SW 2 at Board:12 on run Shed eave');
+  assert.equal(humanText(G, 'not-shed-sw stays'), 'not-shed-sw stays');
+});
+
+test('a layout warning has plain words, a fix and the raw text behind it', async () => {
+  const { warningSummary } = await import('./static/names.js');
+  const raw = 'anchors.yaml:22: run shed-eave: 2 measurements in anchors.yaml were taken when it had 300 LEDs; it now has 200. If LEDs were added';
+  const w = warningSummary(G, raw);
+  assert.match(w.summary, /measurements on Shed eave no longer match/);
+  assert.doesNotMatch(w.summary, /anchors\.yaml|:22/);
+  assert.deepEqual(w.fix, { label: 'Calibrate this run', run: 'shed-eave' });
+  assert.equal(w.detail, raw);
+  assert.match(warningSummary(G, 'layout.yaml:3: run shed-eave: shed-sw–shed-sw-2 has 90 pixels where its drawn length implies about 60 (1.50× the run\'s density); check').summary, /Between Shed SW and Shed SW 2 on Shed eave, the lights are spaced tighter than drawn/);
+  assert.equal(warningSummary(G, 'x.yaml:1: something else').fix.tab, 'setup');
+});
+
+test('status shows warnings under the verdict and colors a healthy one', () => {
+  assert.match(css, /\.verdict\.ok \{ color: var\(--house\)/);
+  const status = read('panel/status.js');
+  assert.ok(status.indexOf('stIssues') < status.indexOf('stBody'), 'warnings come before the long sections');
+  assert.doesNotMatch(status, /<h2>Warnings/);
+});
+
+test('the place picker hides internal areas and reads names', async () => {
+  const { buildTree, targetGroups, nodeName } = await import('./static/select.js');
+  const geo = {
+    pixels: { count: 4, run: [0, 0, 1, 1] },
+    runs: [{ id: 'unmapped-yard', name: 'Yard' }, { id: 'shed', name: 'Shed' }],
+    areas: [{ id: 'status-broken', name: 'Status broken', internal: true, ranges: [[2, 2]], includes: [] }, { id: 'west', name: 'West', ranges: [[0, 0]], includes: [] }],
+    zones: [],
+  };
+  const tree = buildTree(geo);
+  const labels = targetGroups(tree).flatMap((g) => g.items.map((i) => i.label));
+  assert.ok(labels.includes('West'));
+  assert.ok(labels.includes('Yard'), labels.join());
+  assert.ok(!labels.some((l) => /status/i.test(l)), labels.join());
+  assert.equal(nodeName(tree.node('run', 'unmapped-yard')), 'Yard');
+});
+
+test('calibration rows wrap instead of cutting a name', () => {
+  assert.doesNotMatch(/\.cal-prog li \.name span \{[^}]*\}/.exec(css)[0], /ellipsis|nowrap/);
+});
+
+test('calibration navigation and utilities are separate rows', () => {
+  assert.match(read('panel/calibrate.js'), /cal-nav cal-util/);
+});
+
+function overlayFor(extra = {}) {
+  return import('./static/overlay.js').then(({ createOverlay }) => {
+    const nodes = [{ id: 'a', name: 'Alpha', plan: 0, x: 50, y: 50, z: 0 }, { id: 'b', name: 'Beta', plan: 0, x: 60, y: 54, z: 0 }, { id: 'c', name: 'Gamma', plan: 0, x: 400, y: 400, z: 0 }];
+    const S = { geo: { pixels: { count: 0 }, controllers: [{ id: 'c1', name: 'Board', base: 0, outputs: [] }], mappings: [], zones: [], edges: [], runs: [], nodes }, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x, y], size: () => ({ w: 1000, h: 800 }) }, ...extra };
+    const overlay = createOverlay(S);
+    overlay.st.nodes = overlay.st.labels = true;
+    const out = { plates: 0, texts: [] };
+    const ctx = { fillRect() { out.plates++; }, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, fillText(t) { out.texts.push(t); }, measureText: (t) => ({ width: t.length * 6 }) };
+    return { overlay, ctx, out };
+  });
+}
+
+test('map labels sit on a backing plate', async () => {
+  const { overlay, ctx, out } = await overlayFor();
+  overlay.draw(ctx);
+  assert.equal(out.plates, out.texts.length);
+  assert.ok(out.texts.includes('Gamma'), 'and use display names');
+});
+
+test('labels stay out from under the legend and the map controls', async () => {
+  const { overlay, ctx, out } = await overlayFor({ labelAvoid: () => [{ x0: 350, x1: 700, y0: 300, y1: 500 }] });
+  overlay.draw(ctx);
+  assert.ok(!out.texts.includes('Gamma'), out.texts.join());
+});
+
+test('during a calibration step, neighbors clear the target label', async () => {
+  const cal = { active: true, side: 0, cursors: [{ index: 0, estimate: 0, controller: 'c1', node: 'a', run: 'r', label: 'a' }], target: { kind: 'anchor' } };
+  const { overlay, ctx, out } = await overlayFor({ calibrating: true, cal });
+  overlay.draw(ctx);
+  assert.ok(out.texts.includes('Alpha'), 'the target keeps its name');
+  assert.ok(!out.texts.includes('Beta'), `neighbor still drawn: ${out.texts}`);
+  assert.ok(out.texts.includes('Gamma'), 'far labels stay');
+});
+
+test('the sheet says Expand in words', () => {
+  assert.match(read('sheet.js'), /<span class="lbl">\$\{up \? 'Expand' : 'Collapse'\}/);
+});

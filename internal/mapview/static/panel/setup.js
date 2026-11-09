@@ -9,6 +9,7 @@
 // model doesn't draw.
 import { $, esc, copyText, save, press, failure, plural, humanize } from '../util.js';
 import { calCount } from './calibrate.js';
+import { controllerName } from '../names.js';
 import { MODES } from '../overlay.js';
 
 export function createSetup(S, root) {
@@ -56,14 +57,14 @@ export function createSetup(S, root) {
     <div class="muted small" id="suStream"></div>
     <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
-    ? undrawn.map((r) => `<li><span class="what"><b>${esc(humanize(r.id))}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('')
+    ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${r.count} lights on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
     : '<li class="muted">Every light is on the map.</li>'}</ul>`;
   const $$ = (s) => root.querySelector(s);
 
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
-    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(humanize(r.id))}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
+    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${r.count} lights on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
     $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown, based on the condition of each strip`;
   }

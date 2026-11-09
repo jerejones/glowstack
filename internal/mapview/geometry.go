@@ -14,6 +14,7 @@ import (
 	"github.com/jerejones/glowstack/internal/app"
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/layout"
+	"github.com/jerejones/glowstack/internal/names"
 )
 
 // Geometry is the map's static description of the installation: the
@@ -108,6 +109,7 @@ type LayerJSON struct {
 
 type ControllerJSON struct {
 	ID       string       `json:"id"`
+	Name     string       `json:"name"` // what a person reads
 	Base     int32        `json:"base"`
 	Pixels   int          `json:"pixels"`
 	Channels string       `json:"channels"`
@@ -140,6 +142,7 @@ type OutputJSON struct {
 type RunJSON struct {
 	Status         string       `json:"status"`
 	ID             string       `json:"id"`
+	Name           string       `json:"name"` // what a person reads
 	Controller     int          `json:"controller"`
 	First          int          `json:"first"`
 	Last           int          `json:"last"`
@@ -173,6 +176,7 @@ type NodeLocationJSON struct {
 type NodeJSON struct {
 	Locations []NodeLocationJSON `json:"locations,omitempty"`
 	ID        string             `json:"id"`
+	Name      string             `json:"name"` // what a person reads
 	Label     string             `json:"label,omitempty"`
 	Sync      bool               `json:"sync,omitempty"`
 	X         float              `json:"x"`
@@ -194,6 +198,8 @@ type EdgeJSON struct {
 
 type AreaJSON struct {
 	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	Internal bool     `json:"internal,omitempty"` // bookkeeping, not a place for a look
 	Count    int      `json:"count"`
 	Ranges   []Range  `json:"ranges"`
 	Includes []string `json:"includes"`
@@ -264,7 +270,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 	}
 	g.Map = mapJSON(&v.Config.Settings.Map)
 	for _, c := range l.Controllers {
-		cj := ControllerJSON{ID: c.ID, Base: c.Base, Pixels: c.Pixels, Channels: cmp.Or(c.Config.Channels, "rgb"), Outputs: []OutputJSON{}}
+		cj := ControllerJSON{ID: c.ID, Name: names.Run(c.ID), Base: c.Base, Pixels: c.Pixels, Channels: cmp.Or(c.Config.Channels, "rgb"), Outputs: []OutputJSON{}}
 		for _, o := range c.Config.Outputs {
 			cj.Outputs = append(cj.Outputs, OutputJSON{Reversed: o.Reversed, Output: o.Number, GPIO: o.GPIO, Start: o.Start, Count: o.Count, MaxMA: o.MaxMA})
 		}
@@ -290,7 +296,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 	for i := range l.Runs {
 		r := &l.Runs[i]
 		rj := RunJSON{
-			ID: r.ID, Controller: r.Controller, First: r.First, Last: r.Last, Count: r.Count,
+			ID: r.ID, Name: names.Run(r.ID), Controller: r.Controller, First: r.First, Last: r.Last, Count: r.Count,
 			Pitch: r.Pitch, Length: r.Length, Plan: r.Plan, DrawnMeters: r.DrawnMeters,
 			LengthMismatch: r.LengthMismatch, Path: r.Path, Edges: r.Edges,
 		}
@@ -309,7 +315,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 		g.Runs = append(g.Runs, rj)
 	}
 	for _, nd := range l.Nodes {
-		g.Nodes = append(g.Nodes, NodeJSON{ID: nd.ID, Label: nd.Label, Sync: nd.Sync,
+		g.Nodes = append(g.Nodes, NodeJSON{ID: nd.ID, Name: names.Node(nd.ID, nd.Label), Label: nd.Label, Sync: nd.Sync,
 			X: float(nd.X), Y: float(nd.Y), Z: float(nd.Z), Plan: nd.Plan, Edges: nd.Edges})
 	}
 	// A logical junction can occur at different physical positions on its runs.
@@ -348,7 +354,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 		areaConfigs[ar.ID] = ar
 	}
 	for _, ar := range l.Areas {
-		aj := AreaJSON{ID: ar.ID, Count: len(ar.Pixels), Ranges: ranges(ar.Pixels), Includes: []string{}, Runs: []string{}}
+		aj := AreaJSON{ID: ar.ID, Name: names.Humanize(ar.ID), Internal: names.InternalArea(ar.ID), Count: len(ar.Pixels), Ranges: ranges(ar.Pixels), Includes: []string{}, Runs: []string{}}
 		seenRuns := map[string]bool{}
 		for _, part := range areaConfigs[ar.ID].Include {
 			if part.Area != "" {
@@ -362,7 +368,7 @@ func (m *Map) geometry(v app.View) *Geometry {
 		g.Areas = append(g.Areas, aj)
 	}
 	for _, z := range v.Config.Zones {
-		zj := ZoneJSON{ID: z.ID, Name: z.Device.Name, Area: z.Area, Mapping: z.Mapping}
+		zj := ZoneJSON{ID: z.ID, Name: names.Zone(z.ID, z.Device.Name), Area: z.Area, Mapping: z.Mapping}
 		for _, s := range z.Segments {
 			zj.Segments = append(zj.Segments, SegmentJSON{Area: s.Area, Mapping: s.Mapping})
 		}

@@ -29,8 +29,8 @@ export function buildTree(geo) {
   }
   const areaById = new Map(geo.areas.map((a) => [a.id, a]));
   const items = [];
-  geo.runs.forEach((r, i) => items.push({ kind: 'run', id: r.id, index: i, ranges: normRanges(runSets[i]) }));
-  for (const a of geo.areas) items.push({ kind: 'area', id: a.id, ranges: normRanges(a.ranges) });
+  geo.runs.forEach((r, i) => items.push({ kind: 'run', id: r.id, name: r.name, index: i, ranges: normRanges(runSets[i]) }));
+  for (const a of geo.areas) items.push({ kind: 'area', id: a.id, name: a.name, internal: a.internal, ranges: normRanges(a.ranges) });
   for (const z of geo.zones) {
     const a = areaById.get(z.area);
     if (a) items.push({ kind: 'zone', id: z.id, area: z.area, name: z.name, ranges: normRanges(a.ranges) });
@@ -109,7 +109,7 @@ function isAncestor(a, b) {
 // name is how a node reads: its biggest member, with the others after.
 export function nodeName(nd) {
   const top = nd.members[nd.members.length - 1];
-  return (top.kind === 'zone' || top.kind === 'all') && top.name ? top.name : humanize(top.id);
+  return top.name || humanize(top.id);
 }
 
 // targetName says a layer target in words: the zone's name for its area,
@@ -117,9 +117,14 @@ export function nodeName(nd) {
 export function targetName(geo, target) {
   if (target === ALL) return 'Everything';
   const i = target.indexOf(':');
-  if (i > 0) return humanize(target.slice(i + 1));
+  if (i > 0) {
+    const kind = target.slice(0, i), id = target.slice(i + 1);
+    const list = kind === 'run' ? geo.runs : kind === 'controller' ? geo.controllers : [];
+    return list.find((x) => x.id === id)?.name || humanize(id);
+  }
   const zone = geo.zones.find((z) => z.area === target);
-  return zone ? zone.name || humanize(zone.id) : humanize(target);
+  if (zone) return zone.name || humanize(zone.id);
+  return geo.areas.find((a) => a.id === target)?.name || humanize(target);
 }
 
 // targetGroups is the list of places a look can go, by kind and by name.
@@ -132,6 +137,7 @@ export function targetGroups(tree, { query = '', visibleRuns = null } = {}) {
   for (const nd of tree.nodes) {
     const top = nd.members[nd.members.length - 1];
     if (top.kind === 'run' && visibleRuns && !visibleRuns[top.index]) continue;
+    if (nd.members.every((m) => m.internal)) continue;
     const label = nodeName(nd);
     const terms = [label, ...nd.members.flatMap((m) => [m.id, m.name || ''])].join(' ').toLowerCase();
     if (want && !terms.includes(want)) continue;

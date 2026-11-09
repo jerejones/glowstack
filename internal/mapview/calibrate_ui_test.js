@@ -114,7 +114,7 @@ test('calibration target ring stays on the model node while the pixel is nudged'
   };
   const rings = [], labels = [];
   const ctx = { beginPath() {}, arc(x, y, r) { if (r === 13) rings.push([x, y]); }, stroke() {}, fill() {}, setLineDash() {},
-    strokeText() {}, fillText(t) { labels.push(t); } };
+    fillRect() {}, strokeText() {}, fillText(t) { labels.push(t); } };
   const overlay = createOverlay(S);
   overlay.draw(ctx);
   cursor.index = 15;
@@ -169,7 +169,7 @@ test('controller markers: config boards lead to their output inputs, others are 
   const draw = () => {
     const out = { rects: [], lines: [], fills: [] };
     let from = null, fill = '';
-    overlay.draw({ beginPath(){}, arc(){}, stroke(){}, strokeText(){}, fillText(){}, setLineDash(){},
+    overlay.draw({ fillRect(){}, beginPath(){}, arc(){}, stroke(){}, strokeText(){}, fillText(){}, setLineDash(){},
       set fillStyle(v) { fill = v; }, get fillStyle() { return fill; },
       rect(x,y){ out.rects.push([x+6,y+6]); out.fills.push(fill); }, fill(){},
       moveTo(x,y){ from=[x,y]; }, lineTo(x,y){ out.lines.push([from,[x,y]]); } });
@@ -197,7 +197,7 @@ test('output input marker honors WLED reversal without changing output ranges', 
   const rings = [];
   const S = { geo:g, plan:0, hover:-1, pinned:-1, view:{toScreen:(x,y)=>[x,y]} };
   const overlay = createOverlay(S); overlay.st.mode = 'outputs';
-  overlay.draw({ beginPath(){}, arc(x,y){rings.push([x,y]);}, stroke(){}, strokeText(){}, fillText(){} });
+  overlay.draw({ fillRect(){}, beginPath(){}, arc(x,y){rings.push([x,y]);}, stroke(){}, strokeText(){}, fillText(){} });
   assert.deepEqual(rings, [[5,0],[14,0]]);
   assert.deepEqual(overlay.outputs().map(o=>[o.first,o.last]), [[5,8],[9,14]]);
   assert.equal(overlay.outputOf(9).output, 2);
@@ -213,7 +213,7 @@ test('shared sync nodes show distinct run locations and a dotted connector', asy
   assert.equal(nodeLocations(g,0,0).length,2);
   assert.deepEqual(nodeLocations(g,0,0)[1].runs,['rail','return']);
   const lines=[],labels=[]; let dash=[],from;
-  const ctx={beginPath(){},moveTo(x,y){from=[x,y];},lineTo(x,y){if(dash.length) lines.push([from,[x,y],dash]);},
+  const ctx={fillRect(){},beginPath(){},moveTo(x,y){from=[x,y];},lineTo(x,y){if(dash.length) lines.push([from,[x,y],dash]);},
     setLineDash(v){dash=v;},stroke(){},closePath(){},fill(){},strokeText(){},fillText(t){labels.push(t);} };
   const S={geo:g,plan:0,hover:-1,pinned:-1,view:{toScreen:(x,y,z)=>[x,y+z]}};
   const overlay=createOverlay(S);overlay.st.nodes=true;overlay.st.labels=true;overlay.draw(ctx);
@@ -339,7 +339,7 @@ test('the calibration cursor ring is only drawn inside the mode', async () => {
     cal: { active: true, side: 0, target: { kind: 'anchor' }, cursors: [{ node: 'corner', controller: 'shed', index: 5, estimate: 5 }] },
     view: { toScreen: (x, y, z) => [x, y + z] } };
   const rings = [];
-  createOverlay(S).draw({ beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {}, strokeText() {}, fillText() {} });
+  createOverlay(S).draw({ fillRect() {}, beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {}, strokeText() {}, fillText() {} });
   assert.deepEqual(rings, []);
 });
 

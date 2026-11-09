@@ -9,6 +9,7 @@
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
 import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE, humanize } from './util.js';
+import { controllerName, nodeDisplay } from './names.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -96,12 +97,12 @@ export function createOverlay(S) {
       if (st.mode === 'flow') {
         const stops = [0, 0.25, 0.5, 0.75, 1].map((t) => `rgb(${ramp(t)})`).join(',');
         const unit = m.kind === 'index' ? '' : ' m';
-        st.legend = `<div>Distance along <b>${esc(m.id)}</b>; arrows show the direction</div>
+        st.legend = `<div>Distance along <b>${esc(humanize(m.id))}</b>; arrows show the direction</div>
           <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
           <div class="row"><span>${fmt(m.min, 2)}${unit}</span><span>${fmt(m.max, 2)}${unit}</span></div>`;
       } else {
         const stops = [1 / 1.5, 1 / 1.2, 1, 1.2, 1.5].map((s) => `rgb(${stretchColor(s)})`).join(',');
-        st.legend = `<div>Spacing along <b>${esc(m.id)}</b>${m.flow ? '' : ' (even everywhere)'}</div>
+        st.legend = `<div>Spacing along <b>${esc(humanize(m.id))}</b>${m.flow ? '' : ' (even everywhere)'}</div>
           <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
           <div class="row"><span>tighter</span><span>as drawn</span><span>looser</span></div>`;
       }
@@ -128,7 +129,7 @@ export function createOverlay(S) {
     for (const o of outputs()) {
       if (S.visibility && !S.visibility.pixels.subarray(o.first, o.last + 1).some(Boolean)) continue;
       for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
-      if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(ctrl)}</b></div>`; }
+      if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(controllerName(g, ctrl))}</b></div>`; }
       html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
     }
     st.legend = html;
@@ -159,26 +160,33 @@ export function createOverlay(S) {
   const nodeAt = (i) => { const nd = g.nodes[i]; return (!S.visibility || S.visibility.nodes.has(i)) && nd && nd.plan === S.plan && nd.x !== null ? at(nd.x, nd.y, nd.z) : null; };
 
   // label queues text at (x, y). Labels are set after everything else is
-  // drawn: each takes the first free spot near where it asked to be, and
-  // one with nowhere free is dropped rather than drawn over another.
+  // drawn: each takes the first free spot near where it asked to be, on a
+  // dark plate so it reads over the wireframe, and one with nowhere free is
+  // dropped rather than drawn over another. target marks the label of the
+  // point being calibrated: it goes first and clears its neighbors.
   let queued = [];
-  const label = (text, x, y, color) => { queued.push({ text, x, y, color }); };
+  const label = (text, x, y, color, target = false) => { queued.push({ text, x, y, color, target }); };
+  const hit = (a, b, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
   function flushLabels() {
     ctx.font = '12px system-ui, sans-serif';
-    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.8)';
     ctx.textBaseline = 'alphabetic';
-    const placed = [];
-    const H = 13;
+    const placed = [], avoid = S.labelAvoid ? S.labelAvoid() : [];
+    const H = 15; // the plate's height
     const width = S.view.size ? S.view.size().w : Infinity;
+    queued.sort((a, b) => b.target - a.target);
+    let targetBox = null;
     for (const l of queued) {
       const w = ctx.measureText ? ctx.measureText(l.text).width : l.text.length * 6;
       // A label near the right edge slides in rather than being cut off.
       l.x = Math.max(4, Math.min(l.x, width - w - 4));
-      for (const dy of [0, H, -H, 2 * H, -2 * H]) {
-        const box = { x0: l.x, x1: l.x + w, y0: l.y + dy - H + 2, y1: l.y + dy + 2 };
-        if (placed.some((b) => box.x0 < b.x1 && b.x0 < box.x1 && box.y0 < b.y1 && b.y0 < box.y1)) continue;
+      for (const dy of [0, H, -H]) {
+        const box = { x0: l.x - 3, x1: l.x + w + 3, y0: l.y + dy - 12, y1: l.y + dy + 3 };
+        if (avoid.some((a) => hit(box, a)) || placed.some((b) => hit(box, b))) continue;
+        if (!l.target && targetBox && hit(box, targetBox, 40)) continue;
         placed.push(box);
-        ctx.strokeText(l.text, l.x, l.y + dy);
+        if (l.target) targetBox = box;
+        ctx.fillStyle = 'rgba(13, 14, 16, 0.82)';
+        ctx.fillRect(box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
         ctx.fillStyle = l.color;
         ctx.fillText(l.text, l.x, l.y + dy);
         break;
@@ -222,7 +230,7 @@ export function createOverlay(S) {
     }
     if (m.flow) {
       const q = nodeAt(m.flow.origin);
-      if (q) { ring(q, 7, '#fff'); label(`origin ${g.nodes[m.flow.origin].id}`, q[0] + 10, q[1] + 18, '#fff'); }
+      if (q) { ring(q, 7, '#fff'); label(`origin ${nodeDisplay(g, g.nodes[m.flow.origin].id)}`, q[0] + 10, q[1] + 18, '#fff'); }
     }
   }
 
@@ -241,7 +249,7 @@ export function createOverlay(S) {
       const q = pixelAt(o.input);
       if (!q) continue;
       ring(q, 8, `rgb(${o.color})`);
-      label(`${o.controller} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
+      label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`);
     }
   }
 
@@ -267,7 +275,8 @@ export function createOverlay(S) {
       }
       ctx.fillStyle = cfg ? CTRL : CTRL_OFF; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
-      const name = st.labels && c.label ? `${c.id} · ${c.label}` : c.id;
+      const display = cfg ? cfg.name || c.id : c.id;
+      const name = st.labels && c.label ? `${display} · ${c.label}` : display;
       label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF);
     }
   }
@@ -314,7 +323,8 @@ export function createOverlay(S) {
         ctx.beginPath();
         if (sync) { ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); } else ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
         ctx.fill();
-        const name = shared && p.runs.length ? `${nd.id} · ${p.runs.join(' / ')}` : nd.id;
+        const display = nd.name || nd.id;
+        const name = shared && p.runs.length ? `${display} · ${p.runs.map((id) => g.runs.find((r) => r.id === id)?.name || id).join(' / ')}` : display;
         if (st.labels) label(name, x + 8, y - 6, sync ? '#f9a8d4' : '#e5e7eb');
       }
     });
@@ -336,7 +346,7 @@ export function createOverlay(S) {
       if (!q) return;
       const on = i === cal.side;
       ring(q, on ? 13 : 10, on ? '#22d3ee' : 'rgba(34,211,238,.5)', on ? 3 : 2);
-      if (on) label(ni >= 0 ? g.nodes[ni].label || humanize(c.node) : c.label ? humanize(c.label) : `${c.controller}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc');
+      if (on) label(ni >= 0 ? g.nodes[ni].name || humanize(c.node) : c.label ? humanize(c.label) : `${controllerName(g, c.controller)}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc', true);
     });
   }
 

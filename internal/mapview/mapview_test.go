@@ -145,6 +145,31 @@ type geometryJSON struct {
 	Mappings []MappingRef `json:"mappings"`
 }
 
+// Every run, node and controller reaches the page with a name to read.
+func TestGeometryNames(t *testing.T) {
+	f := newFixture(t)
+	type named struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	var g struct {
+		Runs        []named `json:"runs"`
+		Nodes       []named `json:"nodes"`
+		Controllers []named `json:"controllers"`
+	}
+	f.get(t, "/api/map/geometry", &g)
+	if len(g.Runs) == 0 || len(g.Nodes) == 0 || len(g.Controllers) == 0 {
+		t.Fatalf("%d runs, %d nodes, %d controllers", len(g.Runs), len(g.Nodes), len(g.Controllers))
+	}
+	for _, list := range [][]named{g.Runs, g.Nodes, g.Controllers} {
+		for _, n := range list {
+			if n.Name == "" {
+				t.Errorf("%q has no name", n.ID)
+			}
+		}
+	}
+}
+
 func TestGeometryJSON(t *testing.T) {
 	f := newFixture(t)
 	var g geometryJSON

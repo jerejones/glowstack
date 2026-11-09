@@ -14,6 +14,7 @@
 import { esc, plural, humanize, NOT_RESPONDING } from '../util.js';
 import { icon } from '../icons.js';
 import { stateHTML } from '../states.js';
+import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
 
 const BASE = '/api/v1/calibration';
 // What each action is called when it fails on the network.
@@ -152,22 +153,22 @@ export function partName(run, node, label) {
 
 // progressRow is one progress row in words: name, value and the full
 // label for hover. nodeLabel gives a node id's display name.
-export function progressRow(it, nodeLabel = humanize) {
+export function progressRow(it, nodeLabel = humanize, runLabel = humanize) {
   const t = it.target || {};
   const between = t.from ? `${nodeLabel(t.from)} to ${nodeLabel(t.to)}` : '';
   if (t.kind === 'link') return { name: `Link ${between}`, value: it.done ? 'Done' : it.source === 'partial' ? 'Partly done' : 'Not yet', title: `Link from ${between}` };
   if (t.kind === 'gap') return { name: `Gap ${between}`, value: it.length != null ? `${it.length.toFixed(2)} m${it.done ? '' : ' planned'}` : '', title: `Gap from ${between}` };
   const node = t.node ? nodeLabel(t.node) : it.label;
   const name = t.node ? partName(t.run, t.node, nodeLabel === humanize || node === humanize(t.node) ? '' : node) : humanize(it.label);
-  return { name, value: it.index == null ? '' : `${it.done ? 'Pixel' : 'About pixel'} ${it.index}`, title: t.run ? `${humanize(t.run)}: ${node}` : node };
+  return { name, value: it.index == null ? '' : `${it.done ? 'Pixel' : 'About pixel'} ${it.index}`, title: t.run ? `${runLabel(t.run)}: ${node}` : node };
 }
 
 // stepTitle says what a target asks of the person, in words. nodeLabel
 // gives a node id's display name.
-export function stepTitle(st, nodeLabel = humanize) {
+export function stepTitle(st, nodeLabel = humanize, runLabel = humanize) {
   const t = st.target || {};
   const between = t.from ? `between ${nodeLabel(t.from)} and ${nodeLabel(t.to)}` : '';
-  const on = t.run ? `on ${humanize(t.run)}` : t.controller ? `on ${humanize(t.controller)}` : between;
+  const on = t.run ? `on ${runLabel(t.run)}` : t.controller ? `on ${runLabel(t.controller)}` : between;
   switch (t.kind) {
     case 'anchor': return { title: `Line up ${nodeLabel(t.node)}`, on };
     case 'end': return { title: `Find the ${t.end} end`, on };
@@ -182,7 +183,8 @@ export function stepTitle(st, nodeLabel = humanize) {
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
-  const nodeLabel = (id) => (g.nodes.find((n) => n.id === id) || {}).label || humanize(id);
+  const nodeLabel = (id) => nodeDisplay(g, id);
+  const runLabel = (id) => runName(g, id);
   let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false;
   const session = createSession({ fetch: (...a) => fetch(...a), storage: sessionStorage, onState: render });
   const C = session.C;
@@ -320,16 +322,16 @@ export function createCalibrate(S, root) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
       parts.push(`<h2 class="title">Line up the map with the lights</h2><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm. This changes the real lights until you stop.</p>`);
-      parts.push(`<div class="row">${btn(r ? `Start on ${esc(humanize(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
+      parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved to <code>anchors.yaml</code> in the data folder.</div></details>');
     } else {
-      if (st.warning) parts.push(`<div class="cal-warn">${esc(st.warning)}</div>`);
+      if (st.warning) parts.push(`<div class="cal-warn">${esc(humanText(g, st.warning))}</div>`);
       const cs = st.cursors || [];
-      if (cs.length > 1) parts.push(`<div class="cal-sides">${cs.map((c, i) => btn(esc(g.nodes.some((n) => n.id === c.label) ? nodeLabel(c.label) : humanize(c.label)) + (c.fixed ? ' (fixed)' : ''), () => session.side(i), i === st.side ? 'on' : '')).join('')}</div>`);
+      if (cs.length > 1) parts.push(`<div class="cal-sides">${cs.map((c, i) => btn(esc(nodeLabel(c.label)) + (c.fixed ? ' (fixed)' : ''), () => session.side(i), i === st.side ? 'on' : '')).join('')}</div>`);
       const c = cs[st.side];
       if (c) {
         const moved = c.index - c.estimate;
-        const step = stepTitle(st, nodeLabel);
+        const step = stepTitle(st, nodeLabel, runLabel);
         const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
         parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
@@ -337,6 +339,7 @@ export function createCalibrate(S, root) {
         const was = $$('#caBody details.tech');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
+          <tr><th>Target</th><td>${esc(st.label || '—')}</td></tr>
           <tr><th>Layout position</th><td>${c.estimate}</td></tr><tr><th>Source</th><td>${esc(c.source)}</td></tr></table>
           ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
       }
@@ -344,9 +347,12 @@ export function createCalibrate(S, root) {
         parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9"></label><button type="submit">Confirm length</button></form>`);
       }
       const tr = st.target && (st.target.run || (c && c.run));
-      parts.push(`<div class="cal-nav">${btn(`${icon('chevronLeft')}Previous`, () => session.next(true), 'icon-btn')}${btn(`Next${icon('chevronRight')}`, () => session.next(), 'icon-btn')}${tr ? btn('Show test bands', () => session.target({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : ''}${st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''}</div>`);
-      if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(st.message)}</div>`);
-      for (const w of st.checks || []) parts.push(`<div class="cal-warn">${esc(w)}</div>`);
+      // Navigation on one row, utilities on the next, by design.
+      parts.push(`<div class="cal-nav">${btn(`${icon('chevronLeft')}Previous`, () => session.next(true), 'icon-btn')}${btn(`Next${icon('chevronRight')}`, () => session.next(), 'icon-btn')}</div>`);
+      const utilities = [tr ? btn('Show test bands', () => session.target({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''].join('');
+      if (utilities) parts.push(`<div class="cal-nav cal-util">${utilities}</div>`);
+      if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(humanText(g, st.message))}</div>`);
+      for (const w of st.checks || []) parts.push(`<div class="cal-warn">${esc(humanText(g, w))}</div>`);
       const nudgeOff = !c || c.fixed || c.index < 0;
       for (const b of root.querySelectorAll('[data-by]')) b.disabled = nudgeOff;
       const confirmable = st.target && st.target.kind !== 'bands' && st.target.kind !== 'gap';
@@ -370,7 +376,7 @@ export function createCalibrate(S, root) {
         if (active) tb.push(btn('Bands', () => session.target({ kind: 'bands', run: r.id })));
       }
       if (active) tb.push(btn('Mark as dead', () => session.target({ kind: 'dead', controller: ctl.id, indices: [px.index[p]] })));
-      parts.push(`<div class="cal-tap"><div>Tapped <b>pixel ${px.index[p]}</b>${r ? ' on ' + esc(humanize(r.id)) : ' on ' + esc(ctl.id)}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
+      parts.push(`<div class="cal-tap"><div>Tapped <b>pixel ${px.index[p]}</b>${r ? ' on ' + esc(runLabel(r.id)) : ' on ' + esc(controllerName(g, ctl.id))}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
     }
 
     // Progress, grouped by run. Tap one to calibrate it.
@@ -382,8 +388,10 @@ export function createCalibrate(S, root) {
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(it);
       }
-      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k === 'Links and gaps' ? k : humanize(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
-        const row = progressRow(it, nodeLabel);
+      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k === 'Links and gaps' ? k : runLabel(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
+        const row = progressRow(it, nodeLabel, runLabel);
+        const raw = it.target?.node ? g.nodes.find((n) => n.id === it.target.node)?.label : '';
+        if (raw) row.title += ` (${raw})`;
         const here = JSON.stringify(it.target) === cur ? ' here' : '';
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
@@ -393,8 +401,8 @@ export function createCalibrate(S, root) {
 
     // Other targets: run ends, bands over a controller, dead ranges.
     if (active) {
-      const runs = g.runs.map((r) => `<option value="${esc(r.id)}">${esc(humanize(r.id))}</option>`).join('');
-      const ctls = g.controllers.map((c) => `<option>${esc(c.id)}</option>`).join('');
+      const runs = g.runs.map((r) => `<option value="${esc(r.id)}">${esc(r.name || humanize(r.id))}</option>`).join('');
+      const ctls = g.controllers.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('');
       const was = $$('#caBody details.more');
       parts.push(`<details class="more"${was && was.open ? ' open' : ''}><summary>More places to measure</summary>
         <div class="row"><select name="run">${runs}</select>

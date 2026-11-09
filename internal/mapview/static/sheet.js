@@ -17,6 +17,8 @@ const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathn
 const PEEK = 56;   // handle and tab bar
 const STRIP = 120; // the map above a full sheet
 const HALF = 0.45; // of the window's height
+const HALF_READING = 0.62; // the same, for tabs that are lists to read
+const READING = new Set(['presets', 'status']);
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
 // guardSelection stops text selection while dragging() says so.
@@ -44,7 +46,7 @@ export function createPanel(hooks) {
   const safeBottom = () => parseFloat(getComputedStyle(panel).paddingBottom) || 0;
   const heights = () => {
     const h = innerHeight, sb = safeBottom();
-    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * HALF)), full: h - STRIP };
+    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * (READING.has(tab) ? HALF_READING : HALF))), full: h - STRIP };
   };
   function setVisible(px) {
     visible = px;
@@ -68,6 +70,7 @@ export function createPanel(hooks) {
       b.setAttribute('aria-selected', on);
     }
     for (const s of panel.querySelectorAll('.tab')) s.hidden = s.id !== 'tab-' + name;
+    if (layout === 'sheet') setVisible(heights()[detent]); // the tab sets the half detent's height
     hooks.onTab(name);
   }
 
@@ -89,7 +92,8 @@ export function createPanel(hooks) {
     const t = layout === 'sheet' ? (up ? 'Expand the sheet' : 'Collapse the sheet') : rail ? 'Expand the panel' : 'Collapse the panel';
     b.title = t;
     b.setAttribute('aria-label', t);
-    b.innerHTML = icon(layout === 'sheet' ? (up ? 'chevronUp' : 'chevronDown') : rail ? 'chevronLeft' : 'chevronRight');
+    const word = layout === 'sheet' ? `<span class="lbl">${up ? 'Expand' : 'Collapse'}</span>` : '';
+    b.innerHTML = icon(layout === 'sheet' ? (up ? 'chevronUp' : 'chevronDown') : rail ? 'chevronLeft' : 'chevronRight') + word;
   }
 
   function setRail(on) {

@@ -9,7 +9,7 @@
 // double-tap), the selection with its breadcrumb and halo, the
 // inspect card, toasts and the keyboard. Plain JS modules, no build
 // step.
-import { $, api, esc, outputName, fmt, load, save, press, failure, humanize } from './util.js';
+import { $, api, esc, outputName, fmt, load, save, press, failure } from './util.js';
 import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
 import { buildTree, nodeName, nodeKinds, targetName } from './select.js';
@@ -27,6 +27,7 @@ import { mapStatus, badgeHTML } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, bootFailure } from './states.js';
 import { frameInsets } from './map-frame.js';
+import { runName, controllerName } from './names.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -401,15 +402,15 @@ function renderInspect() {
     <table>
     ${r('Color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
     ${r('Showing', layer)}
-    ${r('Run', d.run ? esc(humanize(d.run)) : '<span class="muted">None</span>')}
-    ${r('Output', o ? `${esc(o.controller)} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
+    ${r('Run', d.run ? `<span title="${esc(d.run)}">${esc(runName(S.geo, d.run))}</span>` : '<span class="muted">None</span>')}
+    ${r('Output', o ? `${esc(controllerName(S.geo, o.controller))} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
     </table>
     <details class="more"${inspectMore ? ' open' : ''}><summary>Details</summary><table>
     ${r('Controller pixel', `${esc(d.controller)}:${d.index}`)}
     ${d.run ? r('Pixel on run', d.run_pixel) : ''}
     ${o ? r('LED on output', `${d.id - o.first + 1} of ${o.count}`) : ''}
-    ${r('Areas', esc(d.areas.map(humanize).join(', ') || '—'))}
-    ${r('Zones', esc(d.zones.map((id) => { const z = S.geo.zones.find((x) => x.id === id); return (z && z.name) || humanize(id); }).join(', ') || '—'))}
+    ${r('Areas', esc(d.areas.join(', ') || '—'))}
+    ${r('Zones', esc(d.zones.join(', ') || '—'))}
     ${r('Segment', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}
     ${r('Pixel size', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
     ${S.view.kind === '3d' ? r('Position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`) : r('Plan position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
@@ -507,6 +508,13 @@ S.subscribe = subscribe;
 S.setRate = (fps) => { S.fps = fps; save(RATE, fps); subscribe(); };
 S.streamRate = streamRate;
 
+S.labelAvoid = () => {
+  const stage = $('stage').getBoundingClientRect();
+  return ['legend', 'mapControls', 'chips', 'crumbs', 'inspectCard'].filter((id) => !$(id).hidden).map((id) => {
+    const r = $(id).getBoundingClientRect();
+    return { x0: r.left - stage.left, x1: r.right - stage.left, y0: r.top - stage.top, y1: r.bottom - stage.top };
+  });
+};
 S.refreshBadge = badge;
 let badgeShown = false;
 // badge shows what the map is showing, on the chip and on the toggle.

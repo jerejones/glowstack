@@ -113,7 +113,7 @@ test('a label near the map edge stays on the map', async () => {
   const overlay = createOverlay(S);
   overlay.st.nodes = overlay.st.labels = true;
   let x = null, width = 0;
-  overlay.draw({ beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, strokeText() {}, fillText(t, at) { x = at; }, measureText: (t) => { width = t.length * 3; return { width }; } });
+  overlay.draw({ fillRect() {}, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, strokeText() {}, fillText(t, at) { x = at; }, measureText: (t) => { width = t.length * 3; return { width }; } });
   assert.ok(x + width <= 100, `${x} + ${width}`);
 });
 
@@ -271,7 +271,7 @@ test('map labels never pile up', async () => {
   const overlay = createOverlay(S);
   overlay.st.nodes = overlay.st.labels = true;
   const at = [];
-  overlay.draw({ beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, strokeText() {}, fillText(t, x, y) { at.push([x, y]); }, measureText: (t) => ({ width: t.length * 6 }) });
+  overlay.draw({ fillRect() {}, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, strokeText() {}, fillText(t, x, y) { at.push([x, y]); }, measureText: (t) => ({ width: t.length * 6 }) });
   assert.ok(at.length >= 1 && at.length <= 5, `${at.length} labels`);
   assert.equal(new Set(at.map(([, y]) => y)).size, at.length, 'two labels on the same line');
 });

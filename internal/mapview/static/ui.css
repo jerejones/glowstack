@@ -411,6 +411,14 @@ details[open] > summary::before { transform: rotate(90deg); }
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
 .verdict { display: flex; align-items: center; gap: 8px; font-size: var(--t-l); font-weight: 600; margin: 4px 0 10px; }
 .verdict.bad { color: #fca5a5; }
+.verdict.ok { color: var(--house); }
+.issues { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.issue { background: #2a2110; border: 1px solid #6b4b16; border-radius: var(--radius); padding: 8px 10px; }
+.issue-text { display: flex; gap: 8px; align-items: flex-start; color: #fcd9a5; }
+.issue-text .icon { margin-top: 2px; color: var(--warn); }
+.issue-acts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.issue-acts details { flex: 1; min-width: 7em; }
+.issue-acts code { display: block; overflow-wrap: anywhere; color: var(--muted); }
 .power { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .power th, .power td { padding: 4px 0; text-align: right; white-space: nowrap; }
 .power th:first-child, .power td:first-child { text-align: left; white-space: normal; }
@@ -471,12 +479,14 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-confirm button { min-height: 56px; }
 .cal-confirm .go { flex: 1; font-size: var(--t-l); }
 .cal-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+.cal-nav > .icon-btn { flex: 1; }
+.cal-util { margin-top: -2px; }
 .cal-prog .group { margin: 8px 0; }
 .cal-prog .group > div { font-weight: 600; color: #cbd5e1; margin-bottom: 2px; }
 .cal-prog ul { list-style: none; margin: 0; padding: 0; }
-.cal-prog li { min-height: var(--tap); padding: 0 8px; border-radius: 6px; cursor: pointer; }
+.cal-prog li { min-height: var(--tap); padding: 4px 8px; border-radius: 6px; cursor: pointer; }
 .cal-prog li .name { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.cal-prog li .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-prog li .name span { overflow-wrap: anywhere; }
 .cal-prog li .icon { width: 12px; height: 12px; }
 .cal-prog li:hover { background: #1a1e24; }
 .cal-prog li.done { color: var(--house); }
