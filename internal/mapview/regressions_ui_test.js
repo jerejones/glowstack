@@ -2345,8 +2345,9 @@ test('wording: In front explains itself, and the apply toast stands alone', asyn
 });
 
 test('on a phone the worded Remove leaves the place name its room', () => {
-  assert.match(css, /\.layer \.controls \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto; \}/);
-  assert.match(css, /\.layer \.tweak \{ grid-column: 2; grid-row: 2; \}/);
+  // (Series 2 round 4: the place shares its row with brightness, and the worded Remove is on the row below, after Tweak.)
+  assert.match(css, /\.layer \.controls \{ display: grid; grid-template-columns: minmax\(0, max-content\) minmax\(0, 1fr\); gap: 4px 8px; \}/);
+  assert.match(css, /\.layer \[data-a=remove\] \{ grid-column: 2; grid-row: 2; justify-self: start; \}/);
 });
 
 test('B127: a run row keeps a gutter before Calibrate and one edge for its figures', () => {
@@ -2406,7 +2407,7 @@ test('a layer row gives the slider the width the place does not use', () => {
 
 test('a phone row gives its name the room the place does not use', () => {
   // The name's column stretches; the place and level are as wide as their words.
-  assert.match(read('ui.css'), /\.layer \.name-line \{ display: grid; grid-template-columns: auto minmax\(0, 1fr\) auto auto var\(--tap\);/);
+  assert.match(read('ui.css'), /\.layer \.name-line \{ display: grid; grid-template-columns: auto minmax\(0, 1fr\) auto auto auto;/); // the last column is the worded disclosure (series 2 round 4)
 });
 
 test('B129: a long slider value never overruns the shared right edge', () => {
@@ -2421,8 +2422,8 @@ test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word f
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
   assert.match(phone, /\.layer \.place-row \{ grid-column: 1; grid-row: 1; max-width: none; \}/);
   assert.match(phone, /\.layer \.place b \{ display: block; white-space: nowrap; text-overflow: ellipsis; \}/);
-  // When the two cannot share the line, Remove loses its word, not the name.
-  assert.match(phone, /\.layer\.tight \[data-a=remove\] span \{ display: none; \}/);
+  // (Series 2 round 4: the place shares its row with brightness, whose slider gives way; Remove keeps its word on the row below.)
+  assert.doesNotMatch(phone, /\.layer\.tight \[data-a=remove\] span \{ display: none; \}/);
   assert.match(looks, /function fitControls\(c\)/);
   assert.match(looks, /box\.scrollWidth > box\.clientWidth \+ 1\) el\.classList\.add\('tight'\)/);
   assert.match(looks, /rm\.setAttribute\('aria-label', part \? 'Remove here' : 'Remove'\)/, 'the icon-only Remove still has its name');

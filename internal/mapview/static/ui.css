@@ -777,8 +777,9 @@ html:not(.coarse) { --swatch-h: 36px; }
    * row differs from a live one only in its badge color and a faint tint of it behind the row. */
   .layer .name-line .kind { min-width: 5.1em; text-align: center; box-sizing: border-box; }
   .layer.preview { background: rgba(182, 156, 255, 0.07); border-radius: 0 var(--radius) var(--radius) 0; }
-  .layer .name-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto var(--tap); min-height: var(--tap); gap: 0 6px; }
-  .layer .row-expand { display: inline-flex; flex: none; width: var(--tap); padding: 0; border: 0; background: transparent; color: var(--muted); grid-column: 5; grid-row: 1; }
+  .layer .name-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; min-height: var(--tap); gap: 0 6px; }
+  /* The disclosure says what it opens: the word, then the chevron, at the row's right. */
+  .layer .row-expand { display: inline-flex; align-items: center; gap: 2px; flex: none; min-width: var(--tap); padding: 0 4px 0 2px; border: 0; background: transparent; color: var(--muted); font-size: var(--t-note); font-weight: 400; grid-column: 5; grid-row: 1; }
   .layer.open .row-expand .icon { transform: rotate(180deg); }
   .layer .line-place, .layer .line-level { display: block; color: var(--muted); font-size: var(--t-meta); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .layer .line-place { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
@@ -787,7 +788,7 @@ html:not(.coarse) { --swatch-h: 36px; }
   /* The name is whole. When the place and level cannot share its line they
    * take a second, muted one beneath it; a longer name still may wrap once. */
   .layer.two-line .name-line b { grid-column: 2 / 5; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-  .layer.two-line .name-line { grid-template-columns: auto auto auto minmax(0, 1fr) var(--tap); }
+  .layer.two-line .name-line { grid-template-columns: auto auto auto minmax(0, 1fr) auto; }
   .layer.two-line .line-place { grid-column: 2; grid-row: 2; text-align: left; justify-self: start; max-width: 100%; }
   .layer.two-line .line-level { grid-column: 3; grid-row: 2; justify-self: start; }
   .layer.two-line .line-level::before { content: '· '; }
@@ -798,17 +799,16 @@ html:not(.coarse) { --swatch-h: 36px; }
   .layer.open .line-place, .layer.open .line-level { display: none; }
   .stage-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .stage-head > h2, .stage-head > small { grid-column: 1; }
-  /* On a phone place and Remove share a line; brightness and Tweak the next, so
-   * the place's name keeps its room beside the worded Remove. */
-  .layer .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  /* On a phone the four controls keep the desktop's left-to-right order in
+   * two rows that pair like with like (series 2 round 4): where the look is
+   * and how bright, then what can be done to it, Tweak and Remove. The
+   * slider gives way to the place's name; both buttons keep their words. */
+  .layer .controls { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: 4px 8px; }
   .layer .place-row { grid-column: 1; grid-row: 1; max-width: none; }
-  /* The place's name is one line here, whole until there is less than its
-   * floor; then Remove gives up its word before the name gives up letters. */
   .layer .place b { display: block; white-space: nowrap; text-overflow: ellipsis; }
-  .layer.tight [data-a=remove] span { display: none; }
-  .layer .tweak { grid-column: 2; grid-row: 2; }
-  .layer [data-a=remove] { grid-column: 2; grid-row: 1; }
-  .layer .bri { grid-column: 1; grid-row: 2; }
+  .layer .bri { grid-column: 2; grid-row: 1; min-width: 118px; }
+  .layer .tweak { grid-column: 1; grid-row: 2; justify-self: start; }
+  .layer [data-a=remove] { grid-column: 2; grid-row: 2; justify-self: start; }
   /* The phone's bar says the mode once: the button states it, and the link
    * beside it is the other way. The Replace/Add pair is the desktop's. The
    * bar stays one row, so the half detent keeps its library row: a long

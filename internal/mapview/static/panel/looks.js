@@ -777,7 +777,7 @@ export function createLooks(S, root) {
     const el = document.createElement('div');
     el.className = `layer ${lane}`;
     el.innerHTML = `
-      <div class="name-line"><small class="kind"></small><span class="strip"></span><b></b><small class="front"></small><span class="line-place"></span><span class="line-level"></span><button type="button" class="icon-btn row-expand" aria-expanded="false">${icon('chevronDown')}</button></div>
+      <div class="name-line"><small class="kind"></small><span class="strip"></span><b></b><small class="front"></small><span class="line-place"></span><span class="line-level"></span><button type="button" class="icon-btn row-expand" aria-expanded="false"><span class="lbl">Controls</span>${icon('chevronDown')}</button></div>
       <div class="controls">
         <div class="place-row"></div>
         <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}<span class="bri-word">Brightness</span></span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>

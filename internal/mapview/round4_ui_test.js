@@ -461,3 +461,22 @@ test('F: progress reads at a glance: To do first and open, Done folded to a coun
   assert.match(cal, /S\.on\('hoverRun', markHover\);/);
   assert.match(design, /\*\*To do\*\*/);
 });
+
+test('Refinement 1: a phone\'s layer controls are grouped and the disclosure is labeled', () => {
+  const looks = read('panel/looks.js');
+  // The row is built in the desktop's order: place, brightness, Tweak, Remove.
+  const row = /<div class="controls">[\s\S]*?<\/div>\s*<div class="note">/.exec(looks)[0];
+  const at = (re) => row.search(re);
+  assert.ok(at(/class="place-row"/) < at(/class="bri"/) && at(/class="bri"/) < at(/class="tweak icon-btn"/) && at(/class="tweak icon-btn"/) < at(/data-a="remove"/));
+  // On the phone: row one is where it is and how bright, row two is Tweak then Remove.
+  const phone = css.slice(css.indexOf('/* A row is one line until asked'));
+  assert.match(phone, /\.layer \.place-row \{ grid-column: 1; grid-row: 1;/);
+  assert.match(phone, /\.layer \.bri \{ grid-column: 2; grid-row: 1;/);
+  assert.match(phone, /\.layer \.tweak \{ grid-column: 1; grid-row: 2;/);
+  assert.match(phone, /\.layer \[data-a=remove\] \{ grid-column: 2; grid-row: 2;/);
+  assert.doesNotMatch(phone, /\[data-a=remove\] span \{ display: none; \}/, 'Remove keeps its word');
+  // The disclosure has a visible word, at the row's right, and still names the row for a screen reader.
+  assert.match(looks, /class="icon-btn row-expand" aria-expanded="false"><span class="lbl">Controls<\/span>\$\{icon\('chevronDown'\)\}<\/button>/);
+  assert.match(phone, /\.layer \.row-expand \{ display: inline-flex;[^}]*grid-column: 5; grid-row: 1; \}/);
+  assert.match(looks, /el\.querySelector\('\.row-expand'\)\.setAttribute\('aria-label', line\.label\);/);
+});
