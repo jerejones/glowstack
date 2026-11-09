@@ -27,11 +27,11 @@ const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
 // effectKind says what an effect takes its colors from, for its card.
 export function effectKind(e) {
   const has = (type) => e.params.some((p) => p.type === type);
-  if (e.params.some((p) => p.name.includes('.'))) return 'Effects combined';
+  if (e.params.some((p) => p.name.includes('.'))) return 'Layered effects';
   if (e.params.some((p) => p.name === 'bands')) return 'Color bands';
   if (has('palette')) return 'Blended colors';
   if (has('colors')) return 'Several colors';
-  if (has('color')) return 'One color';
+  if (has('color')) return 'Single color';
   return 'Animated effect';
 }
 

@@ -48,6 +48,16 @@ export function verdict(ids, health) {
   return { cls: 'ok', text: ids.length === 1 ? 'Controller: reachable' : `Controllers: all ${ids.length} reachable` };
 }
 
+// controllerFact is the one thing to read on a controller's row: whether
+// it is taking frames. h is healthOf's report, or null.
+export function controllerFact(h) {
+  if (!h) return { text: 'No report', cls: '' };
+  if (h.reachable === false) return { text: 'Unreachable', cls: 'bad' };
+  if (h.sending === false) return { text: 'Output off', cls: '' };
+  if (h.sending === true) return { text: 'Sending', cls: 'ok' };
+  return h.reachable === true ? { text: 'Reachable', cls: 'ok' } : { text: 'Not checked', cls: '' };
+}
+
 // LENGTH_WARN is how far a run's total length may be from its drawing
 // before Status flags it.
 export const LENGTH_WARN = 0.05;
@@ -272,8 +282,8 @@ export function createStatus(S, root) {
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     // What the owner asks; how the renderer is doing is below, in Diagnostics.
     $$('#stStats').innerHTML = [
-      stat(count(st.layers), 'on the lights', 'Looks on the lights'),
-      stat(count(st.preview_layers), 'in preview', 'Looks in preview'),
+      stat(count(st.layers), `${st.layers === 1 ? 'look' : 'looks'} on the lights`, 'Looks on the lights'),
+      stat(count(st.preview_layers), `${st.preview_layers === 1 ? 'look' : 'looks'} in preview`, 'Looks in preview'),
       stat(count(st.solve.pixels), 'lights'),
       stat(esc(readableDuration(st.uptime)), 'uptime'),
     ].join('');
@@ -287,23 +297,20 @@ export function createStatus(S, root) {
 
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
       const h = healthOf(st.health, c.id);
-      let dot = 'idle', line = 'no health report';
+      let dot = 'idle', line = '';
+      const fact = controllerFact(h);
       const kit = [nb(plural(c.pixels, 'light')), nb(plural(c.outputs.length, 'output'))];
       if (h) {
         dot = h.reachable === true ? 'ok' : h.reachable === false ? 'bad' : 'idle';
-        const state = [h.reachable === true ? 'reachable' : h.reachable === false ? 'unreachable' : 'not checked'];
-        if (h.sending === false) state.push('output off');
-        else if (h.sending === true) state.push('sending');
-        if (h.lastSeen) state.push(nb('seen ' + ago(h.lastSeen)));
-        line = state.join(' · ');
+        if (h.lastSeen) line = nb('Last answered ' + ago(h.lastSeen));
         if (h.version) kit.push(nb('version ' + esc(h.version)));
         const faults = [];
         if (h.errors) faults.push(`${h.errors} send error${h.errors === 1 ? '' : 's'}`);
         if (h.reboots) faults.push(`${h.reboots} reboot${h.reboots === 1 ? '' : 's'}`);
-        if (faults.length) line += `<br>${faults.join(' · ')}`;
-        if (h.error) line += `<br><span class="error">${esc(h.error)}</span>`;
+        if (faults.length) line += `${line ? '<br>' : ''}${faults.join(' · ')}`;
+        if (h.error) line += `${line ? '<br>' : ''}<span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(c.id)}">${esc(c.name || c.id)}</b><small>${line}<br>${kit.join(' · ')}</small></span></li>`;
+      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(c.id)}">${esc(c.name || c.id)}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span><span class="fact ${fact.cls}">${fact.text}</span></li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));

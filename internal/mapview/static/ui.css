@@ -33,6 +33,8 @@
   --radius: 10px;
   --tap: 28px;           /* every control's smallest side: 44 px on touch */
   --t-s: 12px;           /* metadata */
+  --t-note: 13px;        /* validation and status: never smaller */
+  --t-stat: 22px;        /* a Status figure */
   --t-help: 14px;        /* text that explains */
   --t-num: 13px;         /* figures beside a name */
   --t-m: 14px;           /* body and controls */
@@ -87,7 +89,7 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .muted { color: var(--muted); }
 .small { font-size: var(--t-help); }
 /* The one error layout: directly under the field it is about. */
-.error, .err, .field-err { color: #fca5a5; font-size: var(--t-s); }
+.error, .err, .field-err { color: #fca5a5; font-size: var(--t-note); }
 .err:empty, .field-err:empty { display: none; }
 .field-err { display: block; margin-top: 4px; }
 [aria-invalid=true] { border-color: var(--bad) !important; }
@@ -221,7 +223,7 @@ input[type=checkbox]:checked::after {
 }
 .badge {
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;
-  border: 1px solid var(--line); border-radius: 999px; font-size: var(--t-s); white-space: nowrap;
+  border: 1px solid var(--line); border-radius: 999px; font-size: var(--t-note); white-space: nowrap;
 }
 .badge.preview { color: var(--preview); border-color: #4c3d80; }
 .badge.house { color: var(--house); border-color: #24543a; }
@@ -417,7 +419,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .now .strip { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid var(--rim); }
 .now .what { min-width: 0; flex: 1; display: grid; line-height: 1.25; }
 .now b, .now small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.now small { color: var(--muted); }
+.now small { color: var(--muted); font-size: var(--t-note); }
 .now.idle { cursor: default; pointer-events: none; }
 .now.stale small { color: var(--warn); }
 .now small { white-space: normal; }
@@ -428,7 +430,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 }
 @media (hover: hover) { .preset:hover { background: var(--card2); border-color: #94a3b8; box-shadow: 0 0 0 1px #94a3b8 inset; } }
 .preset.in-preview { border-color: var(--preview); box-shadow: 0 0 0 1px var(--preview) inset; }
-.preset .in-badge { display: none; align-items: center; gap: 4px; color: var(--preview); font-size: var(--t-s); }
+.preset .in-badge { display: none; align-items: center; gap: 4px; color: var(--preview); font-size: var(--t-note); }
 .preset.elsewhere { border-color: #4c3d80; border-style: dashed; }
 .preset.in-preview .in-badge, .preset.elsewhere .in-badge { display: inline-flex; }
 .preset.in-preview .sub, .preset.elsewhere .sub { display: none; }
@@ -544,12 +546,15 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .power .bar { min-width: 60px; }
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 6px; margin-top: 8px; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-.stat b { display: block; font-size: var(--t-l); font-variant-numeric: tabular-nums; }
+.stat b { display: block; font-size: var(--t-stat); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .stat span { display: block; color: var(--muted); font-size: var(--t-s); }
 .list-rows { list-style: none; margin: 0; padding: 0; }
 .list-rows li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1e2228; min-height: var(--tap); }
 .list-rows li .what { flex: 1; min-width: 0; }
 .list-rows li .what b { display: block; overflow-wrap: anywhere; }
+.list-rows li .fact { font-weight: 600; white-space: nowrap; }
+.list-rows li .fact.ok { color: var(--house); }
+.list-rows li .fact.bad { color: #fca5a5; }
 .list-rows li .val { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 .list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-num); }
 .run-rows li { display: grid; grid-template-columns: minmax(0, 1fr) 6.5em 6.4em; }
@@ -584,10 +589,10 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
 .cal-top .what { flex: 1; min-width: 0; }
 .cal-top .what b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-top .what small { color: var(--muted); }
+.cal-top .what small { color: var(--muted); font-size: var(--t-note); }
 .cal-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; scroll-padding-bottom: 16px; }
 .cal-step { margin: 10px 0 4px; }
-.cal-step small { color: var(--muted); font-size: var(--t-s); }
+.cal-step small { color: var(--muted); font-size: var(--t-note); }
 .cal-step h2 { font-size: var(--t-xl); margin: 2px 0; overflow-wrap: anywhere; }
 .cal-step p { margin: 0; color: var(--muted); }
 .cal-read { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }

@@ -374,7 +374,7 @@ test('the screen counts one thing: steps, the same as "Step n of m"', async () =
   const anchor = (done) => ({ done, target: { kind: 'anchor' } });
   const c = calCount({ measured: 1, anchors: 2, progress: [anchor(true), anchor(false), { done: true, target: { kind: 'gap' } }] });
   assert.equal(c.text, '2 of 3 steps done');
-  assert.equal(c.title, '1 of 2 points measured, plus 1 link or gap');
+  assert.equal(c.title, '1 of 2 points measured, plus 1 join between runs');
   assert.equal(calCount({ measured: 0, anchors: 1, progress: [anchor(false)] }).title, '0 of 1 point measured');
   assert.equal(calCount({ progress: [] }), null);
 });

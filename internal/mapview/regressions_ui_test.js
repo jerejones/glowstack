@@ -101,7 +101,7 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   const { calCount, stepPlace } = await import('./static/panel/calibrate.js');
   const st = { anchors: 2, measured: 1, progress: [{ done: true }, { done: false }, { done: false }] };
   assert.equal(calCount(st).text, '1 of 3 steps done');
-  assert.equal(stepPlace(1, { done: false }, 3), 'Step 2 of 3 · not done yet', 'the same total as the count');
+  assert.equal(stepPlace(1, { done: false }), 'Step 2 · not done yet', 'no second total to read against the count');
   const setup = read('panel/setup.js');
   assert.match(setup, /calCount\(st\)/);
   assert.doesNotMatch(setup, /points? measured/);
@@ -621,7 +621,7 @@ test('plain words: model parts, effect subtitles, and numbers with commas', asyn
   assert.equal(modelPartLabel('trim', 'points'), 'Trim');
   const { effectSummary } = await import('./static/panel/looks.js');
   assert.equal(effectSummary({ id: 'bands', name: 'Bands', params: [{ name: 'bands', type: 'list' }] }), 'Color bands');
-  assert.equal(effectSummary({ id: 'solid', name: 'Solid', params: [{ name: 'color', type: 'color' }] }), 'Solid · One color');
+  assert.equal(effectSummary({ id: 'solid', name: 'Solid', params: [{ name: 'color', type: 'color' }] }), 'Solid · Single color');
   const { count, plural } = await import('./static/util.js');
   assert.equal(count(22322), '22,322');
   assert.equal(plural(22322, 'light'), '22,322 lights');

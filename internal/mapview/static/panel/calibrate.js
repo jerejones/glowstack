@@ -18,6 +18,7 @@ import { stateHTML, warningHTML } from '../states.js';
 import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
 
 const BASE = '/api/v1/calibration';
+const BETWEEN = 'Between runs'; // the progress group for links and gaps
 // What each action is called when it fails on the network.
 const DOING = {
   '': 'read the calibration state', '/start': 'start calibrating', '/end': 'stop calibrating',
@@ -147,14 +148,15 @@ export function calCount(st) {
   const others = items.length - (st.anchors || 0);
   return {
     text: `${items.filter((i) => i.done).length} of ${plural(items.length, 'step')} done`,
-    title: `${st.measured || 0} of ${plural(st.anchors || 0, 'point')} measured` + (others ? `, plus ${plural(others, 'link or gap', 'links and gaps')}` : ''),
+    title: `${st.measured || 0} of ${plural(st.anchors || 0, 'point')} measured` + (others ? `, plus ${plural(others, 'join between runs', 'joins between runs')}` : ''),
   };
 }
 
-// stepPlace says where the current step sits in the list, against the same
-// total as the count of steps done, and the list marks the same step.
-export function stepPlace(index, item, total) {
-  return `Step ${index + 1} of ${total} · ${item.done ? 'done' : 'not done yet'}`;
+// stepPlace says where the current step sits in the list, and the list
+// marks the same step. The total is in the count of steps done: steps can
+// be done in any order, so "37 of 109" beside "40 of 109" reads as a mistake.
+export function stepPlace(index, item) {
+  return `Step ${index + 1} · ${item.done ? 'done' : 'not done yet'}`;
 }
 
 // sourceWords says where a point's position came from.
@@ -412,7 +414,7 @@ export function createCalibrate(S, root) {
       // Every step keeps its heading, with a cursor to move or without.
       const step = stepTitle(st, nodeLabel, runLabel);
       const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
-      parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i], st.progress.length))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
+      parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
       if (c) {
         const moved = c.index - c.estimate;
         const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
@@ -473,11 +475,11 @@ export function createCalibrate(S, root) {
       const cur = st.target ? JSON.stringify(st.target) : '';
       const groups = new Map();
       for (const it of st.progress) {
-        const k = (it.target && it.target.run) || 'Links and gaps';
+        const k = (it.target && it.target.run) || BETWEEN;
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(it);
       }
-      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k === 'Links and gaps' ? k : runLabel(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
+      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k === BETWEEN ? k : runLabel(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
         const row = progressRow(it, nodeLabel, runLabel);
         const raw = it.target?.node ? g.nodes.find((n) => n.id === it.target.node)?.label : '';
         if (raw) row.title += ` (${raw})`;
@@ -494,10 +496,12 @@ export function createCalibrate(S, root) {
       const ctls = g.controllers.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('');
       const was = $$('#caBody details.more');
       parts.push(`<details class="more"${was && was.open ? ' open' : ''}><summary>More places to measure</summary>
+        <p class="muted small">Find either end of a run, or light its test bands to check the whole strip.</p>
         <div class="row"><select name="run" aria-label="Run">${runs}</select>
           ${btn('First end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'first' }))}
           ${btn('Last end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'last' }))}
           ${btn('Bands', () => showBands({ kind: 'bands', run: $$('[name=run]').value }))}</div>
+        <p class="muted small">Light test bands across a whole controller, or mark pixels that don't light on it, by number.</p>
         <div class="row"><select name="ctl" aria-label="Controller">${ctls}</select>${btn('Bands on controller', () => showBands({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
         <form class="row" data-form="dead"><input type="number" name="a" placeholder="First" style="width:6em"><input type="number" name="b" placeholder="Last" style="width:6em"><button type="submit">Mark as dead</button></form>
       </details>`);

@@ -176,8 +176,8 @@ test('calibration leads with the step in words, not an internal id', async () =>
 test('effect cards say something useful', async () => {
   const { effectKind } = await import('./static/panel/looks.js');
   assert.equal(effectKind({ params: [{ name: 'palette', type: 'palette' }] }), 'Blended colors');
-  assert.equal(effectKind({ params: [{ name: 'a.color', type: 'color' }] }), 'Effects combined');
-  assert.equal(effectKind({ params: [{ name: 'color', type: 'color' }] }), 'One color');
+  assert.equal(effectKind({ params: [{ name: 'a.color', type: 'color' }] }), 'Layered effects');
+  assert.equal(effectKind({ params: [{ name: 'color', type: 'color' }] }), 'Single color');
 });
 
 test('the inspect card keeps clear of its pixel', async () => {
