@@ -141,6 +141,14 @@ const applyToast = (S, what, outcome, cardShown) => {
 // underBar says a card is cut by the sticky bar's top edge.
 export const underBar = (rect, barTop) => rect.top < barTop && rect.bottom > barTop;
 
+// revealDelta is how far to scroll to open a form in view: its first control
+// above the sticky bar, then as much of the rest as fits, never at the cost
+// of the top. Rects are {top, bottom}; viewTop and viewBottom bound what shows.
+export function revealDelta({ top, bottom }, viewTop, viewBottom) {
+  if (top < viewTop) return top - viewTop;
+  return Math.min(Math.max(0, bottom - viewBottom), top - viewTop);
+}
+
 export function createLooks(S, root) {
   const g = S.geo;
   let copies = load(COPIES, {}) || {};
@@ -627,6 +635,7 @@ export function createLooks(S, root) {
       : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`
         : "Adds this to the lights; whatever is on them stays underneath";
   }
+  let revealing = false; // opening a form places it: nothing else scrolls then
   let darkToast = null;
   S.on('tab', () => { darkToast?.remove(); darkToast = null; });
   const forget = (id) => { if (copies[id]) { delete copies[id]; save(COPIES, copies); } };
@@ -674,9 +683,18 @@ export function createLooks(S, root) {
     c.el.querySelector('.tweak').classList.add('on');
     // Too tall for half a sheet: it needs the room, not half of itself.
     const content = root.parentElement, bar = $$('#lkBar');
-    if (S.panel.layout() === 'sheet' && S.panel.detent() === 'half' && form.el.offsetHeight > content.clientHeight - (bar.hidden ? 0 : bar.offsetHeight)) S.panel.setDetent('full');
+    const barH = () => (bar.hidden ? 0 : bar.offsetHeight);
+    if (S.panel.layout() === 'sheet' && S.panel.detent() === 'half' && form.el.offsetHeight > content.clientHeight - barH()) {
+      revealing = true;
+      S.panel.setDetent('full');
+      revealing = false;
+    }
     // The form can open below the sticky bar, where a tap seems to do nothing.
-    form.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    // Measured and immediate: a smooth scroll is still on its way, and can be
+    // interrupted, while the sheet rises. Rects are relative, so its motion
+    // doesn't matter.
+    const view = content.getBoundingClientRect(), f = form.el.getBoundingClientRect();
+    content.scrollTop += revealDelta(f, view.top + 8, view.bottom - barH() - 8);
   }
 
   // apply promotes preview layers (all with ids empty) onto the lights,
@@ -793,7 +811,7 @@ export function createLooks(S, root) {
   // is left cut by it.
   function clearBar() {
     const bar = $$('#lkBar');
-    if (S.panel.tab() !== 'looks' || S.panel.collapsed() || bar.hidden) return;
+    if (revealing || S.panel.tab() !== 'looks' || S.panel.collapsed() || bar.hidden) return;
     const barTop = bar.getBoundingClientRect().top;
     const cut = [...$$('#lkPreview .list').children].find((el) => underBar(el.getBoundingClientRect(), barTop));
     cut?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

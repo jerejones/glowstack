@@ -383,7 +383,7 @@ test('B39: map controller labels use display names, even for a board the config 
 });
 
 test('B40: an opened Tweak form scrolls into view', () => {
-  assert.match(read('panel/looks.js'), /form\.el\.scrollIntoView\(\{ block: 'nearest'/);
+  assert.match(read('panel/looks.js'), /content\.scrollTop \+= revealDelta\(/);
 });
 
 test('Escape on a confirm dialog leaves the sheet where it is', () => {
@@ -1357,4 +1357,19 @@ test('B86: no two labels of any kind overprint; what is left out is counted and 
   assert.match(overlay, /nodeDisplay\(g, nd\.id\)/, 'names, not ids');
   assert.match(overlay, /runName\(g, id\)/);
   assert.match(read('panel/setup.js'), /label-note/);
+});
+
+test('B87: opening Tweak shows the first control above the bar, and the form as far as it fits', async () => {
+  const { revealDelta } = await import('./static/panel/looks.js');
+  // Below the bar, short enough to fit: its bottom comes up to the bar's top.
+  assert.equal(revealDelta({ top: 760, bottom: 900 }, 280, 730), 170);
+  // Taller than the view: its top goes to the view's top, not past it.
+  assert.equal(revealDelta({ top: 760, bottom: 1700 }, 280, 730), 480);
+  // Already in view.
+  assert.equal(revealDelta({ top: 400, bottom: 700 }, 280, 730), 0);
+  // Above the view: comes back down.
+  assert.equal(revealDelta({ top: 200, bottom: 500 }, 280, 730), -80);
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /form\.el\.scrollIntoView/, 'not a smooth scroll that the rising sheet can interrupt');
+  assert.match(looks, /revealing \|\| S\.panel\.tab\(\)/, 'the rising sheet does not scroll somewhere else first');
 });
