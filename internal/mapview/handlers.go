@@ -54,7 +54,29 @@ func (m *Map) Register(mux interface{ Handle(string, http.Handler) }) {
 		mux.Handle("GET /map/"+section, redirect("/"+section))
 		mux.Handle("GET /map/"+section+"/{$}", redirect("/"+section))
 	}
-	mux.Handle("GET /map/", http.StripPrefix("/map/", http.FileServerFS(static)))
+	notFound, _ := fs.ReadFile(static, "404.html")
+	serveNotFound := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write(notFound)
+	}
+	files := http.StripPrefix("/map/", http.FileServerFS(static))
+	mux.Handle("GET /map/", h(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/map/")
+		if _, err := fs.Stat(static, name); err != nil {
+			serveNotFound(w)
+			return
+		}
+		files.ServeHTTP(w, r)
+	}))
+	// Pages only: the APIs keep their plain 404s.
+	mux.Handle("/", h(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/json") {
+			http.NotFound(w, r)
+			return
+		}
+		serveNotFound(w)
+	}))
 	mux.Handle("GET /api/map/geometry", h(m.handleGeometry))
 	mux.Handle("GET /api/map/plans/{n}", h(m.handlePlan))
 	mux.Handle("GET /api/map/mappings/{id}", h(m.handleMapping))

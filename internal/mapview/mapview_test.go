@@ -986,11 +986,30 @@ func TestSectionRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode != http.StatusNotFound {
-			t.Fatalf("%s: got %d", path, resp.StatusCode)
+		if resp.StatusCode != http.StatusNotFound || !bytes.Contains(body, []byte("Back to the map")) {
+			t.Fatalf("%s: got %d, designed page: %v", path, resp.StatusCode, bytes.Contains(body, []byte("Back to the map")))
 		}
 	}
+	resp, err := http.Get(f.srv.URL + "/api/map/nothing-here")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound || bytes.Contains(body, []byte("Back to the map")) {
+		t.Fatalf("an unknown API path should keep its plain 404: %d %s", resp.StatusCode, body)
+	}
+}
+
+// The real server also registers the API under a pattern with no
+// method; the page routes have to coexist with that.
+func TestPageRoutesCoexistWithAPIMounts(t *testing.T) {
+	f := newFixture(t)
+	mux := httpserver.New("")
+	mux.Handle("/api/v1/", http.NotFoundHandler())
+	f.m.Register(mux)
 }
 
 func TestLegacySectionRedirects(t *testing.T) {
