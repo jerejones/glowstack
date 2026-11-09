@@ -26,7 +26,7 @@ removed through the library). Saving a hidden ID restores it. Pinning does not
 copy or rewrite the preset's definition. Before downgrading to a release without
 these fields, restore the matching saved-presets backup as well as the binary.
 
-The map compares the original geometry payload, excluding its generation, on
+The map compares the original geometry payload, excluding its generation and preset names, on
 config reload. A library-only change refreshes the preset catalog in place;
 layout changes still reload the page. Existing drafts remain open when another
 client changes the library.

@@ -421,7 +421,7 @@ function placeCard() {
 
 let ws = null, ranges = [];
 let geometrySignature = '';
-const geometryKey = ({ gen, ...rest }) => JSON.stringify(rest);
+const geometryKey = ({ gen, presets, ...rest }) => JSON.stringify(rest);
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/map/ws');
   ws.binaryType = 'arraybuffer';
@@ -438,6 +438,7 @@ function connect() {
             const geo = await api('/api/map/geometry');
             if (geometryKey(geo) !== geometrySignature) { location.reload(); return; }
             S.geo.gen = geo.gen;
+            S.geo.presets = geo.presets;
             await S.refreshPresets();
           } catch (err) { S.toast('Could not refresh the preset library.'); }
         }
