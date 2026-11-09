@@ -835,6 +835,25 @@ test('B70: a failed map load keeps the navigation and the preset library', () =>
   assert.match(read('index.html'), /id="mapError"/);
 });
 
+test('the footer holds actions, and clearing reads apart from removing', async () => {
+  const { clearLabel, replaceNote } = await import('./static/panel/looks.js');
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /lkBarName|lkBarStrip/, 'the look shows on its card, not again in the footer');
+  assert.equal(clearLabel(1), 'Clear preview');
+  assert.equal(clearLabel(2), 'Clear all');
+  assert.match(looks, /\[data-a=remove\]'\)\.hidden = prev\.length < 2 && !removeScope/);
+  assert.equal(replaceNote([]), '');
+  assert.equal(replaceNote(['Glitter']), 'Glitter is on these lights. Replace takes it off; Add on top keeps it underneath.');
+  assert.match(css, /\.look-acts \.go \{ flex: 1; \}/, 'one primary action on the phone footer');
+});
+
+test('the target control is a popover, and a long place name is not cut off', () => {
+  const rule = /\.target-picker \{[^}]*\}/.exec(css)[0];
+  assert.match(rule, /position: absolute/);
+  assert.match(rule, /box-shadow/);
+  assert.doesNotMatch(/\.target-btn b \{[^}]*\}/.exec(css)[0], /ellipsis|nowrap/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));
@@ -935,7 +954,8 @@ test('jargon is gone or explained', async () => {
   const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
   assert.doesNotMatch(setup, />Even runs too</);
   assert.doesNotMatch(setup, />Copy view</);
-  assert.match(looks, /Next look on/);
+  assert.match(looks, />Apply to</);
+  assert.doesNotMatch(looks, /Next look on/);
   assert.match(looks, /The lights keep running/);
   assert.doesNotMatch(cal, /At the estimate/);
 });

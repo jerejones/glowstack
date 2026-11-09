@@ -114,6 +114,16 @@ export function replacedBy(house, preview, rangesOf, originals = new Set()) {
   });
 }
 
+// clearLabel is the footer's way out: it must not read like a card's Remove.
+export const clearLabel = (n) => (n > 1 ? 'Clear all' : 'Clear preview');
+
+// replaceNote explains the choice between Add on top and Replace lights.
+export function replaceNote(names) {
+  if (!names.length) return '';
+  const list = names.length < 3 ? names.join(' and ') : `${names.length} looks`;
+  return `${list} ${names.length === 1 ? 'is' : 'are'} on these lights. Replace takes ${names.length === 1 ? 'it' : 'them'} off; Add on top keeps ${names.length === 1 ? 'it' : 'them'} underneath.`;
+}
+
 // applyResult is what Apply reports: plain success only when the look can
 // be seen. outcome is lightOutcome for the applied looks.
 export function applyResult(what, outcome) {
@@ -135,12 +145,12 @@ export function createLooks(S, root) {
   root.innerHTML = `
     <div class="looks-head">
       <h1 class="title">Looks</h1>
-      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where the next look goes"><span class="muted">Next look on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
-    </div>
-    <div class="target-picker" id="lkPicker" hidden>
-      ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
-      <div class="muted small">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
-      <div class="target-list" id="lkTargetList"></div>
+      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where the next look goes" aria-haspopup="dialog"><span class="muted">Apply to</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
+      <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
+        ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
+        <div class="muted small">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
+        <div class="target-list" id="lkTargetList"></div>
+      </div>
     </div>
     <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span></button>
     <div class="cards" id="lkPresets"></div>
@@ -173,11 +183,10 @@ export function createLooks(S, root) {
     </div>
     </details>
     <div class="look-bar" id="lkBar" hidden>
-      <span class="strip" id="lkBarStrip"></span>
-      <div class="what"><b id="lkBarName"></b><span id="lkBarSub"></span></div>
+      <p class="bar-note" id="lkBarNote" hidden></p>
       <div class="look-acts">
-        <button type="button" id="lkClear" title="Remove every look from the preview; the lights don't change">Clear preview</button>
-        <button type="button" id="lkAdd" hidden title="Put this on the lights above what's already there">Add on top</button>
+        <button type="button" id="lkClear" class="quiet" title="Take everything off the preview; the lights don't change">Clear preview</button>
+        <button type="button" id="lkAdd" class="quiet" hidden title="Put this on the lights above what's already there">Add on top</button>
         <button type="button" class="go" id="lkPushAll">Apply to lights</button>
       </div>
     </div>`;
@@ -226,7 +235,15 @@ export function createLooks(S, root) {
     picker.hidden = !on;
     targetBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
     document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
-    if (on) { search.value = ''; fillTargets(); if (!S.coarse) search.focus(); }
+    if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus(); }
+  }
+  // fitPicker keeps the floating list inside the panel, above the Apply bar;
+  // a sheet with too little room rises first.
+  function fitPicker() {
+    const list = $$('#lkTargetList'), content = root.parentElement, bar = $$('#lkBar');
+    const room = () => content.getBoundingClientRect().bottom - list.getBoundingClientRect().top - (bar.hidden ? 0 : bar.offsetHeight) - 12;
+    if (S.panel.layout() === 'sheet' && S.panel.detent() !== 'full' && room() < 220) S.panel.setDetent('full');
+    list.style.maxHeight = Math.max(120, room()) + 'px';
   }
   for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { openPicker(false); targetBtn.focus(); });
   function choose(value) {
@@ -462,7 +479,10 @@ export function createLooks(S, root) {
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     $$('#lkStack').hidden = prev.length < 2;
     for (const c of cards.values()) {
-      if (c.lane === 'preview') c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
+      if (c.lane !== 'preview') continue;
+      c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
+      // With one look, Clear preview in the footer is this same action.
+      c.el.querySelector('[data-a=remove]').hidden = prev.length < 2 && !removeScope(c.layer);
     }
     renderBar(prev);
     markPreviewed();
@@ -530,15 +550,14 @@ export function createLooks(S, root) {
     syncBarInset();
     if (bar.hidden !== !prevBar) { prevBar = !bar.hidden; S.panel.refit(); }
     if (!prev.length) return;
-    const l = prev[0];
-    const eff = effectFor(S, l);
-    $$('#lkBarStrip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
-    $$('#lkBarName').textContent = prev.length === 1 ? layerName(S, l) : `Previewing ${prev.length} looks`;
-    $$('#lkBarSub').textContent = prev.length === 1 ? `on ${l.target === 'all' ? 'everything' : targetName(g, l.target)}` : prev.map((x) => layerName(S, x)).join(', ');
     const updates = prev.some((x) => copies[x.id]);
     const n = prev.length === 1 ? '' : prev.length + ' ';
     hidden = updates ? [] : replacedBy(S.house.filter((x) => !x.ephemeral), prev, (t) => targetRanges(g, S.tree, t), new Set(Object.values(copies)));
     $$('#lkAdd').hidden = !hidden.length;
+    $$('#lkClear').textContent = clearLabel(prev.length);
+    const note = replaceNote(hidden.map((x) => layerName(S, x)));
+    $$('#lkBarNote').textContent = note;
+    $$('#lkBarNote').hidden = !note;
     $$('#lkPushAll').textContent = updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`;
     $$('#lkPushAll').title = updates ? 'Put your changes on the lights in place of the original'
       : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`
