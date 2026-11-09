@@ -192,7 +192,7 @@ input[type=checkbox]:checked::after {
 .seg > button.on + button { box-shadow: none; } /* the selected edge is the divider */
 .seg > button:disabled, .seg > button[aria-disabled=true]:not(.on) { color: var(--muted); cursor: not-allowed; }
 .tab .seg { display: flex; width: 100%; }
-.tab .seg > button { flex: 1; min-width: 0; }
+.tab .seg > button { flex: 1 0 auto; } /* at least its own label: a segment never clips one */
 /* Five choices share one row, at the size of the page's other segments. */
 .tab .seg.five > button { padding: 0 3px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -469,7 +469,7 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .library { margin-top: 4px; }
 .lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 8px; }
 .lib-filters .seg { flex: none; width: auto; }
-.lib-filters .field { flex: 1 1 120px; margin: 0; min-width: 0; gap: 0; }
+.lib-filters .field { flex: 1 1 90px; margin: 0; min-width: 0; gap: 0; }
 .lib-filters .field input { width: 100%; }
 #lkWords { margin-top: 12px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }

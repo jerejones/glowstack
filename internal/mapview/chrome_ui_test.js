@@ -245,6 +245,13 @@ test('the panel width is one CSS variable per tab, and Calibrate keeps its own',
   assert.match(css, /body\.calibrating \{ --panel-w: 500px; \}/);
 });
 
+test('B116: a segment inside a tab is at least as wide as its own label', () => {
+  assert.match(css, /\.tab \.seg > button \{ flex: 1 0 auto; \}/);
+  assert.doesNotMatch(css, /\.tab \.seg > button \{[^}]*min-width: 0/);
+  assert.match(css, /\.lib-filters \.seg \{ flex: none; width: auto; \}/);
+  assert.match(css, /\.bar-main \.seg \{ flex: none; width: auto; \}/);
+});
+
 test('a harmless 404 is neutral, not an error', () => {
   const html = fs.readFileSync(path.join(__dirname, 'static/404.html'), 'utf8');
   assert.doesNotMatch(html, /state error|role="alert"/);
