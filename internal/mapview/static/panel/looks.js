@@ -656,12 +656,25 @@ export function createLooks(S, root) {
     rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Remove from the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
     if (c.only) c.only.hidden = (S.preview?.layers.length || 0) < 2;
+    fitControls(c);
+  }
+
+  // fitControls keeps a row's place name readable on a narrow sheet: when
+  // the place and a worded Remove cannot share the line, Remove drops its
+  // word (its aria-label and title still say it) rather than the name
+  // losing letters.
+  function fitControls(c) {
+    const box = c.el.querySelector('.controls');
+    c.el.classList.remove('tight');
+    if (!c.el.classList.contains('open') || !box.offsetParent) return;
+    if (box.scrollWidth > box.clientWidth + 1) c.el.classList.add('tight');
   }
 
   // openRow shows or hides a phone row's full controls.
   function openRow(c, on) {
     c.el.classList.toggle('open', on);
     c.el.querySelector('.row-expand').setAttribute('aria-expanded', on ? 'true' : 'false');
+    fitControls(c);
   }
 
   // renderRows keeps the stage's list in order: the preview's rows, then the

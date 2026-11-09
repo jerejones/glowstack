@@ -2420,3 +2420,18 @@ test('a phone row gives its name the room the place does not use', () => {
 test('B129: a long slider value never overruns the shared right edge', () => {
   assert.match(read('ui.css'), /\.form \.f \.ctl output \{ flex: none; min-width: 4\.8em; \}/);
 });
+
+test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word first', () => {
+  const looks = read('panel/looks.js');
+  // The name is a flex item with a floor, not one that collapses to nothing.
+  assert.match(css, /\.place b \{ font-weight: 500; flex: 1 1 auto; min-width: 8ch;/);
+  // On the sheet the place takes the row's first column whole, one line.
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
+  assert.match(phone, /\.layer \.place-row \{ grid-column: 1; grid-row: 1; max-width: none; \}/);
+  assert.match(phone, /\.layer \.place b \{ display: block; white-space: nowrap; text-overflow: ellipsis; \}/);
+  // When the two cannot share the line, Remove loses its word, not the name.
+  assert.match(phone, /\.layer\.tight \[data-a=remove\] span \{ display: none; \}/);
+  assert.match(looks, /function fitControls\(c\)/);
+  assert.match(looks, /box\.scrollWidth > box\.clientWidth \+ 1\) c\.el\.classList\.add\('tight'\)/);
+  assert.match(looks, /rm\.setAttribute\('aria-label', part \? 'Remove here' : 'Remove'\)/, 'the icon-only Remove still has its name');
+});

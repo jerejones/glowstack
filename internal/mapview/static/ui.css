@@ -448,7 +448,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
 button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: transparent; }
 .place .muted { flex: none; white-space: nowrap; }
-.place b { font-weight: 500; min-width: 0; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
+.place b { font-weight: 500; flex: 1 1 auto; min-width: 8ch; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
 /* The library's scope is a setting, in a line of words: only a row's Goes on
  * is button-styled. A long name wraps here rather than being cut off. */
 .scope-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 5px; margin: 0; font-size: var(--t-help); }
@@ -598,7 +598,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   /* On a phone place and Remove share a line; brightness and Tweak the next, so
    * the place's name keeps its room beside the worded Remove. */
   .layer .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
-  .layer .place-row { grid-column: 1; grid-row: 1; }
+  .layer .place-row { grid-column: 1; grid-row: 1; max-width: none; }
+  /* The place's name is one line here, whole until there is less than its
+   * floor; then Remove gives up its word before the name gives up letters. */
+  .layer .place b { display: block; white-space: nowrap; text-overflow: ellipsis; }
+  .layer.tight [data-a=remove] span { display: none; }
   .layer .tweak { grid-column: 2; grid-row: 2; }
   .layer [data-a=remove] { grid-column: 2; grid-row: 1; }
   .layer .bri { grid-column: 1; grid-row: 2; }
