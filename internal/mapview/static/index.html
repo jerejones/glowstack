@@ -35,13 +35,11 @@ wider screens. app.js fills it in.
   <div id="chips" class="chipbar">
     <span class="brand" title="Glowstack live map" aria-label="Glowstack live map"><img class="brand-mark" src="logo.svg" width="24" height="24" alt=""><b>Glowstack</b></span>
     <span id="badge" class="badge">connecting…</span>
+  </div>
+  <div id="mapControls" class="map-controls">
     <span class="seg" id="showSeg" role="group" aria-label="What the map shows">
       <button type="button" data-show="" title="Your preview layers, on the map only">Preview</button><button type="button" data-show="house" title="What the lights show">Lights</button>
     </span>
-    <span class="seg views" id="viewChips" role="group" aria-label="Camera" hidden>
-      <button type="button" data-view="street" title="The site's view">Street</button><button type="button" data-view="overhead" title="From above, north up">Overhead</button><button type="button" data-view="free" title="Where you last left the camera">Free</button>
-    </span>
-    <button type="button" id="fitBtn" class="chip" title="Fit the house to the screen (double-tap the map)">Fit</button>
   </div>
   <nav id="crumbs" class="crumbs" aria-label="Selection" hidden></nav>
   <div id="legend" class="legend" hidden></div>

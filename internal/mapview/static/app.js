@@ -167,7 +167,6 @@ async function openView(i) {
     $('gl').hidden = false;
     const scene = await import('./scene.js');
     S.view = await scene.open($('gl'), canvas, { ...common, url: plan.url, layers: plan.layers || [], map: S.geo.map || {}, plan: i });
-    $('viewChips').hidden = false;
   } else if (plan) {
     S.view = openPlan(canvas, plan, i, common);
   } else {
@@ -181,11 +180,6 @@ async function openView(i) {
 }
 
 function cameraChanged(st) {
-  for (const b of $('viewChips').querySelectorAll('button')) {
-    press(b, b.dataset.view === st.mode);
-    if (b.dataset.view === 'free') b.disabled = !st.hasFree && st.mode !== 'free';
-  }
-  press($('fitBtn'), st.mode === 'fit');
   S.emit('camera', st);
 }
 
@@ -534,8 +528,6 @@ S.refresh = async () => { await Promise.all([pollPreview(), pollHouse()]); };
 
 function bindChrome() {
   for (const b of $('showSeg').querySelectorAll('button')) b.onclick = () => setShow(b.dataset.show);
-  for (const b of $('viewChips').querySelectorAll('button')) b.onclick = () => S.view.setView(b.dataset.view);
-  $('fitBtn').onclick = () => S.view.setView('fit');
   addEventListener('resize', () => { S.panel.refresh(); resize(); });
   document.addEventListener('visibilitychange', () => {
     subscribe();
