@@ -741,7 +741,7 @@ export function createLooks(S, root) {
     if (key === shownDark) return;
     shownDark = key;
     box.title = w?.detail || '';
-    box.innerHTML = w ? `${icon('alert')}<span class="warn-text">${esc(w.text)}</span>${w.ids.length ? `<button type="button" class="icon-btn" id="lkDarkOn">${icon('sun')}${esc(turnOnLabel(w.names))}</button>` : ''}` : '';
+    box.innerHTML = w ? `${icon('alert')}<span class="warn-text">${esc(w.text)}</span>${w.ids.length ? `<button type="button" class="icon-btn" id="lkDarkOn">${icon('check')}${esc(turnOnLabel(w.names))}</button>` : ''}` : '';
     const on = $$('#lkDarkOn');
     if (on) on.onclick = () => turnOnZones(S, api, w.ids, w.names);
   }

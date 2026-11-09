@@ -2156,7 +2156,7 @@ test('B113: the Status count comes from the same list as the cards', async () =>
   assert.equal(statusIssues('', [spacing]).length, 1, 'a dark verdict has no card of its own');
   assert.equal(cards[0].darkZones, true, 'most urgent first');
   const status = read('panel/status.js');
-  assert.match(status, /id="stTurnOn">\$\{icon\('sun'\)\}\$\{esc\(turnOnLabel\(zeroNames\)\)\}/, 'the brightness card has the Turn on action');
+  assert.match(status, /id="stTurnOn">\$\{icon\('check'\)\}\$\{esc\(turnOnLabel\(zeroNames\)\)\}/, 'the brightness card has the Turn on action');
   assert.match(status, /renderIssues\(issues, /, 'drawn from the list the headline counted');
 });
 
@@ -2389,4 +2389,9 @@ test('opening the Preview clock leaves an open Tweak form where it is', async ()
   assert.equal(keepsPlace({ dataset: { quietOpen: '' } }, box(false)), false, 'nothing to protect: it reveals itself');
   assert.equal(keepsPlace({ dataset: {} }, box(true)), false);
   assert.match(read('panel/looks.js'), /id="lkClockBox" data-quiet-open/);
+});
+
+test('Turn on shares no glyph with the brightness slider, and is never a power symbol', () => {
+  for (const f of ['panel/looks.js', 'panel/status.js']) assert.doesNotMatch(read(f), /icon\('sun'\)\}\$\{esc\(turnOnLabel/, f);
+  assert.doesNotMatch(read('icons.js'), /\bpower:/);
 });

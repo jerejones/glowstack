@@ -297,7 +297,7 @@ export function createStatus(S, root) {
     shownIssues = key;
     const row = (it, i) => it.group
       ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
-      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.darkZones && zeroIds.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="stTurnOn">${icon('sun')}${esc(turnOnLabel(zeroNames))}</button></div>` : ''}${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
+      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.darkZones && zeroIds.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="stTurnOn">${icon('check')}${esc(turnOnLabel(zeroNames))}</button></div>` : ''}${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
     if (box.querySelector('#stTurnOn')) $$('#stTurnOn').onclick = () => turnOnZones(S, api, zeroIds, zeroNames);
@@ -318,7 +318,7 @@ export function createStatus(S, root) {
     if (key === shownFix) return;
     shownFix = key;
     box.hidden = !ids.length;
-    box.innerHTML = ids.length ? `<button type="button" class="icon-btn" id="stTurnOn">${icon('sun')}${esc(turnOnLabel(out.zones))}</button>` : '';
+    box.innerHTML = ids.length ? `<button type="button" class="icon-btn" id="stTurnOn">${icon('check')}${esc(turnOnLabel(out.zones))}</button>` : '';
     if (ids.length) $$('#stTurnOn').onclick = () => turnOnZones(S, api, ids, out.zones);
   }
 
