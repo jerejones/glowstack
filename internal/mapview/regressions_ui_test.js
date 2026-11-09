@@ -2731,3 +2731,17 @@ test('B139: a sprite shows the whole look, a show asks for none, and a dark spri
   assert.match(looks, /guardSprite\(b\.querySelector\('\.strip'\), sprite, strip\)/);
   assert.match(presets, /guardSprite\(row\.querySelector\('\.strip'\), sprite, drawn\)/);
 });
+
+test('B140: a preview row and a live row share one layout', () => {
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
+  // The badge is one width in every row: Preview's. So a name's column is the same width whichever
+  // row it is in, and the one-line rule turns at the same name length.
+  assert.match(phone, /\.layer \.name-line \.kind \{ min-width: 5\.1em; text-align: center; box-sizing: border-box; \}/);
+  // The preview row is told apart by its badge color and a faint tint, not by a different layout.
+  assert.match(phone, /\.layer\.preview \{ background: rgba\(182, 156, 255, 0\.07\);/);
+  assert.doesNotMatch(phone, /\.layer\.preview \.name-line \{/, 'no preview-only grid');
+  assert.doesNotMatch(phone, /\.layer\.preview \.name-line b \{/, 'no preview-only name rule');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /el\.classList\.remove\('tight', 'two-line'\);/, 'one fit for both lanes');
+  assert.doesNotMatch(looks, /lane === 'preview'[^\n]*two-line/, 'the two-line rule does not look at the lane');
+});

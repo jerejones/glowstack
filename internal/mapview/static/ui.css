@@ -635,6 +635,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   /* A row is one line until asked: kind, name, where, how bright, a chevron.
    * The Library stays within reach while previewing. */
   .layer { padding: 0 0 0 12px; margin-top: 2px; }
+  /* Every row's badge is one width (Preview's), so a name starts at the same x in every row and the
+   * two-line rule (B134) turns at the same length for a preview as for a look on the lights. A preview
+   * row differs from a live one only in its badge color and a faint tint of it behind the row. */
+  .layer .name-line .kind { min-width: 5.1em; text-align: center; box-sizing: border-box; }
+  .layer.preview { background: rgba(182, 156, 255, 0.07); border-radius: 0 var(--radius) var(--radius) 0; }
   .layer .name-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto var(--tap); min-height: var(--tap); gap: 0 6px; }
   .layer .row-expand { display: inline-flex; flex: none; width: var(--tap); padding: 0; border: 0; background: transparent; color: var(--muted); grid-column: 5; grid-row: 1; }
   .layer.open .row-expand .icon { transform: rotate(180deg); }
