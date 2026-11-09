@@ -452,7 +452,7 @@ export function createLooks(S, root) {
     el.className = 'layer';
     el.innerHTML = `
       <div class="top"><div class="what"><b></b></div>
-        <button type="button" class="tweak" aria-expanded="false">Tweak</button><button type="button" data-a="remove">Remove</button></div>
+        <button type="button" class="tweak icon-btn" aria-expanded="false">${icon('setup')}Tweak</button><button type="button" class="icon-btn" data-a="remove">${icon('trash')}<span>Remove</span></button></div>
       <div class="place-row"><span class="meta"></span></div>
       <div class="strip"></div>
       <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
@@ -475,7 +475,7 @@ export function createLooks(S, root) {
       escapeCloses(place, () => pickFor === c, () => { openPicker(false); place.focus(); });
       el.querySelector('.place-row').prepend(place);
       const acts = el.querySelector('.acts');
-      acts.innerHTML = `<button type="button" data-a="apply" hidden title="Put only this look on the lights">Apply only this</button>`;
+      acts.innerHTML = `<button type="button" class="icon-btn" data-a="apply" hidden title="Put only this look on the lights">${icon('check')}Apply only this</button>`;
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
     }
     return c;
@@ -511,7 +511,7 @@ export function createLooks(S, root) {
     note.className = orig ? 'note copy-note' : 'note';
     note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
-    rm.textContent = part ? 'Remove here' : 'Remove';
+    rm.querySelector('span').textContent = part ? 'Remove here' : 'Remove';
     rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this look off the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
   }

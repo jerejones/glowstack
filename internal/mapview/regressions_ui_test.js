@@ -997,7 +997,7 @@ test('jargon is gone or explained', async () => {
 });
 
 test('the layer card keeps Remove beside Tweak, and long setting names take their own line', () => {
-  assert.match(read('panel/looks.js'), /class="tweak"[^\n]*data-a="remove"/);
+  assert.match(read('panel/looks.js'), /class="tweak icon-btn"[^\n]*data-a="remove"/);
   assert.match(read('form.js'), /label\.length > 16 \? 'f stack' : 'f'/);
   assert.match(css, /\.form \.f\.stack \{/);
 });
@@ -1398,7 +1398,7 @@ test('desktop footer keeps to the panel bottom; legend folds; boot has the tab i
   for (const ic of icons) assert.ok(html.includes(ic + '<svg'), ic);
   const { icon } = await import('./static/icons.js');
   assert.ok(html.includes(icon('looks')), 'the same drawing the app uses');
-  assert.doesNotMatch(read('panel/presets.js'), /\$\{icon\('more'\)\}More/, 'no three dots beside the word');
+  assert.match(read('panel/presets.js'), /\$\{icon\('more'\)\}More/, 'More carries the kebab, like Preview and Pin carry theirs');
   assert.doesNotMatch(css, /\.color-picker summary::before \{ order: 2/, 'the chevron is a disclosure like the rest');
   assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-h2\)/);
   assert.match(css, /text-wrap: balance/);
@@ -1537,4 +1537,14 @@ test('a phone puts the preview ahead of the chooser, only while there is one', a
   assert.equal(previewFirst('sheet', 0), false, 'presets first with no preview');
   assert.equal(previewFirst('wide', 2), false);
   assert.equal(previewFirst('side', 2), false);
+});
+
+test('every secondary action on a card or row has its icon and word, and category keys share one swatch', () => {
+  const looks = read('panel/looks.js'), presets = read('panel/presets.js'), overlay = read('overlay.js');
+  assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
+  assert.match(presets, /\$\{icon\('more'\)\}More/);
+  assert.match(looks, /\$\{icon\('setup'\)\}Tweak/);
+  assert.match(looks, /\$\{icon\('trash'\)\}<span>Remove/);
+  assert.match(looks, /\$\{icon\('check'\)\}Apply only this/);
+  for (const m of overlay.matchAll(/<span class="(sw[^"]*)" style="background:rgb/g)) assert.equal(m[1], 'sw', 'categories are the plain swatch');
 });
