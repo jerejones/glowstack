@@ -12,7 +12,7 @@
 // preview clock is a line below the library that opens to its controls.
 import { api, post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize, noOrphan } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
-import { houseStatusMessage, lightOutcome, turnOnLabel, turnOnZones, zoneWarning, BRIGHTNESS_RULE } from '../house-status.js';
+import { houseStatusMessage, lightOutcome, joined, turnOnLabel, turnOnZones, zoneWarning, BRIGHTNESS_RULE } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState, stateHTML } from '../states.js';
 import { icon } from '../icons.js';
@@ -184,20 +184,20 @@ export function applyTitle(plan, unknown) {
 }
 
 // applyResult is what Apply reports: plain success only when the look can
-// be seen. outcome is lightOutcome for the applied looks.
-export function applyResult(what, outcome, cardShown = false) {
+// be seen. outcome is lightOutcome for the applied looks; name is the look,
+// or how many, for the sentence that has to name the zones. The toast stands
+// alone: it says what stayed dark and carries the fix.
+export function applyResult(what, outcome, name = what) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
-  // The banner on screen says why, once: this only confirms, in a neutral color.
-  if (cardShown) {
-    const n = outcome.zones?.length || 0, off = n ? ` ${n} ${n === 1 ? 'zone stays' : 'zones stay'} off, see above.` : '';
-    return { text: `Applied ${what}.${off}`, warn: false, neutral: true };
-  }
-  const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
-  return { text: `${lead} ${outcome.message}`, warn: true };
+  if (!outcome.zones?.length) return { text: `Applied ${name}. ${outcome.message}`, warn: true };
+  const zones = outcome.zones, list = joined(zones);
+  const who = zones.length < 3 && list.length <= 40 ? list : `${zones.length} zones`;
+  return { text: `Applied ${name}. ${who} ${zones.length === 1 ? 'is' : 'are'} at 0%, so ${zones.length === 1 ? 'it stays' : 'they stay'} dark.`, warn: true, zones: { ids: outcome.ids, names: zones } };
 }
-const applyToast = (S, what, outcome, cardShown) => {
-  const r = applyResult(what, outcome, cardShown);
-  return S.toast(r.text, r.warn ? { ms: 9000, warn: true } : r.neutral ? { neutral: true } : {});
+const applyToast = (S, what, outcome, name) => {
+  const r = applyResult(what, outcome, name);
+  if (!r.warn) return S.toast(r.text);
+  return S.toast(r.text, { ms: 12000, warn: true, action: r.zones && { label: turnOnLabel(r.zones.names), run: () => turnOnZones(S, api, r.zones.ids, r.zones.names) } });
 };
 
 // underBar says a card is cut by the sticky bar's top edge.
@@ -864,7 +864,8 @@ export function createLooks(S, root) {
   async function apply(ids, replace = []) {
     const list = ids.length ? ids : (S.preview ? S.preview.layers.map((l) => l.id) : []);
     // Read before promoting: a poll can empty the preview at any moment after.
-    const applied = (S.preview ? S.preview.layers : []).filter((l) => list.includes(l.id)).map((l) => targetRanges(g, S.tree, l.target));
+    const going = (S.preview ? S.preview.layers : []).filter((l) => list.includes(l.id));
+    const applied = going.map((l) => targetRanges(g, S.tree, l.target)), names = going.map((l) => layerName(S, l));
     applying = true;
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
@@ -890,7 +891,7 @@ export function createLooks(S, root) {
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
-    darkToast = applyToast(S, what, outcome, !$$('#lkDark').hidden && !S.panel.collapsed());
+    darkToast = applyToast(S, what, outcome, names.length === 1 ? names[0] : `${names.length} looks`);
   }
   $$('#lkPushAll').onclick = () => apply([], plan?.replace ? hidden : []);
   $$('#lkClear').onclick = async () => {

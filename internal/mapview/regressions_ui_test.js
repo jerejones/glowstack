@@ -341,7 +341,7 @@ test('B34: picker lists show whole rows, and Show on has no scroll of its own', 
 
 test('B35: a warning toast is the warning color', () => {
   assert.match(css, /\.toast\.warn \{ border-left-color: var\(--warn\)/);
-  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, r\.warn \? \{ ms: 9000, warn: true \} : r\.neutral/);
+  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, \{ ms: 12000, warn: true,/);
   assert.match(read('app.js'), /opts\.warn \? ' warn'/);
 });
 
@@ -803,7 +803,7 @@ test('B64: Apply reports what really happened, and the chip says so too', async 
   assert.equal(applyResult('the look to the lights', { dark: '' }).warn, false);
   const r = applyResult('the look to the lights', none);
   assert.equal(r.warn, true);
-  assert.match(r.text, /but they stay dark\. Yard is at 0% brightness/);
+  assert.equal(r.text, 'Applied the look to the lights. Yard is at 0%, so it stays dark.');
   const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
   assert.equal(chip.text, 'Lights: dark');
   assert.equal(chip.detail, ', zones at 0%');
@@ -1143,15 +1143,10 @@ test('B72: anything cut by the sticky bar is scrolled clear after the sheet rise
 test('B75: the dark warning is said once on a screen', async () => {
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Porch'], message: 'Porch is at 0% brightness, so nothing shows there.' };
-  // The banner says why: the toast only confirms, in a neutral color, and doesn't repeat it.
-  const shown = applyResult('the look to the lights', dark, true);
-  assert.equal(shown.warn, false);
-  assert.equal(shown.neutral, true);
-  assert.equal(shown.text, 'Applied the look to the lights. 1 zone stays off, see above.');
-  // No card on screen (a collapsed panel): the toast is the warning.
-  const hidden = applyResult('the look to the lights', dark, false);
-  assert.equal(hidden.warn, true);
-  assert.match(hidden.text, /0% brightness/);
+  // The toast stands alone, wherever the banner is.
+  const shown = applyResult('the look to the lights', dark, 'Lantern');
+  assert.equal(shown.warn, true);
+  assert.equal(shown.text, 'Applied Lantern. Porch is at 0%, so it stays dark.');
   // The chip steps back while a card on the open tab explains it.
   assert.doesNotMatch(read('app.js'), /darkInPanel/, 'the chip says the same with or without the tab\'s warning');
   // Status: the verdict carries the fix instead of a card repeating it.
@@ -1368,9 +1363,8 @@ test('Looks leaves the grids alone when something previews, and a preview on an 
   assert.match(looks, /clock-hint/, 'the clock says what it is for while closed');
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Yard'], message: 'x' };
-  assert.equal(applyResult('the look to the lights', dark, true).neutral, true, 'and not a third warning');
-  assert.equal(applyResult('the look to the lights', dark, true).warn, false);
-  assert.equal(applyResult('x', { dark: '' }, true).text, 'Applied x.');
+  assert.equal(applyResult('x', { dark: '' }, 'y').text, 'Applied x.');
+  assert.equal(applyResult('x', dark, 'y').warn, true);
 });
 
 test('one section heading style, Setup in order, and matching segments', () => {
@@ -1816,12 +1810,10 @@ test('B103: Preview and Lights are off until the map is ready, and say why', asy
 
 test('Applying into a 0% zone never reports plain success alone', async () => {
   const { applyResult } = await import('./static/panel/looks.js');
-  const shown = applyResult('the look to the lights', { dark: 'none', message: 'Yard is at 0%.' }, true);
-  assert.equal(shown.neutral, true, 'the banner on screen carries the warning');
-  assert.equal(shown.warn, false);
-  const alone = applyResult('the look to the lights', { dark: 'part', message: 'Yard is at 0%.' }, false);
-  assert.equal(alone.warn, true);
-  assert.match(alone.text, /part of it stays dark\. Yard is at 0%/);
+  const master = applyResult('the look to the lights', { dark: 'none', message: 'Brightness is at 0%, so nothing shows.', zones: [] }, 'Lantern');
+  assert.equal(master.warn, true);
+  assert.equal(master.text, 'Applied Lantern. Brightness is at 0%, so nothing shows.');
+  assert.equal(master.zones, undefined, 'no zones to turn on, so no button');
   assert.equal(applyResult('the look', { dark: '' }).text, 'Applied the look.');
 });
 
@@ -2337,14 +2329,17 @@ test('disclosures come in two documented tiers', () => {
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });
 
-test('wording: In front explains itself, and the apply toast points at the warning', async () => {
+test('wording: In front explains itself, and the apply toast stands alone', async () => {
   assert.match(read('panel/looks.js'), /'Shown over the layers below it'/);
   const { applyResult } = await import('./static/panel/looks.js');
   const four = { dark: 'none', zones: ['A', 'B', 'C', 'D'], message: 'x' };
-  assert.equal(applyResult('the look', four, true).text, 'Applied the look. 4 zones stay off, see above.');
-  assert.equal(applyResult('the look', four, true).neutral, true);
-  assert.match(applyResult('the look', four, false).text, /but they stay dark/, 'the warning variant stays');
-  assert.equal(applyResult('the look', { dark: 'none', zones: [], message: 'x' }, true).text, 'Applied the look.', 'no zones to count: just the confirmation');
+  assert.equal(applyResult('the look', four, 'Lantern').text, 'Applied Lantern. 4 zones are at 0%, so they stay dark.');
+  const two = { dark: 'part', zones: ['Street', 'Yard'], ids: ['s', 'y'], message: 'x' };
+  const r = applyResult('the look', two, 'Lantern');
+  assert.equal(r.text, 'Applied Lantern. Street and Yard are at 0%, so they stay dark.');
+  assert.deepEqual(r.zones, { ids: ['s', 'y'], names: ['Street', 'Yard'] }, 'carries the same fix as the banner');
+  for (const o of [four, two]) assert.doesNotMatch(applyResult('the look', o, 'x').text, /\b(above|below)\b/);
+  assert.match(read('app.js'), /opts\.action/, 'a toast can carry its fix');
 });
 
 test('on a phone the worded Remove leaves the place name its room', () => {

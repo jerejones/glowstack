@@ -315,6 +315,7 @@ input[type=checkbox]:checked::after {
 .toast .msg { flex: 1; }
 .toast .msg div { font-size: var(--t-s); color: var(--muted); }
 .toast button { min-width: var(--tap); padding: 0; background: transparent; border: 0; }
+.toast button.act { flex: none; padding: 0 10px; border: 1px solid var(--control-line); background: var(--card2); white-space: nowrap; }
 
 /* the inspect card: floating on the map with a mouse, a row in the sheet on phones */
 .inspect table { border-collapse: collapse; width: 100%; }
@@ -394,6 +395,11 @@ input[type=checkbox]:checked::after {
   .map-error { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
   /* Chip and toggle share one row at the top at every detent, so the toggle
    * never moves as the sheet does, and framing keeps the map below it. */
+  /* A toast's fix takes its own line, so the sentence keeps two. */
+  .toast.has-action { flex-wrap: wrap; }
+  .toast.has-action .msg { flex: 1 1 calc(100% - var(--tap) - 8px); order: 1; }
+  .toast.has-action button:not(.act) { order: 2; }
+  .toast.has-action .act { order: 3; margin-left: auto; }
   .badge { max-width: calc(100% - 216px); }
   .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }

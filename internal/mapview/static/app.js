@@ -84,6 +84,12 @@ function toast(msg, opts = {}) {
   const details = err ? msg.details || [] : opts.details || [];
   el.innerHTML = `<span class="msg">${esc(err ? msg.message : msg)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
+  if (opts.action) { // one button that does the toast's fix, then clears it
+    el.classList.add('has-action');
+    const act = Object.assign(document.createElement('button'), { type: 'button', className: 'act', textContent: opts.action.label });
+    act.onclick = () => { el.remove(); opts.action.run(); };
+    el.querySelector('.msg').after(act);
+  }
   placeToasts();
   box.appendChild(el);
   while (box.children.length > 3) box.firstChild.remove();
