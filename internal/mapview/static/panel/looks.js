@@ -91,6 +91,16 @@ export function stageSub({ rows, stale, word }) {
   return rows ? '' : `${word} a look below to preview it on the map; the lights don't change.`;
 }
 
+const FILTER_WORDS = { pinned: 'Pinned', presets: 'All presets', effects: 'Effects' };
+const FILTER_NOUNS = { pinned: 'pinned presets', presets: 'presets', effects: 'effects' };
+
+// noMatch is the library's empty state for a search: what didn't match, and
+// the lists that aren't selected, by the names on their buttons.
+export function noMatch(which, q) {
+  const others = Object.keys(FILTER_WORDS).filter((k) => k !== which).map((k) => FILTER_WORDS[k]);
+  return { kind: 'empty', title: `No ${FILTER_NOUNS[which]} match “${q}”`, detail: `Try ${others.join(' or ')}.` };
+}
+
 // lookKey says which look a layer (or a card's look) is.
 export const lookKey = (l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect);
 
@@ -399,7 +409,7 @@ export function createLooks(S, root) {
     grid.replaceChildren(...lookCards[which === 'effects' ? 'effects' : 'presets'](named));
     if (!grid.childElementCount) {
       grid.classList.remove('cards');
-      if (q) showState(grid, { kind: 'empty', title: 'Nothing by that name here', detail: 'Try All presets or Effects.' });
+      if (q) showState(grid, noMatch(which, $$('#lkFind').value.trim()));
       else if (which === 'pinned') showState(grid, { kind: 'empty', title: 'Nothing pinned yet', detail: 'Pin a preset on the Presets tab to keep it here.' });
       else if (which === 'effects') showState(grid, { kind: 'empty', title: 'No effects to show' });
       else {

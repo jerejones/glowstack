@@ -160,3 +160,11 @@ test('palettes are in before the first panel renders', async () => {
   assert.equal(seen.palettes[0].id, 'sample');
   assert.equal(seen.library.palettes, 'ready');
 });
+
+test('B119: an empty search names what did not match and only the lists not selected', async () => {
+  const { noMatch } = await import('./static/panel/looks.js');
+  assert.deepEqual(noMatch('effects', 'zz'), { kind: 'empty', title: 'No effects match “zz”', detail: 'Try Pinned or All presets.' });
+  assert.equal(noMatch('pinned', 'zz').detail, 'Try All presets or Effects.');
+  assert.equal(noMatch('presets', 'zz').detail, 'Try Pinned or Effects.');
+  assert.equal(noMatch('pinned', 'zz').title, 'No pinned presets match “zz”');
+});
