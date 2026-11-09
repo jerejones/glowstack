@@ -2841,12 +2841,25 @@ test('B140: a preview row and a live row share one layout', () => {
 });
 
 test('A2: the half sheet keeps the Library in reach while previewing; the search grows to the row; Presets keeps its sentence', async () => {
-  const { liveSummary, liveFold } = await import('./static/panel/looks.js');
+  const { liveSummary, liveNames, fitText, liveFold } = await import('./static/panel/looks.js');
   const { textField, searching } = await import('./static/field.js');
   // One line for the live rows while a preview is present on the half sheet; the chevron opens them in place.
   assert.equal(liveSummary([{ name: 'Lantern' }, { name: 'Porch glitter' }], (l) => l.name), '2 looks on the lights · Lantern, Porch glitter');
   assert.equal(liveSummary([{ name: 'Lantern' }], (l) => l.name), '1 look on the lights · Lantern');
   assert.equal(liveSummary([], (l) => l.name), '');
+  // The words shown fit the line whole: two names, then one, then the count and state word (round 2:
+  // the sentence itself was cut at 390 px). The whole sentence stays as the button's accessible name.
+  const three = [{ name: 'Lantern' }, { name: 'Porch glitter' }, { name: 'Candy' }];
+  assert.equal(liveNames(three, (l) => l.name), '3 looks: Lantern, Porch glitter, +1 more');
+  assert.equal(liveNames(three, (l) => l.name, 1), '3 looks: Lantern, +2 more');
+  assert.equal(liveNames(three, (l) => l.name, 0), '3 looks on the lights');
+  assert.equal(liveNames([{ name: 'Lantern' }], (l) => l.name), '1 look: Lantern');
+  assert.equal(liveNames([], (l) => l.name), '');
+  const box = { textContent: '', clientWidth: 100, get scrollWidth() { return this.textContent.length * 10; } };
+  assert.equal(fitText(box, ['twelve chars', 'ten chars!', 'short']), 'ten chars!', 'the first candidate that fits');
+  assert.equal(fitText(box, ['far too long a line']), 'far too long a line', 'or the last');
+  const looksSrc = read('panel/looks.js');
+  assert.match(looksSrc, /sum\.setAttribute\('aria-label', liveSummary\(house, nameOf\)\);\s*fitText\(sum\.querySelector\('\.text'\), \[2, 1, 0\]\.map\(\(shown\) => liveNames\(house, nameOf, shown\)\)\);/);
   assert.deepEqual(liveFold({ compact: true, preview: 1, live: 2, open: false }), { summary: true, folded: true });
   assert.deepEqual(liveFold({ compact: true, preview: 1, live: 2, open: true }), { summary: true, folded: false }, 'opened in place: the summary stays, the rows show');
   assert.deepEqual(liveFold({ compact: true, preview: 0, live: 2, open: false }), { summary: false, folded: false }, 'no preview: every row');

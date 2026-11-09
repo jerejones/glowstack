@@ -139,12 +139,37 @@ export function layerLine(kind, name, place, brightness) {
 // its effect instead.
 export const kindMark = (kind) => (kind ? `<span class="kind-mark">${kind}</span> · ` : '');
 
-// liveSummary is the folded live rows' one line: how many looks are on the
-// lights and their names, in order, front first.
+// liveSummary is the folded live rows' whole sentence, the button's
+// accessible name: how many looks are on the lights and their names, in
+// order, front first.
 export function liveSummary(house, nameOf) {
   const n = house.length;
   if (!n) return '';
   return `${n} look${n === 1 ? '' : 's'} on the lights · ${house.map((l) => String(nameOf(l)).replace(/\u00a0/g, ' ')).join(', ')}`;
+}
+
+// liveNames is the words shown on that line, which has about 214 px beside
+// the Live badge and the chevron at 390 px: the count, then up to `shown`
+// names and "+N more"; with none shown, the count and the state word. The
+// renderer tries two names, one, then none, and keeps the first that fits
+// (fitText), so the line is never cut mid-name.
+export function liveNames(house, nameOf, shown = 2) {
+  const n = house.length;
+  if (!n) return '';
+  const count = `${n} look${n === 1 ? '' : 's'}`;
+  if (!shown) return `${count} on the lights`;
+  const names = house.slice(0, shown).map((l) => String(nameOf(l)).replace(/\u00a0/g, ' '));
+  return `${count}: ${names.join(', ')}${n > shown ? `, +${n - shown} more` : ''}`;
+}
+
+// fitText sets el's text to the first candidate that fits its box whole,
+// or the last one. A hidden element (no box) takes the first.
+export function fitText(el, candidates) {
+  for (const text of candidates) {
+    el.textContent = text;
+    if (el.scrollWidth <= el.clientWidth) return text;
+  }
+  return el.textContent;
 }
 
 // liveFold says whether the live rows fold behind their summary: on the half
@@ -719,7 +744,9 @@ export function createLooks(S, root) {
     const sum = $$('#lkLiveSum'), fold = liveFold({ compact: compact(), preview: prev.length, live: house.length, open: liveOpen });
     sum.hidden = !fold.summary;
     sum.setAttribute('aria-expanded', liveOpen ? 'true' : 'false');
-    sum.querySelector('.text').textContent = liveSummary(house, (l) => layerName(S, l));
+    const nameOf = (l) => layerName(S, l);
+    sum.setAttribute('aria-label', liveSummary(house, nameOf));
+    fitText(sum.querySelector('.text'), [2, 1, 0].map((shown) => liveNames(house, nameOf, shown)));
     box.classList.toggle('live-folded', fold.folded);
     let last = null, placed = false; // placed: the summary sits before the first live row
     for (const [lane, l] of rows) {
