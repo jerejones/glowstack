@@ -533,6 +533,9 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar-line button { flex: none; white-space: nowrap; margin-left: auto; }
+/* A note too long to share a line takes its own, whole, under the buttons. */
+.look-bar.note-below .bar-line { flex-wrap: wrap; }
+.look-bar.note-below .bar-note { order: 5; flex: 0 0 100%; white-space: normal; overflow: visible; }
 .clock-box { margin: 10px 0; }
 .clock-box:not([open]) .t, .clock-box[open] .clock-hint { display: none; }
 .clock-hint { margin-left: auto; font-size: var(--t-meta); }
@@ -553,13 +556,14 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
   .layer .tweak { grid-column: 2; grid-row: 1; }
   .layer [data-a=remove] { grid-column: 3; grid-row: 1; }
   .layer .bri { grid-column: 1 / -1; grid-row: 2; }
-  /* The primary action takes the width; the choice, the note and Clear share a line. */
-  .look-bar { padding-top: 4px; padding-bottom: 4px; }
-  .look-bar { grid-template-columns: auto minmax(0, 1fr); column-gap: 0; }
-  .bar-main { display: contents; }
-  .bar-main .go { grid-column: 1 / -1; grid-row: 1; }
-  .bar-main .seg { grid-column: 1; grid-row: 2; margin-right: 8px; }
-  .bar-line { grid-column: 2; grid-row: 2; }
+  /* The primary action has its own row; the choice, the note and Clear the
+   * next. The bottom padding keeps Clear off the screen's edge. */
+  .look-bar { display: flex; flex-wrap: wrap; gap: 4px 8px; padding-top: 6px; padding-bottom: 12px; }
+  .bar-main, .bar-line { display: contents; }
+  .bar-main .go { flex: 0 0 100%; order: 1; }
+  .bar-main .seg { order: 2; }
+  .bar-note { order: 3; flex: 1 1 0; }
+  .bar-line button { order: 4; }
 }
 
 /* the Tweak form */

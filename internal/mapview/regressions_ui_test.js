@@ -2043,6 +2043,14 @@ test('B118: pressing Calibrate while the page starts up does nothing wrong, and 
   assert.match(b.innerHTML, /Resume calibrating/, 'the words remember the session');
 });
 
+test('B120: the action bar never truncates its note and clears the phone edge', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /note\.scrollWidth > note\.clientWidth \+ 1\) bar\.classList\.add\('note-below'\)/);
+  assert.match(css, /\.look-bar\.note-below \.bar-note \{[^}]*flex: 0 0 100%; white-space: normal/);
+  assert.match(css, /\.look-bar \{ display: flex; flex-wrap: wrap;[^}]*padding-bottom: 12px; \}/);
+  assert.match(css, /\.bar-main \.go \{ flex: 0 0 100%; order: 1; \}/);
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 500px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);

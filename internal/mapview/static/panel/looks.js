@@ -699,6 +699,14 @@ export function createLooks(S, root) {
     if (go.dataset.html !== html) { go.dataset.html = html; go.innerHTML = html; }
     go.title = plan.note || plan.label;
     $$('#lkBarNote').textContent = plan.note;
+    fitNote();
+  }
+  // fitNote gives the note its own full-width line when it can't share one,
+  // so it is never cut off.
+  function fitNote() {
+    const bar = $$('#lkBar'), note = $$('#lkBarNote');
+    bar.classList.remove('note-below');
+    if (note.scrollWidth > note.clientWidth + 1) bar.classList.add('note-below');
   }
   for (const b of $$('#lkMode').children) b.onclick = () => { mode = b.dataset.mode; renderStage(); };
   let revealing = false; // opening a form places it: nothing else scrolls then
@@ -875,7 +883,8 @@ export function createLooks(S, root) {
     if (cut) reveal(cut, true);
   }
   S.on('detent', clearBar);
-  S.on('tab', () => { syncBarInset(); });
+  S.on('tab', () => { syncBarInset(); fitNote(); });
+  S.on('layout', fitNote);
   S.on('status', renderStage); // a zone's brightness changed the warning
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
