@@ -37,6 +37,28 @@ export function frameInsets({ height, chips, crumbs, controls, layout, covered, 
   return { top: top + 6, bottom: bottom + 6 };
 }
 
+// framePad is how far inside the free rectangle the lights are framed, in
+// px: side from its left and right edges, edge from its top and bottom
+// (frameInsets has already taken 6 px of each of those). A phone's band of
+// map is short and wide, so the width is what runs out first there (B141):
+// 12 px clear at the sides and 8 px above and below, with a pixel to spare.
+export const framePad = (layout) => (layout === 'sheet' ? { side: 13, edge: 3 } : { side: 0, edge: 0 });
+
+// DOT is the drawn dot's radius in px per px of projected pitch, and its
+// least radius: scene.js draws a pixel 1.35 pitches wide, never under 3 px.
+const DOT = 1.35 / 2, DOT_MIN = 1.5;
+
+// fitDepth is the least depth (distance along the view) at which a point
+// `off` meters from the view's center line, drawn as a dot for a pixel of
+// pitch `dl` meters, stays `pad` px inside a half-extent of `half` px. k is
+// the px one unit of tangent spans. The dot's edge, not its center, is what
+// has to clear: a dot grows as the camera nears, so its radius is part of
+// the fit, and its least radius is the floor.
+export function fitDepth(off, dl, k, half, pad) {
+  const room = Math.max(half - pad, 1), x = Math.abs(off);
+  return Math.max(k * (x + DOT * dl) / room, k * x / Math.max(room - DOT_MIN, 1));
+}
+
 // centerShift is how far to move the look-at point, along the camera's right
 // and up, so that points fill the view evenly: the middle of what they span
 // on screen, at the look-at depth. points are [right, up, z] relative to it,

@@ -1210,8 +1210,8 @@ desk.
   the layout solver. Runs with no position are listed but not drawn.
 - **Layout by width.** One page, arranged for the screen:
   - Under 700 px wide, the map fills the screen and the panel is a bottom
-    sheet with three detents: *peek* (just the tabs), *half* (45% of the
-    height) and *full* (a 120 px strip of map stays above it, framing the
+    sheet with three detents: *peek* (just the tabs), *half* (64% of the
+    height) and *full* (a 200 px strip of map stays above it, framing the
     selection). Drag or flick the handle between them, or tap it. The
     camera chips float over the map.
   - From 700 to 1100 px, and on a phone held sideways, a 300 px side panel
@@ -1219,7 +1219,11 @@ desk.
   - Over 1100 px, a 360 px side panel, always open.
 
   The map frames its content in the part of the screen the panel and chips
-  leave free, so the whole house shows above a peeking sheet.
+  leave free, so the whole house shows above a peeking sheet. The fit is to
+  that free rectangle, its width as well as its height: on a phone every
+  drawn pixel stays at least 12 px clear of the left and right edges and
+  8 px below the chip bar and above the sheet, at the peek and half detents.
+  When the band is short the house draws smaller; the sheet keeps its height.
 - **Touch and pointer.** A tap selects (a finger may drift 6 px); a long
   press (450 ms) pins a pixel's inspect card; a double tap fits. With a
   mouse, hovering shows the card. On touch screens every control is at

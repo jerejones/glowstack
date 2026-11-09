@@ -27,7 +27,7 @@ import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML, showButton } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure, skeletonHTML } from './states.js';
-import { frameInsets, toastBottom, toastHome } from './map-frame.js';
+import { frameInsets, framePad, toastBottom, toastHome } from './map-frame.js';
 import { foldable, merged } from './toast-merge.js';
 import { createTiles } from './tiles.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
@@ -202,7 +202,7 @@ function setInsets() {
     calTop: $('calibrate').getBoundingClientRect().top - stage.top,
     floats: floatsBottom(stage),
   });
-  S.view.setInsets(top, bottom);
+  S.view.setInsets(top, bottom, framePad(S.calibrating ? '' : S.panel.layout()));
 }
 S.setInsets = setInsets;
 

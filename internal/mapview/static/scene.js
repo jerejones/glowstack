@@ -12,7 +12,7 @@
 //
 // Glowstack positions are meters with Z up; three.js is Y up, so
 // (x, y, z) is (x, z, −y) here. North is +y.
-import { centerShift } from './map-frame.js';
+import { centerShift, fitDepth } from './map-frame.js';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -312,7 +312,7 @@ export async function open(glCanvas, input, opts) {
   // camera's distance is always the fit to the free area: a configured
   // distance never holds the lights small in a short band of map.
   const cam = { mode: 'street', auto: true, fov: viewFov, ...siteView() };
-  let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0;
+  let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0, padSide = 0, padEdge = 0;
   let version = 0; // bumps when the projection changes
 
   // project sets the projection for the canvas, the insets and the
@@ -347,7 +347,7 @@ export async function open(glCanvas, input, opts) {
   // litPoints samples the lights being drawn, enough to find their extent.
   function litPoints() {
     const step = Math.max(1, Math.floor(n / 1500)), out = [];
-    for (let p = 0; p < n; p += step) if (flags[p] < 4) out.push(new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]));
+    for (let p = 0; p < n; p += step) if (flags[p] < 4) out.push(Object.assign(new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]), { dl: dl[p] }));
     return out;
   }
 
@@ -356,12 +356,16 @@ export async function open(glCanvas, input, opts) {
     const tv = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)) / MARGIN;
     const th = tv * W / hf;
     const { f, u, r } = axes(dir);
+    // The free rectangle, not only its height (B141): every point's dot stays
+    // padSide px inside the left and right edges and padEdge px inside the
+    // top and bottom of the band. k is px per unit of tangent.
+    const k = hf / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)));
     let d = 0;
     const rel = new THREE.Vector3();
     for (const q of points) {
       rel.subVectors(q, target);
-      const z = rel.dot(f);
-      d = Math.max(d, Math.abs(rel.dot(r)) / th - z, Math.abs(rel.dot(u)) / tv - z);
+      const z = rel.dot(f), x = rel.dot(r), y = rel.dot(u), pitch = q.dl || 0;
+      d = Math.max(d, Math.abs(x) / th - z, Math.abs(y) / tv - z, fitDepth(x, pitch, k, W / 2, padSide) - z, fitDepth(y, pitch, k, hf / 2, padEdge) - z);
     }
     return Math.max(d, camera.near * 4);
   }
@@ -527,9 +531,13 @@ export async function open(glCanvas, input, opts) {
       for (const m of [dimMat, fullMat]) { m.uniforms.uHalfH.value = H * ratio / 2; m.uniforms.uDpr.value = ratio; }
       this.relayout();
     },
-    setInsets(top, bottom) {
-      if (top === insetTop && bottom === insetBottom) return;
-      insetTop = top; insetBottom = bottom;
+    // setInsets says what the chips and the sheet cover (px from the top and
+    // bottom edges) and, in pad, how far inside the free rectangle's sides
+    // and its top and bottom the lights must stay.
+    setInsets(top, bottom, pad = {}) {
+      const side = pad.side || 0, edge = pad.edge || 0;
+      if (top === insetTop && bottom === insetBottom && side === padSide && edge === padEdge) return;
+      insetTop = top; insetBottom = bottom; padSide = side; padEdge = edge;
       this.relayout();
     },
     // relayout applies a new viewport: framed views are framed again;
