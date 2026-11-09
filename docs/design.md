@@ -1342,6 +1342,18 @@ desk.
   and looking at the lights. Labels are a verb first in sentence case
   ("Put 1 look on the lights", "Save preset", "Confirm", "Create a
   preset"), never a noun phrase or Title Case.
+- **Status tiles.** Status's four headline tiles (lights lit, controllers,
+  late frames, power estimate) are one component: a figure in one size,
+  weight and line, tabular numerals, and a one-line label. A word such as
+  "Not set" uses the figure's style and shrinks only when it would not fit.
+  The color rule: a count is neutral, and color is for state only. Neutral
+  is a plain count or nothing to judge (0 lights lit with no looks on them,
+  0 late frames, a power estimate). Green is a health check that passed
+  (every controller reachable; every light the looks cover is lit). Amber
+  needs attention (lights a look covers are dark at 0%, frames are late,
+  power is being dimmed). Red has failed (a controller can't be reached).
+  The same number is never two colors unless the states differ. The power
+  tile is a link to the Power section.
 - **Preview or live.** Each viewer picks what its map shows: the preview
   (preview layers over the house; the house's own frames when nothing is
   previewed) or live, what the lights show, even while someone

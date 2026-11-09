@@ -869,7 +869,14 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .tiles .stat.ok b { color: var(--house); }
 .tiles .stat.bad b { color: #fca5a5; }
 .tiles .stat.warn b { color: var(--warn); }
-button.stat { display: block; width: 100%; min-height: 0; min-width: 0; text-align: left; font: inherit; color: var(--fg); border-color: var(--line); }
+/* One tile component (B142): a plain tile and the power tile's button lay
+ * out the same way, top-aligned, the figure in a fixed one-line box and the
+ * label on one line, so the four figures share a bottom edge and the tiles
+ * a height. Color is the tile's state, never its number: see tileFacts. */
+.tiles .stat { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; min-width: 0; min-height: 0; height: auto; margin: 0; text-align: left; font: inherit; }
+.tiles .stat b { height: 26px; line-height: 26px; white-space: nowrap; overflow: hidden; color: var(--fg); }
+.tiles .stat span { white-space: nowrap; overflow: hidden; line-height: 1.3; }
+button.stat { width: 100%; color: var(--fg); border-color: var(--line); cursor: pointer; }
 button.stat:hover { border-color: #8b95a3; background: var(--card2); }
 @media (max-width: 699.98px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } } /* after the base rule, which would otherwise win on order */
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }

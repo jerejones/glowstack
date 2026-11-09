@@ -2779,7 +2779,7 @@ test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay be
   assert.equal(litCount(g, {}, null), null, 'layers not read yet');
   const health = { up: 1, n: 2, cls: 'bad', text: "Controllers: 1 isn't reachable" };
   const facts = tileFacts({ lit: 10, total: 20, health, late: 0, fps: { measured: 40.02, target: 40 }, power: { overall: '1.08 A', limiting: 'None needed', partial: false, anyKnown: true } });
-  assert.deepEqual(facts.map((f) => [f.v, f.label, f.cls]), [['10', 'lights lit', 'warn'], ['1 of 2', 'controllers reachable', 'bad'], ['0', 'late frames', 'ok'], ['1.08 A', 'power estimate', 'ok']]);
+  assert.deepEqual(facts.map((f) => [f.v, f.label, f.cls]), [['10', 'lights lit', 'warn'], ['1 of 2', 'controllers', 'bad'], ['0', 'late frames', ''], ['1.08 A', 'power estimate', '']]);
   assert.equal(facts[3].power, true, 'the power tile links to the Power section');
   const full = tileFacts({ lit: 20, total: 20, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 3, fps: { measured: 39, target: 40 }, power: null });
   assert.deepEqual(full.map((f) => [f.v, f.cls]), [['20', 'ok'], ['2 of 2', 'ok'], ['3', 'warn'], ['—', '']]);
@@ -2792,7 +2792,7 @@ test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay be
   const status = read('panel/status.js');
   assert.ok(status.indexOf('id="stTiles"') < status.indexOf('id="stVerdict"') && status.indexOf('id="stVerdict"') < status.indexOf('id="stIssues"'), 'tiles, verdict, warnings');
   assert.match(status, /lastPower = pw;\s*if \(last\) renderTiles\(last\);/, 'the power reading redraws the tiles');
-  assert.match(status, /<button type="button" class="stat \$\{f\.cls\}" id="stPowerTile"/);
+  assert.match(status, /f\.power \? ' type="button" id="stPowerTile"' : ''/);
   assert.match(status, /\$\$\('#stHealth'\)\.hidden = !readAt;/, 'the plain health line only when the reading is stale: the tile says it otherwise');
   assert.match(status, /const byFault = \[\.\.\.g\.controllers\]\.sort\(\(a, b\) => \(healthOf\(st\.health, a\.id\)\?\.reachable === false \? 0 : 1\) - \(healthOf\(st\.health, b\.id\)\?\.reachable === false \? 0 : 1\)\);/, 'an unreachable controller sorts first');
   assert.match(css, /\.tiles \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-auto-rows: 1fr; gap: 6px; margin: 0 0 10px; \}/);

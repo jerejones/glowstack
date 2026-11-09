@@ -41,3 +41,38 @@ test('B141: the camera fits the free rectangle, its width as well as its height'
   assert.match(read('sheet.js'), /const HALF = 0\.64;/, 'the half sheet keeps its height');
   assert.match(design, /at least 12 px clear of the left and right edges/);
 });
+
+test('B142: the Status tiles are one component with one color rule', async () => {
+  const { tileFacts, tileHTML, fitFigure } = await import('./static/panel/status.js');
+  const ok = { up: 8, n: 8, cls: 'ok', text: 'Controllers: all 8 reachable' }, fps = { measured: 40, target: 40 };
+  const power = { overall: '1.08 A', limiting: 'None needed', partial: false, anyKnown: true };
+  const cls = (o) => tileFacts({ health: ok, fps, power, late: 0, ...o }).map((f) => f.cls);
+  // The four states the rule is written for: a count is neutral, color is state.
+  assert.deepEqual(cls({ lit: 0, total: 0 }), ['', 'ok', '', ''], 'nothing lit, no looks: 0 lights and 0 late frames are both neutral');
+  assert.deepEqual(cls({ lit: 500, total: 500 }), ['ok', 'ok', '', ''], 'lit: every covered light shows');
+  assert.deepEqual(cls({ lit: 500, total: 500, health: { up: 7, n: 8, cls: 'bad', text: '' } }), ['ok', 'bad', '', ''], 'one controller unreachable');
+  assert.deepEqual(cls({ lit: 500, total: 500, late: 7 }), ['ok', 'ok', 'warn', ''], 'late frames');
+  assert.deepEqual(cls({ lit: 0, total: 500 }), ['warn', 'ok', '', ''], 'covered but dark needs attention');
+  assert.deepEqual(cls({ lit: 500, total: 500, power: { ...power, limiting: 'Dimmed to 80.0%' } }), ['ok', 'ok', '', 'warn']);
+  assert.deepEqual(cls({ lit: 0, total: 0, health: { up: 0, n: 8, cls: '', text: '' } }), ['', '', '', ''], 'no report yet is neutral');
+  // One-line labels, the same at both viewports; "8 of 8" is the figure.
+  const facts = tileFacts({ lit: 0, total: 0, health: ok, late: 0, fps, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
+  assert.deepEqual(facts.map((f) => [f.v, f.label]), [['0', 'lights lit'], ['8 of 8', 'controllers'], ['0', 'late frames'], ['Not set', 'power estimate']]);
+  // One markup for all four; only the tag differs, and the power tile is the link.
+  const shape = (h) => h.replace(/^<(button|div)[^>]*>/, '<T>').replace(/<\/(button|div)>$/, '</T>').replace(/<b>[^<]*<\/b><span>[^<]*<\/span>/, '<b></b><span></span>');
+  assert.equal(new Set(facts.map((f) => shape(tileHTML(f)))).size, 1);
+  assert.match(tileHTML(facts[3]), /^<button type="button" id="stPowerTile" class="stat" title="[^"]*Opens the Power note\."><b>Not set<\/b><span>power estimate<\/span><\/button>$/);
+  assert.match(tileHTML(facts[1]), /^<div class="stat ok"/);
+  // The figure shrinks only while it does not fit, never grows, and stops at the floor.
+  const el = (fits) => ({ style: { fontSize: 'x' }, clientWidth: 100, get scrollWidth() { return fits(parseFloat(this.style.fontSize) || 22) ? 100 : 140; } });
+  const a = el(() => true); fitFigure(a); assert.equal(a.style.fontSize, '', 'a figure that fits keeps the one size');
+  const b = el((px) => px <= 17); fitFigure(b); assert.equal(b.style.fontSize, '17px');
+  const c = el(() => false); fitFigure(c); assert.equal(c.style.fontSize, '13px');
+  // One spec in the stylesheet: a fixed one-line figure box (equal bottoms), tabular numerals, one-line labels, equal heights.
+  assert.match(css, /\.tiles \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-auto-rows: 1fr;/);
+  assert.match(css, /\.tiles \.stat \{ display: flex; flex-direction: column; justify-content: flex-start;/);
+  assert.match(css, /\.tiles \.stat b \{ height: 26px; line-height: 26px; white-space: nowrap; overflow: hidden; color: var\(--fg\); \}/);
+  assert.match(css, /\.tiles \.stat span \{ white-space: nowrap;/);
+  assert.match(css, /\.stat b \{[^}]*font-variant-numeric: tabular-nums;/);
+  assert.match(design, /\*\*Status tiles\.\*\*[\s\S]*a count is neutral, and color is for state only/);
+});

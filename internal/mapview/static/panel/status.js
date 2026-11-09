@@ -113,24 +113,53 @@ export function litCount(g, st, layers) {
   return minusCount(on, dark);
 }
 
-// tileFacts is the four headline tiles, each a figure, its words and a state:
-// lights lit, controllers reachable, late frames and the power estimate (or
-// "Not set", which goes to the Power note). power is the /api/map/power
+// tileFacts is the four headline tiles, each a figure, its one-line label
+// and a state: lights lit, controllers, late frames and the power estimate
+// (or "Not set", which goes to the Power note). power is the /api/map/power
 // reading or null before it; its words come from powerSummary.
-export function tileFacts({ lit, total, health, known, late, fps, power }) {
+//
+// The color rule (docs/design.md, "Status tiles"): a count is neutral, and
+// color is for state only. '' is neutral: a plain count, or nothing to
+// judge. 'ok' (green) is a health check that passed: every controller
+// reachable, every light the looks cover lit. 'warn' (amber) needs
+// attention: lights a look covers are dark, frames are late, power is being
+// dimmed. 'bad' (red) has failed: a controller can't be reached. So 0 lights
+// lit with no looks and 0 late frames are both neutral: neither is a state.
+export function tileFacts({ lit, total, health, late, fps, power }) {
   const lights = lit === null ? { v: '—', cls: '', title: 'Reading the lights' }
-    : { v: count(lit), cls: lit === 0 ? (total ? 'warn' : '') : lit < total ? 'warn' : 'ok', title: total ? `${count(total)} covered by the looks on the lights` : 'No looks are on the lights' };
-  const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls, title: health.text };
-  const frames = { v: count(late), cls: late ? 'warn' : 'ok', title: `${fmt(fps.measured, 1)} fps of ${fps.target}` };
+    : { v: count(lit), cls: !total ? '' : lit < total ? 'warn' : 'ok', title: total ? `${count(total)} covered by the looks on the lights` : 'No looks are on the lights' };
+  const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls === 'bad' ? 'bad' : health.cls === 'ok' ? 'ok' : '', title: health.text };
+  const frames = { v: count(late), cls: late ? 'warn' : '', title: `${late ? 'Frames that took longer than the frame rate allows. ' : ''}${fmt(fps.measured, 1)} fps of ${fps.target}` };
   const pw = !power ? { v: '—', cls: '', title: 'Reading the power estimate' }
     : !power.anyKnown ? { v: 'Not set', cls: '', title: 'No LED current is set, so there is no estimate. Opens the Power note.' }
-    : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : power.partial ? '' : 'ok', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
+    : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : '', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
   return [
     { ...lights, label: 'lights lit' },
-    { ...ctl, label: 'controllers reachable' },
+    { ...ctl, label: 'controllers' },
     { ...frames, label: 'late frames' },
     { ...pw, label: 'power estimate', power: true },
   ];
+}
+
+// tileHTML is one tile: the same markup for all four, so they are one
+// component. The power tile is a button (a link to the Power section); the
+// others are plain. The figure and the label are each one line.
+export function tileHTML(f, e = (s) => s) {
+  const tag = f.power ? 'button' : 'div', attrs = f.power ? ' type="button" id="stPowerTile"' : '';
+  return `<${tag}${attrs} class="stat${f.cls ? ' ' + f.cls : ''}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}</span></${tag}>`;
+}
+
+// fitFigure shrinks a tile's figure, a step at a time, only while it does
+// not fit its tile on one line: words such as "Not set" or "At least
+// 12.40 A" use the figures' own size unless they would be cut, and are
+// never larger. The figure's box keeps its height, so every figure's bottom
+// edge stays level whatever its size.
+export function fitFigure(el, sizes = [22, 19, 17, 15, 13]) {
+  el.style.fontSize = '';
+  for (const px of sizes.slice(1)) {
+    if (el.scrollWidth <= el.clientWidth) return;
+    el.style.fontSize = px + 'px';
+  }
 }
 
 // maplessVerdict is the verdict without the map: which zones the looks are
@@ -378,12 +407,13 @@ export function createStatus(S, root) {
     const lit = g.mapless ? null : litCount(g, st, layers);
     const total = layers ? normRanges(layers.flatMap((r) => r || [])).reduce((n, r) => n + r[1] - r[0] + 1, 0) : 0;
     const pw = lastPower && lastPower.frame ? { ...powerSummary(lastPower, (id) => controllerName(g, id)), anyKnown: lastPower.estimate.some((o) => o.known) } : null;
-    const facts = tileFacts({ lit, total, health: { up, n: ids.length, cls: health.cls, text: health.text }, known: up, late: st.late_frames || 0, fps: { measured: st.measured_fps, target: st.fps }, power: pw });
+    const facts = tileFacts({ lit, total, health: { up, n: ids.length, cls: health.cls, text: health.text }, late: st.late_frames || 0, fps: { measured: st.measured_fps, target: st.fps }, power: pw });
     const box = $$('#stTiles');
     box.hidden = false;
-    box.innerHTML = facts.map((f) => f.power
-      ? `<button type="button" class="stat ${f.cls}" id="stPowerTile" title="${esc(f.title)}"><b>${esc(f.v)}</b><span>${f.label}</span></button>`
-      : `<div class="stat ${f.cls}" title="${esc(f.title)}"><b>${esc(f.v)}</b><span>${f.label}</span></div>`).join('');
+    const html = facts.map((f) => tileHTML(f, esc)).join('');
+    // Drawn only on a change, so a poll can't replace the tile under a press.
+    if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+    for (const b of box.querySelectorAll('b')) fitFigure(b);
     $$('#stPowerTile').onclick = () => {
       const pwBox = $$('#stPower');
       const details = pwBox.querySelector('details');
