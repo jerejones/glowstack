@@ -444,7 +444,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .looks-head { position: relative; }
 .catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 10px 0 6px; }
 .catalog-head .group-head { margin: 0; }
-.place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 41%; }
+.place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
 .place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
 button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: transparent; }
 .place .muted { flex: none; white-space: nowrap; }

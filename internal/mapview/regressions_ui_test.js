@@ -2408,3 +2408,7 @@ test('two stretches of a run read alike and still count as two, with the points 
 test('an open More settings scrolls inside the panel beside the map', () => {
   assert.match(read('ui.css'), /\.layer \.form-disclosure\[open\] \{ max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; \}/);
 });
+
+test('a layer row gives the slider the width the place does not use', () => {
+  assert.match(read('ui.css'), /\.place-row \{[^}]*flex: 0 1 auto; max-width: 41%;/);
+});
