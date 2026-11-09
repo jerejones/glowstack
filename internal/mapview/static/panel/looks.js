@@ -556,7 +556,7 @@ export function createLooks(S, root) {
       <div class="controls">
         <div class="place-row"></div>
         <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}<span class="bri-word">Brightness</span></span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
-        <button type="button" class="tweak icon-btn" aria-expanded="false">${icon('tweak')}Tweak</button><button type="button" class="icon-btn" data-a="remove">${icon('trash')}<span>Remove</span></button>
+        <button type="button" class="tweak icon-btn" aria-expanded="false">${icon('tweak')}Tweak</button><button type="button" class="icon-btn" data-a="remove">${icon('close')}<span>Remove</span></button>
       </div>
       <div class="note"></div>
       <div class="slot"></div>`;

@@ -1512,7 +1512,7 @@ test('every secondary action on a card or row has its icon and word, and categor
   assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
   assert.match(presets, /\$\{icon\('more'\)\}More/);
   assert.match(looks, /\$\{icon\('tweak'\)\}Tweak/);
-  assert.match(looks, /\$\{icon\('trash'\)\}<span>Remove/);
+  assert.match(looks, /\$\{icon\('close'\)\}<span>Remove/);
   assert.match(looks, /\$\{icon\('apply'\)\}Apply only this/);
   for (const m of overlay.matchAll(/<span class="(sw[^"]*)" style="background:rgb/g)) assert.equal(m[1], 'sw', 'categories are the plain swatch');
 });
@@ -2291,4 +2291,10 @@ test('search fields are one pattern on Looks and Presets', () => {
   assert.match(read('panel/looks.js'), /textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks' \}\)/);
   assert.match(read('panel/presets.js'), /textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' \}\)/);
   assert.match(css, /\.lib-filters \.field \{ flex: 1 1 100%;/, 'the full width of the panel, like Presets');
+});
+
+test('Remove takes a layer off with an X and says so on a phone; Delete keeps the trash can', () => {
+  assert.doesNotMatch(read('panel/looks.js'), /icon\('trash'\)/);
+  assert.match(read('panel/presets.js'), /icon\('trash'\)\}Delete/);
+  assert.match(css, /\.layer \[data-a=remove\]:not\(\.worded\) span \{ display: inline; \}/);
 });

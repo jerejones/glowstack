@@ -516,7 +516,8 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .layer .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .layer .controls > button { flex: none; white-space: nowrap; }
 .layer .bri { display: flex; flex: 1 1 110px; align-items: center; gap: 6px; min-width: 100px; }
-/* A bare trash can, so every control fits one line; "Remove here" keeps its word. */
+/* A bare X beside the map, so every control fits one line; "Remove here" keeps
+ * its word, and a phone always shows it. Trash is for Delete, which destroys. */
 .layer [data-a=remove]:not(.worded) span { display: none; }
 .layer .bri output { min-width: 3em; }
 .bri-word { display: none; }
@@ -559,6 +560,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   .layer .place-row { grid-column: 1; grid-row: 1; }
   .layer .tweak { grid-column: 2; grid-row: 1; }
   .layer [data-a=remove] { grid-column: 3; grid-row: 1; }
+  .layer [data-a=remove]:not(.worded) span { display: inline; }
   .layer .bri { grid-column: 1 / -1; grid-row: 2; }
   /* The primary action has its own row; the choice, the note and Clear the
    * next. The bottom padding keeps Clear off the screen's edge. */
