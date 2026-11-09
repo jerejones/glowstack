@@ -8,8 +8,9 @@
 // palette), then under More every param of the effect's schema and the
 // params as text. Edits go out through a patcher: changes made
 // within ~80 ms are merged, and one PATCH is in flight at a time.
-import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, patch, humanize } from './util.js';
+import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, api, patch, humanize } from './util.js';
 import { icon } from './icons.js';
+import { createPicker } from './picker.js';
 
 // ---------- looks as data ----------
 
@@ -267,7 +268,7 @@ export function createForm(ctx) {
     const f = document.createElement('div');
     f.className = 'f';
     const lab = document.createElement('label');
-    lab.textContent = label;
+    lab.textContent = label.replace(/ (\S{1,2})$/, '\u00a0$1'); // "color 1" doesn't break before the 1
     if (title) lab.title = title;
     const c = document.createElement('div');
     c.className = 'ctl';
@@ -388,13 +389,17 @@ export function createForm(ctx) {
   }
 
   function paletteSelect(get, set) {
-    const s = document.createElement('select');
-    for (const p of S.palettes || []) s.add(new Option(p.name, p.id));
+    const choices = () => (S.palettes || []).map((p) => ({ value: p.id, label: p.name, swatch: paletteStrip(S, p.id, effect.id, Array.isArray(vals.colors) ? vals.colors : []) }));
+    const s = createPicker(choices());
     const sync = () => {
-      if (document.activeElement === s) return;
+      if (s.isOpen) return;
+      s.options = choices(); // the color-based palettes follow the colors
       const p = palette(S, get());
       if (p) s.value = p.id;
-      else if (typeof get() === 'string') { s.add(new Option(get(), get())); s.value = get(); }
+      else if (typeof get() === 'string') {
+        if (!s.options.some((o) => o.value === get())) s.options = [...s.options, { value: get(), label: get() }];
+        s.value = get();
+      }
     };
     s.onchange = () => set(s.value);
     sync();
@@ -402,9 +407,8 @@ export function createForm(ctx) {
     return s;
   }
   function enumSelect(options, get, set) {
-    const s = document.createElement('select');
-    for (const o of options) s.add(new Option(o, o));
-    const sync = () => { if (document.activeElement !== s && get() != null) s.value = get(); };
+    const s = createPicker(options.map((o) => ({ value: o, label: o === '' ? 'None' : humanize(o) })));
+    const sync = () => { if (!s.isOpen && get() != null) s.value = get(); };
     s.onchange = () => set(s.value);
     sync();
     ctrls.push({ sync });
@@ -550,26 +554,37 @@ export function createForm(ctx) {
     } else field(more, label, c, p.doc, p.name);
   }
 
-  // ---- every setting as text, under More ----
-  const json = document.createElement('details');
-  json.innerHTML = `<summary>Edit every setting as text</summary>
-    <textarea id="${id('json')}" spellcheck="false" aria-label="Every setting, written as JSON"></textarea>
-    <div class="row end"><span class="err grow"></span><button type="button">Replace settings</button></div>`;
-  const ta = json.querySelector('textarea'), err = json.querySelector('.err');
-  const syncJson = () => { if (document.activeElement !== ta) ta.value = JSON.stringify(layer.params || {}, null, 2); };
-  json.addEventListener('toggle', syncJson);
-  json.querySelector('button').onclick = () => {
-    let v;
-    try { v = JSON.parse(ta.value || '{}'); } catch (e) { err.textContent = e.message; return; }
-    if (!v || typeof v !== 'object' || Array.isArray(v)) { err.textContent = 'Write the settings as { "name": value }.'; return; }
-    err.textContent = '';
-    vals = { ...valuesFor(S, { ...layer, params: {} }), ...v };
-    ctx.replace(v);
+  // ---- every setting as YAML, under More ----
+  const yaml = document.createElement('details');
+  yaml.innerHTML = `<summary>Edit every setting as YAML</summary>
+    <textarea id="${id('yaml')}" spellcheck="false" placeholder="speed: 40" aria-label="Every setting, written as YAML"></textarea>
+    <div class="row end"><span class="err grow" role="alert"></span><button type="button">Replace settings</button></div>`;
+  const ta = yaml.querySelector('textarea'), err = yaml.querySelector('.err'), replaceBtn = yaml.querySelector('button');
+  let yamlAsk = 0;
+  const convert = (to, body) => api(`/api/map/params/${to}`, { method: 'POST', headers: { 'Content-Type': to === 'yaml' ? 'application/json' : 'text/yaml' }, body });
+  async function syncYaml() {
+    if (!yaml.open || document.activeElement === ta) return;
+    const ask = ++yamlAsk;
+    try {
+      const { yaml: text } = await convert('yaml', JSON.stringify(layer.params || {}));
+      if (ask === yamlAsk && document.activeElement !== ta) { ta.value = text; err.textContent = ''; }
+    } catch (e) { if (ask === yamlAsk) err.textContent = e.message; }
+  }
+  yaml.addEventListener('toggle', syncYaml);
+  replaceBtn.onclick = async () => {
+    replaceBtn.disabled = true;
+    try {
+      const v = await convert('json', ta.value);
+      err.textContent = '';
+      vals = { ...valuesFor(S, { ...layer, params: {} }), ...v };
+      ctx.replace(v);
+    } catch (e) { err.textContent = e.message; }
+    replaceBtn.disabled = false;
   };
 
   if (wled.childElementCount) el.append(wled);
   else more.open = true;
-  more.append(json);
+  more.append(yaml);
   el.append(more);
   return {
     el,
@@ -578,7 +593,7 @@ export function createForm(ctx) {
       layer = l;
       vals = valuesFor(S, l);
       for (const c of ctrls) c.sync();
-      if (json.open) syncJson();
+      syncYaml();
     },
   };
 }

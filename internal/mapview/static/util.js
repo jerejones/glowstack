@@ -111,13 +111,6 @@ export const PALETTE = [[255, 179, 71], [93, 220, 138], [96, 165, 250], [244, 11
 // nthColor is the palette, then golden-angle hues past its end.
 export const nthColor = (i) => i < PALETTE.length ? PALETTE[i] : hsl((i * 137.508) % 360, 0.75, 0.6);
 
-// accentFor gives a layer a stable accent from PALETTE by its id.
-export function accentFor(id) {
-  let h = 2166136261;
-  for (const c of String(id)) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
-  return PALETTE[(h >>> 0) % PALETTE.length];
-}
-
 // parseColor reads "#rrggbb" or "#rrggbb/ww" (W is the strips' warm
 // white). null if it's neither.
 export function parseColor(s) {

@@ -77,7 +77,7 @@ const ago = (t) => {
 export function createStatus(S, root) {
   const g = S.geo;
   root.innerHTML = `
-    <h2 class="title">Status</h2>
+    <h1 class="title">Status</h1>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
     <div id="stDark" class="dark-note" hidden></div>
     <div id="stIssues"></div>
@@ -90,6 +90,7 @@ export function createStatus(S, root) {
   const $$ = (s) => root.querySelector(s);
   let last = null, shownFailure = false;
 
+  const markOffline = () => { for (const b of root.querySelectorAll('[data-run], [data-fix]')) b.disabled = !!S.offline; };
   const visible = () => S.panel.tab() === 'status' && !S.panel.collapsed();
 
   async function poll() {
@@ -155,11 +156,11 @@ export function createStatus(S, root) {
     $$('#stDark').textContent = dark;
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     $$('#stStats').innerHTML = [
+      stat(st.layers, 'on the lights', 'Layers on the lights'),
+      stat(st.preview_layers, 'in preview', 'Layers in preview'),
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
       stat(`${fmt(st.frame_ms, 2)} ms`, `frame, max ${fmt(st.max_frame_ms, 1)}`),
       stat(st.late_frames, st.late_frames === 1 ? 'late frame' : 'late frames'),
-      stat(st.layers, 'on the lights', 'Layers on the lights'),
-      stat(st.preview_layers, 'in preview', 'Layers in preview'),
       stat(esc(st.uptime), 'uptime'),
       stat(st.solve.pixels, 'pixels'),
       // The median: the first draws compile shaders and would swamp a mean.
@@ -202,6 +203,7 @@ export function createStatus(S, root) {
         <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button></li>`;
     }).join('');
     for (const b of $$('#stRuns').querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
+    markOffline();
 
     renderIssues(st.solve.warnings || []);
   }
@@ -236,6 +238,7 @@ export function createStatus(S, root) {
 
   S.on('tab', (t) => { if (t === 'status') { if (last) render(last); poll(); } });
   S.on('show', gray);
+  S.on('offline', markOffline);
   S.on('layout', () => { if (visible() && last) render(last); });
   poll();
   setInterval(() => { if (!document.hidden && (visible() || Date.now() - (S.lastHealth || 0) > 5000)) { S.lastHealth = Date.now(); poll(); } }, 2000);

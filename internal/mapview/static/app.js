@@ -445,11 +445,20 @@ function placeCard() {
 let ws = null, ranges = [];
 let geometrySignature = '';
 const geometryKey = ({ gen, presets, ...rest }) => JSON.stringify(rest);
+// setOffline follows a lost connection, not the wait for a first one, so
+// startup doesn't flash it.
+function setOffline(off) {
+  if (S.offline === off) return;
+  S.offline = off;
+  document.getElementById('offlineBanner').hidden = !off;
+  for (const id of ['tab-looks', 'tab-presets']) document.getElementById(id).inert = off;
+  S.emit('offline');
+}
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/map/ws');
   ws.binaryType = 'arraybuffer';
-  ws.onopen = () => { S.connected = true; subscribe(); };
-  ws.onclose = () => { S.connected = false; badge(); setTimeout(connect, 1000); };
+  ws.onopen = () => { S.connected = true; setOffline(false); subscribe(); };
+  ws.onclose = () => { S.connected = false; badge(); setOffline(true); setTimeout(connect, 1000); };
   ws.onmessage = async (e) => {
     const t0 = performance.now();
     if (typeof e.data === 'string') {

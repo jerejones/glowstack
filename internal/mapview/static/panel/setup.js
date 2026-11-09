@@ -11,6 +11,7 @@ import { $, esc, copyText, save, press, failure, plural, humanize } from '../uti
 import { calCount } from './calibrate.js';
 import { controllerName } from '../names.js';
 import { MODES } from '../overlay.js';
+import { upgradeSelects } from '../picker.js';
 
 export function createSetup(S, root) {
   const g = S.geo;
@@ -18,7 +19,7 @@ export function createSetup(S, root) {
   const isScene = g.plans.some((p) => p.kind === 'scene');
   const undrawn = g.runs.filter((r) => r.plan < 0);
   root.innerHTML = `
-    <h2 class="title">Set up the map</h2>
+    <h1 class="title">Set up the map</h1>
     <div class="section">
       <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
       <div class="row"><button type="button" id="suCal" class="go grow">Calibrate</button></div>
@@ -31,17 +32,18 @@ export function createSetup(S, root) {
     </div>
     <div class="muted small" id="suRunsCount"></div>
     <h2>Color the map by</h2>
-    <div class="chips" id="suModes">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
-    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
-    <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
-    <div class="chips" style="margin-top:6px">
+    <div class="seg grid" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
+    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
+    <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone" aria-label="Zone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
+    <h2>Show on the map</h2>
+    <div class="chips" role="group" aria-label="Show on the map">
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
       <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
     <div id="suModel" hidden><h2>Parts of the model</h2><div class="chips" id="suLayers"></div></div>
-    <div id="suPlanRow" hidden><h2>Plan</h2><select id="suPlan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
+    <div id="suPlanRow" hidden><h2>Plan</h2><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
       <h2>Camera <small id="suCamMode"></small></h2>
       <div class="row">
@@ -59,6 +61,7 @@ export function createSetup(S, root) {
     <ul class="list-rows" id="suUndrawn">${undrawn.length
     ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${r.count} lights on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
     : '<li class="muted">Every light is on the map.</li>'}</ul>`;
+  upgradeSelects(root);
   const $$ = (s) => root.querySelector(s);
 
   function renderRuns() {
@@ -158,6 +161,7 @@ export function createSetup(S, root) {
   for (const b of $$('#suRate').children) b.onclick = () => { S.setRate(+b.dataset.fps); renderRate(); };
   S.on('stream', renderRate);
 
+  S.on('offline', () => { $$('#suCal').disabled = S.offline; });
   S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); });
   S.on('tab', (t) => { if (t === 'setup') renderRate(); });
   renderOverlay();

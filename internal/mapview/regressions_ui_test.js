@@ -206,3 +206,78 @@ test('during a calibration step, neighbors clear the target label', async () => 
 test('the sheet says Expand in words', () => {
   assert.match(read('sheet.js'), /<span class="lbl">\$\{up \? 'Expand' : 'Collapse'\}/);
 });
+
+test('the picker moves through a list and finds by name', async () => {
+  const { matchOptions, stepActive } = await import('./static/picker.js');
+  assert.equal(stepActive('ArrowDown', 0, 3), 1);
+  assert.equal(stepActive('ArrowDown', 2, 3), 2);
+  assert.equal(stepActive('ArrowUp', 0, 3), 0);
+  assert.equal(stepActive('End', 0, 3), 2);
+  assert.equal(stepActive('a', 0, 3), null);
+  assert.deepEqual(matchOptions([{ label: 'Party' }, { label: 'Rainbow' }], ' RAIN').map((o) => o.label), ['Rainbow']);
+});
+
+test('no native select is left in the panels', () => {
+  for (const f of ['form.js', 'panel/presets.js']) assert.doesNotMatch(read(f), /createElement\('select'\)|<select/, f);
+  for (const f of ['panel/setup.js', 'panel/calibrate.js']) assert.match(read(f), /upgradeSelects\(/, f);
+});
+
+test('settings under More are YAML, read and written by the server', () => {
+  const form = read('form.js');
+  assert.match(form, /as YAML/);
+  assert.doesNotMatch(form, /written as JSON/);
+  assert.match(form, /\/api\/map\/params\//);
+});
+
+const lum = (hex) => {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+test('input borders reach 3:1 on every surface and field', () => {
+  const line = /--field-line: (#[0-9a-f]{6})/.exec(css)[1], field = /--field: (#[0-9a-f]{6})/.exec(css)[1];
+  for (const bg of [field, '#111317', '#15181d', '#1c2027']) assert.ok(contrast(line, bg) >= 3, `${bg}: ${contrast(line, bg).toFixed(2)}`);
+});
+
+test('there is one page title per tab, one row tall', () => {
+  for (const f of ['panel/looks.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js']) {
+    assert.equal((read(f).match(/<h1 class="title">/g) || []).length, 1, f);
+    assert.doesNotMatch(read(f), /<h2 class="title">/, f);
+  }
+  for (const sel of ['h1\\.title', '\\.looks-head', '\\.library-heading']) assert.match(css, new RegExp(`${sel} \\{[^}]*min-height: var\\(--title-row\\)`), sel);
+});
+
+test('pressed chips carry a keyline and a check', () => {
+  assert.match(css, /\.chips > button\.on \{[^}]*box-shadow/);
+  assert.match(css, /\.chips > button\.on::before \{ content: "\\2713"/);
+});
+
+test('single-choice sets are segmented and the show-on-map group has a name', () => {
+  const setup = read('panel/setup.js');
+  assert.match(setup, /class="seg grid" id="suModes"/);
+  assert.ok(setup.indexOf('Show on the map') > setup.indexOf('Color the map by'));
+});
+
+test('pinned is one symbol, the Presets bookmark', () => {
+  assert.doesNotMatch(read('icons.js'), /\bstar\b/);
+  assert.match(read('panel/presets.js'), /presetsFilled/);
+});
+
+test('Remove looks the same in both lanes, and layer bars follow the lane', () => {
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /class="danger" data-a="remove"/);
+  assert.match(looks, /c\.lane === 'preview' \? 'var\(--preview\)' : 'var\(--house\)'/);
+  assert.match(looks, /and \$\{ls\.length - 1\} more/);
+});
+
+test('a look in preview somewhere else stays marked', () => {
+  assert.match(read('panel/looks.js'), /In preview elsewhere/);
+  assert.match(css, /\.preset\.elsewhere \{/);
+});
+
+test('offline follows a lost connection, not startup', () => {
+  const app = read('app.js');
+  assert.match(app, /ws\.onclose = [^\n]*setOffline\(true\)/);
+  assert.doesNotMatch(app, /S\.offline = true/);
+});

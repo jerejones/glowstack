@@ -10,7 +10,7 @@
 // applying the copy promotes it and then removes the original, in that
 // order, so the lights are never without the look. The preview clock
 // is a line at the bottom that opens to its controls.
-import { post, del, esc, accentFor, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
+import { post, del, esc, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
 import { houseStatusMessage, darkZones, darkMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
@@ -77,7 +77,7 @@ export function createLooks(S, root) {
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
     <div class="looks-head">
-      <h2 class="title">Looks</h2>
+      <h1 class="title">Looks</h1>
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where looks go"><span class="muted">Show on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
     </div>
     <div class="target-picker" id="lkPicker" hidden>
@@ -214,10 +214,14 @@ export function createLooks(S, root) {
   // target: the same look on somewhere else isn't this one.
   function markPreviewed() {
     const t = currentTarget();
-    const on = new Set((S.preview ? S.preview.layers : []).filter((l) => l.target === t).map(lookKey));
+    const layers = S.preview ? S.preview.layers : [];
+    const on = new Set(layers.filter((l) => l.target === t).map(lookKey));
+    const elsewhere = new Set(layers.filter((l) => l.target !== t).map(lookKey));
     for (const b of root.querySelectorAll('.preset')) {
-      const inPreview = on.has(b.dataset.look);
+      const inPreview = on.has(b.dataset.look), other = !inPreview && elsewhere.has(b.dataset.look);
       b.classList.toggle('in-preview', inPreview);
+      b.classList.toggle('elsewhere', other);
+      b.querySelector('.in-badge').lastChild.textContent = other ? 'In preview elsewhere' : 'In preview';
       b.setAttribute('aria-pressed', inPreview ? 'true' : 'false');
     }
   }
@@ -308,7 +312,7 @@ export function createLooks(S, root) {
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
       acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/map/preview/layers');
     } else {
-      acts.innerHTML = `<button type="button" class="danger" data-a="remove">Remove</button>`;
+      acts.innerHTML = `<button type="button" data-a="remove">Remove</button>`;
       acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/v1/layers');
     }
     return c;
@@ -317,8 +321,7 @@ export function createLooks(S, root) {
   function updateCard(c, l) {
     c.layer = l;
     const el = c.el;
-    const acc = accentFor(l.id);
-    el.style.setProperty('--acc', `rgb(${acc})`);
+    el.style.setProperty('--acc', c.lane === 'preview' ? 'var(--preview)' : 'var(--house)');
     el.querySelector('.what b').textContent = layerName(S, l);
     const bits = ['on ' + (l.target === 'all' ? 'everything' : targetName(g, l.target))];
     if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
@@ -376,7 +379,10 @@ export function createLooks(S, root) {
     const prev = S.preview ? S.preview.layers : [];
     const pbox = $$('#lkPreview .list');
     renderLane(pbox, 'preview', prev);
-    laneState(pbox, previewState(S.preview, S.previewStatus, word));
+    const previewNote = previewState(S.preview, S.previewStatus, word);
+    laneState(pbox, previewNote);
+    // An empty lane says nothing the current-state line doesn't.
+    $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     for (const c of cards.values()) {
       if (c.lane === 'preview') c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
     }
@@ -386,7 +392,9 @@ export function createLooks(S, root) {
     const house = S.house.filter((l) => !l.ephemeral);
     const hbox = $$('#lkHouse .list');
     renderLane(hbox, 'house', house);
-    laneState(hbox, houseState(S.houseStatus, S.house.length));
+    const houseNote = houseState(S.houseStatus, S.house.length);
+    laneState(hbox, houseNote);
+    $$('#lkHouse').hidden = !S.house.length && (!houseNote || houseNote.kind === 'empty');
     const eph = S.house.length - house.length;
     $$('#lkHouseN').textContent = eph ? `+ ${eph} calibration` : '';
     renderNow(prev, house);
@@ -400,7 +408,7 @@ export function createLooks(S, root) {
   // renderNow is the current state above the catalog: one tap from the
   // full layer card, and short enough to leave the looks in view.
   function renderNow(prev, house) {
-    const names = (ls) => (ls.length > 1 ? `${layerName(S, ls[0])} +${ls.length - 1}` : layerName(S, ls[0]));
+    const names = (ls) => (ls.length > 1 ? `${layerName(S, ls[0])} and ${ls.length - 1} more` : layerName(S, ls[0]));
     const known = S.houseStatus === 'available';
     const lights = house.length ? `On the lights: ${names(house)}` : known ? 'Nothing on the lights' : '';
     const now = $$('#lkNow');
@@ -411,7 +419,11 @@ export function createLooks(S, root) {
     strip.hidden = !l;
     if (l) { const eff = effectFor(S, l); strip.style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l)); }
     $$('#lkNowMain').textContent = prev.length ? `In preview: ${names(prev)}` : lights;
-    $$('#lkNowSub').textContent = prev.length ? lights : '';
+    $$('#lkNowSub').textContent = prev.length ? lights : `${word} a look to try it on the map; the lights don't change.`;
+    // With nothing listed below there's nowhere for it to go.
+    const idle = !prev.length && !house.length;
+    now.classList.toggle('idle', idle);
+    now.tabIndex = idle ? -1 : 0;
     now.onclick = () => $$(prev.length ? '#lkPreview' : '#lkHouse').scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
   // renderBar keeps what's in preview, and the way to apply it, in view

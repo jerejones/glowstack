@@ -17,7 +17,6 @@ const PATHS = {
   chevronLeft: 'M10.5 3.5L6 8l4.5 4.5',
   chevronRight: 'M6 3.5L10.5 8 6 12.5',
   close: 'M4 4l8 8M12 4l-8 8',
-  star: 'M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.4l-3.6 1.9.7-4-2.9-2.8 4-.6z',
   play: 'M5 3l8 5-8 5z',
   pause: 'M5.5 3v10M10.5 3v10',
   stepBack: 'M12.5 3L6.5 8l6 5zM3.5 3v10',
@@ -28,11 +27,11 @@ const PATHS = {
   plus: 'M8 3v10M3 8h10',
   minus: 'M3 8h10',
 };
-const FILLED = new Set(['starFilled', 'play']);
+const FILLED = new Set(['presetsFilled', 'play']);
 
-// icon is the markup for a named icon. starFilled is star, filled in.
+// icon is the markup for a named icon. presetsFilled is presets, filled in.
 export function icon(name) {
-  const d = PATHS[name === 'starFilled' ? 'star' : name];
+  const d = PATHS[name === 'presetsFilled' ? 'presets' : name];
   if (!d) throw new Error('no icon ' + name);
   return `<svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="${FILLED.has(name) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }

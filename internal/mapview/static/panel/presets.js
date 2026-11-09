@@ -4,6 +4,7 @@
 
 import { api, patch, del, esc, failure } from '../util.js';
 import { createForm, lookStrip, presetName } from '../form.js';
+import { createPicker } from '../picker.js';
 import { effectKind } from './looks.js';
 import { showState, stateHTML } from '../states.js';
 import { confirmDialog } from '../dialog.js';
@@ -19,7 +20,7 @@ export function presetSlug(name, presets) {
 export function createPresets(S, root) {
   let draft = null, dirty = false, busy = false, form;
   root.innerHTML = `
-    <div class="row library-heading"><h2 class="title">Presets</h2><button type="button" id="prNew">New preset</button></div>
+    <div class="row library-heading"><h1 class="title">Presets</h1><button type="button" id="prNew">New preset</button></div>
     <p class="muted small">Save looks for later. Pin favorites to keep them visible on Looks.</p>
     <div id="prMessage" role="status" class="small"></div>
     <div id="prEditor" class="preset-editor" hidden></div>
@@ -59,7 +60,7 @@ export function createPresets(S, root) {
       const row = document.createElement('article'); row.className = 'preset-entry';
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
       row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? `${effect.name || effect.id} · ${effectKind(effect)}` : p.effect)}</span></div><div class="preset-actions">
-        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'starFilled' : 'star')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
+        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'presetsFilled' : 'presets')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <button type="button" data-act="edit">Edit</button><button type="button" data-act="copy">Duplicate</button><button type="button" data-act="delete" class="danger">Delete</button></div>`;
       row.querySelector('.strip').style.background = lookStrip(S, p.effect, p.params);
       row.querySelector('[data-act=edit]').onclick = () => openEditor(p);
@@ -99,7 +100,7 @@ export function createPresets(S, root) {
     const box = $('#prEditor'); box.hidden = false;
     box.innerHTML = `<h3>${draft.id ? 'Edit preset' : 'New preset'}</h3>
       <label>Name<input id="prName" type="text" maxlength="120" required autocomplete="off"></label>
-      <label>Effect<select id="prEffect"></select></label>
+      <div class="field-label"><span id="prEffectLabel">Effect</span><div id="prEffectSlot"></div></div>
       <label class="check"><input type="checkbox" id="prPinned"> Pin to Looks</label>
       <p class="muted small">Changes stay here until you save. Saving does not change running lights.</p>
       <div id="prParams"></div><div class="err" id="prError" role="alert"></div>
@@ -108,8 +109,8 @@ export function createPresets(S, root) {
     $('#prPinned').checked = !!draft.pinned;
     $('#prName').oninput = () => { draft.name = $('#prName').value; dirty = true; markName(false); };
     $('#prPinned').onchange = () => { draft.pinned = $('#prPinned').checked; dirty = true; };
-    const select = $('#prEffect');
-    for (const e of S.catalog.effects || []) select.add(new Option(e.name || e.id, e.id));
+    const select = createPicker((S.catalog.effects || []).map((e) => ({ value: e.id, label: e.name || e.id })), { label: 'Effect', id: 'prEffect' });
+    $('#prEffectSlot').replaceWith(select);
     select.value = draft.effect;
     select.onchange = async () => {
       if (Object.keys(draft.params || {}).length && !(await confirmDialog({ title: 'Change the effect?', body: "This preset's settings will reset.", confirm: 'Change effect' }))) { select.value = draft.effect; return; }

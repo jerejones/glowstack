@@ -13,6 +13,7 @@
 // session logic without the page, for tests.
 import { esc, plural, humanize, NOT_RESPONDING } from '../util.js';
 import { icon } from '../icons.js';
+import { upgradeSelects } from '../picker.js';
 import { stateHTML } from '../states.js';
 import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
 
@@ -246,6 +247,7 @@ export function createCalibrate(S, root) {
     }
   }
   S.on('tab', leave);
+  S.on('offline', () => render());
 
   // keepAwake holds a screen wake lock while a session runs in this
   // mode; the browser drops it when the page is hidden.
@@ -321,7 +323,7 @@ export function createCalibrate(S, root) {
     else if (!active) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
-      parts.push(`<h2 class="title">Line up the map with the lights</h2><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm. This changes the real lights until you stop.</p>`);
+      parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm. This changes the real lights until you stop.</p>`);
       parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved to <code>anchors.yaml</code> in the data folder.</div></details>');
     } else {
@@ -405,11 +407,11 @@ export function createCalibrate(S, root) {
       const ctls = g.controllers.map((c) => `<option value="${esc(c.id)}">${esc(c.name || c.id)}</option>`).join('');
       const was = $$('#caBody details.more');
       parts.push(`<details class="more"${was && was.open ? ' open' : ''}><summary>More places to measure</summary>
-        <div class="row"><select name="run">${runs}</select>
+        <div class="row"><select name="run" aria-label="Run">${runs}</select>
           ${btn('First end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'first' }))}
           ${btn('Last end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'last' }))}
           ${btn('Bands', () => session.target({ kind: 'bands', run: $$('[name=run]').value }))}</div>
-        <div class="row"><select name="ctl">${ctls}</select>${btn('Bands on controller', () => session.target({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
+        <div class="row"><select name="ctl" aria-label="Controller">${ctls}</select>${btn('Bands on controller', () => session.target({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
         <form class="row" data-form="dead"><input type="number" name="a" placeholder="First" style="width:6em"><input type="number" name="b" placeholder="Last" style="width:6em"><button type="submit">Mark as dead</button></form>
       </details>`);
     }
@@ -417,6 +419,8 @@ export function createCalibrate(S, root) {
     const body = $$('#caBody');
     const top = body.scrollTop;
     body.innerHTML = parts.join('');
+    upgradeSelects(body);
+    if (!active && S.offline) for (const b of body.querySelectorAll('button.go')) b.disabled = true;
     body.scrollTop = top;
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
     for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => { C.error = ''; render(); session.poll(); };

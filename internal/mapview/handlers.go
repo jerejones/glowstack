@@ -83,6 +83,8 @@ func (m *Map) Register(mux interface{ Handle(string, http.Handler) }) {
 	mux.Handle("GET /api/map/pixels/{id}", h(m.handlePixel))
 	mux.Handle("GET /api/map/power", h(m.handlePower))
 	mux.Handle("GET /api/map/ws", h(m.handleWS))
+	mux.Handle("POST /api/map/params/yaml", h(m.handleParamsYAML))
+	mux.Handle("POST /api/map/params/json", h(m.handleParamsJSON))
 	mux.Handle("GET /api/map/preview", h(m.handlePreviewState))
 	mux.Handle("POST /api/map/preview", h(m.handlePreviewControl))
 	mux.Handle("GET /api/map/preview/layers", h(m.handlePreviewLayers))
