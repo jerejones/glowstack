@@ -18,7 +18,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { load, save, clamp, nearestRun } from './util.js';
 
 const DEFAULTS = {
-  lines: { color: '#cfe3ff', opacity: 0.28 }, // quiet: the lights lead
+  lines: { color: '#cfe3ff', opacity: 0.2 }, // quiet: the lights lead
   surfaces: { color: '#4b6a9a', opacity: 0.04 },
 };
 const LAYERS = 'glowstack.layers';     // model layer visibility, per device
@@ -27,7 +27,7 @@ const FREE = 'glowstack.camera.free';  // the last camera the user orbited to
 // Without a configured view: an elevated three-quarter view from the
 // −x, −y side.
 const THREE_QUARTER = [-0.45, -0.8, 0.5];
-const MARGIN = 1.1; // framing leaves this much room around the pixels
+const MARGIN = 1.04; // framing leaves this much room around the pixels
 const SUBDUED = 0.4; // the model's opacity while a look is showing
 
 export const toThree = (p) => new THREE.Vector3(p[0], p[2], -p[1]);

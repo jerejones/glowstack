@@ -460,7 +460,7 @@ test('Apply offers Replace only for layers the preview would cover completely', 
 
 test('labels never share pixels, and spacing labels at 1.00 stay off by default', async () => {
   const src = read('overlay.js');
-  assert.match(src, /placed\.some\(\(b\) => hit\(box, b, 1\)\)/);
+  assert.match(src, /placed\.some\(\(b\) => hit\(box, b, l\.budget \? NAME_ROOM : 1\)\)/);
   assert.match(src, /!pct && !st\.evenSpacing/);
   assert.match(src, /evenSpacing: false/);
 });
@@ -670,7 +670,7 @@ test('the shared text input puts its error under the field', async () => {
 });
 
 test('the map model is dim so the lights lead', () => {
-  assert.match(read('scene.js'), /lines: \{ color: '#cfe3ff', opacity: 0\.28 \}/);
+  assert.match(read('scene.js'), /lines: \{ color: '#cfe3ff', opacity: 0\.2 \}/);
 });
 
 test('B53: a failed refresh keeps the last state on Looks and says so', async () => {
@@ -782,4 +782,27 @@ test('the 404 page keeps the way around and puts its sentence above the links', 
   for (const tab of ['looks', 'presets', 'setup', 'status']) assert.match(page, new RegExp(`href="/${tab}"`));
   assert.match(page, /classList\.add\('coarse'\)/, '?pointer=coarse works here too');
   assert.match(css, /\.not-found \.state \{ display: grid/);
+});
+
+test('name labels keep room around them, and a dense map shows only what fits', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  const measure = (l) => l.text.length * 6;
+  const labels = Array.from({ length: 300 }, (_, i) => ({ text: `Corner ${i} near the porch rail`, x: 100 + (i * 37) % 700, y: 60 + (i * 53) % 500, color: '#fff', rank: i % 5 === 0 ? 1.2 : 1, budget: true }));
+  const placed = placeLabels(labels, { width: 900, height: 700, measure });
+  assert.ok(placed.length > 5 && placed.length <= Math.floor(900 * 700 / 16000), `${placed.length} placed`);
+  const apart = (a, b) => a.x1 + 10 <= b.x0 || b.x1 + 10 <= a.x0 || a.y1 + 10 <= b.y0 || b.y1 + 10 <= a.y0;
+  placed.forEach((a, i) => placed.slice(i + 1).forEach((b) => assert.ok(apart(a, b), `${a.text} / ${b.text}`)));
+  assert.ok(placed.filter((p) => p.rank === 1.2).length >= placed.filter((p) => p.rank === 1).length, 'the shared corners first');
+  assert.ok(placed.every((p) => p.text.length <= 26), 'long names are cut short');
+  const focus = placeLabels([...labels, { text: 'A very long name the pointer is on, shown whole', x: 200, y: 200, color: '#fff', rank: 2.5, budget: false }], { width: 900, height: 700, measure });
+  assert.ok(focus.some((p) => p.text.startsWith('A very long name the pointer is on')), 'a focused label is shown whole, ahead of the budget');
+  const sheet = placeLabels(labels, { width: 390, height: 844, avoid: [{ x0: 0, x1: 390, y0: 0, y1: 50 }, { x0: 0, x1: 390, y0: 460, y1: 844 }], measure });
+  assert.ok(placed.length > sheet.length && sheet.length <= Math.floor(390 * 460 / 16000));
+  assert.ok(sheet.every((p) => p.y1 <= 460));
+});
+
+test('spacing numbers are for the run in focus, not the whole map', () => {
+  const src = read('overlay.js');
+  assert.match(src, /if \(!pixels\.some\(inFocus\)\) continue;/);
+  assert.match(src, /a run for its percentage/);
 });
