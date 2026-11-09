@@ -781,17 +781,12 @@ test('B66: the phone calibration sheet never rests with a row cut in half', asyn
   // Two rows that overlap: the edge has to clear both.
   assert.equal(sheetShift([{ top: 0, bottom: 44 }, { top: 40, bottom: 84 }], 60, 64), 28);
   assert.equal(sheetShift([{ top: 0, bottom: 400 }], 200), 0, 'a tall block is left to scroll');
-  assert.match(read('panel/calibrate.js'), /!el\.classList\.contains\('cal-prog'\)/, 'the nested list scrolls for itself');
   assert.match(css, /\.cal-dock \{ flex: none;/, 'the dock is a flex sibling, so it cannot cover the scroller');
 });
 
 test('B67: the pixel field has room for its whole placeholder', () => {
   assert.doesNotMatch(read('panel/calibrate.js'), /placeholder="Pixel number"[^>]*width:8em/);
   assert.match(css, /\.cal-pixel \{[^}]*min-width: 9em/);
-});
-
-test('B69: beside the map the progress list fills the panel', () => {
-  assert.match(css, /\.cal-body > \.cal-prog \{ flex: 1 1 0;[^}]*max-height: none; \}/);
 });
 
 test('B68: Preview holds one width, so Pin and More do not shift', () => {
@@ -893,7 +888,7 @@ test('the last polish: pin glyph, type sizes, contrast and the Preview reason', 
 
 test('B62: test bands and gaps bring their step back into view, and a gap asks only for a length', () => {
   const cal = read('panel/calibrate.js');
-  assert.match(cal, /body\.scrollTop = jump && jump !== shownJump \? 0 : top/);
+  assert.match(cal, /stepKey !== shownStep/, 'the step comes back into view when it changes');
   assert.match(cal, /if \(!isGap\) parts\.push\(`<div class="cal-read">/, 'a gap has no pixel to have moved');
   assert.match(cal, /isGap \? NO_CURSOR_HOW\.gap/);
 });
@@ -904,14 +899,10 @@ test('B56: Previous and Next are placed before the instructions', () => {
 });
 
 test('B57: the list marks the current step and scrolls to it only when it changes', async () => {
-  const { progCenter } = await import('./static/panel/calibrate.js');
-  assert.equal(progCenter(400, 40, 200), 320);
-  assert.equal(progCenter(20, 40, 200), 0, 'never above the top');
   const src = read('panel/calibrate.js');
   assert.match(src, /aria-current="step"/);
   assert.match(src, /here-tag">Now</);
-  assert.match(src, /key !== shownHere/);
-  assert.match(css, /\.cal-prog \{[^}]*overflow-y: auto/);
+  assert.match(src, /stepKey !== shownStep/);
 });
 
 test('calibrate list: done rows are plain text with only the check in green', () => {
@@ -1478,4 +1469,36 @@ test('B92: editing a preview of the lights is said once, inline', () => {
   const looks = read('panel/looks.js');
   assert.match(looks, /note\.textContent = orig \? `Editing a preview of/);
   assert.doesNotMatch(looks, /S\.toast\(`Editing a preview/);
+});
+
+test('B88: the phone key starts folded while calibrating, stays clear of the sheet and its button is whole', async () => {
+  const { keyFolded } = await import('./static/panel/setup.js');
+  assert.equal(keyFolded(null, true), true, 'folded by default on the calibrating strip');
+  assert.equal(keyFolded(null, false), false, 'elsewhere it stays open by default');
+  assert.equal(keyFolded(false, true), false, 'a person who opened it keeps it open');
+  assert.equal(keyFolded(true, false), true);
+  assert.match(css, /body\.calibrating \.legend \{ display: flex; bottom: calc\(100% - var\(--cal-map\) \+ var\(--cal-shift, 0px\) \+ 8px\); max-height: calc\(/, 'above the calibration sheet, shorter than the strip');
+  assert.match(css, /\.legend-toggle \{ position: sticky; bottom: 0;/, 'the button is never cut by the key\'s scroll');
+  assert.match(read('app.js'), /foldedCorner/, 'a folded key costs the target no framing');
+});
+
+test('B89: Calibrate is one scroll: no nested Progress scroller, and the step stays in view', async () => {
+  const { stepScroll } = await import('./static/panel/calibrate.js');
+  const prog = /\.cal-prog \{[^}]*\}/.exec(css)[0];
+  assert.doesNotMatch(prog, /overflow|max-height/);
+  assert.doesNotMatch(css, /\.cal-body > \.cal-prog|\.cal-body \{ display: flex/);
+  assert.equal(stepScroll(null, 400, 10), 0);
+  assert.equal(stepScroll({ bottom: 300 }, 400, 10), 0, 'already in view');
+  assert.equal(stepScroll({ bottom: 500 }, 400, 200), 112, 'just far enough to show its row');
+  assert.equal(stepScroll({ bottom: 900 }, 400, 60), 60, 'never past the step heading');
+  assert.match(read('panel/calibrate.js'), /<details class="group"/, 'the runs fold; only the current one is open');
+  assert.match(css, /\.cal-dock \{ flex: none;/, 'the dock cannot cover the scroller');
+});
+
+test('Stop and Close return to the tab Calibrate was opened from, also across a reload', async () => {
+  const { returnTab } = await import('./static/panel/calibrate.js');
+  assert.equal(returnTab('setup', 'status'), 'setup');
+  assert.equal(returnTab('status', 'status'), '');
+  assert.equal(returnTab('', 'status'), '', 'opened by the server, not from a tab: stay');
+  assert.match(read('panel/calibrate.js'), /sessionStorage\.setItem\('calFrom', tab\)/);
 });

@@ -259,6 +259,7 @@ input[type=checkbox]:checked::after {
   padding: 8px 10px; font-size: var(--t-s);
 }
 .legend-toggle { display: block; margin-top: 4px; padding: 0 8px; background: transparent; font-size: var(--t-s); }
+.legend-toggle { position: sticky; bottom: 0; background: rgba(13, 14, 16, 0.96); } /* never half hidden by the key's own scroll */
 .legend.folded { padding: 2px; }
 .legend.folded > :not(.legend-toggle) { display: none; }
 .legend.folded .legend-toggle { margin: 0; border: 0; }
@@ -631,11 +632,11 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .cal-nav > .icon-btn { flex: 1; }
 .cal-util { margin-top: -2px; }
-/* Its own scroller, so showing the current step leaves the step's title in view. */
-.cal-prog { position: relative; max-height: min(42vh, 380px); overflow-y: auto; overscroll-behavior: contain; }
-.cal-prog .group { margin: 8px 0; }
+/* Part of the panel's one scroll: only the current run is open. */
+.cal-prog { position: relative; }
+.cal-prog .group { margin: 2px 0; }
 .here-tag { margin-right: 8px; color: var(--accent); font-weight: 600; }
-.cal-prog .group > div { font-weight: 600; color: #cbd5e1; margin-bottom: 2px; }
+.cal-prog .group > summary { font-weight: 600; }
 .cal-prog ul { list-style: none; margin: 0; padding: 0; }
 .cal-prog li { min-height: var(--tap); padding: 4px 8px; border-radius: 6px; cursor: pointer; }
 /* A name wraps; the row's name and value top-align so a long one reads as a unit. */
@@ -657,8 +658,8 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   body.calibrating .brand, body.calibrating .badge .detail { display: none; }
   body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   /* The point key, on the map just above the calibration sheet. */
-  body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); }
-  .cal-prog { max-height: 220px; }
+  body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); max-height: calc(var(--cal-map) - var(--tap) - 32px); }
+  body.calibrating .legend.folded { right: auto; }
   /* One line on a phone, so the title doesn't push the primary action down. */
   .calibrate h1.title, .cal-step h2 { font-size: var(--t-h2); min-height: 0; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
@@ -668,13 +669,6 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   #tab-looks { display: flex; flex-direction: column; min-height: calc(100% + var(--content-bottom)); margin-bottom: calc(-1 * var(--content-bottom)); }
   #tab-looks > .look-bar { margin-top: auto; }
-}
-
-/* Beside the map the progress list takes whatever the panel has left. */
-@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
-  .cal-body { display: flex; flex-direction: column; }
-  .cal-body > * { flex: none; }
-  .cal-body > .cal-prog { flex: 1 1 0; min-height: 180px; max-height: none; }
 }
 
 /* Preset library and local draft editor. */

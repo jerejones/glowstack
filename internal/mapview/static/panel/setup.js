@@ -15,6 +15,7 @@ import { upgradeSelects } from '../picker.js';
 
 const ADVANCED = 'glowstack.setup.advanced';
 const KEY_FOLDED = 'glowstack.legend.folded';
+const KEY_FOLDED_CAL = 'glowstack.legend.folded.calibrating';
 const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
 const MAX_FIT = 64;     // past this the sheet would stop being a half
 
@@ -30,6 +31,10 @@ export function halfSpill(rows, edge) {
   const up = Math.floor(cut.top - edge) - 8;
   return -up <= MAX_FIT ? up : 0;
 }
+
+// keyFolded says the map's key starts folded. stored is the saved choice, or
+// null. Calibrating on a phone it starts folded: its map is a short strip.
+export const keyFolded = (stored, phoneCalibrating) => (stored === null ? phoneCalibrating : !!stored);
 
 export function createSetup(S, root) {
   const g = S.geo;
@@ -149,11 +154,12 @@ export function createSetup(S, root) {
     const note = n ? `<div class="muted label-note">${plural(n, 'label')} hidden: no room. ${S.coarse ? 'Pinch to zoom in' : 'Hover or zoom in'} to see ${n === 1 ? 'it' : 'them'}.</div>` : '';
     for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = legendHTML + note; el.hidden = !(legendHTML + note); }
     // The key on the map can be folded down, so that it leaves the map free.
-    const key = $('legend'), folded = !!load(KEY_FOLDED, false);
+    const key = $('legend'), phoneCalibrating = S.calibrating && S.panel.layout() === 'sheet';
+    const pref = phoneCalibrating ? KEY_FOLDED_CAL : KEY_FOLDED, folded = keyFolded(load(pref, null), phoneCalibrating);
     key.classList.toggle('folded', folded);
     if (key.hidden) return;
     const toggle = Object.assign(document.createElement('button'), { type: 'button', className: 'legend-toggle', textContent: folded ? 'Show key' : 'Hide key' });
-    toggle.onclick = () => { save(KEY_FOLDED, !folded); paintLegend(); S.setInsets(); S.markDirty(); };
+    toggle.onclick = () => { save(pref, !folded); paintLegend(); S.setInsets(); S.markDirty(); };
     key.append(toggle);
   }
   S.refreshLabelNote = paintLegend;

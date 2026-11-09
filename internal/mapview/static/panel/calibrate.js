@@ -163,10 +163,17 @@ export function stepPlace(item) {
 const SOURCE_WORDS = { measured: 'Measured', estimated: 'Estimated from the layout', partial: 'Partly measured', end: 'End of the run' };
 export const sourceWords = (source) => SOURCE_WORDS[source] || humanize(String(source || '')) || '—';
 
-// progCenter is the list's scroll position that puts a row in its middle.
-export function progCenter(rowTop, rowHeight, viewHeight) {
-  return Math.max(0, rowTop - (viewHeight - rowHeight) / 2);
+// stepScroll is where the panel's one scroll settles when the step changes:
+// the top, or as far down as it takes to show the step's row in Progress,
+// never so far that the step's own heading scrolls away. Positions are from
+// the top of the content; row is null when the step has no row.
+export function stepScroll(row, view, headTop) {
+  if (!row) return 0;
+  return Math.max(0, Math.min(row.bottom + 12 - view, headTop));
 }
+
+// returnTab is the tab to go back to when the mode closes, '' to stay.
+export const returnTab = (from, tab) => (from && from !== tab ? from : '');
 
 // partName is an anchor's name within its run: the run's name is on the
 // group already, so the part that tells two rows apart comes first.
@@ -229,8 +236,7 @@ export function dockReason(target, cursor) {
 // sheetShift is how far to raise the phone's calibration sheet so no row
 // is cut at the scroller's resting edge: the smallest move, up or down, that
 // leaves the edge between rows. rows are {top, bottom} from the top of the
-// content, edge the scroller's height. The nested progress list scrolls for
-// itself and isn't passed in, nor is anything too tall to fit anyway.
+// content, edge the scroller's height. Anything too tall to fit is left out.
 export function sheetShift(rows, edge, max = 64) {
   const short = rows.filter((r) => r.bottom - r.top < 120);
   const cuts = (e) => short.some((r) => r.top < e && r.bottom > e);
@@ -244,7 +250,7 @@ export function createCalibrate(S, root) {
   const g = S.geo;
   const nodeLabel = (id) => nodeDisplay(g, id);
   const runLabel = (id) => runName(g, id);
-  let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false, shownHere = '';
+  let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false, shownStep = '';
   const session = createSession({ fetch: (...a) => fetch(...a), storage: sessionStorage, onState: render });
   const C = session.C;
   // Set when the mode was left with a session still running: it doesn't
@@ -252,6 +258,15 @@ export function createCalibrate(S, root) {
   const remember = (v) => { try { sessionStorage.setItem('calLeft', String(v)); } catch (_) { /* no storage */ } };
   let left = false;
   try { left = sessionStorage.getItem('calLeft') === 'true'; } catch (_) { /* no storage */ }
+  // The tab the mode was opened from, kept across the reload Confirm causes.
+  let from = '';
+  try { from = sessionStorage.getItem('calFrom') || ''; } catch (_) { /* no storage */ }
+  const rememberFrom = (tab) => {
+    from = tab;
+    try { if (tab) sessionStorage.setItem('calFrom', tab); else sessionStorage.removeItem('calFrom'); } catch (_) { /* no storage */ }
+  };
+  // Run groups opened by hand stay open as the session moves on.
+  const openGroups = new Set();
   // Where Leave test bands goes back to, kept across a reload.
   let beforeBands = null;
   try { beforeBands = JSON.parse(sessionStorage.getItem('calBeforeBands')); } catch (_) { /* none yet */ }
@@ -301,7 +316,7 @@ export function createCalibrate(S, root) {
     S.calibrating = on;
     S.subscribe?.();
     if (on) hold = S.view.hold();
-    else { framed = ''; tapped = -1; shownHere = ''; }
+    else { framed = ''; tapped = -1; shownStep = ''; }
     S.refreshLegend?.();
     S.resize();
     if (!on && hold) { S.view.release(hold); hold = null; }
@@ -309,13 +324,20 @@ export function createCalibrate(S, root) {
     S.inspect(S.pinned);
     S.markDirty();
   }
-  function close() { show(false); }
+  // close leaves the mode for the tab it was opened from.
+  function close() {
+    show(false);
+    const to = returnTab(from, S.panel?.tab?.());
+    rememberFrom('');
+    if (to) S.panel.openTab(to);
+  }
 
   // leave exits the mode because the page moved on. A session that is
   // still running keeps driving the lights, so say where to find it.
   function leave() {
     if (!open) return;
     show(false);
+    rememberFrom('');
     if (C.st && C.st.active) {
       left = true;
       remember(true);
@@ -370,7 +392,6 @@ export function createCalibrate(S, root) {
     return `<button type="button" class="${cls}" data-a="${acts.length - 1}"${disabled ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
   };
 
-  let shownJump = '';
   function render() {
     S.cal = C.st;
     const running = !!(C.st && C.st.active);
@@ -473,13 +494,14 @@ export function createCalibrate(S, root) {
     // Progress, grouped by run. Tap one to calibrate it.
     if (st && st.progress && st.progress.length) {
       const cur = st.target ? JSON.stringify(st.target) : '';
+      const hereGroup = st.target ? st.target.run || BETWEEN : '';
       const groups = new Map();
       for (const it of st.progress) {
         const k = (it.target && it.target.run) || BETWEEN;
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(it);
       }
-      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k === BETWEEN ? k : runLabel(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
+      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<details class="group" data-group="${esc(k)}"${k === hereGroup || openGroups.has(k) ? ' open' : ''}><summary>${esc(k === BETWEEN ? k : runLabel(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></summary><ul>${items.map((it) => {
         const row = progressRow(it, nodeLabel, runLabel);
         const raw = it.target?.node ? g.nodes.find((n) => n.id === it.target.node)?.label : '';
         if (raw) row.title += ` (${raw})`;
@@ -487,7 +509,7 @@ export function createCalibrate(S, root) {
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
         return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? '<span class="here-tag">Now</span>' : ''}${esc(row.value)}</span></li>`;
-      }).join('')}</ul></div>`).join('')}</div>`);
+      }).join('')}</ul></details>`).join('')}</div>`);
     }
 
     // Other targets: run ends, bands over a controller, dead ranges.
@@ -508,24 +530,22 @@ export function createCalibrate(S, root) {
     }
 
     const body = $$('#caBody');
-    const top = body.scrollTop, listTop = body.querySelector('.cal-prog')?.scrollTop || 0, fields = readFields(body);
+    const top = body.scrollTop, fields = readFields(body);
     body.innerHTML = parts.join('');
     upgradeSelects(body);
     restoreFields(body, fields);
     if (!active && S.offline) for (const b of body.querySelectorAll('button.go')) b.disabled = true;
-    // Test bands and gaps are often reached from far down: the step, and the
-    // way out or the length to type, come back into view.
-    const jump = ['bands', 'gap'].includes(st?.target?.kind) ? JSON.stringify(st.target) : '';
-    body.scrollTop = jump && jump !== shownJump ? 0 : top;
-    shownJump = jump;
-    const list = body.querySelector('.cal-prog');
-    if (list) {
-      list.scrollTop = listTop;
-      // Only when the step changes: a poll mustn't take the list away from a thumb.
-      const here = list.querySelector('li.here'), key = here ? JSON.stringify(st.target) : '';
-      if (here && key !== shownHere) list.scrollTop = progCenter(here.offsetTop, here.offsetHeight, list.clientHeight);
-      shownHere = key;
+    // A new step comes into view however far down it was picked from, with
+    // its own row when there's room. Only then: a poll mustn't take the
+    // panel away from a thumb.
+    const stepKey = active && st.target ? JSON.stringify(st.target) : '';
+    body.scrollTop = top;
+    if (stepKey && stepKey !== shownStep && body.getBoundingClientRect) {
+      const at = body.getBoundingClientRect().top - body.scrollTop;
+      const here = body.querySelector('li.here')?.getBoundingClientRect(), head = body.querySelector('.cal-step')?.getBoundingClientRect();
+      body.scrollTop = stepScroll(here ? { bottom: here.bottom - at } : null, body.clientHeight, head ? head.top - at : 0);
     }
+    shownStep = stepKey;
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
     for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => { C.error = ''; render(); session.poll(); };
     for (const f of body.querySelectorAll('form[data-form]')) {
@@ -555,7 +575,7 @@ export function createCalibrate(S, root) {
     if (S.panel?.layout?.() === 'sheet') {
       root.style.removeProperty('top');
       const at = body.getBoundingClientRect().top - body.scrollTop;
-      const rows = [...body.children].filter((el) => !el.classList.contains('cal-prog')).map((el) => { const r = el.getBoundingClientRect(); return { top: r.top - at, bottom: r.bottom - at }; });
+      const rows = [...body.children].map((el) => { const r = el.getBoundingClientRect(); return { top: r.top - at, bottom: r.bottom - at }; });
       next = sheetShift(rows, body.clientHeight);
     }
     root.style.top = next ? `calc(var(--cal-map) - ${next}px)` : '';
@@ -567,6 +587,9 @@ export function createCalibrate(S, root) {
   let opening = null;
   $$('#caBody').addEventListener('click', (e) => { opening = e.target.closest?.('summary')?.parentElement || null; }, true);
   $$('#caBody').addEventListener('toggle', (e) => {
+    if (e.target === opening && e.target.matches('details.group')) {
+      if (e.target.open) openGroups.add(e.target.dataset.group); else openGroups.delete(e.target.dataset.group);
+    }
     if (e.target === opening && e.target.open) e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     opening = null;
   }, true);
@@ -590,6 +613,7 @@ export function createCalibrate(S, root) {
     // open shows the mode, optionally ready to start on a run.
     open(opts = {}) {
       run = opts.run || '';
+      rememberFrom(S.panel?.tab?.() || '');
       left = false;
       remember(false);
       show(true);

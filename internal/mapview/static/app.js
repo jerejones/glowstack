@@ -187,7 +187,9 @@ function floatsBottom(stage) {
   // map doesn't count; the key above its sheet does.
   const low = (r) => r.top - stage.top > stage.height / 2;
   const sheet = S.panel.layout() === 'sheet' && !S.calibrating;
-  const tops = [[$('mapControls'), low], [$('legend'), () => true]].map(([el, keep]) => [el.getBoundingClientRect(), keep]).filter(([r, keep]) => r.height && keep(r)).map(([r]) => r.top);
+  // A folded key on a calibrating phone's strip is a corner chip: the target can use that row.
+  const foldedCorner = S.calibrating && S.panel.layout() === 'sheet' && $('legend').classList.contains('folded');
+  const tops = [[$('mapControls'), low], [$('legend'), () => !foldedCorner]].map(([el, keep]) => [el.getBoundingClientRect(), keep]).filter(([r, keep]) => r.height && keep(r)).map(([r]) => r.top);
   return Math.max(sheet ? S.panel.covered() : 0, stage.bottom - Math.min(stage.bottom, ...tops));
 }
 S.resize = resize;
