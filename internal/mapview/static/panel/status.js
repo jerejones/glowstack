@@ -10,6 +10,7 @@
 // else the older map keyed by controller id. A controller known to be
 // unreachable is drawn gray while the map shows the lights.
 import { api, esc, fmt, plural } from '../util.js';
+import { showState, stateHTML } from '../states.js';
 
 // healthOf normalizes a controller's health report; null if there is
 // none.
@@ -28,6 +29,21 @@ export function healthOf(health, id) {
   };
 }
 
+// verdict sums the controllers' health into one line.
+export function verdict(ids, health) {
+  let bad = 0, known = 0;
+  for (const id of ids) {
+    const h = healthOf(health, id);
+    if (!h || h.reachable === null) continue;
+    known++;
+    if (h.reachable === false) bad++;
+  }
+  if (bad) return { cls: 'bad', text: `${bad} ${bad === 1 ? 'controller needs' : 'controllers need'} attention` };
+  if (!known) return { cls: '', text: 'No controller health reported yet' };
+  if (known < ids.length) return { cls: '', text: `${known} healthy, ${ids.length - known} not checked` };
+  return { cls: 'ok', text: ids.length === 1 ? 'The controller is healthy' : `All ${ids.length} controllers healthy` };
+}
+
 const ago = (t) => {
   const s = (Date.now() - new Date(t).getTime()) / 1000;
   if (!Number.isFinite(s)) return '';
@@ -39,10 +55,12 @@ const ago = (t) => {
 export function createStatus(S, root) {
   const g = S.geo;
   root.innerHTML = `
+    <h2 class="title">Status</h2>
+    <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
     <div class="stats" id="stStats"></div>
     <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
     <h2>Runs <small>drawn vs measured length</small></h2><ul class="list-rows" id="stRuns"></ul>
-    <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower" class="muted">No frame yet.</div>
+    <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     <div id="stWarn"></div>`;
   const $$ = (s) => root.querySelector(s);
   let last = null;
@@ -51,7 +69,11 @@ export function createStatus(S, root) {
 
   async function poll() {
     let st;
-    try { st = await api('/api/v1/status'); } catch (e) { return; }
+    try { st = await api('/api/v1/status'); } catch (e) {
+      if (!last) showState($$('#stVerdict'), { kind: 'error', title: 'Could not load the status', detail: e.network ? "Glowstack isn't responding." : e.message, retry: poll });
+      else $$('#stVerdict').textContent = "Couldn't refresh. Showing the last reading.";
+      return;
+    }
     last = st;
     S.statusData = st;
     gray();
@@ -70,6 +92,9 @@ export function createStatus(S, root) {
 
   function render(st) {
     const perf = S.perf();
+    const v = verdict(g.controllers.map((c) => c.id), st.health);
+    $$('#stVerdict').className = `verdict ${v.cls}`;
+    $$('#stVerdict').textContent = v.text;
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     $$('#stStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
@@ -109,7 +134,8 @@ export function createStatus(S, root) {
       const warn = mis >= 0.05;
       const a = s.anchors || { measured: 0, estimated: 0 };
       const drawn = s.drawn_m || r.drawn_m;
-      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b>${esc(r.id)}</b><small>${r.count} px · ${fmt(s.length_m ?? r.length, 2)} m${drawn ? ` · drawn ${fmt(drawn, 2)} m` : ''}${mis ? ` · <b>${(mis * 100).toFixed(1)}% off</b>` : ''} · ${a.measured}/${a.measured + a.estimated} anchors</small></span>
+      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b>${esc(r.id)}</b><small>${r.count} px · ${fmt(s.length_m ?? r.length, 2)} m${drawn ? ` · drawn ${fmt(drawn, 2)} m` : ''}${mis ? ` · <strong>${(mis * 100).toFixed(1)}% off</strong>` : ''}</small></span>
+        <span class="val" title="Points measured">${a.measured}/${a.measured + a.estimated}</span>
         <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button></li>`;
     }).join('');
     for (const b of $$('#stRuns').querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
@@ -120,25 +146,28 @@ export function createStatus(S, root) {
 
   async function power() {
     let pw;
-    try { pw = await api('/api/map/power' + (S.show ? '?show=' + S.show : '')); } catch (e) { return; }
     const box = $$('#stPower');
-    if (!pw.frame) { box.className = 'muted'; box.textContent = 'No frame yet.'; return; }
-    box.className = '';
+    try { pw = await api('/api/map/power' + (S.show ? '?show=' + S.show : '')); } catch (e) {
+      if (!box.innerHTML) showState(box, { kind: 'error', title: 'Could not read the power estimate', retry: power });
+      return;
+    }
+    if (!pw.frame) { showState(box, { kind: 'loading', title: 'Waiting for the first frame…' }); return; }
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
+    const limit = (ma) => (ma ? (ma / 1000).toFixed(1) + ' A' : '—');
     const rows = pw.estimate.map((o) => {
-      if (!o.known) return `<div class="pw"><div class="row"><span>${esc(o.controller)} output ${o.output}</span><span class="muted">no led_ma</span></div></div>`;
+      if (!o.known) return `<tr><td>${esc(o.controller)} output ${o.output}</td><td class="muted" title="Set led_ma for this output in controllers.yaml to estimate its current">Not set</td><td>${limit(o.max_ma)}</td></tr>`;
       const pct = o.max_ma ? Math.min(100, 100 * o.ma / o.max_ma) : 0;
-      return `<div class="pw"><div class="row"><span>${esc(o.controller)} output ${o.output} · ${o.count} px</span>
-        <span>${amps(o.ma)}${o.max_ma ? ' / ' + (o.max_ma / 1000).toFixed(1) + ' A' : ''}</span></div>
-        ${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</div>`;
+      return `<tr><td>${esc(o.controller)} output ${o.output}${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</td><td>${amps(o.ma)}</td><td>${limit(o.max_ma)}</td></tr>`;
     }).join('');
-    const totals = pw.controllers.map((c) => `${esc(c.controller)} ${amps(c.ma)}${c.max_ma ? ' / ' + (c.max_ma / 1000).toFixed(1) + ' A' : ''}`).join(' · ');
+    const totals = pw.controllers.map((c) => `<tr><td>${esc(c.controller)} total</td><td>${amps(c.ma)}</td><td>${limit(c.max_ma)}</td></tr>`).join('');
+    const unknown = pw.estimate.some((o) => !o.known);
     const stg = pw.stage;
-    const scale = stg ? stg.scale.toFixed(3) + (stg.group ? ` (group ${esc(stg.group)})` : '') : 'n/a (output stage not reporting)';
-    const stageRow = (o) => `<div class="row" style="justify-content:space-between"><span>${esc(o.controller)}${o.output ? ' output ' + o.output : ' total'}</span>
-      <span>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}${o.max_ma ? ' / ' + (o.max_ma / 1000).toFixed(1) + ' A' : ''}${o.need < 0.9995 ? ` · <b>×${o.need.toFixed(3)}</b>` : ''}</span></div>`;
-    const stage = stg ? `<details><summary>Output stage (after limiting)</summary>${(stg.outputs || []).map(stageRow).join('')}${(stg.controllers || []).map(stageRow).join('')}</details>` : '';
-    box.innerHTML = `${rows}<div class="muted small">totals: ${totals}</div><div>limit scale: <b>${scale}</b></div>${stage}`;
+    const scale = stg ? (stg.scale >= 0.9995 ? 'None needed' : `Dimmed to ${(stg.scale * 100).toFixed(1)}%${stg.group ? ` (group ${esc(stg.group)})` : ''}`) : 'Not reporting';
+    const stageRow = (o) => `<tr><td>${esc(o.controller)}${o.output ? ' output ' + o.output : ' total'}</td><td>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}</td><td>${limit(o.max_ma)}${o.need < 0.9995 ? ` · ×${o.need.toFixed(3)}` : ''}</td></tr>`;
+    const stage = stg ? `<details><summary>After limiting</summary><table class="power"><tbody>${(stg.outputs || []).map(stageRow).join('')}${(stg.controllers || []).map(stageRow).join('')}</tbody></table></details>` : '';
+    box.innerHTML = `<table class="power"><thead><tr><th>Output</th><th>Draw</th><th>Limit</th></tr></thead><tbody>${rows}</tbody><tfoot>${totals}</tfoot></table>
+      ${unknown ? '<p class="muted small">“Not set” means the output has no LED current in its settings, so its draw can\'t be estimated.</p>' : ''}
+      <div class="nv"><span class="name muted">Power limiting</span><span class="value">${scale}</span></div>${stage}`;
   }
 
   S.on('tab', (t) => { if (t === 'status') { if (last) render(last); poll(); } });

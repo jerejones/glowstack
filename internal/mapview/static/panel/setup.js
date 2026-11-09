@@ -16,27 +16,29 @@ export function createSetup(S, root) {
   const isScene = g.plans.some((p) => p.kind === 'scene');
   const undrawn = g.runs.filter((r) => r.plan < 0);
   root.innerHTML = `
+    <h2 class="title">Set up the map</h2>
     <div class="section">
-      <div class="row"><button type="button" id="suCal" class="grow">Calibrate</button></div>
+      <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
+      <div class="row"><button type="button" id="suCal" class="go grow">Calibrate</button></div>
       <div class="muted small" id="suCalN"></div>
     </div>
-    <h2>Runs shown</h2>
+    <h2>Which lights to show</h2>
     <div class="seg" id="suRuns" role="group" aria-label="Runs shown">
-      <button type="button" data-all="false">Operating only</button>
-      <button type="button" data-all="true">All runs</button>
+      <button type="button" data-all="false">Working lights</button>
+      <button type="button" data-all="true">All lights</button>
     </div>
     <div class="muted small" id="suRunsCount"></div>
-    <h2>Overlay</h2>
-    <div class="chips" id="suModes">${MODES.map(([m, label]) => `<button type="button" data-mode="${m}">${label}</button>`).join('')}</div>
-    <div class="row" id="suMappingRow" hidden><span class="muted">Mapping</span><select id="suMapping">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
+    <h2>Color the map by</h2>
+    <div class="chips" id="suModes">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
+    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
     <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || z.id)}</option>`).join('')}</select></div>
     <div class="chips" style="margin-top:6px">
-      <button type="button" id="suNodes" title="Nodes, links, gaps and anchors">Nodes</button>
-      <button type="button" id="suLabels" title="Names on nodes and gaps, descriptions on controllers">Labels</button>
+      <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
+      <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
       <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
-    <div id="suModel" hidden><h2>Model layers</h2><div class="chips" id="suLayers"></div></div>
+    <div id="suModel" hidden><h2>Parts of the model</h2><div class="chips" id="suLayers"></div></div>
     <div id="suPlanRow" hidden><h2>Plan</h2><select id="suPlan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
       <h2>Camera <small id="suCamMode"></small></h2>
@@ -44,25 +46,25 @@ export function createSetup(S, root) {
         <button type="button" id="suDefault" title="Forget this device's camera and go back to the site's view">Default</button>
         <button type="button" id="suCopy" title="Copy this camera as glowstack.yaml map: view">Copy view</button>
       </div>
-      <div class="muted small">Copy view writes the direction form, which frames itself on any screen.</div>
+      <div class="muted small">Copy view copies this camera, so it can be set as the view everyone starts from.</div>
     </div>
-    <h2>Stream</h2>
-    <div class="row"><span class="muted">Rate</span>
-      <span class="seg" id="suRate">${[[0, 'max'], [10, '10'], [5, '5'], [1, '1']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</span>
-      <span class="muted">fps</span></div>
+    <h2>Map updates</h2>
+    <div class="row"><span class="muted">Update rate</span>
+      <span class="seg" id="suRate">${[[0, 'Max'], [10, '10'], [5, '5'], [1, '1']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</span>
+      <span class="muted">a second</span></div>
     <div class="muted small" id="suStream"></div>
-    <h2>${isScene ? 'Not in the model' : 'Not on the plan'}</h2>
+    <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
-    ? undrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} px on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('')
-    : '<li class="muted">Every run is drawn.</li>'}</ul>`;
+    ? undrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('')
+    : '<li class="muted">Every light is on the map.</li>'}</ul>`;
   const $$ = (s) => root.querySelector(s);
 
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
-    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} px on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every shown run is drawn.</li>';
+    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
-    $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown · based on strip condition`;
+    $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown, based on the condition of each strip`;
   }
   for (const b of $$('#suRuns').children) b.onclick = () => S.setAllRuns(b.dataset.all === 'true');
   S.on('runVisibility', renderRuns);
@@ -76,7 +78,7 @@ export function createSetup(S, root) {
     try {
       const st = await api('/api/v1/status');
       const a = st.solve.anchors;
-      $$('#suCalN').textContent = `${a.measured} of ${plural(a.measured + a.estimated, 'anchor')} measured`;
+      $$('#suCalN').textContent = `${a.measured} of ${plural(a.measured + a.estimated, 'point')} measured`;
     } catch (e) { /* offline */ }
   }
 
@@ -148,7 +150,7 @@ export function createSetup(S, root) {
     for (const b of $$('#suRate').children) press(b, +b.dataset.fps === +S.fps);
     const m = S.stream;
     const now = S.streamRate();
-    $$('#suStream').textContent = m ? `${m.count} px at up to ${m.fps} fps` + (now && now !== +S.fps ? ` (${now} fps while hidden or on battery)` : '') + (m.unknown ? ` · unknown: ${m.unknown.join(', ')}` : '') : '';
+    $$('#suStream').textContent = m ? `${m.count} lights, up to ${m.fps} updates a second` + (now && now !== +S.fps ? ` (${now} while hidden or on battery)` : '') + (m.unknown ? ` · unknown: ${m.unknown.join(', ')}` : '') : '';
   }
   for (const b of $$('#suRate').children) b.onclick = () => { S.setRate(+b.dataset.fps); renderRate(); };
   S.on('stream', renderRate);
@@ -158,5 +160,6 @@ export function createSetup(S, root) {
   renderOverlay();
   renderRate();
   if (S.panel.tab() === 'setup') calCount();
+  calLabel(false);
   return { setMode, calCount };
 }

@@ -1,0 +1,42 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+// The page's one icon set, drawn by hand for this project: 16 px, inline
+// SVG, one stroke weight. Icons take the text color. An icon-only control
+// needs its own aria-label and title; the svg itself is hidden from
+// screen readers.
+
+const PATHS = {
+  looks: 'M7 2l1.5 3.5L12 7 8.5 8.5 7 12 5.5 8.5 2 7l3.5-1.5zM12.5 11v3.5M10.75 12.75h3.5',
+  presets: 'M4 2.5h8a.5.5 0 0 1 .5.5v10.5L8 11l-4.5 2.5V3a.5.5 0 0 1 .5-.5z',
+  setup: 'M2 4.5h6.5M12 4.5h2M2 11.5h2M7.5 11.5H14M10.25 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zM5.75 10a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
+  status: 'M1.5 8.5h3l2-5 3 9 2-4h3',
+  chevronUp: 'M3.5 10.5L8 6l4.5 4.5',
+  chevronDown: 'M3.5 6L8 10.5 12.5 6',
+  chevronLeft: 'M10.5 3.5L6 8l4.5 4.5',
+  chevronRight: 'M6 3.5L10.5 8 6 12.5',
+  close: 'M4 4l8 8M12 4l-8 8',
+  star: 'M8 2.2l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.4l-3.6 1.9.7-4-2.9-2.8 4-.6z',
+  play: 'M5 3l8 5-8 5z',
+  pause: 'M5.5 3v10M10.5 3v10',
+  stepBack: 'M12.5 3L6.5 8l6 5zM3.5 3v10',
+  stepForward: 'M3.5 3l6 5-6 5zM12.5 3v10',
+  check: 'M3 8.5l3.2 3.2L13 5',
+  sun: 'M8 5.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6zM8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1',
+  plus: 'M8 3v10M3 8h10',
+  minus: 'M3 8h10',
+};
+const FILLED = new Set(['starFilled', 'play']);
+
+// icon is the markup for a named icon. starFilled is star, filled in.
+export function icon(name) {
+  const d = PATHS[name === 'starFilled' ? 'star' : name];
+  if (!d) throw new Error('no icon ' + name);
+  return `<svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="${FILLED.has(name) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+}
+
+// fillIcons draws every [data-icon] element under root.
+export function fillIcons(root) {
+  for (const el of root.querySelectorAll('[data-icon]')) el.innerHTML = icon(el.dataset.icon);
+}

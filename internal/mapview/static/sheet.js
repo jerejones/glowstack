@@ -8,6 +8,7 @@
 // rail, and the tabs. The active tab and the rail are remembered per
 // device. The tabs' contents belong to panel/*.js.
 import { $, load, save, clamp } from './util.js';
+import { icon } from './icons.js';
 
 const TAB = 'glowstack.tab';
 const RAIL = 'glowstack.rail';
@@ -52,6 +53,7 @@ export function createPanel(hooks) {
   function showTab(name, navigation = 'push') {
     if (!tabs.some((b) => b.dataset.tab === name)) return;
     tab = name;
+    root.dataset.tab = name;
     const url = new URL(location.href);
     url.pathname = '/' + name;
     if (navigation !== 'none' && url.pathname !== location.pathname) {
@@ -75,14 +77,18 @@ export function createPanel(hooks) {
     document.body.dataset.detent = d;
     setVisible(heights()[d]);
     if (d === 'peek') $('content').scrollTop = 0;
+    showRail();
     if (!quiet) hooks.onDetent(d);
   }
 
   function showRail() {
     document.body.classList.toggle('rail', layout === 'side' && rail);
-    const t = rail ? 'Expand the panel' : 'Collapse the panel';
-    $('railToggle').title = t;
-    $('railToggle').setAttribute('aria-label', t);
+    const b = $('railToggle');
+    const up = layout === 'sheet' ? detent !== 'full' : rail;
+    const t = layout === 'sheet' ? (up ? 'Expand the sheet' : 'Collapse the sheet') : rail ? 'Expand the panel' : 'Collapse the panel';
+    b.title = t;
+    b.setAttribute('aria-label', t);
+    b.innerHTML = icon(layout === 'sheet' ? (up ? 'chevronUp' : 'chevronDown') : rail ? 'chevronLeft' : 'chevronRight');
   }
 
   function setRail(on) {
@@ -113,7 +119,11 @@ export function createPanel(hooks) {
       showTab(b.dataset.tab);
     };
   }
-  $('railToggle').onclick = () => setRail(!rail);
+  const stepUp = () => setDetent(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half');
+  $('railToggle').onclick = () => {
+    if (layout !== 'sheet') setRail(!rail);
+    else if (!dragged) stepUp();
+  };
 
   // Dragging the handle or the tab bar moves the sheet; letting go snaps
   // to the nearest detent, or the next one along a flick.
@@ -169,7 +179,7 @@ export function createPanel(hooks) {
   // Tapping the handle steps the sheet up, or back down from full.
   $('handle').addEventListener('click', () => {
     if (dragged || layout !== 'sheet') return;
-    setDetent(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half');
+    stepUp();
   });
 
   refresh(true);

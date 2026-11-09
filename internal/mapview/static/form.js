@@ -8,7 +8,8 @@
 // palette), then every param of the effect's schema under More, then
 // the params as JSON. Edits go out through a patcher: changes made
 // within ~80 ms are merged, and one PATCH is in flight at a time.
-import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, patch } from './util.js';
+import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, patch, humanize } from './util.js';
+import { icon } from './icons.js';
 
 // ---------- looks as data ----------
 
@@ -304,7 +305,7 @@ export function createForm(ctx) {
       const lf = leaf(schema, b.param);
       if (!lf) continue;
       const title = `${SLIDERS[b.slider] || b.slider} in WLED · ${b.param}`;
-      const label = b.param.replace(/\.(\d+)/g, (_, i) => ` ${+i + 1}`).replace(/\./g, ' ');
+      const label = humanize(b.param);
       if (lf.type === 'color') {
         field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
       } else if (lf.type === 'palette' || b.slider === 'pal') {
@@ -436,10 +437,10 @@ export function createForm(ctx) {
       const list = [...(get() || [])];
       list.forEach((_, i) => box.append(colorInput(() => (get() || [])[i], (v) => { const l = [...(get() || [])]; l[i] = v; set(l); })));
       const add = document.createElement('button');
-      add.type = 'button'; add.textContent = '+'; add.title = 'Add a color';
+      add.type = 'button'; add.className = 'icon-btn'; add.innerHTML = icon('plus'); add.title = 'Add a color'; add.setAttribute('aria-label', 'Add a color');
       add.onclick = () => { set([...(get() || []), '#ffffff']); build(); };
       const rm = document.createElement('button');
-      rm.type = 'button'; rm.textContent = '−'; rm.title = 'Remove the last color';
+      rm.type = 'button'; rm.className = 'icon-btn'; rm.innerHTML = icon('minus'); rm.title = 'Remove the last color'; rm.setAttribute('aria-label', 'Remove the last color');
       rm.disabled = list.length <= 1;
       rm.onclick = () => { set((get() || []).slice(0, -1)); build(); };
       box.append(add, rm);
@@ -463,17 +464,18 @@ export function createForm(ctx) {
           const c = control(f, g, s);
           const lab = document.createElement('span');
           lab.className = 'muted small';
-          lab.textContent = f.name;
+          lab.textContent = humanize(f.name);
+          lab.title = f.name;
           row.append(lab, ...[].concat(c));
         }
         const rm = document.createElement('button');
-        rm.type = 'button'; rm.textContent = '✕'; rm.title = 'Remove';
+        rm.type = 'button'; rm.className = 'icon-btn'; rm.innerHTML = icon('close'); rm.title = 'Remove'; rm.setAttribute('aria-label', 'Remove');
         rm.onclick = () => { const l = [...(get() || [])]; l.splice(i, 1); set(l); build(); };
         row.append(rm);
         box.append(row);
       });
       const add = document.createElement('button');
-      add.type = 'button'; add.textContent = '+ Add';
+      add.type = 'button'; add.className = 'icon-btn'; add.innerHTML = `${icon('plus')}Add`;
       add.onclick = () => {
         const item = {};
         for (const f of p.fields || []) item[f.name] = f.default;
@@ -494,10 +496,10 @@ export function createForm(ctx) {
     const set = (v) => apply({ [p.name]: v });
     const c = control(p, get, set);
     if (p.type === 'list') {
-      const f = field(more, p.name, [], p.doc);
+      const f = field(more, humanize(p.name), [], p.doc, p.name);
       f.querySelector('.ctl').remove();
       f.append(c);
-    } else field(more, p.name, c, p.doc);
+    } else field(more, humanize(p.name), c, p.doc, p.name);
   }
 
   // ---- JSON ----

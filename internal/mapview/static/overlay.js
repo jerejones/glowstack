@@ -13,7 +13,11 @@ import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PA
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 
 export const MODES = [
-  ['live', 'Colors'], ['flow', 'Flow'], ['stretch', 'Stretch'], ['areas', 'Areas'], ['outputs', 'Outputs'],
+  ['live', 'Live colors', 'What the map or the lights are showing'],
+  ['flow', 'Direction', 'Which way effects travel along the lights'],
+  ['stretch', 'Spacing', 'Where lights are packed tighter or looser than drawn'],
+  ['areas', 'Areas', 'The areas that make up a zone'],
+  ['outputs', 'Wiring', 'Which controller output drives each light'],
 ];
 
 // Deduplicate coincident occurrences in world space, not screen space: two
@@ -88,14 +92,14 @@ export function createOverlay(S) {
       if (st.mode === 'flow') {
         const stops = [0, 0.25, 0.5, 0.75, 1].map((t) => `rgb(${ramp(t)})`).join(',');
         const unit = m.kind === 'index' ? '' : ' m';
-        st.legend = `<div>u in <b>${esc(m.id)}</b> (${esc(m.kind)}); arrows point the way u grows</div>
+        st.legend = `<div>Distance along <b>${esc(m.id)}</b>; arrows show the direction</div>
           <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
           <div class="row"><span>${fmt(m.min, 2)}${unit}</span><span>${fmt(m.max, 2)}${unit}</span></div>`;
       } else {
         const stops = [1 / 1.5, 1 / 1.2, 1, 1.2, 1.5].map((s) => `rgb(${stretchColor(s)})`).join(',');
-        st.legend = `<div>stretch in <b>${esc(m.id)}</b>${m.flow ? '' : ' (not a flow: 1 everywhere)'}</div>
+        st.legend = `<div>Spacing along <b>${esc(m.id)}</b>${m.flow ? '' : ' (even everywhere)'}</div>
           <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
-          <div class="row"><span>compressed ≤×0.67</span><span>1</span><span>stretched ≥×1.5</span></div>`;
+          <div class="row"><span>tighter</span><span>as drawn</span><span>looser</span></div>`;
       }
       return out;
     }
@@ -116,7 +120,7 @@ export function createOverlay(S) {
       return out;
     }
     // outputs
-    let html = '<div class="muted">rings mark where data enters each output</div>', ctrl = '';
+    let html = '<div class="muted">Rings mark where each output starts</div>', ctrl = '';
     for (const o of outputs()) {
       if (S.visibility && !S.visibility.pixels.subarray(o.first, o.last + 1).some(Boolean)) continue;
       for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
@@ -133,9 +137,9 @@ export function createOverlay(S) {
     const o = shown();
     S.view.setColors(o.mode === 'live' ? null : await colors());
     if (o.nodes) {
-      st.legend += `<div><span class="sw" style="background:#5ddc8a"></span>measured anchor
+      st.legend += `<div><span class="sw" style="background:#5ddc8a"></span>measured point
         <span class="sw" style="background:#ffb347"></span>estimated
-        <span class="sw" style="background:#f472b6"></span>sync node</div>`;
+        <span class="sw" style="background:#f472b6"></span>shared corner</div>`;
     }
     if (o.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
       st.legend += `<div><span class="sw" style="background:${CTRL}"></span>controller
@@ -150,11 +154,30 @@ export function createOverlay(S) {
   const pixelAt = (p) => ((!S.visibility || S.visibility.pixels[p]) && px.plan[p] === S.plan && px.x[p] !== null ? at(px.x[p], px.y[p], px.z[p]) : null);
   const nodeAt = (i) => { const nd = g.nodes[i]; return (!S.visibility || S.visibility.nodes.has(i)) && nd && nd.plan === S.plan && nd.x !== null ? at(nd.x, nd.y, nd.z) : null; };
 
-  function label(text, x, y, color) {
-    ctx.font = '11px system-ui, sans-serif';
+  // label queues text at (x, y). Labels are set after everything else is
+  // drawn: each takes the first free spot near where it asked to be, and
+  // one with nowhere free is dropped rather than drawn over another.
+  let queued = [];
+  const label = (text, x, y, color) => { queued.push({ text, x, y, color }); };
+  function flushLabels() {
+    ctx.font = '12px system-ui, sans-serif';
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.8)';
-    ctx.strokeText(text, x, y);
-    ctx.fillStyle = color; ctx.fillText(text, x, y);
+    ctx.textBaseline = 'alphabetic';
+    const placed = [];
+    const H = 13;
+    for (const l of queued) {
+      const w = ctx.measureText ? ctx.measureText(l.text).width : l.text.length * 6;
+      for (const dy of [0, H, -H, 2 * H, -2 * H]) {
+        const box = { x0: l.x, x1: l.x + w, y0: l.y + dy - H + 2, y1: l.y + dy + 2 };
+        if (placed.some((b) => box.x0 < b.x1 && b.x0 < box.x1 && box.y0 < b.y1 && b.y0 < box.y1)) continue;
+        placed.push(box);
+        ctx.strokeText(l.text, l.x, l.y + dy);
+        ctx.fillStyle = l.color;
+        ctx.fillText(l.text, l.x, l.y + dy);
+        break;
+      }
+    }
+    queued = [];
   }
   function ring(q, r, color, width = 2, dash = null) {
     ctx.strokeStyle = color; ctx.lineWidth = width;
@@ -314,17 +337,18 @@ export function createOverlay(S) {
   function draw(c) {
     ctx = c;
     const m = mappings.get(st.mapping), o = shown();
+    calCursors();
     if (o.mode === 'flow' && m) arrows(m);
     if (o.mode === 'stretch' && m) stretchLabels(m);
     if (o.mode === 'outputs') outputStarts();
     if (o.nodes) nodes();
     if (o.controllers) controllers();
-    calCursors();
     for (const [p, color] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
       if (p < 0) continue;
       const q = pixelAt(p);
       if (q) ring(q, 9, color);
     }
+    flushLabels();
   }
 
   return { st, apply, draw, outputs, outputOf, mapping, flows, remember, live: () => shown().mode === 'live' };

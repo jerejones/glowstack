@@ -60,3 +60,101 @@ test('dragging the sheet cannot select text', async () => {
   assert.equal(prevented, 1);
   assert.match(css, /\.handle, \.tabs \{ user-select: none/);
 });
+
+// contrast is the WCAG ratio between two #rrggbb colors.
+function contrast(a, b) {
+  const lum = (h) => {
+    const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+const token = (name) => new RegExp(`--${name}: (#[0-9a-f]{6})`).exec(css)[1];
+
+test('the palette passes AA, including the primary action in every state', () => {
+  for (const name of ['go', 'go-hover', 'go-active']) assert.ok(contrast('#ffffff', token(name)) >= 4.5, name);
+  for (const bg of ['bg', 'card', 'card2']) {
+    assert.ok(contrast(token('fg'), token(bg)) >= 4.5, 'fg on ' + bg);
+    assert.ok(contrast(token('muted'), token(bg)) >= 4.5, 'muted on ' + bg);
+    assert.ok(contrast(token('preview'), token(bg)) >= 4.5, 'preview on ' + bg);
+    assert.ok(contrast(token('house'), token(bg)) >= 4.5, 'house on ' + bg);
+    assert.ok(contrast('#fca5a5', token(bg)) >= 4.5, 'error text on ' + bg);
+  }
+  assert.ok(contrast(token('muted'), '#0f1115') >= 4.5, 'placeholder');
+});
+
+test('a disabled primary action does not look like a faded primary', () => {
+  assert.match(css, /button\.go:disabled \{[^}]*background: transparent/);
+});
+
+test('the type scale has four named sizes and no ad hoc ones', () => {
+  assert.doesNotMatch(css, /font-size: (0\.\d+em|1\.\d+em|\d+px)/);
+  assert.match(css, /--t-s: 12px/);
+  assert.match(css, /h2, h3 \{[^}]*font-size: var\(--t-l\)/);
+});
+
+test('icons are SVG: no glyph icons are left in the page source', async () => {
+  const glyphs = /[✦▤⚙◉⇥✕☆★⏸⏮⏭▶◀▸▾▴☀✓]/;
+  const dir = path.join(__dirname, 'static');
+  const files = [...fs.readdirSync(dir), ...fs.readdirSync(path.join(dir, 'panel')).map((f) => 'panel/' + f)].filter((f) => /\.(js|html|css)$/.test(f));
+  for (const f of files) assert.doesNotMatch(fs.readFileSync(path.join(dir, f), 'utf8'), glyphs, f);
+  const { icon } = await import('./static/icons.js');
+  assert.match(icon('close'), /<svg[^>]*aria-hidden="true"/);
+  assert.throws(() => icon('nope'));
+});
+
+test('native confirm is gone from the panels', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'static/panel/presets.js'), 'utf8');
+  assert.doesNotMatch(src, /[^a-zA-Z.]confirm\(/);
+});
+
+test('setting labels are in words; the key stays in the tooltip', async () => {
+  const { humanize } = await import('./static/util.js');
+  assert.equal(humanize('sparkle.color'), 'Sparkle color');
+  assert.equal(humanize('fade_in'), 'Fade in');
+  assert.equal(humanize('colors.0'), 'Colors 1');
+});
+
+test('status gives one verdict', async () => {
+  const { verdict } = await import('./static/panel/status.js');
+  const ok = { reachable: true }, down = { reachable: false };
+  assert.equal(verdict(['a', 'b'], { a: ok, b: ok }).text, 'All 2 controllers healthy');
+  assert.equal(verdict(['a', 'b'], { a: ok, b: down }).text, '1 controller needs attention');
+  assert.equal(verdict(['a', 'b'], { a: down, b: down }).text, '2 controllers need attention');
+  assert.equal(verdict(['a'], {}).text, 'No controller health reported yet');
+  assert.equal(verdict(['a'], { a: ok }).text, 'The controller is healthy');
+});
+
+test('calibration leads with the step in words, not an internal id', async () => {
+  const { stepTitle } = await import('./static/panel/calibrate.js');
+  assert.deepEqual(stepTitle({ target: { kind: 'anchor', run: 'shed-eave', node: 'corner-1' } }), { title: 'Line up Corner 1', on: 'on Shed eave' });
+  assert.equal(stepTitle({ target: { kind: 'end', run: 'porch', end: 'first' } }).title, 'Find the first end');
+});
+
+test('effect cards say something useful', async () => {
+  const { effectKind } = await import('./static/panel/looks.js');
+  assert.equal(effectKind({ params: [{ name: 'palette', type: 'palette' }] }), 'Palette colors');
+  assert.equal(effectKind({ params: [{ name: 'a.color', type: 'color' }] }), 'Layered look');
+  assert.equal(effectKind({ params: [{ name: 'color', type: 'color' }] }), 'One color');
+});
+
+test('the inspect card keeps clear of its pixel', async () => {
+  const { cardCorner } = await import('./static/card-place.js');
+  const base = { w: 1000, h: 800, cw: 240, ch: 200, top: 50 };
+  assert.deepEqual(cardCorner({ ...base, pixel: [900, 100] }), [8, 58]);
+  assert.deepEqual(cardCorner({ ...base, pixel: [100, 100] }), [752, 592]);
+  assert.deepEqual(cardCorner({ ...base, pixel: null }), [752, 58]);
+});
+
+test('map labels never pile up', async () => {
+  const { createOverlay } = await import('./static/overlay.js');
+  const nodes = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({ id: 'node-name-' + i, plan: 0, x: 10, y: 10, z: 0 }));
+  const S = { geo: { pixels: { count: 0 }, controllers: [], mappings: [], zones: [], edges: [], runs: [], nodes }, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x, y] } };
+  const overlay = createOverlay(S);
+  overlay.st.nodes = overlay.st.labels = true;
+  const at = [];
+  overlay.draw({ beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, strokeText() {}, fillText(t, x, y) { at.push([x, y]); }, measureText: (t) => ({ width: t.length * 6 }) });
+  assert.ok(at.length >= 1 && at.length <= 5, `${at.length} labels`);
+  assert.equal(new Set(at.map(([, y]) => y)).size, at.length, 'two labels on the same line');
+});

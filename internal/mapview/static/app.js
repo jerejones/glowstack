@@ -16,6 +16,7 @@ import { buildTree, nodeName, nodeKinds } from './select.js';
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
+import { cardCorner } from './card-place.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate } from './panel/calibrate.js';
@@ -23,6 +24,7 @@ import { runVisibility } from './run-visibility.js';
 import { createHousePoll } from './house-status.js';
 import { createLibrary } from './library.js';
 import { mapStatus } from './map-status.js';
+import { icon, fillIcons } from './icons.js';
 import { stateHTML, bootFailure } from './states.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
@@ -73,7 +75,7 @@ function toast(msg, opts = {}) {
   const el = document.createElement('div');
   el.className = 'toast' + (err || opts.error ? ' error' : '');
   const details = err ? msg.details || [] : opts.details || [];
-  el.innerHTML = `<span class="msg">${esc(err ? msg.message : msg)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss">✕</button>`;
+  el.innerHTML = `<span class="msg">${esc(err ? msg.message : msg)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
   box.appendChild(el);
   while (box.children.length > 3) box.firstChild.remove();
@@ -149,6 +151,7 @@ function setInsets() {
   if (!S.view) return;
   const stage = $('stage').getBoundingClientRect();
   const full = S.panel.detent() === 'full';
+  // At full the chip sits by the toggle, in the strip of map above the sheet.
   let top = full ? 0 : $('chips').getBoundingClientRect().bottom - stage.top;
   if (full && !$('crumbs').hidden) top = $('crumbs').getBoundingClientRect().bottom - stage.top;
   let bottom = S.panel.covered();
@@ -206,8 +209,8 @@ function renderCrumbs() {
   const sel = S.sel;
   box.hidden = !sel;
   if (!sel) { setInsets(); return; }
-  box.innerHTML = sel.chain.map((nd, i) => `${i ? '<span class="sep">›</span>' : ''}<button type="button" data-i="${i}" class="${nd === sel.node ? 'on' : ''}" title="${esc(nodeKinds(nd))} · ${nd.count} px">${esc(nodeName(nd))}</button>`).join('') +
-    '<button type="button" class="x" aria-label="Clear the selection">✕</button>';
+  box.innerHTML = sel.chain.map((nd, i) => `${i ? `<span class="sep">${icon('chevronRight')}</span>` : ''}<button type="button" data-i="${i}" class="${nd === sel.node ? 'on' : ''}" title="${esc(nodeKinds(nd))} · ${nd.count} px">${esc(nodeName(nd))}</button>`).join('') +
+    `<button type="button" class="x" aria-label="Clear the selection" title="Clear the selection">${icon('close')}</button>`;
   box.querySelectorAll('button[data-i]').forEach((b) => { b.onclick = () => select(sel.chain[+b.dataset.i], sel.chain); });
   box.querySelector('.x').onclick = () => select(null);
   // On a phone the crumbs are one row that scrolls: show the selected one.
@@ -331,7 +334,7 @@ function hoverAt(x, y) {
 
 // ---------- inspect ----------
 
-let inspectSeq = 0, inspected = null;
+let inspectSeq = 0, inspected = null, inspectMore = false;
 const showQ = () => (S.show ? '?show=' + S.show : '');
 
 async function inspect(p) {
@@ -378,23 +381,29 @@ function renderInspect() {
   const r = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
   const o = S.overlay.outputOf(d.id);
   const sh = d.showing;
-  const layer = sh ? `${esc(sh.layer)}${sh.preview ? ' (preview)' : ''}${sh.effect ? ' · ' + esc(sh.effect) : ''}${sh.preset ? ' · preset ' + esc(sh.preset) : ''}${sh.target ? ' on ' + esc(sh.target) : ''}` : '<span class="muted">none</span>';
-  const maps = d.mappings.map((m) => r(esc(m.id), `u ${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`)).join('');
-  const html = `<div class="head"><b>#${d.id} · ${esc(d.controller)}:${d.index}${d.dead ? ' (dead)' : ''}</b>${pinned ? '<button type="button" class="quiet" data-unpin aria-label="Unpin">✕</button>' : ''}</div>
+  const layer = sh ? `${esc(sh.layer)}${sh.preview ? ' (preview)' : ''}${sh.effect ? ' · ' + esc(sh.effect) : ''}${sh.preset ? ' · preset ' + esc(sh.preset) : ''}${sh.target ? ' on ' + esc(sh.target) : ''}` : '<span class="muted">Nothing</span>';
+  const maps = d.mappings.map((m) => r(esc(m.id), `${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`)).join('');
+  const html = `<div class="head"><b>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</b>${pinned ? `<button type="button" class="quiet" data-unpin aria-label="Unpin" title="Unpin">${icon('close')}</button>` : ''}</div>
     <table>
-    ${r('color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
-    ${r('showing', layer)}
-    ${r('run', d.run ? `${esc(d.run)} · pixel ${d.run_pixel}` : '<span class="muted">none</span>')}
-    ${r('output', o ? `${esc(o.controller)} ${esc(outputName(o))} · LED ${d.id - o.first} (${d.id - o.first + 1} of ${o.count})` : '<span class="muted">none</span>')}
-    ${r('areas', esc(d.areas.join(', ') || '—'))}
-    ${r('zones', esc(d.zones.join(', ') || '—'))}
-    ${r('edge', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}
-    ${r('size', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
-    ${S.view.kind === '3d' ? r('position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`) : r('plan x, y', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
+    ${r('Color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
+    ${r('Showing', layer)}
+    ${r('Run', d.run ? esc(d.run) : '<span class="muted">None</span>')}
+    ${r('Output', o ? `${esc(o.controller)} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
+    </table>
+    <details class="more"${inspectMore ? ' open' : ''}><summary>Details</summary><table>
+    ${r('Controller pixel', `${esc(d.controller)}:${d.index}`)}
+    ${d.run ? r('Pixel on run', d.run_pixel) : ''}
+    ${o ? r('LED on output', `${d.id - o.first + 1} of ${o.count}`) : ''}
+    ${r('Areas', esc(d.areas.join(', ') || '—'))}
+    ${r('Zones', esc(d.zones.join(', ') || '—'))}
+    ${r('Segment', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}
+    ${r('Pixel size', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
+    ${S.view.kind === '3d' ? r('Position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`) : r('Plan position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
     ${maps}
-    </table>`;
+    </table></details>`;
   const el = sheet ? row : card;
   el.innerHTML = html;
+  el.querySelector('details.more').ontoggle = (e) => { inspectMore = e.target.open; placeCard(); };
   const b = el.querySelector('[data-unpin]');
   if (b) b.onclick = unpin;
   inspectColor = '';
@@ -402,18 +411,18 @@ function renderInspect() {
   placeCard();
 }
 
-// placeCard keeps the floating card beside its pixel, inside the map.
+// placeCard docks the floating card in the corner of the map farthest
+// from its pixel, so that it never hides what is being inspected.
 function placeCard() {
   const card = $('inspectCard');
   if (card.hidden || !inspected) return;
   const q = S.view.screenOf(inspected.id);
   const { w, h } = S.view.size();
-  const cw = card.offsetWidth, ch = card.offsetHeight;
-  let x = q ? q[0] + 18 : w - cw - 10, y = q ? q[1] + 18 : 70;
-  if (x + cw > w - 8) x = q ? q[0] - 18 - cw : w - cw - 8;
-  if (y + ch > h - 8) y = Math.max(8, (q ? q[1] - 18 : h) - ch);
-  card.style.left = Math.max(8, x) + 'px';
-  card.style.top = Math.max(8, y) + 'px';
+  const stage = $('stage').getBoundingClientRect();
+  const under = (id) => { const el = $(id); return el.hidden ? 0 : el.getBoundingClientRect().bottom - stage.top; };
+  const [x, y] = cardCorner({ w, h, cw: card.offsetWidth, ch: card.offsetHeight, top: Math.max(under('chips'), under('crumbs')), pixel: q });
+  card.style.left = x + 'px';
+  card.style.top = y + 'px';
 }
 
 // ---------- the stream ----------
@@ -585,6 +594,7 @@ function onDetent(d) {
 
 let bootStep = 'load the map';
 async function main() {
+  fillIcons(document);
   const q = new URLSearchParams(location.search);
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
@@ -598,7 +608,7 @@ async function main() {
   // A failed load stays recorded; each panel shows it with Retry.
   S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };
   bootStep = 'set up the page';
-  S.panel = createPanel({ onLayout, onDetent, onTab: (name) => S.emit('tab', name) });
+  S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
   S.overlay = createOverlay(S);
   S.looks = createLooks(S, $('tab-looks'));
   S.presetLibrary = createPresets(S, $('tab-presets'));

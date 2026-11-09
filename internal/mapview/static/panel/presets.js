@@ -5,6 +5,8 @@
 import { api, patch, del, esc, failure } from '../util.js';
 import { createForm, lookStrip } from '../form.js';
 import { showState, stateHTML } from '../states.js';
+import { confirmDialog } from '../dialog.js';
+import { icon } from '../icons.js';
 
 export function presetSlug(name, presets) {
   const base = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'preset';
@@ -16,7 +18,7 @@ export function presetSlug(name, presets) {
 export function createPresets(S, root) {
   let draft = null, dirty = false, busy = false, form;
   root.innerHTML = `
-    <div class="row library-heading"><h2>Presets</h2><button type="button" class="go" id="prNew">New preset</button></div>
+    <div class="row library-heading"><h2 class="title">Presets</h2><button type="button" id="prNew">New preset</button></div>
     <p class="muted small">Save looks for later. Pin favorites to keep them visible on Looks.</p>
     <div id="prMessage" role="status" class="small"></div>
     <div id="prEditor" class="preset-editor" hidden></div>
@@ -34,10 +36,11 @@ export function createPresets(S, root) {
     S.library.presets = 'ready';
     S.emit('presets');
   };
-  const discard = () => !dirty || confirm('Discard your unsaved preset changes?');
+  const discard = async () => !dirty || confirmDialog({ title: 'Discard your changes?', body: 'Your unsaved edits to this preset will be lost.', confirm: 'Discard', cancel: 'Keep editing', danger: true });
   const setBusy = (value) => {
     busy = value;
     for (const b of root.querySelectorAll('button, input, select, textarea')) b.disabled = value;
+    if (!value && S.library.catalog === 'failed') $('#prNew').disabled = true;
   };
   const endpoint = (id) => '/api/v1/presets/' + encodeURIComponent(id);
 
@@ -55,7 +58,7 @@ export function createPresets(S, root) {
       const row = document.createElement('article'); row.className = 'preset-entry';
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
       row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(p.name || p.id)}</b><span class="muted small">${esc(effect?.name || p.effect)}</span></div><div class="preset-actions">
-        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + (p.name || p.id))}">${p.pinned ? '★ Pinned' : '☆ Pin'}</button>
+        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + (p.name || p.id))}"><span class="pin">${icon(p.pinned ? 'starFilled' : 'star')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <button type="button" data-act="edit">Edit</button><button type="button" data-act="copy">Duplicate</button><button type="button" data-act="delete" class="danger">Delete</button></div>`;
       row.querySelector('.strip').style.background = lookStrip(S, p.effect, p.params);
       row.querySelector('[data-act=edit]').onclick = () => openEditor(p);
@@ -71,8 +74,8 @@ export function createPresets(S, root) {
         } catch (e) { say(failure('pin the preset', e)); } finally { setBusy(false); }
       };
       row.querySelector('[data-act=delete]').onclick = async () => {
-        if (busy || !confirm(`Delete “${p.name || p.id}”? Running lights will keep their current look.`)) return;
-        if (draft?.id === p.id && !discard()) return;
+        if (busy || !(await confirmDialog({ title: `Delete “${p.name || p.id}”?`, body: 'Running lights will keep their current look.', confirm: 'Delete', danger: true }))) return;
+        if (draft?.id === p.id && !(await discard())) return;
         setBusy(true);
         try {
           await del(endpoint(p.id) + '?library=true');
@@ -87,8 +90,8 @@ export function createPresets(S, root) {
     if (busy) setBusy(true);
   }
   function closeEditor() { draft = null; dirty = false; $('#prEditor').hidden = true; $('#prEditor').replaceChildren(); }
-  function openEditor(p) {
-    if (busy || !discard()) return;
+  async function openEditor(p) {
+    if (busy || !(await discard())) return;
     draft = structuredClone(p || { id: '', name: '', effect: S.catalog.effects?.[0]?.id || '', params: {}, pinned: false });
     dirty = false;
     const box = $('#prEditor'); box.hidden = false;
@@ -106,11 +109,11 @@ export function createPresets(S, root) {
     const select = $('#prEffect');
     for (const e of S.catalog.effects || []) select.add(new Option(e.name || e.id, e.id));
     select.value = draft.effect;
-    select.onchange = () => {
-      if (Object.keys(draft.params || {}).length && !confirm('Change effect and reset its settings?')) { select.value = draft.effect; return; }
+    select.onchange = async () => {
+      if (Object.keys(draft.params || {}).length && !(await confirmDialog({ title: 'Change the effect?', body: "This preset's settings will reset.", confirm: 'Change effect' }))) { select.value = draft.effect; return; }
       draft.effect = select.value; draft.params = {}; dirty = true; renderForm();
     };
-    $('#prCancel').onclick = () => { if (discard()) closeEditor(); };
+    $('#prCancel').onclick = async () => { if (await discard()) closeEditor(); };
     $('#prSave').onclick = saveDraft;
     renderForm();
     $('#prName').focus();

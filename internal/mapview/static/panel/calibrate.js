@@ -11,7 +11,9 @@
 // a laptop share it; a session already running opens this mode. The
 // screen is kept awake while a session runs. createSession is the
 // session logic without the page, for tests.
-import { esc, plural, NOT_RESPONDING } from '../util.js';
+import { esc, plural, humanize, NOT_RESPONDING } from '../util.js';
+import { icon } from '../icons.js';
+import { stateHTML } from '../states.js';
 
 const BASE = '/api/v1/calibration';
 // What each action is called when it fails on the network.
@@ -106,6 +108,20 @@ export function referenceColors(g, cal) {
   return out;
 }
 
+// stepTitle says what a target asks of the person, in words.
+export function stepTitle(st) {
+  const t = st.target || {};
+  const on = t.run ? `on ${humanize(t.run)}` : t.controller ? `on ${humanize(t.controller)}` : '';
+  switch (t.kind) {
+    case 'anchor': return { title: `Line up ${humanize(t.node)}`, on };
+    case 'end': return { title: `Find the ${t.end} end`, on };
+    case 'gap': return { title: 'Measure the gap', on };
+    case 'bands': return { title: 'Check the test bands', on };
+    case 'dead': return { title: 'Mark dead pixels', on };
+  }
+  return { title: st.label ? humanize(st.label) : 'Pick a point to measure', on: '' };
+}
+
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
@@ -120,12 +136,12 @@ export function createCalibrate(S, root) {
 
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
-      <button type="button" id="caStop" class="danger">Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
+      <button type="button" id="caStop" class="danger" title="End calibration and return the lights to normal">Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
       <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}">${n > 0 ? '+' : '−'}${Math.abs(n)}</button>`).join('')}</div>
-      <div class="cal-confirm"><button type="button" class="go" id="caConfirm">Confirm</button>
-        <label class="check small"><input type="checkbox" id="caNext"> then next</label></div>
+      <div class="cal-confirm"><button type="button" class="go" id="caConfirm" title="Save this pixel as the measured position">Confirm</button>
+        <label class="check small"><input type="checkbox" id="caNext"> Go to next after</label></div>
     </div>`;
   const $$ = (s) => root.querySelector(s);
   for (const b of root.querySelectorAll('[data-by]')) b.onclick = () => session.nudge(+b.dataset.by);
@@ -211,9 +227,9 @@ export function createCalibrate(S, root) {
   }
 
   const acts = [];
-  const btn = (label, fn, cls = '', disabled = false) => {
+  const btn = (label, fn, cls = '', disabled = false, title = '') => {
     acts.push(fn);
-    return `<button type="button" class="${cls}" data-a="${acts.length - 1}"${disabled ? ' disabled' : ''}>${label}</button>`;
+    return `<button type="button" class="${cls}" data-a="${acts.length - 1}"${disabled ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
   };
 
   function render() {
@@ -234,15 +250,16 @@ export function createCalibrate(S, root) {
     $$('#caStop').hidden = !active;
     $$('#caClose').hidden = !!active;
     $$('#caDock').hidden = !active;
-    $$('#caLabel').textContent = active ? (st.label || 'nothing picked yet') : 'Calibration';
-    $$('#caCount').textContent = st && st.anchors ? `${st.measured} of ${plural(st.anchors, 'anchor')} measured` : '';
+    $$('#caLabel').textContent = 'Calibrating';
+    $$('#caCount').textContent = st && st.anchors ? `${st.measured} of ${plural(st.anchors, 'point')} measured` : '';
 
-    if (!st) parts.push('<p class="muted">Loading…</p>');
+    if (!st) parts.push(stateHTML({ kind: 'loading', title: 'Loading calibration…' }));
     else if (!active) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
-      parts.push(`<p class="muted">Lights the next unmeasured anchor on the house: nudge the white pixel onto the real corner, then confirm. This drives the real lights. Measurements go to <code>anchors.yaml</code> in the data folder.</p>`);
-      parts.push(`<div class="row">${btn(r ? `Start on ${esc(r.id)}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'on grow')}</div>`);
+      parts.push(`<h2 class="title">Line up the map with the lights</h2><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm. This changes the real lights until you stop.</p>`);
+      parts.push(`<div class="row">${btn(r ? `Start on ${esc(humanize(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
+      parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved to <code>anchors.yaml</code> in the data folder.</div></details>');
     } else {
       if (st.warning) parts.push(`<div class="cal-warn">${esc(st.warning)}</div>`);
       const cs = st.cursors || [];
@@ -250,16 +267,22 @@ export function createCalibrate(S, root) {
       const c = cs[st.side];
       if (c) {
         const moved = c.index - c.estimate;
-        parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'no pixel' : esc(c.controller) + ':' + c.index}</span>
-          <span class="muted">layout ${c.estimate} · ${esc(c.source)}${moved ? ` · <b>${moved > 0 ? '+' : ''}${moved}</b>` : ''}</span></div>`);
-        parts.push('<div class="muted small">+ moves toward the run\'s end. Target pattern: this picture stays fixed. Use the offset buttons until the real white pixel matches the circled corner. Red marks every 10th pixel toward the start, green toward the end.</div>');
-        if (!c.fixed && c.index >= 0) parts.push(`<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="index" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to index</button></form>`);
+        const step = stepTitle(st);
+        const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
+        parts.push(`<div class="cal-step">${i >= 0 ? `<small>Step ${i + 1} of ${st.progress.length}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
+        parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
+        parts.push('<div class="muted small">Use the buttons until the real white pixel matches the circled corner; + moves toward the end of the run. Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</div>');
+        const was = $$('#caBody details.tech');
+        parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><table class="kv">
+          <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
+          <tr><th>Layout position</th><td>${c.estimate}</td></tr><tr><th>Source</th><td>${esc(c.source)}</td></tr></table>
+          ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
       }
       if (st.target && st.target.kind === 'gap') {
         parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9"></label><button type="submit">Confirm length</button></form>`);
       }
       const tr = st.target && (st.target.run || (c && c.run));
-      parts.push(`<div class="cal-nav">${btn('◀ Prev', () => session.next(true))}${btn('Next ▶', () => session.next())}${tr ? btn('Bands on run', () => session.target({ kind: 'bands', run: tr })) : ''}${st.target && st.target.kind !== 'bands' ? btn('Forget', () => session.forget(), 'quiet') : ''}</div>`);
+      parts.push(`<div class="cal-nav">${btn(`${icon('chevronLeft')}Previous`, () => session.next(true), 'icon-btn')}${btn(`Next${icon('chevronRight')}`, () => session.next(), 'icon-btn')}${tr ? btn('Show test bands', () => session.target({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : ''}${st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(st.message)}</div>`);
       for (const w of st.checks || []) parts.push(`<div class="cal-warn">${esc(w)}</div>`);
       const nudgeOff = !c || c.fixed || c.index < 0;
@@ -279,13 +302,13 @@ export function createCalibrate(S, root) {
       if (c && !c.fixed && c.controller === ctl.id && px.index[p] >= c.min && px.index[p] <= c.max) tb.push(btn('Move cursor here', () => session.set(px.index[p]), 'on'));
       if (r) {
         const near = nearestAnchor(r, px.index[p]);
-        if (near) tb.push(btn(`Calibrate ${esc(g.nodes[near.node].id)}`, () => (active ? session.target : (t) => session.start(t))({ kind: 'anchor', run: r.id, node: g.nodes[near.node].id })));
+        if (near) tb.push(btn(`Line up ${esc(humanize(g.nodes[near.node].id))}`, () => (active ? session.target : (t) => session.start(t))({ kind: 'anchor', run: r.id, node: g.nodes[near.node].id })));
         const end = Math.abs(px.index[p] - r.first) <= Math.abs(px.index[p] - r.last) ? 'first' : 'last';
         if (active) tb.push(btn(`${end} end`, () => session.target({ kind: 'end', run: r.id, end })));
         if (active) tb.push(btn('Bands', () => session.target({ kind: 'bands', run: r.id })));
       }
-      if (active) tb.push(btn('Mark dead', () => session.target({ kind: 'dead', controller: ctl.id, indices: [px.index[p]] })));
-      parts.push(`<div class="cal-tap"><div>Tapped <b>${esc(ctl.id)}:${px.index[p]}</b>${r ? ' on ' + esc(r.id) : ''}</div><div class="row">${tb.join('')}${btn('✕', () => { tapped = -1; render(); }, 'quiet')}</div></div>`);
+      if (active) tb.push(btn('Mark as dead', () => session.target({ kind: 'dead', controller: ctl.id, indices: [px.index[p]] })));
+      parts.push(`<div class="cal-tap"><div>Tapped <b>${esc(ctl.id)}:${px.index[p]}</b>${r ? ' on ' + esc(r.id) : ''}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
     }
 
     // Progress, grouped by run. Tap one to calibrate it.
@@ -302,7 +325,7 @@ export function createCalibrate(S, root) {
         const here = JSON.stringify(it.target) === cur ? ' here' : '';
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
-        return `<li class="${it.done ? 'done' : ''}${here}" data-a="${acts.length - 1}"><span>${it.done ? '✓' : '·'} ${esc(it.label)}</span><span class="muted">${val} ${esc(it.source || '')}</span></li>`;
+        return `<li class="nv ${it.done ? 'done' : ''}${here}" data-a="${acts.length - 1}" title="${esc(it.label)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(it.label)}</span></span><span class="value muted">${val} ${esc(it.source || '')}</span></li>`;
       }).join('')}</ul></div>`).join('')}</div>`);
     }
 
@@ -311,13 +334,13 @@ export function createCalibrate(S, root) {
       const runs = g.runs.map((r) => `<option>${esc(r.id)}</option>`).join('');
       const ctls = g.controllers.map((c) => `<option>${esc(c.id)}</option>`).join('');
       const was = $$('#caBody details.more');
-      parts.push(`<details class="more"${was && was.open ? ' open' : ''}><summary>More: run ends, bands, dead pixels</summary>
+      parts.push(`<details class="more"${was && was.open ? ' open' : ''}><summary>More places to measure</summary>
         <div class="row"><select name="run">${runs}</select>
           ${btn('First end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'first' }))}
           ${btn('Last end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'last' }))}
           ${btn('Bands', () => session.target({ kind: 'bands', run: $$('[name=run]').value }))}</div>
         <div class="row"><select name="ctl">${ctls}</select>${btn('Bands on controller', () => session.target({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
-        <form class="row" data-form="dead"><input type="number" name="a" placeholder="first" style="width:6em"><input type="number" name="b" placeholder="last" style="width:6em"><button type="submit">Dead pixels</button></form>
+        <form class="row" data-form="dead"><input type="number" name="a" placeholder="First" style="width:6em"><input type="number" name="b" placeholder="Last" style="width:6em"><button type="submit">Mark as dead</button></form>
       </details>`);
     }
 

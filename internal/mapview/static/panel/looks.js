@@ -15,10 +15,22 @@ import { nodeName, nodeTarget, targetRanges } from '../select.js';
 import { houseStatusMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip } from '../form.js';
 import { showState } from '../states.js';
+import { icon } from '../icons.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
 const TARGET = 'glowstack.looks.target';
+
+// effectKind says what an effect takes its colors from, for its card.
+export function effectKind(e) {
+  const has = (type) => e.params.some((p) => p.type === type);
+  if (e.params.some((p) => p.name.includes('.'))) return 'Layered look';
+  if (e.params.some((p) => p.name === 'bands')) return 'Color bands';
+  if (has('palette')) return 'Palette colors';
+  if (has('colors')) return 'Several colors';
+  if (has('color')) return 'One color';
+  return 'Effect';
+}
 
 export function createLooks(S, root) {
   const g = S.geo;
@@ -27,14 +39,13 @@ export function createLooks(S, root) {
   const cards = new Map(); // lane:id → card
   root.innerHTML = `
     <div class="target"><span class="muted">Looks go on</span><select id="lkTarget" aria-label="Where looks go"></select></div>
+    <div class="chips quick-targets" id="lkQuick"></div>
     <div id="lkSel" class="muted small"></div>
     <div class="cards" id="lkPresets"></div>
     <details id="lkOtherPresets"><summary>More presets <span class="muted"></span></summary><div class="cards"></div></details>
     <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
     <div class="lane" id="lkPreview">
-      <div class="row"><h2>Preview <small>on the map only</small></h2><span class="row">
-        <button type="button" class="go" id="lkPushAll" title="Move every preview layer onto the lights">Push all to lights</button>
-        <button type="button" id="lkClear" title="Remove every preview layer">Clear</button></span></div>
+      <div class="row"><h2>Preview <small>on the map only</small></h2></div>
       <div class="list"></div>
     </div>
     <div class="lane" id="lkHouse">
@@ -42,17 +53,23 @@ export function createLooks(S, root) {
       <div class="list"></div>
     </div>
     <div class="clock" id="lkClock">
-      <button type="button" id="lkPlay" title="Pause or resume the preview clock (space)">⏸</button>
+      <button type="button" id="lkPlay" class="icon-btn" title="Pause or resume the preview clock (space)" aria-label="Pause the preview clock"></button>
       <span class="t" id="lkClockText"></span>
-      <button type="button" class="quiet" id="lkClockMore" aria-expanded="false" title="Clock controls">▾</button>
+      <button type="button" class="quiet icon-btn" id="lkClockMore" aria-expanded="false" title="Clock controls" aria-label="Clock controls"></button>
     </div>
     <div class="clock-more" id="lkClockPanel" hidden>
-      <button type="button" id="lkBack" title="Step back one frame">⏮</button>
-      <span class="muted">step</span>
-      <button type="button" id="lkFwd" title="Step forward one frame">⏭</button>
+      <button type="button" id="lkBack" class="icon-btn" title="Step back one frame" aria-label="Step back one frame">${icon('stepBack')}</button>
+      <span class="muted">Step one frame</span>
+      <button type="button" id="lkFwd" class="icon-btn" title="Step forward one frame" aria-label="Step forward one frame">${icon('stepForward')}</button>
       <span>Speed</span><input type="range" id="lkSpeed" min="-1" max="1" step="0.01" value="0"><output id="lkSpeedOut">1×</output>
       <span>Scrub</span><input type="range" id="lkScrub" min="-30" max="30" step="0.02" value="0"><span class="muted small">±30 s</span>
       <span></span><button type="button" id="lkNow" title="Back to the house clock">Now</button><span></span>
+    </div>
+    <div class="look-bar" id="lkBar" hidden>
+      <span class="strip" id="lkBarStrip"></span>
+      <div class="what"><b id="lkBarName"></b><span id="lkBarSub"></span></div>
+      <button type="button" id="lkClear" title="Remove every look from the preview">Clear</button>
+      <button type="button" class="go" id="lkPushAll" title="Move what's in preview onto the lights">Apply to lights</button>
     </div>`;
   const $$ = (sel) => root.querySelector(sel);
 
@@ -66,12 +83,22 @@ export function createLooks(S, root) {
       (sel ? `<optgroup label="Selected">${opt(sel, nodeName(S.sel.node))}</optgroup>` : '') +
       `<optgroup label="Everything">${opt('all', 'All')}</optgroup>` +
       `<optgroup label="Zones">${g.zones.map((z) => opt(z.area, z.name || z.id)).join('')}</optgroup>` +
-      `<optgroup label="Areas">${g.areas.map((a) => opt(a.id, `${a.id} (${a.count})`)).join('')}</optgroup>` +
+      `<optgroup label="Areas">${g.areas.map((a) => opt(a.id, a.id)).join('')}</optgroup>` +
       `<optgroup label="Runs">${g.runs.map((r) => opt('run:' + r.id, r.id)).join('')}</optgroup>`;
     if (sel) targetSel.value = sel;
     else if (target) targetSel.value = target;
     if (!targetSel.value && targetSel.options.length) targetSel.selectedIndex = 0;
     $$('#lkSel').textContent = S.sel ? '' : 'Tap the map to pick a run; tap again for the area around it.';
+    // The common places stay one tap away.
+    const quick = [['all', 'All'], ...g.zones.slice(0, 4).map((z) => [z.area, z.name || z.id])];
+    $$('#lkQuick').replaceChildren(...quick.map(([v, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      press(b, targetSel.value === v);
+      b.onclick = () => { targetSel.value = v; targetSel.onchange(); fillTargets(); };
+      return b;
+    }));
   }
   targetSel.onchange = () => {
     target = targetSel.value;
@@ -82,19 +109,20 @@ export function createLooks(S, root) {
 
   // ---------- presets and effects ----------
 
-  function card(name, sub, strip, onclick, title) {
+  function card(name, sub, strip, look, onclick, title) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'preset';
     b.title = title || '';
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span>`;
+    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}In preview</span>`;
+    b.dataset.look = look;
     b.onclick = onclick;
     return b;
   }
   function renderCatalog() {
     const pres = $$('#lkPresets');
     const presetCard = (p) => card(p.name || p.id, (effectFor(S, { preset: p.id }) || {}).name || p.effect,
-      lookStrip(S, p.effect, p.params), () => push({ preset: p.id }), `Preview ${p.name || p.id} here`);
+      lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${p.name || p.id} here`);
     $$('#lkEffects summary span').textContent = `(${(S.catalog.effects || []).length})`;
     if (S.library.presets === 'failed' || S.library.catalog === 'failed') {
       // Failing is not the same as having nothing: say so, with Retry.
@@ -117,7 +145,14 @@ export function createLooks(S, root) {
     $$('#lkOtherPresets').hidden = !other.length;
     $$('#lkOtherPresets summary span').textContent = `(${other.length})`;
     $$('#lkOtherPresets .cards').replaceChildren(...other.map(presetCard));
-    $$('#lkEffects .cards').replaceChildren(...(S.catalog.effects || []).map((e) => card(e.name || e.id, 'effect', lookStrip(S, e.id, {}), () => push({ effect: e.id }))));
+    $$('#lkEffects .cards').replaceChildren(...(S.catalog.effects || []).map((e) => card(e.name || e.id, effectKind(e), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }))));
+    markPreviewed();
+  }
+
+  // markPreviewed shows which cards are in the preview right now.
+  function markPreviewed() {
+    const on = new Set((S.preview ? S.preview.layers : []).map((l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect)));
+    for (const b of root.querySelectorAll('.preset')) b.classList.toggle('in-preview', on.has(b.dataset.look));
   }
 
   async function push(look) {
@@ -171,7 +206,7 @@ export function createLooks(S, root) {
       <div class="top"><div class="what"><b></b><span></span></div>
         <button type="button" class="tweak" aria-expanded="false">Tweak</button></div>
       <div class="strip"></div>
-      <div class="bri"><span title="Layer brightness">☀</span><input type="range" min="0" max="1" step="0.01" aria-label="Layer brightness"><output></output></div>
+      <div class="bri"><span title="Layer brightness">${icon('sun')}</span><input type="range" min="0" max="1" step="0.01" aria-label="Layer brightness"><output></output></div>
       <div class="acts"></div>
       <div class="note"></div>
       <div class="slot"></div>`;
@@ -183,7 +218,7 @@ export function createLooks(S, root) {
     el.querySelector('.tweak').onclick = () => tweak(c);
     const acts = el.querySelector('.acts');
     if (lane === 'preview') {
-      acts.innerHTML = `<button type="button" class="go" data-a="apply">Apply to lights</button><button type="button" data-a="remove">Remove</button>`;
+      acts.innerHTML = `<button type="button" data-a="apply" hidden title="Put only this look on the lights">Apply only this</button><button type="button" data-a="remove">Remove</button>`;
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
       acts.querySelector('[data-a=remove]').onclick = () => remove(c, '/api/map/preview/layers');
     } else {
@@ -199,7 +234,7 @@ export function createLooks(S, root) {
     const acc = accentFor(l.id);
     el.style.setProperty('--acc', `rgb(${acc})`);
     el.querySelector('.what b').textContent = layerName(S, l);
-    const bits = ['on ' + l.target];
+    const bits = ['on ' + (l.target === 'all' ? 'everything' : l.target.replace(/^run:/, ''))];
     if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
     if (l.expires) bits.push('until ' + new Date(l.expires).toLocaleTimeString());
     el.querySelector('.what span').textContent = bits.join(' · ');
@@ -214,7 +249,6 @@ export function createLooks(S, root) {
     const orig = c.lane === 'preview' ? copies[l.id] : '';
     note.className = orig ? 'note copy-note' : 'note';
     note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
-    if (c.lane === 'preview') el.querySelector('[data-a=apply]').textContent = orig ? 'Update lights' : 'Apply to lights';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
     rm.textContent = part ? `Remove from ${nodeName(S.sel.node)}` : 'Remove';
     rm.title = part ? `Turn off ${part} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
@@ -243,10 +277,16 @@ export function createLooks(S, root) {
     const pbox = $$('#lkPreview .list');
     renderLane(pbox, 'preview', prev);
     let empty = pbox.querySelector('.empty');
-    if (!prev.length && !empty) pbox.insertAdjacentHTML('beforeend', '<div class="empty">Nothing in preview. Tap a look to try it on the map; the lights don\'t change.</div>');
-    else if (prev.length && empty) empty.remove();
-    $$('#lkPushAll').disabled = !prev.length;
-    $$('#lkClear').disabled = !prev.length;
+    const previewNote = !S.preview ? 'Loading the preview…' : prev.length ? '' : 'Nothing in preview. Tap a look to try it on the map; the lights don\'t change.';
+    if (previewNote) {
+      if (!empty) { empty = document.createElement('div'); empty.className = 'empty'; pbox.append(empty); }
+      empty.textContent = previewNote;
+    } else if (empty) empty.remove();
+    for (const c of cards.values()) {
+      if (c.lane === 'preview') c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
+    }
+    renderBar(prev);
+    markPreviewed();
 
     const house = S.house.filter((l) => !l.ephemeral);
     const hbox = $$('#lkHouse .list');
@@ -270,6 +310,19 @@ export function createLooks(S, root) {
       copies = Object.fromEntries(Object.entries(copies).filter(([k]) => ids.has(k)));
       save(COPIES, copies);
     }
+  }
+  // renderBar keeps what's in preview, and the way to apply it, in view
+  // however far the lists scroll. It is the one primary action here.
+  function renderBar(prev) {
+    $$('#lkBar').hidden = !prev.length;
+    if (!prev.length) return;
+    const l = prev[0];
+    const eff = effectFor(S, l);
+    $$('#lkBarStrip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
+    $$('#lkBarName').textContent = prev.length === 1 ? layerName(S, l) : `${prev.length} looks in preview`;
+    $$('#lkBarSub').textContent = prev.length === 1 ? 'in preview' : prev.map((x) => layerName(S, x)).join(', ');
+    const updates = prev.some((x) => copies[x.id]);
+    $$('#lkPushAll').textContent = updates ? 'Update lights' : prev.length === 1 ? 'Apply to lights' : `Apply all ${prev.length}`;
   }
   const forget = (id) => { if (copies[id]) { delete copies[id]; save(COPIES, copies); } };
 
@@ -374,7 +427,7 @@ export function createLooks(S, root) {
   };
   scrub.onchange = () => { scrubBase = null; scrub.value = 0; };
   const more = $$('#lkClockMore'), panel = $$('#lkClockPanel');
-  const openClock = (on) => { panel.hidden = !on; more.textContent = on ? '▴' : '▾'; more.setAttribute('aria-expanded', on); save(CLOCK, on); };
+  const openClock = (on) => { panel.hidden = !on; more.innerHTML = icon(on ? 'chevronUp' : 'chevronDown'); more.setAttribute('aria-expanded', on); save(CLOCK, on); };
   more.onclick = () => openClock(panel.hidden);
   openClock(!!load(CLOCK, false));
 
@@ -382,7 +435,9 @@ export function createLooks(S, root) {
     const st = S.preview;
     if (!st) return;
     const play = $$('#lkPlay');
-    play.textContent = st.paused ? '▶' : '⏸';
+    const verb = st.paused ? 'Resume' : 'Pause';
+    play.innerHTML = `${icon(st.paused ? 'play' : 'pause')}<span class="touch-label">${verb}</span>`;
+    play.setAttribute('aria-label', `${verb} the preview clock`);
     press(play, st.paused);
     press($$('#lkNow'), st.following);
     if (document.activeElement !== speed) {
@@ -402,6 +457,7 @@ export function createLooks(S, root) {
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);
+  $$('#lkPlay').innerHTML = `${icon('pause')}<span class="touch-label">Pause</span>`;
   fillTargets();
   renderCatalog();
 
