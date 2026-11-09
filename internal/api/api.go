@@ -72,6 +72,7 @@ type HealthReporter = output.HealthReporter
 type API struct {
 	app     *app.App
 	started time.Time
+	strips  stripCache // effect sprites, drawn once each
 }
 
 // Mount is an httpserver.Mount that registers the API's routes.
@@ -100,9 +101,11 @@ func (api *API) Register(s *httpserver.Server) {
 	}
 	h("GET /api/v1/effects", api.effects)
 	h("GET /api/v1/effects/{id}", api.effect)
+	h("GET /api/v1/effects/{id}/strip.png", api.effectStrip)
 	h("GET /api/v1/palettes", api.palettes)
 	h("GET /api/v1/presets", api.presets)
 	h("GET /api/v1/presets/{id}", api.preset)
+	h("GET /api/v1/presets/{id}/strip.png", api.presetStrip)
 	h("PUT /api/v1/presets/{id}", api.savePreset)
 	h("PATCH /api/v1/presets/{id}/pin", api.pinPreset)
 	h("DELETE /api/v1/presets/{id}", api.deletePreset)

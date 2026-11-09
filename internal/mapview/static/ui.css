@@ -531,6 +531,9 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .preset.live.in-preview { box-shadow: inset 3px 0 0 var(--house), inset 0 0 0 1px var(--preview); border-color: var(--preview); }
 .preset.live .in-badge { margin-top: 0; }
 .preset .strip { height: 12px; border-radius: 4px; border: 1px solid var(--rim); }
+/* A strip that shows the look moving: one row of its sprite (tiles.js). */
+:root { --tile-row: 15; }
+.strip.sprite { image-rendering: pixelated; }
 /* A row of cards is as tall as its tallest name, up to two lines, with even
  * bottoms: no line is reserved for a name that fits one. The type line and
  * "Previewing" share one fixed row at the card's foot. */

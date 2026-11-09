@@ -29,6 +29,7 @@ import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure } from './states.js';
 import { frameInsets, toastBottom, toastHome } from './map-frame.js';
 import { foldable, merged } from './toast-merge.js';
+import { createTiles } from './tiles.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
 import { showingLabel } from './form.js';
 
@@ -780,6 +781,7 @@ async function startWithoutMap(e) {
   S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };
   S.refresh = async () => {};
   S.looks = { push: () => toast('Previewing needs the map. Use Retry on the map.', { warn: true }), inPreview: () => false };
+  S.tiles = createTiles(S);
   S.presetLibrary = createPresets(S, $('tab-presets'));
   for (const [id, name] of NEEDS_MAP) {
     $('tab-' + id).innerHTML = `<h1 class="title">${name}</h1>`;
@@ -811,6 +813,7 @@ async function main() {
   S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };
   bootStep = 'set up the page';
   S.overlay = createOverlay(S);
+  S.tiles = createTiles(S); // the library's tiles share one clock
   S.looks = createLooks(S, $('tab-looks'));
   S.presetLibrary = createPresets(S, $('tab-presets'));
   S.setup = createSetup(S, $('tab-setup'));

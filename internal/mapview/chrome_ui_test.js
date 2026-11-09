@@ -173,11 +173,19 @@ test('calibration leads with the step in words, not an internal id', async () =>
   assert.equal(stepTitle({ target: { kind: 'end', run: 'porch', end: 'first' } }).title, 'Find the first end');
 });
 
-test('effect cards say something useful', async () => {
+test('effect cards say something useful: the motion, else what the colors come from', async () => {
   const { effectKind } = await import('./static/panel/looks.js');
+  const { effectMotion, MOTION } = await import('./static/tiles.js');
+  assert.equal(effectMotion({ id: 'solid' }), 'Steady');
+  assert.equal(effectMotion({ id: 'breathe' }), 'Fades in and out');
+  assert.equal(effectMotion({ id: 'glitter' }), 'Sparkles over a gradient');
+  assert.notEqual(MOTION.solid, MOTION.breathe, 'Solid and Breathe read differently');
+  for (const [id, words] of Object.entries(MOTION)) assert.ok(words.split(' ').length <= 4 && words.length <= 26, `${id}: ${words}`);
+  // A composite from config has no entry: it says what it is made of.
+  assert.equal(effectMotion({ id: 'ember-glitter', params: [{ name: 'a.color', type: 'color' }] }, effectKind), 'Layered effects');
   assert.equal(effectKind({ params: [{ name: 'palette', type: 'palette' }] }), 'Blended colors');
-  assert.equal(effectKind({ params: [{ name: 'a.color', type: 'color' }] }), 'Layered effects');
   assert.equal(effectKind({ params: [{ name: 'color', type: 'color' }] }), 'Single color');
+  assert.match(fs.readFileSync(path.join(__dirname, 'static/panel/looks.js'), 'utf8'), /card\(e\.name \|\| e\.id, effectMotion\(e, effectKind\)/);
 });
 
 test('the inspect card keeps clear of its pixel', async () => {

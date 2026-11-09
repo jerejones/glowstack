@@ -2523,3 +2523,41 @@ test('Move A: the phone sheet opens to the task at the half detent', async () =>
   const { textField } = await import('./static/field.js');
   assert.match(textField({ label: 'Find a look', id: 'x' }), /<label class="field"><span class="lbl">Find a look<\/span><input/);
 });
+
+test('Move B: library tiles show the effect moving, from the renderer\'s own sprite', async () => {
+  const { spriteURL, spriteStyle, tileState, hashParams, FRAMES, FPS, MID, createTiles } = await import('./static/tiles.js');
+  assert.equal(FRAMES, 30); assert.equal(FPS, 10); assert.equal(MID, 15);
+  assert.equal(spriteURL('effect', 'glitter'), '/api/v1/effects/glitter/strip.png');
+  assert.match(spriteURL('preset', 'warm white', { color: '#fff' }), /^\/api\/v1\/presets\/warm%20white\/strip\.png\?v=[0-9a-z]+$/);
+  assert.notEqual(hashParams({ color: '#fff' }), hashParams({ color: '#000' }), 'an edited preset gets a new picture');
+  // One row of the sprite fills the strip; the drawn strip shows beneath it until it loads, or when there is none.
+  const style = spriteStyle('/api/v1/effects/solid/strip.png', 'rgb(255,160,0)');
+  assert.match(style, /background-image: url\(\/api\/v1\/effects\/solid\/strip\.png\), linear-gradient\(rgb\(255,160,0\), rgb\(255,160,0\)\)/, 'a plain color is a flat gradient layer, so the declaration holds');
+  assert.match(spriteStyle('/x.png', 'linear-gradient(90deg, red, blue)'), /url\(\/x\.png\), linear-gradient\(90deg, red, blue\);/);
+  assert.match(style, /background-size: 100% 3000%, auto/);
+  assert.match(style, /background-position: 0 calc\(var\(--tile-row, 15\) \/ 29 \* 100%\), 0 0/);
+  // When the tiles step, hold, or hold the still frame.
+  assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: false }), 'running');
+  assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: true }), 'paused', 'the map is the preview');
+  assert.equal(tileState({ reduced: false, hidden: false, visible: false, previewing: false }), 'paused', 'off screen');
+  assert.equal(tileState({ reduced: false, hidden: true, visible: true, previewing: false }), 'paused', 'page hidden');
+  assert.equal(tileState({ reduced: true, hidden: false, visible: true, previewing: false }), 'still');
+  // The clock, on a fake document: it steps the containers it watches and stops for a preview.
+  const handlers = {};
+  const S = { preview: null, on: (ev, fn) => { handlers[ev] = fn; } };
+  const box = { style: { vars: {}, setProperty(k, v) { this.vars[k] = v; } } };
+  const doc = { hidden: false, addEventListener() {} };
+  const tiles = createTiles(S, doc);
+  tiles.watch(box);
+  assert.equal(box.style.vars['--tile-row'], MID, 'a tile starts at the still frame');
+  assert.equal(tiles.state(), 'running');
+  S.preview = { layers: [{}] }; handlers.preview();
+  assert.equal(tiles.state(), 'paused');
+  S.preview = null; handlers.preview();
+  assert.equal(tiles.state(), 'running');
+  await new Promise((r) => setTimeout(r, 1000 / FPS * 2.5));
+  assert.ok(box.style.vars['--tile-row'] !== MID, 'it stepped');
+  S.preview = { layers: [{}] }; handlers.preview(); // stops the timer so the test can end
+  assert.match(read('panel/presets.js'), /spriteStyle\(spriteURL\('preset', p\.id, p\.params\), lookStrip\(S, p\.effect, p\.params\)\)/, 'preset rows use the preset\'s own sprite');
+  assert.match(read('app.js'), /S\.tiles = createTiles\(S\)/);
+});

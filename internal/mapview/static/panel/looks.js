@@ -18,6 +18,7 @@ import { showState, stateHTML } from '../states.js';
 import { icon } from '../icons.js';
 import { textField } from '../field.js';
 import { escapeCloses } from '../picker.js';
+import { effectMotion, spriteURL, spriteStyle } from '../tiles.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
@@ -448,12 +449,14 @@ export function createLooks(S, root) {
 
   // ---------- presets and effects ----------
 
-  function card(name, sub, strip, look, onclick, title) {
+  // card is a library tile: its strip shows the look moving (tiles.js),
+  // over the drawn strip while the sprite loads.
+  function card(name, sub, strip, look, onclick, title, sprite) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'preset';
     b.title = title || name;
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="live-badge"><span></span></span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
+    b.innerHTML = `<span class="strip sprite" style="${esc(spriteStyle(sprite, strip))}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="live-badge"><span></span></span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
     b.dataset.look = look;
     b.onclick = onclick;
     return b;
@@ -464,9 +467,9 @@ export function createLooks(S, root) {
   const lookCards = {
     presets: (list) => list.map((p) => {
       const name = presetName(p), e = effectFor(S, { preset: p.id });
-      return card(name, e ? cardSummary(name, e) : humanize(p.effect), lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${name} here`);
+      return card(name, e ? cardSummary(name, e) : humanize(p.effect), lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${name} here`, spriteURL('preset', p.id, p.params));
     }),
-    effects: (list) => list.map((e) => card(e.name || e.id, effectKind(e), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }))),
+    effects: (list) => list.map((e) => card(e.name || e.id, effectMotion(e, effectKind), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }), undefined, spriteURL('effect', e.id))),
   };
   function renderCatalog() {
     const grid = $$('#lkPresets');
@@ -1015,6 +1018,7 @@ export function createLooks(S, root) {
   fillTargets();
   renderCatalog();
   S.on('ready', clearBar);
+  S.tiles?.watch($$('#lkPresets'));
   // The rows' words are fitted to the width they have, so refit on a resize.
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); }).observe($$('#lkRows'));
 
