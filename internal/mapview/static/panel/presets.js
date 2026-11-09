@@ -94,7 +94,7 @@ export function createPresets(S, root) {
     for (const p of list) {
       const row = document.createElement('article'); row.className = 'preset-entry';
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
-      row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div><div class="preset-actions">
+      row.innerHTML = `<div class="preset-body" title="Show this on the map; the lights don't change"><span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div></div><div class="preset-actions">
         <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
         <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'pinFilled' : 'pin')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}">${icon('more')}More</button>
@@ -102,7 +102,8 @@ export function createPresets(S, root) {
       row.querySelector('.strip').style.background = lookStrip(S, p.effect, p.params);
       wireMenu(row);
       row.querySelector('[data-act=try]').dataset.preset = p.id;
-      row.querySelector('[data-act=try]').onclick = () => S.looks.push({ preset: p.id });
+      // The card previews, as on Looks; the button is the same for a keyboard.
+      row.querySelector('[data-act=try]').onclick = row.querySelector('.preset-body').onclick = () => S.looks.push({ preset: p.id });
       row.querySelector('[data-act=edit]').onclick = () => openEditor(p);
       row.querySelector('[data-act=copy]').onclick = () => openEditor({ ...p, id: '', name: `${presetName(p)} copy`, pinned: false });
       row.querySelector('[data-act=pin]').onclick = async () => {
@@ -217,7 +218,8 @@ export function createPresets(S, root) {
   function markTry() {
     for (const b of root.querySelectorAll('[data-act=try]')) {
       const on = !!S.looks?.inPreview(b.dataset.preset);
-      b.textContent = on ? 'Previewing' : 'Preview';
+      b.innerHTML = `${icon('eye')}${on ? 'Previewing' : 'Preview'}`;
+      b.closest('.preset-entry').classList.toggle('in-preview', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }

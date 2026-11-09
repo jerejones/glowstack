@@ -795,7 +795,7 @@ test('B69: beside the map the progress list fills the panel', () => {
 });
 
 test('B68: Preview holds one width, so Pin and More do not shift', () => {
-  assert.match(css, /\.preset-actions \[data-act=try\] \{ width: 7em; padding: 0; \}/);
+  assert.match(css, /\.preset-actions \[data-act=try\] \{ width: 8\.4em; padding: 0;/);
 });
 
 test('B64: Apply reports what really happened, and the chip says so too', async () => {

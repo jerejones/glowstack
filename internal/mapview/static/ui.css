@@ -414,7 +414,9 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .target-picker.up { top: auto; bottom: calc(100% + 4px); }
 .target-list { overflow-y: auto; overscroll-behavior: contain; }
 .target-picker input { width: 100%; }
-.target-list h3 { margin: 8px 0 4px; font-size: var(--t-help); color: var(--muted); font-weight: 600; }
+.target-group { padding: 8px 0; }
+.target-group + .target-group { border-top: 1px solid var(--line-strong); }
+.target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
 .now { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 4px 8px; margin: 0 0 8px; border-radius: var(--radius); border-color: var(--line); }
 .now .strip { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid var(--rim); }
 .now .what { min-width: 0; flex: 1; display: grid; line-height: 1.25; }
@@ -658,12 +660,15 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-editor { border-color: var(--line-strong) !important; scroll-margin-top: 12px; }
 /* The scrollport's padding counts against sticky: reach the panel's edge. */
 .editor-actions { position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; margin: 10px -12px -12px; padding: 8px 12px; background: var(--surface, #16191e); border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
-.preset-editor, .preset-entry { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 12px 0; background: var(--surface, #16191e); }
-.preset-title { display: grid; gap: 4px; margin: 8px 0; overflow-wrap: anywhere; }
+.preset-editor { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 12px 0; background: var(--surface, #16191e); }
+.preset-entry { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; margin: 6px 0; background: var(--surface, #16191e); }
+.preset-entry.in-preview { border-color: var(--preview); box-shadow: 0 0 0 1px var(--preview) inset; }
+.preset-body { cursor: pointer; }
+.preset-title { display: grid; gap: 0; margin: 6px 0; overflow-wrap: anywhere; }
 .preset-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .preset-actions button { display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--fg); padding: 0 8px; }
 /* Wide enough for Previewing, so Pin and More stay put when it changes. */
-.preset-actions [data-act=try] { width: 7em; padding: 0; }
+.preset-actions [data-act=try] { width: 8.4em; padding: 0; gap: 5px; }
 .preset-actions .pin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 /* Wide enough for Pinned, so the row lines up whichever a card says. */
 .preset-actions [data-act=pin] { width: 6.6em; padding: 0; }
@@ -674,7 +679,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-menu button { justify-content: flex-start; gap: 8px; border-color: transparent; }
 .preset-menu button.danger { color: #fca5a5; border-color: transparent; }
 .preset-menu button:hover, .preset-menu button:focus-visible { background: var(--card); border-color: var(--line); }
-.preset-entry > .strip { display: block; height: 10px; border-radius: 3px; border: 1px solid var(--rim); }
+.preset-entry .strip { display: block; height: 8px; border-radius: 3px; border: 1px solid var(--rim); }
 .preset-editor h3 { margin-top: 0; }
 .preset-editor .row { flex-wrap: wrap; }
 .tabs button { min-width: 0; padding-left: 7px; padding-right: 7px; }

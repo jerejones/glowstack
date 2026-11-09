@@ -219,7 +219,9 @@ export function createLooks(S, root) {
     if (picker.hidden) return;
     const value = pickFor ? pickFor.layer.target : t;
     const groups = targetGroups(S.tree, { query: search.value, visibleRuns: S.visibility.runs });
-    $$('#lkTargetList').replaceChildren(...groups.flatMap((grp) => {
+    $$('#lkTargetList').replaceChildren(...groups.map((grp) => {
+      const group = document.createElement('section');
+      group.className = 'target-group';
       const head = document.createElement('h3');
       head.textContent = grp.label;
       const box = document.createElement('div');
@@ -232,12 +234,15 @@ export function createLooks(S, root) {
         b.onclick = () => choose(it.value);
         return b;
       }));
-      if (grp.kind === 'all') return [box]; // its chip says Everything already
-      if (grp.kind !== 'run') return [head, box];
-      const hint = document.createElement('div');
-      hint.className = 'muted small';
-      hint.textContent = 'A run that is a whole area or zone is listed there instead.';
-      return [head, box, hint];
+      if (grp.kind === 'all') { group.append(box); return group; } // its chip says Everything already
+      group.append(head, box);
+      if (grp.kind === 'run') {
+        const hint = document.createElement('div');
+        hint.className = 'muted small';
+        hint.textContent = 'A run that is a whole area or zone is listed there instead.';
+        group.append(hint);
+      }
+      return group;
     }));
     if (!groups.length) showState($$('#lkTargetList'), { kind: 'empty', title: 'No place by that name' });
   }
