@@ -6,7 +6,7 @@
  * (portrait phones) the map is full-bleed under a floating chip bar and
  * the panel is a bottom sheet; from 700 px, and on phones held
  * landscape, the panel sits at the side (300 px, collapsing to an icon
- * rail); from 1100 px it is 400 px on every tab and always open. --layout tells
+ * rail); from 1100 px it is 400 px, and 500 px from 1280 px, on every tab and always open. --layout tells
  * app.js which one applies. Calibration mode is at the end. */
 
 :root {
@@ -62,6 +62,7 @@
 /* ?pointer=coarse: touch sizing with a mouse, for testing */
 html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; --t-h2: 20px; --t-xl: 26px; --picker-rows: 4; }
 
+@media (min-width: 1280px) { :root { --panel-w: 500px; } }
 @media (max-width: 1099.98px) {
   :root { --layout: side; --panel-w: 300px; }
 }

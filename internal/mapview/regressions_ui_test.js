@@ -2004,3 +2004,8 @@ test('wiring marks: the output number has a dark disc to sit on, and the chip cl
   assert.match(read('overlay.js'), /600 13px/);
   assert.match(css, /\.crumbs \.x \{ display: inline-flex; align-items: center; justify-content: center;/);
 });
+
+test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
+  assert.match(css, /@media \(min-width: 1280px\) \{ :root \{ --panel-w: 500px; \} \}/);
+  assert.match(css, /--layout: sheet; --panel-space: 0px/);
+});
