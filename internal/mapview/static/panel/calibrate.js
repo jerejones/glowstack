@@ -109,9 +109,14 @@ export function referenceColors(g, cal) {
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
-  let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', nodesBefore = false;
+  let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false;
   const session = createSession({ fetch: (...a) => fetch(...a), storage: sessionStorage, onState: render });
   const C = session.C;
+  // Set when the mode was left with a session still running: it doesn't
+  // reopen by itself, including after a reload, until Resume.
+  const remember = (v) => { try { sessionStorage.setItem('calLeft', String(v)); } catch (_) { /* no storage */ } };
+  let left = false;
+  try { left = sessionStorage.getItem('calLeft') === 'true'; } catch (_) { /* no storage */ }
 
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
@@ -124,7 +129,12 @@ export function createCalibrate(S, root) {
     </div>`;
   const $$ = (s) => root.querySelector(s);
   for (const b of root.querySelectorAll('[data-by]')) b.onclick = () => session.nudge(+b.dataset.by);
-  $$('#caStop').onclick = () => session.end();
+  // Stop ends the session and leaves the mode together: the overlays
+  // only ever exist inside it.
+  $$('#caStop').onclick = async () => {
+    await session.end();
+    if (!C.error) { close(); S.toast('Calibration stopped. The lights are back to normal.'); }
+  };
   $$('#caClose').onclick = () => close();
   $$('#caConfirm').onclick = () => session.confirm();
   $$('#caNext').onchange = (e) => session.setNext(e.target.checked);
@@ -137,16 +147,9 @@ export function createCalibrate(S, root) {
     root.hidden = !on;
     document.body.classList.toggle('calibrating', on);
     S.calibrating = on;
-    if (on) {
-      hold = S.view.hold();
-      nodesBefore = S.overlay.st.nodes;
-      if (!nodesBefore) { S.overlay.st.nodes = true; S.refreshLegend && S.refreshLegend(); }
-    } else {
-      if (!nodesBefore && S.overlay.st.nodes) { S.overlay.st.nodes = false; S.refreshLegend && S.refreshLegend(); }
-      framed = '';
-      tapped = -1;
-      S.overlay.apply();
-    }
+    if (on) hold = S.view.hold();
+    else { framed = ''; tapped = -1; }
+    S.refreshLegend?.();
     S.resize();
     if (!on && hold) { S.view.release(hold); hold = null; }
     keepAwake();
@@ -154,6 +157,19 @@ export function createCalibrate(S, root) {
     S.markDirty();
   }
   function close() { show(false); }
+
+  // leave exits the mode because the page moved on. A session that is
+  // still running keeps driving the lights, so say where to find it.
+  function leave() {
+    if (!open) return;
+    show(false);
+    if (C.st && C.st.active) {
+      left = true;
+      remember(true);
+      S.toast('Calibration is still running on the lights. Resume or stop it from Setup.');
+    }
+  }
+  S.on('tab', leave);
 
   // keepAwake holds a screen wake lock while a session runs in this
   // mode; the browser drops it when the page is hidden.
@@ -202,7 +218,10 @@ export function createCalibrate(S, root) {
 
   function render() {
     S.cal = C.st;
-    if (C.st && C.st.active && !open) show(true);
+    const running = !!(C.st && C.st.active);
+    if (!running && left) { left = false; remember(false); }
+    if (running && !open && !left) show(true);
+    if (running !== wasActive) { wasActive = running; S.emit('calibration', running); }
     if (!open) { S.markDirty(); return; }
     const st = C.st;
     acts.length = 0;
@@ -342,6 +361,8 @@ export function createCalibrate(S, root) {
     // open shows the mode, optionally ready to start on a run.
     open(opts = {}) {
       run = opts.run || '';
+      left = false;
+      remember(false);
       show(true);
       if (run && C.st && C.st.active) {
         const r = g.runs.find((x) => x.id === run);

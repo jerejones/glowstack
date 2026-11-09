@@ -70,6 +70,8 @@ export function createSetup(S, root) {
 
   // ---------- calibration ----------
   $$('#suCal').onclick = () => S.calib.open();
+  const calLabel = (running) => { $$('#suCal').textContent = running ? 'Resume calibrating' : 'Calibrate'; };
+  S.on('calibration', (running) => { calLabel(running); calCount(); });
   async function calCount() {
     try {
       const st = await api('/api/v1/status');

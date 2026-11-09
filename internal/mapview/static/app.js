@@ -462,7 +462,7 @@ function connect() {
     if (was.preview !== S.frame.preview || was.paused !== S.frame.paused || !badgeShown) badge();
     S.view.frameArrived();
     refreshInspectColor();
-    if (S.overlay.st.mode === 'live') markDirty();
+    if (S.overlay.live()) markDirty();
     note(perf.ws, performance.now() - t0);
   };
 }

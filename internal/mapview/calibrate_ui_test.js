@@ -105,15 +105,15 @@ test('calibration target ring stays on the model node while the pixel is nudged'
   const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
   const cursor = { node: 'corner', controller: 'shed', index: 5, estimate: 5 };
   const S = {
-    geo: { pixels: { count: 20 }, mappings: [], zones: [],
+    geo: { pixels: { count: 20 }, mappings: [], zones: [], edges: [], runs: [],
       controllers: [{ id: 'shed', base: 0 }],
       nodes: [{ id: 'corner', plan: 0, x: 3, y: 4, z: 2 }] },
-    plan: 0, hover: -1, pinned: -1,
+    plan: 0, hover: -1, pinned: -1, calibrating: true,
     cal: { active: true, side: 0, target: { kind: 'anchor' }, cursors: [cursor] },
     view: { toScreen: (x, y, z) => [x * 10, (y + z) * 10] },
   };
   const rings = [], labels = [];
-  const ctx = { beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {},
+  const ctx = { beginPath() {}, arc(x, y, r) { if (r === 13) rings.push([x, y]); }, stroke() {}, fill() {}, setLineDash() {},
     strokeText() {}, fillText(t) { labels.push(t); } };
   const overlay = createOverlay(S);
   overlay.draw(ctx);
@@ -234,4 +234,111 @@ test('run visibility defaults to operating strips and restores all runs', async 
   assert.ok(all.runs.every(Boolean));
   assert.deepEqual([...all.pixels],[1,1,1,1,1]);
   assert.deepEqual(runVisibility(g),filtered, 'toggle is reversible without changing geometry');
+});
+
+
+// mountCalibrate runs the mode's screen against a stub page and server.
+function mountCalibrate(serverState, overlayStub) {
+  const stub = () => ({ hidden: true, disabled: false, checked: false, textContent: '', innerHTML: '', scrollTop: 0, open: false, querySelectorAll: () => [], classList: { toggle() {} } });
+  const els = new Map();
+  const root = { hidden: true, innerHTML: '', querySelector: (s) => { if (!els.has(s)) els.set(s, stub()); return els.get(s); }, querySelectorAll: () => [], contains: () => false };
+  const saved = new Map();
+  Object.assign(globalThis, {
+    document: { body: { classList: { toggle() {} } }, addEventListener() {}, activeElement: null, hidden: false },
+    sessionStorage: { getItem: (k) => saved.get(k) ?? null, setItem: (k, v) => saved.set(k, v) },
+    setInterval: () => 0,
+    fetch: async (url, opts) => {
+      if (url.endsWith('/end')) serverState.active = false;
+      if (url.endsWith('/start')) serverState.active = true;
+      return reply(serverState);
+    },
+  });
+  const handlers = {}, toasts = [];
+  const S = { geo: { runs: [], controllers: [], nodes: [], pixels: { count: 0 } }, pinned: -1, overlay: overlayStub || { st: {}, apply() {} },
+    view: { hold: () => ({}), release() {}, setColors() {} },
+    resize() {}, inspect() {}, markDirty() {}, refreshBadge() {}, refreshLegend() {}, toast: (m) => toasts.push(m),
+    on: (t, fn) => { (handlers[t] ||= []).push(fn); }, emit: (t, d) => (handlers[t] || []).forEach((fn) => fn(d)) };
+  return { S, root, els, saved, toasts };
+}
+
+test('changing route leaves calibration and it does not reopen by itself', async () => {
+  const { createCalibrate } = await load();
+  const st = { ...state(), measured: 0, anchors: 1 };
+  const { S, root, toasts } = mountCalibrate(st);
+  const cal = createCalibrate(S, root);
+  await flush();
+  assert.equal(S.calibrating, true, 'a running session opens the mode');
+  S.emit('tab', 'looks');
+  assert.equal(S.calibrating, false);
+  assert.match(toasts[0], /still running/);
+  await cal.session.poll();
+  st.label = 'changed';
+  await cal.session.poll();
+  await flush();
+  assert.equal(S.calibrating, false, 'a poll reopened the mode after leaving it');
+  cal.open();
+  assert.equal(S.calibrating, true, 'Resume reopens it');
+});
+
+test('leaving a running session survives a reload without reopening', async () => {
+  const { createCalibrate } = await load();
+  const st = { ...state(), measured: 0, anchors: 1 };
+  const first = mountCalibrate(st);
+  createCalibrate(first.S, first.root);
+  await flush();
+  first.S.emit('tab', 'presets');
+  const saved = first.saved;
+  const again = mountCalibrate(st);
+  for (const [k, v] of saved) globalThis.sessionStorage.setItem(k, v);
+  createCalibrate(again.S, again.root);
+  await flush();
+  assert.equal(again.S.calibrating, undefined);
+});
+
+test('Stop ends the session and leaves the mode', async () => {
+  const { createCalibrate } = await load();
+  const st = { ...state(), measured: 0, anchors: 1 };
+  const { S, root, els } = mountCalibrate(st);
+  createCalibrate(S, root);
+  await flush();
+  await els.get('#caStop').onclick();
+  assert.equal(st.active, false);
+  assert.equal(S.calibrating, false);
+});
+
+test('calibration shows the anchors without changing or saving the overlay settings', async () => {
+  const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
+  const written = [];
+  globalThis.localStorage = { getItem: () => null, setItem: (k, v) => written.push(v), removeItem() {} };
+  const g = { pixels: { count: 1, plan: [0], x: [0], y: [0], z: [0] }, controllers: [], nodes: [{ id: 'n', plan: 0, x: 1, y: 1, z: 0 }], edges: [], runs: [], mappings: [], zones: [] };
+  const S = { geo: g, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x, y], setColors() {} } };
+  const overlay = createOverlay(S);
+  overlay.st.mode = 'flow';
+  overlay.remember();
+  const before = { ...overlay.st };
+  const seen = [];
+  const ctx = { beginPath() {}, arc(x, y) { seen.push([x, y]); }, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, stroke() {}, setLineDash() {} };
+  overlay.draw(ctx);
+  assert.equal(seen.length, 0, 'nodes are hidden outside the mode');
+  S.calibrating = true;
+  assert.equal(overlay.live(), true, 'the mode shows live colors');
+  overlay.draw(ctx);
+  assert.equal(seen.length, 1, 'the mode shows the nodes');
+  overlay.remember();
+  assert.deepEqual(overlay.st, before);
+  assert.equal(JSON.parse(written[written.length - 1]).nodes, false, 'the mode saved its overlay');
+  S.calibrating = false;
+  seen.length = 0;
+  overlay.draw(ctx);
+  assert.equal(seen.length, 0, 'nodes left behind after the mode');
+});
+
+test('the calibration cursor ring is only drawn inside the mode', async () => {
+  const { createOverlay } = await import(pathToFileURL(path.join(__dirname, 'static/overlay.js')).href);
+  const S = { geo: { pixels: { count: 20 }, mappings: [], zones: [], controllers: [{ id: 'shed', base: 0 }], nodes: [{ id: 'corner', plan: 0, x: 3, y: 4, z: 2 }] }, plan: 0, hover: -1, pinned: -1,
+    cal: { active: true, side: 0, target: { kind: 'anchor' }, cursors: [{ node: 'corner', controller: 'shed', index: 5, estimate: 5 }] },
+    view: { toScreen: (x, y, z) => [x, y + z] } };
+  const rings = [];
+  createOverlay(S).draw({ beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {}, strokeText() {}, fillText() {} });
+  assert.deepEqual(rings, []);
 });

@@ -48,6 +48,10 @@ export function createOverlay(S) {
   }
   const remember = () => save('glowstack.overlays', Object.fromEntries(
     ['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers'].map((key) => [key, st[key]])));
+  // While calibrating, the map shows the anchors over the live colors
+  // whatever the saved overlays say. The mode reads through this and never
+  // writes to st, so it leaves nothing behind to restore or to save.
+  const shown = () => (S.calibrating ? { ...st, mode: 'live', nodes: true } : st);
   const mappings = new Map();
   let outs = null, edgeCache = null;
 
@@ -126,13 +130,14 @@ export function createOverlay(S) {
   // apply puts the mode's colors on the view and returns the legend.
   async function apply() {
     st.legend = '';
-    S.view.setColors(st.mode === 'live' ? null : await colors());
-    if (st.nodes) {
+    const o = shown();
+    S.view.setColors(o.mode === 'live' ? null : await colors());
+    if (o.nodes) {
       st.legend += `<div><span class="sw" style="background:#5ddc8a"></span>measured anchor
         <span class="sw" style="background:#ffb347"></span>estimated
         <span class="sw" style="background:#f472b6"></span>sync node</div>`;
     }
-    if (st.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
+    if (o.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
       st.legend += `<div><span class="sw" style="background:${CTRL}"></span>controller
         <span class="sw" style="background:${CTRL_OFF}"></span>not in config</div>`;
     }
@@ -289,7 +294,7 @@ export function createOverlay(S) {
   // The white pixel follows nudges; the target stays on the model corner.
   function calCursors() {
     const cal = S.cal;
-    if (!cal || !cal.active || !cal.cursors) return;
+    if (!S.calibrating || !cal || !cal.active || !cal.cursors) return;
     cal.cursors.forEach((c, i) => {
       if (c.index < 0) return;
       const ci = g.controllers.findIndex((x) => x.id === c.controller);
@@ -308,12 +313,12 @@ export function createOverlay(S) {
   // draw paints the overlay items for the view's current projection.
   function draw(c) {
     ctx = c;
-    const m = mappings.get(st.mapping);
-    if (st.mode === 'flow' && m) arrows(m);
-    if (st.mode === 'stretch' && m) stretchLabels(m);
-    if (st.mode === 'outputs') outputStarts();
-    if (st.nodes) nodes();
-    if (st.controllers) controllers();
+    const m = mappings.get(st.mapping), o = shown();
+    if (o.mode === 'flow' && m) arrows(m);
+    if (o.mode === 'stretch' && m) stretchLabels(m);
+    if (o.mode === 'outputs') outputStarts();
+    if (o.nodes) nodes();
+    if (o.controllers) controllers();
     calCursors();
     for (const [p, color] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
       if (p < 0) continue;
@@ -322,5 +327,5 @@ export function createOverlay(S) {
     }
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, live: () => shown().mode === 'live' };
 }
