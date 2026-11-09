@@ -94,13 +94,15 @@ h2 small:empty, h3 small:empty { display: none; }
 /* A section's status ("all sending", "drawn vs measured length") has its own
  * slot: right-aligned on the heading's baseline, never running on after the
  * words. On a phone it takes the line under them instead (below). */
-.status-head { display: flex; align-items: baseline; gap: 8px; }
-.status-head > small { margin-left: auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.status-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; } /* with the space after the heading: 8 px */
+/* The qualifier sits beside its heading, 8 px after it, not at the far edge
+ * where it read as a value of the row below; too long for the line, it wraps
+ * under the heading whole. */
+.status-head > small { min-width: 0; }
 /* On a phone a qualifier takes its own line and never strands a word. */
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
   h2 small, h3 small { display: block; margin-left: 0; font-size: var(--t-meta); }
-  .status-head { display: block; }
-  .status-head > small { white-space: normal; text-align: left; }
+  .status-head > small { display: inline; white-space: normal; text-align: left; }
 }
 h1.title { font-size: var(--t-xl); font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; min-height: var(--title-row); margin: 10px 0 8px; }
 p { margin: 6px 0; }
@@ -990,6 +992,10 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .tiles .stat span { white-space: nowrap; overflow: hidden; line-height: 1.3; }
 button.stat { width: 100%; color: var(--fg); border-color: var(--line); cursor: pointer; }
 button.stat:hover { border-color: #8b95a3; background: var(--card2); }
+/* The tile that is a link looks like one: a chevron after its label, and the label underlined on hover and focus. */
+button.stat.link span { display: flex; align-items: center; gap: 2px; }
+button.stat.link span .icon { flex: none; width: 12px; height: 12px; }
+button.stat.link:hover span, button.stat.link:focus-visible span { text-decoration: underline; text-underline-offset: 2px; color: var(--fg); }
 @media (max-width: 699.98px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } } /* after the base rule, which would otherwise win on order */
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .stat b { display: block; font-size: var(--t-stat); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }

@@ -2639,11 +2639,10 @@ test('Refinement 4: the phone footer says Replace once', async () => {
 
 test('Refinement 5: a section status has its own slot', () => {
   const status = read('panel/status.js');
-  assert.equal((status.match(/<h2 class="status-head">/g) || []).length, 3, 'Controllers, Runs and Power');
-  assert.match(css, /\.status-head \{ display: flex; align-items: baseline; gap: 8px; \}/, 'heading and status share a baseline');
-  assert.match(css, /\.status-head > small \{ margin-left: auto; min-width: 0; white-space: nowrap;/, 'right-aligned, never wrapping');
-  // A phone keeps the status on its own line under the words.
-  assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block;[^}]*\}\s*\.status-head \{ display: block; \}/);
+  assert.equal((status.match(/<h2 class="status-head"/g) || []).length, 3, 'Controllers, Runs and Power');
+  // (Series 2 round 4: the status sits 8 px after its heading instead of flush right, and wraps whole when it must.)
+  assert.match(css, /\.status-head \{ display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 4px; \}/, 'heading and status share a baseline');
+  assert.match(css, /\.status-head > small \{ min-width: 0; \}/);
 });
 
 test("Refinement 6: Calibrate's weight on Setup", () => {
@@ -2789,8 +2788,8 @@ test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay be
   assert.deepEqual(full.map((f) => [f.v, f.cls]), [['20', 'ok'], ['2 of 2', 'ok'], ['3', 'warn'], ['—', '']]);
   const notSet = tileFacts({ lit: 0, total: 0, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 0, fps: { measured: 40, target: 40 }, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
   assert.equal(notSet[0].cls, '', 'nothing on the lights is not a warning');
-  assert.deepEqual([notSet[3].v, notSet[3].cls], ['Not set', '']);
-  assert.match(notSet[3].title, /Opens the Power note/);
+  assert.deepEqual([notSet[3].v, notSet[3].cls], ['Not configured', '']);
+  assert.match(notSet[3].title, /Go to the Power section/);
   assert.equal(tileFacts({ lit: null, total: 0, health: { up: 0, n: 2, cls: '', text: '' }, late: 0, fps: { measured: 0, target: 40 }, power: null })[0].v, '—');
   // Markup and wiring: tiles first, the verdict (with its warning count) and the warnings beneath.
   const status = read('panel/status.js');

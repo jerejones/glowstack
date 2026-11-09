@@ -520,3 +520,27 @@ test('Refinement 3: the phone\'s search opens fully, with the list as a chip tha
   assert.equal(searching(false, ''), false);
   assert.match(css, /\.lib-filters \{ display: flex; flex-wrap: nowrap;/, 'one line in every state: the results do not move');
 });
+
+test('Refinement 4: the power tile says "Not configured" and is a link; qualifiers sit by their headings', async () => {
+  const { tileFacts, tileHTML } = await import('./static/panel/status.js');
+  const facts = tileFacts({ lit: 0, total: 0, health: { up: 8, n: 8, cls: 'ok', text: '' }, late: 0, fps: { measured: 40, target: 40 }, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
+  assert.equal(facts[3].v, 'Not configured');
+  assert.match(facts[3].title, /Go to the Power section\.$/);
+  const tile = tileHTML(facts[3]);
+  assert.match(tile, /^<button type="button" id="stPowerTile" class="stat link" title="/, 'a button, with a tooltip');
+  assert.match(tile, /<span>power estimate<svg/, 'a chevron after its label');
+  assert.doesNotMatch(tileHTML(facts[0]), /link|<svg/, 'the plain tiles are not links');
+  assert.match(css, /button\.stat \{[^}]*cursor: pointer; \}/);
+  assert.match(css, /button\.stat\.link:hover span, button\.stat\.link:focus-visible span \{ text-decoration: underline;/);
+  // Activating it brings the Power heading into view and moves the focus there.
+  const status = read('panel/status.js');
+  assert.match(status, /<h2 class="status-head" id="stPowerHead" tabindex="-1">Power /);
+  assert.match(status, /head\.scrollIntoView\(\{ block: 'start', behavior: 'smooth' \}\);\s*head\.focus\(\{ preventScroll: true \}\);/);
+  // The qualifiers are 8 px after their headings, not flush right.
+  const head = /^\.status-head \{[^}]*\}/m.exec(css)[0];
+  assert.match(head, /gap: 0 4px;/);
+  assert.doesNotMatch(css, /\.status-head > small \{[^}]*margin-left: auto/);
+  assert.doesNotMatch(css, /\.status-head > small \{[^}]*text-align: right/);
+  assert.match(status, /Controllers <small id="stCtlShared"><\/small>/);
+  assert.match(status, /Runs <small>drawn vs measured length<\/small>/);
+});

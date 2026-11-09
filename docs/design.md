@@ -1507,7 +1507,7 @@ desk.
 - **Status tiles.** Status's four headline tiles (lights lit, controllers,
   late frames, power estimate) are one component: a figure in one size,
   weight and line, tabular numerals, and a one-line label. A word such as
-  "Not set" uses the figure's style and shrinks only when it would not fit.
+  "Not configured" uses the figure's style and shrinks only when it would not fit.
   The color rule: a count is neutral, and color is for state only. Neutral
   is a plain count or nothing to judge (0 lights lit with no looks on them,
   0 late frames, a power estimate). Green is a health check that passed
@@ -1515,7 +1515,11 @@ desk.
   needs attention (lights a look covers are dark at 0%, frames are late,
   power is being dimmed). Red has failed (a controller can't be reached).
   The same number is never two colors unless the states differ. The power
-  tile is a link to the Power section. Status leads with what needs
+  tile is a link to the Power section and looks like one (a chevron after
+  its label, the label underlined on hover and focus, a tooltip): pressing
+  it brings the Power heading into view and moves the focus there. A
+  section heading's qualifier ("all sending", "drawn vs measured length")
+  sits 8 px after the heading, not at the far edge. Status leads with what needs
   action: with a controller fault, a dark or partly dark verdict, or any
   warning, the amber or red summary and the warnings come first and the
   tiles follow them; with nothing to act on, the tiles are the first thing

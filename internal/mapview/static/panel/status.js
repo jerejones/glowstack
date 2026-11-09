@@ -117,7 +117,7 @@ export function litCount(g, st, layers) {
 
 // tileFacts is the four headline tiles, each a figure, its one-line label
 // and a state: lights lit, controllers, late frames and the power estimate
-// (or "Not set", which goes to the Power note). power is the /api/map/power
+// (or "Not configured", which goes to the Power section). power is the /api/map/power
 // reading or null before it; its words come from powerSummary.
 //
 // The color rule (docs/design.md, "Status tiles"): a count is neutral, and
@@ -133,7 +133,7 @@ export function tileFacts({ lit, total, health, late, fps, power }) {
   const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls === 'bad' ? 'bad' : health.cls === 'ok' ? 'ok' : '', title: health.text };
   const frames = { v: count(late), cls: late ? 'warn' : '', title: `${late ? 'Frames that took longer than the frame rate allows. ' : ''}${fmt(fps.measured, 1)} fps of ${fps.target}` };
   const pw = !power ? { v: '—', cls: '', title: 'Reading the power estimate' }
-    : !power.anyKnown ? { v: 'Not set', cls: '', title: 'No LED current is set, so there is no estimate. Opens the Power note.' }
+    : !power.anyKnown ? { v: 'Not configured', cls: '', title: 'No LED current is set, so there is no estimate. Go to the Power section.' }
     : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : '', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
   return [
     { ...lights, label: 'lights lit' },
@@ -148,7 +148,8 @@ export function tileFacts({ lit, total, health, late, fps, power }) {
 // others are plain. The figure and the label are each one line.
 export function tileHTML(f, e = (s) => s) {
   const tag = f.power ? 'button' : 'div', attrs = f.power ? ' type="button" id="stPowerTile"' : '';
-  return `<${tag}${attrs} class="stat${f.cls ? ' ' + f.cls : ''}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}</span></${tag}>`;
+  // The link's label carries a chevron, and underlines on hover and focus (ui.css).
+  return `<${tag}${attrs} class="stat${f.cls ? ' ' + f.cls : ''}${f.power ? ' link' : ''}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}${f.power ? icon('chevronRight') : ''}</span></${tag}>`;
 }
 
 // fitFigure shrinks a tile's figure, a step at a time, only while it does
@@ -335,7 +336,7 @@ export function createStatus(S, root) {
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details></div>
-    <h2 class="status-head">Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
+    <h2 class="status-head" id="stPowerHead" tabindex="-1">Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     <p class="meta-line" id="stStats"></p>
     <details id="stDiag" class="section-disclosure"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div><p class="muted small" id="stLateNote">${LATE_NOTE}</p></details>
     </div>`;
@@ -443,7 +444,10 @@ export function createStatus(S, root) {
       const pwBox = $$('#stPower');
       const details = pwBox.querySelector('details');
       if (details && pwBox.querySelector('p.muted')) details.open = true; // the note's Details, when it is the note
-      pwBox.previousElementSibling.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      // To the Power section: its heading comes into view and takes the focus.
+      const head = $$('#stPowerHead');
+      head.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      head.focus({ preventScroll: true });
     };
   }
 
