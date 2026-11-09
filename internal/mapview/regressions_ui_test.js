@@ -302,14 +302,16 @@ test('B27: a redraw keeps what was chosen in the calibration pickers', async () 
 test('B28: Escape closes a popover and stops there', async () => {
   const { escapeCloses } = await import('./static/picker.js');
   let handler, closed = 0, open = true;
-  escapeCloses({ addEventListener: (_, fn) => { handler = fn; } }, () => open, () => { closed++; });
-  const press = (key) => { const e = { key, stopped: false, preventDefault() {}, stopPropagation() { this.stopped = true; } }; handler(e); return e; };
+  globalThis.document = { addEventListener: (_, fn) => { handler = fn; } };
+  escapeCloses({ isConnected: true, getClientRects: () => [1] }, () => open, () => { closed++; });
+  const press = (key) => { const e = { key, stopped: false, target: null, preventDefault() {}, stopPropagation() { this.stopped = true; } }; handler(e); return e; };
   assert.equal(press('a').stopped, false);
   assert.equal(closed, 0);
   assert.equal(press('Escape').stopped, true, 'it must not go on to clear the selection');
   assert.equal(closed, 1);
   open = false;
   assert.equal(press('Escape').stopped, false, 'a closed popover leaves the key alone');
+  delete globalThis.document;
   const looks = read('panel/looks.js');
   assert.match(looks, /escapeCloses\(el, \(\) => !picker\.hidden, \(\) => \{ const back = opener; openPicker\(false\); back\.focus\(\); \}\)/, 'Show on returns focus');
   assert.match(looks, /setAttribute\('aria-expanded', on \? 'true' : 'false'\)/);
@@ -1927,4 +1929,24 @@ test('a place that reads Everything is everything, even when one zone holds ever
   assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }, { kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }, { kind: 'all' }] }), 'all');
   assert.equal(nodeTarget({ members: [{ kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }] }), 'a');
   assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }] }), 'run:r');
+});
+
+test('B110: Escape closes the newest open popover on screen, wherever focus is', async () => {
+  let key = null;
+  globalThis.document = { addEventListener: (type, fn, capture) => { assert.equal(type, 'keydown'); assert.equal(capture, true); key = fn; } };
+  const { escapeCloses, closeTopPopover } = await import('./static/picker.js');
+  const el = (shown = true) => ({ isConnected: true, getClientRects: () => (shown ? [1] : []) });
+  const closed = [];
+  let picker = true, editor = true, otherTab = true;
+  escapeCloses(el(), () => editor, () => { editor = false; closed.push('editor'); });
+  escapeCloses(el(false), () => otherTab, () => closed.push('other tab'));
+  escapeCloses(el(), () => picker, () => { picker = false; closed.push('picker'); });
+  const press = () => { let stopped = false; key({ key: 'Escape', target: { closest: () => null }, preventDefault() {}, stopPropagation() { stopped = true; } }); return stopped; };
+  assert.equal(press(), true, 'the global handler never sees it');
+  assert.deepEqual(closed, ['picker'], 'the inner popover goes first, and the hidden tab is left alone');
+  assert.equal(press(), true);
+  assert.deepEqual(closed, ['picker', 'editor']);
+  assert.equal(press(), false, 'with none open the key goes on to the map');
+  assert.equal(closeTopPopover(), false);
+  delete globalThis.document;
 });

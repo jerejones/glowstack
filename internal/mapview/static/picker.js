@@ -28,16 +28,37 @@ export function stepActive(key, active, count) {
   return null;
 }
 
-// escapeCloses gives a popover its Escape: el is everything that can hold
-// focus while it's open. Handled here, the key doesn't go on to clear the
-// map's selection or drop the sheet.
+// popovers are what Escape can close, oldest first. One listener takes the
+// key before anything else does, wherever focus is, so it doesn't go on to
+// clear the map's selection or drop the sheet.
+let popovers = [];
+let listeningOn = null;
+
+// closeTopPopover closes the newest open popover on screen, which is the
+// innermost when one holds another. It says whether there was one.
+export function closeTopPopover() {
+  for (let i = popovers.length - 1; i >= 0; i--) {
+    const p = popovers[i];
+    if (!p.el.isConnected) continue;
+    if (p.el.getClientRects().length && p.isOpen()) { p.close(); return true; }
+  }
+  return false;
+}
+
+// escapeCloses gives a popover its Escape: el is on screen while it can be
+// open, isOpen says it is, close closes it.
 export function escapeCloses(el, isOpen, close) {
-  el.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape' || !isOpen()) return;
+  // A row redrawn away takes its popover with it; one not yet in the page stays.
+  popovers = popovers.filter((p) => { p.seen ||= p.el.isConnected; return p.el.isConnected || !p.seen; });
+  popovers.push({ el, isOpen, close, seen: false });
+  if (listeningOn === document) return;
+  listeningOn = document;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || e.target?.closest?.('dialog')) return; // a dialog's Escape is its own
+    if (!closeTopPopover()) return;
     e.preventDefault();
     e.stopPropagation();
-    close();
-  });
+  }, true);
 }
 
 // keepInList scrolls only the list, by what's needed to show row c.
