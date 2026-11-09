@@ -26,6 +26,28 @@ export function darkMessage(names) {
   return `${joined(names)} ${names.length === 1 ? 'is' : 'are'} at 0% brightness, so nothing shows there.`;
 }
 
+// zeroRanges is the pixels of every zone at 0% brightness.
+export function zeroRanges(geo, brightness) {
+  if (!brightness) return [];
+  const areas = new Map(geo.areas.map((a) => [a.id, a]));
+  return normRanges(geo.zones.filter((z) => brightness.zones?.[z.id] === 0).flatMap((z) => areas.get(z.area)?.ranges || []));
+}
+
+// PREVIEW_DIM is how bright a preview draws a zone at 0%: enough to judge the
+// look, and plainly not the lights' real brightness.
+export const PREVIEW_DIM = 0.35;
+
+// dimSent darkens, in rgb, the pixels in dark that this frame just wrote
+// (sent, [first, last] pairs). Only those: a pixel the frame didn't write
+// still holds the last dimmed value and would go darker each frame.
+export function dimSent(rgb, sent, dark, level = PREVIEW_DIM) {
+  for (const [a, b] of sent) {
+    for (const [x, y] of dark) {
+      for (let i = Math.max(a, x) * 3, end = (Math.min(b, y) + 1) * 3; i < end; i++) rgb[i] = rgb[i] * level;
+    }
+  }
+}
+
 // BRIGHTNESS_RULE says how the two brightnesses combine, as render.Compositor does.
 export const BRIGHTNESS_RULE = "A look's brightness is multiplied by its zone's, so a look at 100% in a zone at 0% stays dark.";
 

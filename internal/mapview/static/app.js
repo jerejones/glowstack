@@ -22,7 +22,7 @@ import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
-import { createHousePoll, lightOutcome } from './house-status.js';
+import { createHousePoll, lightOutcome, zeroRanges, dimSent } from './house-status.js';
 import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML, showButton } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
@@ -516,6 +516,7 @@ function placeCard() {
 // ---------- the stream ----------
 
 let ws = null, ranges = [];
+let dimFor, dimPixels = []; // zones at 0%, worked out when their brightness changes
 let geometrySignature = '';
 const geometryKey = ({ gen, presets, ...rest }) => JSON.stringify(rest);
 // setOffline follows a lost connection, not the wait for a first one, so
@@ -566,6 +567,13 @@ function connect() {
       S.rgb.set(data.subarray(o, o + len), a * 3);
       o += len;
     }
+    // A zone at 0% draws dim in the preview, so the look can be judged there
+    // while the map still shows it won't be seen as drawn. Lights frames are the truth.
+    if (S.frame.preview) {
+      const b = S.statusData?.brightness;
+      if (b !== dimFor) { dimFor = b; dimPixels = zeroRanges(S.geo, b); }
+      if (dimPixels.length) dimSent(S.rgb, ranges, dimPixels);
+    }
     if (was.preview !== S.frame.preview || was.paused !== S.frame.paused || !badgeShown) badge();
     S.view.frameArrived();
     refreshInspectColor();
@@ -610,7 +618,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, calActive: !!S.cal?.active, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed, reading: S.houseStatus === 'loading' && !S.statusFailed });
+  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, calActive: !!S.cal?.active, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed, reading: S.houseStatus === 'loading' && !S.statusFailed, dimZones: S.dimZones || 0 });
   const b = $('badge');
   b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;

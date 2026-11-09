@@ -20,10 +20,11 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // the page still answers), connecting (no socket result yet: a first
 // connection hasn't opened or failed), fresh (the latest reading of the
 // lights came back; a failed one can't vouch for them), reading (the first
-// reading hasn't come back yet, so nothing has failed). The chip follows one rule, on every tab and with
+// reading hasn't come back yet, so nothing has failed), dimZones (how many
+// zones at 0% the preview draws dim). The chip follows one rule, on every tab and with
 // the sheet open or shut: nothing lit never reads as the lights showing, and
 // the tab says why, once.
-export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true, reading = false }) {
+export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true, reading = false, dimZones = 0 }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
@@ -37,7 +38,7 @@ export function mapStatus({ connected, connecting = false, show, preview, target
   const colored = MODES.find(([id]) => id === mode && id !== 'live');
   if (colored) return { ...toggle, text: `Colored by ${colored[1]}`, detail: '', cls: 'mode', title: colored[2] };
   if (showing === 'preview') {
-    return { ...toggle, text: 'Showing your preview', detail: (preview.paused ? ' · paused' : '') + (!fresh && !reading ? ' · lights unknown' : ''), cls: 'preview', title: fresh || reading ? 'The map shows your preview, not the lights' : "The map shows your preview. The last reading of the lights failed." };
+    return { ...toggle, text: 'Showing your preview', detail: (preview.paused ? ' · paused' : '') + (!fresh && !reading ? ' · lights unknown' : '') + (dimZones ? ` · ${dimZones} ${dimZones === 1 ? 'zone' : 'zones'} at 0% shown dim` : ''), cls: 'preview', title: (fresh || reading ? 'The map shows your preview, not the lights' : "The map shows your preview. The last reading of the lights failed.") + (dimZones ? ' Zones at 0% are drawn dim; on the lights they stay dark.' : '') };
   }
   if (!fresh) return reading ? { ...toggle, text: 'Lights: checking…', detail: '', cls: '', title: 'Reading the lights' } : { ...toggle, text: 'Lights: unknown', detail: " · couldn't refresh", cls: 'mode', title: 'The last reading of the lights failed, so the map may not match them.' };
   // Looks are on the lights and dark zones hide them: say that, not "nothing lit".

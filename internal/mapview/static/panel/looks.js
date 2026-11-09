@@ -724,6 +724,7 @@ export function createLooks(S, root) {
   function renderDark(w) {
     const box = $$('#lkDark'), key = w ? `${w.text}|${w.names}` : '';
     box.hidden = !w;
+    S.dimZones = w ? w.ids.length : 0; // the map pill says these are drawn dim
     if (key === shownDark) return;
     shownDark = key;
     box.title = w?.detail || '';
