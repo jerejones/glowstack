@@ -181,6 +181,44 @@ export function liveFold({ compact, preview, live, open }) {
   return { summary, folded: summary && !open };
 }
 
+// previewFold is the same fold for the preview's own rows (B143): on the
+// half sheet the Previewing card shows at most one layer row in full, so two
+// or more previews fold behind one summary line whose chevron opens them in
+// place. One preview is its row, as it always was; the full sheet shows
+// every row.
+export function previewFold({ compact, preview, open }) {
+  const summary = compact && preview > 1;
+  return { summary, folded: summary && !open };
+}
+
+// previewSummary is the folded preview rows' whole sentence, the button's
+// accessible name: how many previews and their names, front first.
+export function previewSummary(prev, nameOf) {
+  const n = prev.length;
+  if (!n) return '';
+  return `${n} preview${n === 1 ? '' : 's'} · ${prev.map((l) => String(nameOf(l)).replace(/\u00a0/g, ' ')).join(', ')}`;
+}
+
+// previewNames is the words shown on that line, fitted like liveNames: the
+// count, then up to `shown` names and "+N more"; with none, the count.
+export function previewNames(prev, nameOf, shown = 2) {
+  const n = prev.length;
+  if (!n) return '';
+  const count = `${n} preview${n === 1 ? '' : 's'}`;
+  if (!shown) return count;
+  const names = prev.slice(0, shown).map((l) => String(nameOf(l)).replace(/\u00a0/g, ' '));
+  return `${count}: ${names.join(', ')}${n > shown ? `, +${n - shown} more` : ''}`;
+}
+
+// warnTexts is the 0% line's words for the half sheet, longest first: the
+// line never wraps and is never cut, so it takes the first that fits beside
+// its button (fitText). The last is short enough for any phone.
+export function warnTexts(w) {
+  const state = w.text.split(':')[0];
+  const n = w.names.length;
+  return [...new Set([w.text, n ? `${state}: ${n} zone${n === 1 ? '' : 's'} at 0%` : w.text, n ? `${state} at 0%` : 'At 0%'])];
+}
+
 // lookAction is what tapping a look does, given the preview's layers: add
 // it, or, when the target already has it, take it back off. A layer that
 // has been tweaked isn't thrown away by a tap: it is focused instead.
@@ -315,7 +353,7 @@ export function createLooks(S, root) {
       <div class="stage-head"><h2 id="lkStageTitle"></h2><small id="lkStageSub"></small></div>
       <p class="muted small stage-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
       <div class="stage-warn" id="lkDark" data-dark hidden></div>
-      <div class="list" id="lkRows"><button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live</small><span class="text"></span>${icon('chevronDown')}</button></div>
+      <div class="list" id="lkRows"><button type="button" class="live-sum prev-sum" id="lkPrevSum" aria-expanded="false" hidden><small class="kind">Preview</small><span class="text"></span>${icon('chevronDown')}</button><button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live</small><span class="text"></span>${icon('chevronDown')}</button></div>
       <div id="lkStageState"></div>
     </section>
     <section class="library" aria-label="Presets and effects">
@@ -568,6 +606,7 @@ export function createLooks(S, root) {
   function focusLayer(id) {
     const c = cards.get('preview:' + id);
     if (!c) return;
+    if (!c.el.offsetParent && !prevOpen) { prevOpen = true; renderStage(); } // folded: its row opens in place
     reveal(c.el, true);
     flash(c.el);
   }
@@ -591,7 +630,10 @@ export function createLooks(S, root) {
       }
       await S.refresh();
       // On a phone the new row is shown; the sheet stays where it was put.
-      if (added && S.panel.layout() === 'sheet' && S.panel.tab() === 'looks' && !S.panel.collapsed() && cards.has('preview:' + added.id)) reveal(cards.get('preview:' + added.id).el, true);
+      if (added && S.panel.layout() === 'sheet' && S.panel.tab() === 'looks' && !S.panel.collapsed() && cards.has('preview:' + added.id)) {
+        const row = cards.get('preview:' + added.id).el;
+        reveal(row.offsetParent ? row : $$('#lkPrevSum'), true); // folded: its summary line is what shows it
+      }
     } catch (e) { S.fail('preview the look', e); } finally { tapping.delete(key); }
   }
 
@@ -734,8 +776,9 @@ export function createLooks(S, root) {
 
   // renderRows keeps the stage's list in order: the preview's rows, then the
   // lights', each already top first, so the top of the list is what's in front.
-  // liveOpen is whether the half sheet's folded live rows are shown.
-  let liveOpen = false;
+  // liveOpen is whether the half sheet's folded live rows are shown, and
+  // prevOpen the same for its folded preview rows (B143).
+  let liveOpen = false, prevOpen = false;
   function renderRows(prev, house) {
     const box = $$('#lkRows'), rows = [...prev.map((l) => ['preview', l]), ...house.map((l) => ['house', l])];
     const keep = new Set();
@@ -748,7 +791,18 @@ export function createLooks(S, root) {
     sum.setAttribute('aria-label', liveSummary(house, nameOf));
     fitText(sum.querySelector('.text'), [2, 1, 0].map((shown) => liveNames(house, nameOf, shown)));
     box.classList.toggle('live-folded', fold.folded);
-    let last = null, placed = false; // placed: the summary sits before the first live row
+    // Two or more previews fold the same way, so the card shows at most one
+    // layer row in full at the half detent.
+    if (prev.length < 2) prevOpen = false;
+    const psum = $$('#lkPrevSum'), pfold = previewFold({ compact: compact(), preview: prev.length, open: prevOpen });
+    psum.hidden = !pfold.summary;
+    psum.setAttribute('aria-expanded', prevOpen ? 'true' : 'false');
+    psum.setAttribute('aria-label', previewSummary(prev, nameOf));
+    fitText(psum.querySelector('.text'), [2, 1, 0].map((shown) => previewNames(prev, nameOf, shown)));
+    box.classList.toggle('prev-folded', pfold.folded);
+    if (pfold.folded && pickFor && pickFor.lane === 'preview') openPicker(false); // its row is folded away
+    if (psum !== box.firstChild) box.insertBefore(psum, box.firstChild);
+    let last = psum, placed = false; // placed: the summary sits before the first live row
     for (const [lane, l] of rows) {
       const key = lane + ':' + l.id, front = rows.length > 1 && l === rows[0][1];
       keep.add(key);
@@ -756,10 +810,10 @@ export function createLooks(S, root) {
       if (!c) { c = makeCard(lane, l); cards.set(key, c); }
       updateCard(c, l, front);
       if (lane === 'house' && !placed) {
-        if (sum.previousSibling !== last) box.insertBefore(sum, last ? last.nextSibling : box.firstChild);
+        if (sum.previousSibling !== last) box.insertBefore(sum, last.nextSibling);
         last = sum; placed = true;
       }
-      const next = last ? last.nextSibling : box.firstChild;
+      const next = last.nextSibling;
       if (c.el !== next) box.insertBefore(c.el, next);
       last = c.el;
     }
@@ -771,6 +825,7 @@ export function createLooks(S, root) {
     }
   }
   $$('#lkLiveSum').onclick = () => { liveOpen = !liveOpen; renderStage(); };
+  $$('#lkPrevSum').onclick = () => { prevOpen = !prevOpen; renderStage(); };
 
   // stageState shows the stage's loading or failed state after its rows. It's
   // redrawn only when it changes: the stage repaints every poll, and a Retry
@@ -808,6 +863,7 @@ export function createLooks(S, root) {
     renderDark(zoneWarning(lit, landing, { previewing: prev.length > 0 }));
     renderBar(prev);
     fitStageHead();
+    fitDark();
     markPreviewed();
     S.refreshBadge?.();
     // A copy whose preview layer is gone is forgotten.
@@ -824,7 +880,9 @@ export function createLooks(S, root) {
     const head = $$('.stage-head'), sub = $$('#lkStageSub');
     head.classList.remove('sub-below');
     if (!compact() || !sub.offsetParent) return;
-    if (subBelow(sub.textContent, sub.scrollWidth, sub.clientWidth)) head.classList.add('sub-below');
+    // Cut where it is, or already wrapped under the state by the header's
+    // other items: either way it takes its own whole line.
+    if (subBelow(sub.textContent, sub.scrollWidth, sub.clientWidth) || (sub.textContent && sub.offsetTop > $$('#lkStageTitle').offsetTop + 4)) head.classList.add('sub-below');
   }
   // renderDark is the one 0% line, inside the stage. Drawn only on a change: a
   // poll mustn't replace the button under a press.
@@ -836,9 +894,25 @@ export function createLooks(S, root) {
     if (key === shownDark) return;
     shownDark = key;
     box.title = w?.detail || '';
-    box.innerHTML = w ? `${icon('alert')}<span class="warn-text">${esc(w.text)}</span>${w.ids.length ? `<button type="button" class="icon-btn" id="lkDarkOn">${icon('check')}${esc(turnOnLabel(w.names))}</button>` : ''}` : '';
+    box.innerHTML = w ? `${icon('alert')}<span class="warn-text">${esc(w.text)}</span>${w.ids.length ? `<button type="button" class="icon-btn" id="lkDarkOn" title="${esc(turnOnLabel(w.names))}" aria-label="${esc(turnOnLabel(w.names))}">${icon('check')}<span>${esc(turnOnLabel(w.names))}</span></button>` : ''}` : '';
     const on = $$('#lkDarkOn');
     if (on) on.onclick = () => turnOnZones(S, api, w.ids, w.names);
+    shownWarn = w;
+    fitDark();
+  }
+  // fitDark keeps the 0% line to one line, whole: the words take the first
+  // form that fits beside the button, and a long zone name on the button
+  // gives way to "Turn on" (its title and aria-label still name the zone)
+  // before any word is cut.
+  let shownWarn = null;
+  function fitDark() {
+    const box = $$('#lkDark'), text = box.querySelector('.warn-text'), w = shownWarn;
+    if (!w || !text || !text.offsetParent) return;
+    const word = box.querySelector('#lkDarkOn span');
+    if (word) word.textContent = turnOnLabel(w.names);
+    const texts = warnTexts(w);
+    fitText(text, texts);
+    if (word && text.scrollWidth > text.clientWidth) { word.textContent = 'Turn on'; fitText(text, texts); }
   }
   $$('#lkShowPreview').onclick = () => S.setShow('');
   // reveal brings a card into view, below the tabs and above the Apply bar.
@@ -1033,7 +1107,7 @@ export function createLooks(S, root) {
   S.on('ready', clearBar);
   S.tiles?.watch($$('#lkPresets'));
   // The rows' words are fitted to the width they have, so refit on a resize.
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); fitStageHead(); }).observe($$('#lkRows'));
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); fitStageHead(); fitDark(); }).observe($$('#lkRows'));
 
   return {
     push,

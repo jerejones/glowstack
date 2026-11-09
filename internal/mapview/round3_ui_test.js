@@ -76,3 +76,36 @@ test('B142: the Status tiles are one component with one color rule', async () =>
   assert.match(css, /\.stat b \{[^}]*font-variant-numeric: tabular-nums;/);
   assert.match(design, /\*\*Status tiles\.\*\*[\s\S]*a count is neutral, and color is for state only/);
 });
+
+test('B143: the half sheet folds two or more previews to one line, and the 0% line is one line', async () => {
+  const { previewFold, previewSummary, previewNames, liveFold, warnTexts, fitText } = await import('./static/panel/looks.js');
+  // One rule for the whole card: at most one layer row in full at the half detent.
+  assert.deepEqual(previewFold({ compact: true, preview: 1, open: false }), { summary: false, folded: false }, 'one preview is its row, as before');
+  assert.deepEqual(previewFold({ compact: true, preview: 2, open: false }), { summary: true, folded: true });
+  assert.deepEqual(previewFold({ compact: true, preview: 3, open: true }), { summary: true, folded: false }, 'the chevron opens the rows in place');
+  assert.deepEqual(previewFold({ compact: false, preview: 3, open: false }), { summary: false, folded: false }, 'the full sheet shows every row');
+  for (const [preview, live] of [[1, 0], [2, 0], [3, 0], [1, 2], [2, 2]]) {
+    const p = previewFold({ compact: true, preview, open: false }), l = liveFold({ compact: true, preview, live, open: false });
+    const full = (p.folded ? 0 : preview) + (l.folded ? 0 : live);
+    assert.ok(full <= 1, `${preview} previews over ${live} live: ${full} rows in full`);
+  }
+  const prev = [{ name: 'Comet chase' }, { name: 'Candy stripes' }, { name: 'Ember drift' }], nameOf = (l) => l.name;
+  assert.equal(previewSummary(prev.slice(0, 2), nameOf), '2 previews · Comet chase, Candy stripes');
+  assert.equal(previewNames(prev, nameOf, 2), '3 previews: Comet chase, Candy stripes, +1 more');
+  assert.equal(previewNames(prev, nameOf, 1), '3 previews: Comet chase, +2 more');
+  assert.equal(previewNames(prev, nameOf, 0), '3 previews');
+  // The summary takes the first form that fits whole: no ellipsis.
+  const el = { clientWidth: 150, set textContent(t) { this.t = t; this.scrollWidth = t.length * 7; }, get textContent() { return this.t; } };
+  assert.equal(fitText(el, [2, 1, 0].map((n) => previewNames(prev, nameOf, n))), '3 previews');
+  assert.doesNotMatch(css, /\.live-sum \.text \{[^}]*text-overflow: ellipsis/);
+  assert.doesNotMatch(css, /\.stage-warn \.warn-text \{[^}]*text-overflow: ellipsis/);
+  assert.match(css, /body\[data-detent=half\] #lkRows\.prev-folded \.layer\.preview \{ display: none; \}/);
+  // The 0% line: one line, the words shortened before any is cut.
+  assert.deepEqual(warnTexts({ text: 'Stays dark: 4 zones at 0%', names: ['a', 'b', 'c', 'd'] }), ['Stays dark: 4 zones at 0%', 'Stays dark at 0%']);
+  assert.deepEqual(warnTexts({ text: 'Partly dark: Long Covered Porch at 0%', names: ['Long Covered Porch'] }), ['Partly dark: Long Covered Porch at 0%', 'Partly dark: 1 zone at 0%', 'Partly dark at 0%']);
+  assert.deepEqual(warnTexts({ text: 'Brightness is at 0%', names: [] }), ['Brightness is at 0%', 'At 0%']);
+  const looks = read('panel/looks.js');
+  assert.match(looks, /if \(word && text\.scrollWidth > text\.clientWidth\) \{ word\.textContent = 'Turn on'; fitText\(text, texts\); \}/);
+  assert.match(looks, /id="lkPrevSum" aria-expanded="false" hidden><small class="kind">Preview<\/small>/);
+  assert.match(looks, /if \(prev\.length < 2\) prevOpen = false;/);
+});

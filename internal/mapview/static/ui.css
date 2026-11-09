@@ -490,6 +490,8 @@ input[type=checkbox]:checked::after {
   body[data-detent=half] .tab-intro-compact { display: block; margin: 0 0 4px; text-wrap: pretty; }
   /* The live rows fold behind one line while a preview is present (looks.js: liveFold). */
   body[data-detent=half] #lkRows.live-folded .layer.house { display: none; }
+  /* B143: two or more previews fold the same way, so the card shows at most one layer row in full. */
+  body[data-detent=half] #lkRows.prev-folded .layer.preview { display: none; }
   body[data-detent=half] .live-sum { display: grid; }
   /* The search takes the row while in use: the other segments slide out of it and the chosen one stays,
    * with its icon and word, so what is being searched is always in view. */
@@ -563,7 +565,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 /* The stage's one 0% line. */
 .stage-warn { display: flex; align-items: center; gap: 8px; padding: 2px 8px; margin: 6px 0 0; color: #fcd9a5; background: #2a2110; border: 1px solid #6b4b16; border-radius: 8px; }
 .stage-warn > .icon { color: var(--warn); }
-.stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; } /* one line, fitted by looks.js (fitDark): never cut, never wrapped */
 .stage-warn button { flex: none; white-space: nowrap; }
 .library { margin-top: 4px; }
 .lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 4px; }
@@ -589,9 +591,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .live-sum { display: none; grid-template-columns: auto minmax(0, 1fr) var(--tap); align-items: center; gap: 0 6px; width: 100%; min-height: var(--tap); padding: 0 0 0 12px; border: 0; border-radius: 0; background: transparent; color: var(--text); text-align: left; position: relative; margin-top: 2px; }
 .live-sum::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 5px; border-radius: 0 4px 4px 0; background: var(--house); }
 .live-sum .kind { padding: 0 7px; border: 1px solid var(--house); border-radius: 999px; color: var(--house); font-size: var(--t-note); font-weight: 600; line-height: 1.5; min-width: 5.1em; text-align: center; box-sizing: border-box; }
-.live-sum .text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: var(--t-meta); }
+.live-sum .text { min-width: 0; white-space: nowrap; overflow: hidden; color: var(--muted); font-size: var(--t-meta); }
 .live-sum > .icon { justify-self: center; color: var(--muted); }
 .live-sum[aria-expanded=true] > .icon { transform: rotate(180deg); }
+.live-sum.prev-sum::before { background: var(--preview); }
+.live-sum.prev-sum .kind { border-color: var(--preview); color: var(--preview); }
 .tab-intro-compact { display: none; }
 #lkWords { margin-top: 12px; }
 /* Spacing around the library is 6 and 4, not 8: at 1440x900 a fourth row of cards fits above the footer with a warning showing. */

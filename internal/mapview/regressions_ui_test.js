@@ -543,7 +543,7 @@ test('two overlay applies in flight write the legend once', async () => {
 
 test('B41: a tab change resets the panel scroller, and picking a look shows its card', () => {
   assert.match(read('sheet.js'), /if \(name !== tab\) \$\('content'\)\.scrollTop = 0/);
-  assert.match(read('panel/looks.js'), /reveal\(cards\.get\('preview:' \+ added\.id\)\.el, true\)/);
+  assert.match(read('panel/looks.js'), /const row = cards\.get\('preview:' \+ added\.id\)\.el;\s*reveal\(row\.offsetParent \? row : \$\$\('#lkPrevSum'\), true\)/);
 });
 
 test('B42: a palette the catalog has no name for still reads as something', async () => {
@@ -2443,7 +2443,7 @@ test('B134: a collapsed phone row keeps the look\'s name whole; place and level 
   assert.match(phone, /\.layer\.two-line \.line-level::before \{ content: '· '; \}/, 'Everything · 100%');
   const looks = read('panel/looks.js');
   assert.match(looks, /if \(name\.scrollWidth > name\.clientWidth \+ 1\) el\.classList\.add\('two-line'\)/);
-  assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); fitStageHead\(\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
+  assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); fitStageHead\(\); fitDark\(\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
 });
 
 test('B135: toasts arriving together fold into one, and the phone sheet shows one at a time', async () => {
@@ -2843,9 +2843,9 @@ test('B138: the compact state card never cuts its own words', async () => {
   assert.equal(subBelow('', 10, 0), false);
   const looks = read('panel/looks.js');
   assert.match(looks, /stageSub\(\{[^}]*compact: compact\(\)/, 'the compact header asks for the short hint');
-  assert.match(looks, /if \(subBelow\(sub\.textContent, sub\.scrollWidth, sub\.clientWidth\)\) head\.classList\.add\('sub-below'\)/);
+  assert.match(looks, /if \(subBelow\(sub\.textContent, sub\.scrollWidth, sub\.clientWidth\) \|\| \(sub\.textContent && sub\.offsetTop > \$\$\('#lkStageTitle'\)\.offsetTop \+ 4\)\) head\.classList\.add\('sub-below'\)/);
   assert.match(looks, /renderBar\(prev\);\s*fitStageHead\(\);/, 'measured after the bar may have set the sub');
-  assert.match(looks, /fitControls\(c\); fitStageHead\(\); \}\)\.observe/, 'refits on a resize');
+  assert.match(looks, /fitControls\(c\); fitStageHead\(\); fitDark\(\); \}\)\.observe/, 'refits on a resize');
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
   const sub = /body\[data-detent=half\] \.stage-head > small \{([^}]*)\}/.exec(phone)[1];
   assert.doesNotMatch(sub, /text-overflow/, 'no ellipsis on the compact header');
