@@ -1852,3 +1852,10 @@ test('Status: the verdict leads, the counts are a line, healthy is a check', asy
   assert.match(mark('ok'), /class="mark ok"[\s\S]*<svg/);
   assert.match(mark('bad'), /class="mark bad"/);
 });
+
+test('a place that reads Everything is everything, even when one zone holds every light', async () => {
+  const { nodeTarget } = await import('./static/select.js');
+  assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }, { kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }, { kind: 'all' }] }), 'all');
+  assert.equal(nodeTarget({ members: [{ kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }] }), 'a');
+  assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }] }), 'run:r');
+});

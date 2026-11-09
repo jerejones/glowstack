@@ -154,11 +154,13 @@ export function nodeKinds(nd) {
 // nodeTarget is the layer target that covers a node's pixels: an area,
 // the zone's area, or the run as run:<id>.
 export function nodeTarget(nd) {
+  // First, because a row that reads Everything has to mean it, even when one
+  // zone happens to hold every light.
+  if (nd.members.some((m) => m.kind === 'all')) return ALL;
   const area = nd.members.find((m) => m.kind === 'area');
   if (area) return area.id;
   const zone = nd.members.find((m) => m.kind === 'zone');
   if (zone) return zone.area;
-  if (nd.members.some((m) => m.kind === 'all')) return ALL;
   return 'run:' + nd.members[0].id;
 }
 
