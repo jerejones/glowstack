@@ -38,7 +38,12 @@ export const NOT_RESPONDING = "Glowstack isn't responding.";
 // server's own message when it sent one, or what could not be done when
 // nothing answered. doing reads after "Could not": "apply the look".
 export function failure(doing, e) {
-  return e && e.network ? `Could not ${doing}. ${NOT_RESPONDING}` : (e && e.message) || `Could not ${doing}.`;
+  if (e && e.network) return `Could not ${doing}. ${NOT_RESPONDING}`;
+  // A server fault's text doesn't say what failed, and a reply that isn't
+  // ours (a proxy's error page) has nothing to read at all.
+  if (e && e.unreadable) return `Could not ${doing}. Glowstack answered with an error; try again.`;
+  if (e && e.status >= 500) return `Could not ${doing}: ${String(e.message).replace(/\.$/, '')}.`;
+  return (e && e.message) || `Could not ${doing}.`;
 }
 
 // api fetches JSON. A failure throws an Error carrying the server's
@@ -60,6 +65,7 @@ export async function api(path, opts) {
   if (!r.ok) {
     const err = new Error((body && body.error) || text || r.statusText);
     err.status = r.status;
+    err.unreadable = !(body && body.error);
     err.details = (body && body.errors) || [];
     throw err;
   }

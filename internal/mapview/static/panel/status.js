@@ -42,10 +42,21 @@ export function verdict(ids, health) {
     known++;
     if (h.reachable === false) bad++;
   }
-  if (bad) return { cls: 'bad', text: `${bad} ${bad === 1 ? 'controller needs' : 'controllers need'} attention` };
-  if (!known) return { cls: '', text: 'No controller health reported yet' };
-  if (known < ids.length) return { cls: '', text: `${known} healthy, ${ids.length - known} not checked` };
-  return { cls: 'ok', text: ids.length === 1 ? 'The controller is healthy' : `All ${ids.length} controllers healthy` };
+  if (bad) return { cls: 'bad', text: `Controllers: ${bad} ${bad === 1 ? "isn't" : "aren't"} reachable` };
+  if (!known) return { cls: '', text: 'Controllers: no report yet' };
+  if (known < ids.length) return { cls: '', text: `Controllers: ${known} reachable, ${ids.length - known} not checked` };
+  return { cls: 'ok', text: ids.length === 1 ? 'Controller: reachable' : `Controllers: all ${ids.length} reachable` };
+}
+
+// LENGTH_WARN is how far a run's total length may be from its drawing
+// before Status flags it.
+export const LENGTH_WARN = 0.05;
+
+// runsFine sums up the runs list when no run's length is off: it says what
+// it measured, so it can't be read against a spacing warning above it.
+export function runsFine(spacing) {
+  const lengths = `Run lengths: every run is within ${LENGTH_WARN * 100}% of its drawing.`;
+  return spacing ? `${lengths} ${plural(spacing, 'stretch', 'stretches')} inside a run ${spacing === 1 ? 'is' : 'are'} spaced differently, as warned above.` : lengths;
 }
 
 // lightsVerdict answers the first question on this tab: is anything lit?
@@ -125,19 +136,20 @@ export function createStatus(S, root) {
   root.innerHTML = `
     <h1 class="title">Status</h1>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
+    <div id="stStale" class="stale-note" role="status" hidden></div>
     <div id="stHealth" class="health" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
     <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
     <h2>Runs <small>drawn vs measured length</small></h2>
-    <p class="muted" id="stRunsFine" hidden>Every run matches its drawing.</p>
+    <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     </div>`;
   const $$ = (s) => root.querySelector(s);
-  let last = null, shownFailure = false;
+  let last = null, lastAt = 0, shownFailure = false;
 
   const markOffline = () => { for (const b of root.querySelectorAll('[data-run], [data-fix]')) b.disabled = !!S.offline; };
   const visible = () => S.panel.tab() === 'status' && !S.panel.collapsed();
@@ -151,11 +163,14 @@ export function createStatus(S, root) {
         shownFailure = true;
         showState($$('#stVerdict'), { ...loadFailure(e), retry: () => { shownFailure = false; return poll(); } });
       } else {
-        $$('#stVerdict').className = 'verdict';
-        $$('#stVerdict').textContent = "Couldn't refresh. Showing the last reading.";
+        // Its own line: the other polls redraw the verdict from the last reading.
+        $$('#stStale').textContent = `Couldn't refresh. Showing the reading from ${new Date(lastAt).toLocaleTimeString()}.`;
+        $$('#stStale').hidden = false;
       }
       return;
     }
+    lastAt = Date.now();
+    $$('#stStale').hidden = true;
     const levels = JSON.stringify(st.brightness);
     const changed = levels !== JSON.stringify(last?.brightness);
     last = st;
@@ -205,6 +220,7 @@ export function createStatus(S, root) {
     // Health is the second line, in plain text unless something is wrong.
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
+    $$('#stHealth').title = 'Whether Glowstack can reach each controller over the network';
     $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
@@ -247,7 +263,7 @@ export function createStatus(S, root) {
       // Signed: a run can be shorter than drawn as well as longer.
       const mis = Math.abs(s.mismatch || r.length_mismatch || 0);
       const label = { ...runLabel(r.id), name: r.name || runName(g, r.id) };
-      const warn = mis >= 0.05 && !label.unassigned;
+      const warn = mis >= LENGTH_WARN && !label.unassigned;
       const a = s.anchors || { measured: 0, estimated: 0 };
       const drawn = s.drawn_m || r.drawn_m;
       const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
@@ -261,6 +277,7 @@ export function createStatus(S, root) {
     $$('#stRuns').innerHTML = problems.map((r) => r.html).join('');
     $$('#stRunsRest').innerHTML = rest.map((r) => r.html).join('');
     $$('#stRunsFine').hidden = problems.length > 0;
+    $$('#stRunsFine').textContent = runsFine((st.solve.warnings || []).filter((w) => warningSummary(g, w).kind === 'spacing').length);
     $$('#stRunsMore').hidden = !rest.length;
     $$('#stRunsMore summary').textContent = problems.length ? `${plural(rest.length, 'other run')}` : `All ${plural(rest.length, 'run')}`;
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });

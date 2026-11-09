@@ -67,6 +67,17 @@ export function houseState(status, count) {
   return { kind: status === 'available' ? 'empty' : 'loading', title };
 }
 
+// nowLine is the current-state line above the catalog, as words. house is
+// the lights' layers, nameOf reads them, read says a reading ever came back;
+// status is the latest. A failed refresh keeps the last state and says so.
+export function nowLine({ house, previewing, status, read, word, nameOf }) {
+  if (status !== 'available' && !read) return null;
+  const stale = status !== 'available';
+  const main = house.length ? `On the lights: ${nameOf(house)}` : 'Nothing on the lights';
+  const sub = stale ? "Couldn't refresh. This is the last known state." : previewing || house.length ? '' : `${word} a look to try it on the map; the lights don't change.`;
+  return { main, sub, stale };
+}
+
 // lookKey says which look a layer (or a card's look) is.
 export const lookKey = (l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.effect);
 
@@ -445,7 +456,8 @@ export function createLooks(S, root) {
     const house = S.house.filter((l) => !l.ephemeral);
     const hbox = $$('#lkHouse .list');
     renderLane(hbox, 'house', house);
-    const houseNote = houseState(S.houseStatus, S.house.length);
+    // Nothing listed and the last reading on the line above: it says it all.
+    const houseNote = S.houseStatus === 'unavailable' && S.houseRead && !S.house.length ? null : houseState(S.houseStatus, S.house.length);
     laneState(hbox, houseNote);
     $$('#lkHouse').hidden = !S.house.length && (!houseNote || houseNote.kind === 'empty');
     // The zones at 0% once, for the lane: not on every card.
@@ -467,18 +479,18 @@ export function createLooks(S, root) {
   // full layer card, and short enough to leave the looks in view.
   function renderNow(prev, house) {
     const names = (ls) => (ls.length > 1 ? `${layerName(S, ls[0])} and ${ls.length - 1} more` : layerName(S, ls[0]));
-    const known = S.houseStatus === 'available';
-    const lights = house.length ? `On the lights: ${names(house)}` : known ? 'Nothing on the lights' : '';
+    const line = nowLine({ house, previewing: prev.length > 0, status: S.houseStatus, read: S.houseRead, word, nameOf: names });
     const now = $$('#lkNow');
     // What's in preview says so on its bar, card and map: this line is the lights.
-    now.hidden = !lights;
+    now.hidden = !line;
     if (now.hidden) return;
     const l = house[0];
     const strip = $$('#lkNowStrip');
     strip.hidden = !l;
     if (l) { const eff = effectFor(S, l); strip.style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l)); }
-    $$('#lkNowMain').textContent = lights;
-    $$('#lkNowSub').textContent = prev.length || house.length ? '' : `${word} a look to try it on the map; the lights don't change.`;
+    $$('#lkNowMain').textContent = line.main;
+    $$('#lkNowSub').textContent = line.sub;
+    now.classList.toggle('stale', line.stale);
     // With nothing listed below there's nowhere for it to go.
     const idle = !house.length;
     now.classList.toggle('idle', idle);

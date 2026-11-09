@@ -65,5 +65,5 @@ export function warningSummary(g, text) {
   else if (/pixels .* are in no run/.test(body)) summary = `Some lights on ${controllerName(g, /^controller (\S+):/.exec(body)?.[1] || '')} aren't part of any run.`;
   else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, detail: text, fix: { label: 'Open Setup', tab: 'setup' } };
   else summary = humanText(g, body.replace(/^flow \S+: /, '')).replace(/^./, (c) => c.toUpperCase());
-  return { summary, detail: text, fix };
+  return { summary, detail: text, fix, kind: density ? 'spacing' : undefined };
 }

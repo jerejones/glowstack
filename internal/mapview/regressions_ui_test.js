@@ -673,3 +673,53 @@ test('the shared text input puts its error under the field', async () => {
 test('the map model is dim so the lights lead', () => {
   assert.match(read('scene.js'), /lines: \{ color: '#cfe3ff', opacity: 0\.28 \}/);
 });
+
+test('B53: a failed refresh keeps the last state on Looks and says so', async () => {
+  const { nowLine } = await import('./static/panel/looks.js');
+  const base = { previewing: false, word: 'Tap', nameOf: (ls) => ls[0].name };
+  assert.equal(nowLine({ ...base, house: [], status: 'loading', read: false }), null, 'no reading yet: nothing to say');
+  const empty = nowLine({ ...base, house: [], status: 'unavailable', read: true });
+  assert.equal(empty.main, 'Nothing on the lights', 'the empty row stays');
+  assert.match(empty.sub, /Couldn't refresh/);
+  assert.equal(empty.stale, true);
+  const some = nowLine({ ...base, house: [{ name: 'Dusk' }], status: 'unavailable', read: true });
+  assert.equal(some.main, 'On the lights: Dusk');
+  assert.match(some.sub, /last known/);
+  assert.equal(nowLine({ ...base, house: [], status: 'available', read: true }).stale, false);
+  assert.match(css, /\.now:not\(\.idle\):not\(\.stale\) small \{ display: none; \}/, 'the phone half sheet keeps the notice');
+});
+
+test('a failed action names what failed, and a stray error page is not shown as text', async () => {
+  const { api, failure } = await import('./static/util.js');
+  const real = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: false, status: 503, statusText: 'x', text: async () => '{"error":"service unavailable"}' });
+    assert.equal(failure('preview the look', await api('/x').catch((e) => e)), 'Could not preview the look: service unavailable.');
+    globalThis.fetch = async () => ({ ok: false, status: 502, statusText: 'x', text: async () => '<html>Bad gateway</html>' });
+    assert.doesNotMatch(failure('preview the look', await api('/x').catch((e) => e)), /html/);
+  } finally { globalThis.fetch = real; }
+});
+
+test('a failed status refresh is its own line, so other redraws can not erase it', () => {
+  const status = read('panel/status.js');
+  assert.match(status, /id="stStale"/);
+  assert.doesNotMatch(status, /stVerdict'\)\.textContent = "Couldn't refresh/);
+  assert.match(status, /\$\$\('#stStale'\)\.hidden = true/);
+});
+
+test('B54: status captions wrap instead of clipping', () => {
+  const rule = /^\.stat span \{[^}]*\}/m.exec(css)[0];
+  assert.doesNotMatch(rule, /nowrap|ellipsis/);
+});
+
+test('B60: each status verdict says what it measured', async () => {
+  const { runsFine, verdict } = await import('./static/panel/status.js');
+  assert.match(runsFine(0), /^Run lengths: every run is within 5% of its drawing\.$/);
+  assert.match(runsFine(1), /1 stretch inside a run is spaced differently/);
+  assert.match(runsFine(3), /3 stretches inside a run are spaced/);
+  assert.match(verdict(['a'], {}).text, /^Controllers: /);
+  const { warningSummary } = await import('./static/names.js');
+  const g = { runs: [{ id: 'eave', name: 'Eave' }], nodes: [], controllers: [] };
+  assert.equal(warningSummary(g, 'layout.yaml:3: run eave: a–b has 40 pixels where its drawn length implies about 30').kind, 'spacing');
+  assert.equal(warningSummary(g, 'other').kind, undefined);
+});

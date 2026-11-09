@@ -154,11 +154,11 @@ test('setting labels are in words; the key stays in the tooltip', async () => {
 test('status gives one verdict', async () => {
   const { verdict } = await import('./static/panel/status.js');
   const ok = { reachable: true }, down = { reachable: false };
-  assert.equal(verdict(['a', 'b'], { a: ok, b: ok }).text, 'All 2 controllers healthy');
-  assert.equal(verdict(['a', 'b'], { a: ok, b: down }).text, '1 controller needs attention');
-  assert.equal(verdict(['a', 'b'], { a: down, b: down }).text, '2 controllers need attention');
-  assert.equal(verdict(['a'], {}).text, 'No controller health reported yet');
-  assert.equal(verdict(['a'], { a: ok }).text, 'The controller is healthy');
+  assert.equal(verdict(['a', 'b'], { a: ok, b: ok }).text, 'Controllers: all 2 reachable');
+  assert.equal(verdict(['a', 'b'], { a: ok, b: down }).text, "Controllers: 1 isn't reachable");
+  assert.equal(verdict(['a', 'b'], { a: down, b: down }).text, "Controllers: 2 aren't reachable");
+  assert.equal(verdict(['a'], {}).text, 'Controllers: no report yet');
+  assert.equal(verdict(['a'], { a: ok }).text, 'Controller: reachable');
 });
 
 test('Setup chips do not repeat their kind', () => {
@@ -247,10 +247,6 @@ test('every tab uses one panel width', () => {
 test('a harmless 404 is neutral, not an error', () => {
   const html = fs.readFileSync(path.join(__dirname, 'static/404.html'), 'utf8');
   assert.doesNotMatch(html, /state error|role="alert"/);
-});
-
-test('status tiles stay on one line', () => {
-  assert.match(css, /\.stat span \{[^}]*white-space: nowrap/);
 });
 
 test('Retry goes back to loading, then runs the retry', async () => {

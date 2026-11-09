@@ -48,6 +48,7 @@ export function createHousePoll(S, api) {
       const { layers } = response;
       const changed = S.houseStatus !== 'available' || JSON.stringify(layers) !== JSON.stringify(S.house);
       S.house = layers;
+      S.houseRead = true; // a reading exists, so a failed refresh has a last state to show
       S.houseStatus = 'available';
       if (changed) S.emit('house', layers);
     } catch (e) {
