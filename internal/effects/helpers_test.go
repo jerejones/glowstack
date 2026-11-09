@@ -65,6 +65,7 @@ func resolve(t testing.TB, d *render.Def, raw map[string]any, pitch float64) *re
 func (s *strip) ctx(v *render.Values, tm float64) *render.Context {
 	return &render.Context{
 		T: tm, Params: v, Pitch: s.pitch, Smooth: true, Seed: 42,
+		X: s.u, Y: make([]float32, len(s.pixels)), Z: make([]float32, len(s.pixels)),
 		Pixels: s.pixels, U: s.u, Dl: s.dl, Stretch: s.stretch, Index: s.index, Count: len(s.pixels),
 	}
 }

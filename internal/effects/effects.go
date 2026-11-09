@@ -32,7 +32,7 @@ import "github.com/jerejones/glowstack/internal/render"
 
 // Register adds every effect in this package to r.
 func Register(r *render.Registry) error {
-	for _, d := range []*render.Def{Solid(), Bands(), Gradient(), Sparkle(), Chase(), Noise(), Breathe(), Burst(), Glitter()} {
+	for _, d := range []*render.Def{Solid(), Bands(), Gradient(), Sparkle(), Chase(), Noise(), Breathe(), Burst(), Glitter(), SpatialField()} {
 		if err := r.Register(d); err != nil {
 			return err
 		}

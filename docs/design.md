@@ -1468,3 +1468,38 @@ calibration. The model's optional run `status` describes strip condition:
 `working` is operating; other recorded conditions are hidden by the default.
 Missing status defaults to working for older models and 2-D plans. Controller
 reachability is unrelated, so powered-off but working runs remain visible.
+
+### Spatial field
+
+`spatial-field` is a reusable 3-D primitive with seven modes: `trace`
+(expanding sphere with a dim architectural wake), `tide` (concentric waves),
+`aurora` (folding curtains), `orbit` (opposing curved spokes), `weave`
+(orthogonal packets), `nova` (single expanding shell), and `ember` (spatially
+hashed scintillation). Native shows own all scheduling, targets, mappings,
+fades and looping; this effect has no timeline of its own.
+
+Parameters: `mode`, `color`, `accent` (explicit RGBW), `level` (linear scale),
+`speed` (m/s), `scale`, `width` (meters), `phase` (radians), and `origin_x`,
+`origin_y`, `origin_z` (meters). Motion uses layer age; inside a show it uses
+cue age. Scale and width are clamped above zero. The same position and age
+produce the same color regardless of pixel ID, seed, or target subset.
+Missing positions produce black. Use `mapping: plan` for complete coverage.
+It reads physical positions, not flow/reverse/offset coordinates.
+
+Aurora uses speed for drift plus slow internal deformation. Ember has fixed
+temporal variation. Orbit uses speed/scale for angular speed and retains a
+spiral shape; for a straight sweep, use `chase` with an `angular` mapping.
+Nova is a single authored wave; use `burst` for seeded repeated fireworks.
+
+Example native cue:
+
+```yaml
+- name: curtain
+  effect: spatial-field
+  mapping: plan
+  at: 10 s
+  for: 20 s
+  fade_in: 3 s
+  fade_out: 4 s
+  params: { mode: aurora, color: "#5020ff", accent: "#00efbb", scale: 5 m }
+```
