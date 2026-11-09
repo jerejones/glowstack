@@ -734,15 +734,22 @@ export function createLooks(S, root) {
   // point marked before a change (none if the mark failed) and keeps the
   // card's link for its five minutes; undoAction is the toast's button.
   const undo = createUndo();
-  let undoTimer = 0;
+  let undoTimer = 0, undoStack = '';
+  // stackKey is which looks are on the lights, in order. The offer is for
+  // the stack this page left: if someone else (another screen, Home
+  // Assistant) has since added or removed a look, undoing would take their
+  // change back too, so the offer is withdrawn.
+  const stackKey = () => S.house.filter((l) => !l.ephemeral).map((l) => l.id).join(',');
   function offerUndo(id, what) {
     undo.set(id, what);
+    undoStack = stackKey();
     clearTimeout(undoTimer);
     if (undo.link()) undoTimer = setTimeout(renderUndo, undo.linkLeft() + 50);
     renderUndo();
   }
   const undoAction = () => (undo.point() ? [{ id: 'undo', label: 'Undo', run: undoLast }] : []);
   function renderUndo() {
+    if (undo.point() && S.houseStatus === 'available' && stackKey() !== undoStack) { undo.clear(); clearTimeout(undoTimer); }
     const p = undo.link() ? undo.point() : null;
     $$('#lkUndoLine').hidden = !p;
     if (p) $$('#lkUndo').setAttribute('aria-label', `Undo last change: ${p.what}`);
@@ -962,6 +969,7 @@ export function createLooks(S, root) {
     fitDark();
     markPreviewed();
     S.refreshBadge?.();
+    renderUndo();
     // A copy whose preview layer is gone is forgotten.
     const ids = new Set(prev.map((l) => l.id));
     if (Object.keys(copies).some((k) => !ids.has(k)) && S.preview) {

@@ -1379,7 +1379,10 @@ desk.
   (Put, Add, Update, Replace, and Remove on a live look) can be taken back
   once. The confirmation toast carries **Undo** for 10 seconds, and the
   "On the lights" card keeps a quieter **Undo last change** link until the
-  next change or for 5 minutes, whichever is first. One level only.
+  next change or for 5 minutes, whichever is first. One level only. The
+  offer is for the stack that page left: if the looks on the lights are no
+  longer those (another screen or Home Assistant added or removed one), the
+  offer is withdrawn rather than take that change back too.
   The server holds the undo point (`PUT /api/v1/undo` marks the live stack
   just before the change; `POST /api/v1/undo` with the mark's id puts it
   back; a later mark makes an earlier id answer 409). The restore is exact:

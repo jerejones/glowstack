@@ -536,3 +536,13 @@ test('Refinement 7: one disclosure style per level, a focus ring of its own, a L
   assert.match(phone, /^  \.tab \.looks-head \{ display: none; \}\s*body\[data-detent=full\] \.tab \.looks-head \{ display: flex; margin-top: 16px; \}/);
   assert.match(read('panel/looks.js'), /<div class="looks-head"><h1 class="title">Looks<\/h1><\/div>/);
 });
+
+test('E follow-up: undo is withdrawn when the stack is no longer the one this page left', () => {
+  const looks = read('panel/looks.js');
+  // Undo is offered for the stack this page left. If the looks on the lights are no longer those
+  // (another screen or Home Assistant added or removed one), undoing would take that change back too.
+  assert.match(looks, /const stackKey = \(\) => S\.house\.filter\(\(l\) => !l\.ephemeral\)\.map\(\(l\) => l\.id\)\.join\(','\);/);
+  assert.match(looks, /undo\.set\(id, what\);\s*undoStack = stackKey\(\);/);
+  assert.match(looks, /if \(undo\.point\(\) && S\.houseStatus === 'available' && stackKey\(\) !== undoStack\) \{ undo\.clear\(\); clearTimeout\(undoTimer\); \}/);
+  assert.match(design, /the\s+offer is withdrawn rather than take that change back too/);
+});
