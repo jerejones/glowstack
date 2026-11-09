@@ -666,6 +666,12 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 #suAdvanced { margin-top: 16px; }
 .section-disclosure > summary, #suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
 .form-disclosure > summary { font-size: var(--t-h3); font-weight: 600; color: #f3f4f6; }
+/* Beside the map, open More settings scrolls inside, so with every group open
+ * the Library stays within a panel's height of the top. */
+@media (min-width: 700px) {
+  .layer .form-disclosure[open] { max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; }
+  .layer .form-disclosure[open] > summary { position: sticky; top: 0; z-index: 1; background: var(--card2); }
+}
 /* Its sections sit under Advanced: indented, and a size below the top-level
  * ones. Every section is one wrapper, so a control takes the wrapper's width. */
 #suAdvanced > :not(summary) { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-strong); }

@@ -2404,3 +2404,7 @@ test('two stretches of a run read alike and still count as two, with the points 
   assert.equal(out[0].group.length, 2, 'a repeat is the same detail, not the same words');
   assert.match(read('panel/status.js'), /data-one="\$\{j\}">[\s\S]*?<details><summary>Details<\/summary><p class="plain" title="\$\{esc\(one\.detail\)\}"/);
 });
+
+test('an open More settings scrolls inside the panel beside the map', () => {
+  assert.match(read('ui.css'), /\.layer \.form-disclosure\[open\] \{ max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; \}/);
+});
