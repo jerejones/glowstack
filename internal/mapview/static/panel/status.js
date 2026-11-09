@@ -248,7 +248,7 @@ export function createStatus(S, root) {
     let st;
     try { st = await api('/api/v1/status'); S.setServerUp?.(true); } catch (e) {
       if (e?.network) S.setServerUp?.(false);
-      if (!S.statusFailed) { S.statusFailed = true; S.refreshBadge?.(); }
+      if (!S.statusFailed) { S.statusFailed = true; S.refreshBadge?.(); S.emit('statusRead'); }
       if (!last) {
         // A poll mustn't redraw the card out from under a tap on Retry.
         if (shownFailure) return;
@@ -265,7 +265,7 @@ export function createStatus(S, root) {
     }
     lastAt = Date.now();
     staleSince = false;
-    if (S.statusFailed) { S.statusFailed = false; S.refreshBadge?.(); }
+    if (S.statusFailed) { S.statusFailed = false; S.refreshBadge?.(); S.emit('statusRead'); }
     $$('#stStale').hidden = true;
     const levels = JSON.stringify(st.brightness);
     const changed = levels !== JSON.stringify(last?.brightness);

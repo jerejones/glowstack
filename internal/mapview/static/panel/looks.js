@@ -162,6 +162,13 @@ export function applyPlan({ n, updates, house, hidden, mode }) {
   return { label: `Replace what's on the lights with ${looks}`, choice: true, replace: true, note: replaceNote(hidden) + (stay ? ` · ${stay} more ${stay === 1 ? 'stays' : 'stay'}` : '') };
 }
 
+// applyTitle is the Apply button's tooltip; a failed status read says so
+// there, and Apply still works.
+export function applyTitle(plan, unknown) {
+  const base = plan.note || plan.label;
+  return unknown ? `${base.replace(/\.?$/, '.')} The lights' current state is unknown.` : base;
+}
+
 // applyResult is what Apply reports: plain success only when the look can
 // be seen. outcome is lightOutcome for the applied looks.
 export function applyResult(what, outcome, cardShown = false) {
@@ -743,7 +750,7 @@ export function createLooks(S, root) {
     for (const b of $$('#lkMode').children) press(b, b.dataset.mode === mode);
     const go = $$('#lkPushAll'), html = `${icon('apply')}<span>${esc(plan.label)}</span>`;
     if (go.dataset.html !== html) { go.dataset.html = html; go.innerHTML = html; }
-    go.title = plan.note || plan.label;
+    go.title = applyTitle(plan, S.houseStatus === 'unavailable' || !!S.statusFailed);
     $$('#lkBarNote').textContent = plan.note;
     fitNote();
   }
@@ -932,6 +939,7 @@ export function createLooks(S, root) {
   S.on('tab', () => { syncBarInset(); fitNote(); S.panel.keepBand(S.preview?.layers.length && S.panel.tab() === 'looks' ? PREVIEW_BAND : 0); risePreview(); });
   S.on('layout', fitNote);
   S.on('status', renderStage); // a zone's brightness changed the warning
+  S.on('statusRead', renderStage); // a status read failed, or recovered: the Apply title says
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();

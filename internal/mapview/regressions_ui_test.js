@@ -1928,10 +1928,10 @@ test('B107: the chip never vouches for the lights without a fresh reading', asyn
     if (!connected) assert.equal(m.text, 'Offline');
     else if (preview.previewing) assert.equal(m.text, 'Showing your preview');
     else if (fresh) assert.equal(m.cls, 'house');
-    else { assert.equal(m.text, 'Lights: state unknown'); assert.notEqual(m.cls, 'house'); assert.match(m.title, /failed/); }
+    else { assert.equal(m.text, 'Lights: unknown'); assert.equal(m.detail, " · couldn't refresh"); assert.notEqual(m.cls, 'house'); assert.match(m.title, /failed/); }
   }
-  assert.equal(mapStatus({ connected: true, fresh: false, show: 'house', preview: previewing }).text, 'Lights: state unknown', 'a hidden preview changes nothing');
-  assert.equal(mapStatus({ connected: true, fresh: false, show: '', preview: idle, lit: { dark: 'none', message: 'x' } }).text, 'Lights: state unknown', 'stale zones are not news');
+  assert.equal(mapStatus({ connected: true, fresh: false, show: 'house', preview: previewing }).text, 'Lights: unknown', 'a hidden preview changes nothing');
+  assert.equal(mapStatus({ connected: true, fresh: false, show: '', preview: idle, lit: { dark: 'none', message: 'x' } }).text, 'Lights: unknown', 'stale zones are not news');
   assert.equal(mapStatus({ connected: true, mapless: true, fresh: false, show: '', preview: null }).text, 'Map unavailable');
 });
 
@@ -2305,4 +2305,16 @@ test('library card rows reserve no second line for names that fit one', () => {
   assert.match(css, /-webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere/, 'a long name still clamps to two lines');
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ margin-top: auto; \}/, 'even bottoms within a row');
   assert.match(/^\.cards \{[^}]*\}/m.exec(css)[0], /display: grid/, 'a grid row takes its tallest card');
+});
+
+test('a failed light status read says so on the pill and on Apply, and never blocks Apply', async () => {
+  const { mapStatus } = await import('./static/map-status.js');
+  const { applyTitle } = await import('./static/panel/looks.js');
+  assert.equal(mapStatus({ connected: true, fresh: false, reading: true, show: '', preview: { previewing: false } }).text, 'Lights: checking…', 'loading is not a failure');
+  const showing = mapStatus({ connected: true, fresh: false, show: '', preview: { previewing: true } });
+  assert.equal(showing.detail, ' · lights unknown');
+  assert.match(applyTitle({ label: 'Put 1 look on the lights', note: '' }, true), /^Put 1 look on the lights\. The lights' current state is unknown\.$/);
+  assert.equal(applyTitle({ label: 'L', note: 'N' }, false), 'N');
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks.slice(looks.indexOf('function renderBar'), looks.indexOf('function fitNote')), /\.disabled/, 'Apply is never disabled for this');
 });
