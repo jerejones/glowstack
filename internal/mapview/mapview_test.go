@@ -356,7 +356,7 @@ func TestCaptureFoldsWhiteAndTracksLayers(t *testing.T) {
 	p := porch.Pixels[0] // yard:390, the porch's last pixel: it's wired from the east
 	// The porch is on an RGB controller, but the map folds W into RGB
 	// for every pixel: red + white at 0x80.
-	if got := s.RGB[3*p : 3*p+3]; got[0] != 255 || got[1] != 128 || got[2] != 128 {
+	if got := s.RGB[3*p : 3*p+3]; got[0] != 255 || got[1] != 98 || got[2] != 64 {
 		t.Errorf("porch rgb %v", got)
 	}
 	if s.Layers[s.Top[p]] != top.ID || s.Layers[s.Top[0]] != bottom.ID {
@@ -369,7 +369,7 @@ func TestCaptureFoldsWhiteAndTracksLayers(t *testing.T) {
 
 	px := f.m.inspect(f.m.state().View, p, ShowAuto)
 	if px.Showing == nil || px.Showing.Layer != top.ID || px.Showing.Preview || px.Showing.Target != "porch" ||
-		px.RGB != "#ff8080" || px.Run != "porch" || px.Controller != "yard" || px.Index != 390 || px.RunPixel != 89 {
+		px.RGB != "#ff6240" || px.Run != "porch" || px.Controller != "yard" || px.Index != 390 || px.RunPixel != 89 {
 		t.Errorf("inspect %+v showing %+v", px, px.Showing)
 	}
 	if strings.Join(px.Zones, ",") != "front,porch" || len(px.Mappings) != len(f.app.Mappings.IDs()) {
@@ -943,5 +943,25 @@ func TestAreaIncludeGraph(t *testing.T) {
 		if !reflect.DeepEqual(a.Includes, tt.includes) || !reflect.DeepEqual(a.Runs, tt.runs) {
 			t.Errorf("area %s: %+v", tt.id, a)
 		}
+	}
+}
+
+func TestMapDistinguishesWarmWhiteFromRGBWhite(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   units.Color
+		want [3]byte
+	}{
+		{"RGB white", units.Color{R: 255, G: 255, B: 255}, [3]byte{255, 255, 255}},
+		{"warm white", units.Color{W: 255}, [3]byte{255, 196, 128}},
+		{"dim warm white", units.Color{W: 128}, [3]byte{128, 98, 64}},
+		{"RGB plus warm white", units.Color{R: 100, G: 40, W: 128}, [3]byte{228, 138, 64}},
+		{"RGB unchanged", units.Color{R: 18, G: 52, B: 86}, [3]byte{18, 52, 86}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := displayRGBW(color.Linear(tc.in)); got != tc.want {
+				t.Fatalf("display RGBW = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

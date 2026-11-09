@@ -73,15 +73,27 @@ func display(v float32) byte {
 	return displayLUT[int(v*float32(len(displayLUT)-1)+0.5)]
 }
 
+// displayRGBW matches static/util.js displayColor: the dedicated white
+// channel has a warm screen tint. This is a display-space approximation,
+// not a photometric model, and never changes the RGBW output buffer.
+func displayRGBW(c color.Color) [3]byte {
+	warm := [3]float64{255, 196, 128}
+	rgb := [3]byte{display(c.R), display(c.G), display(c.B)}
+	w := float64(display(c.W)) / 255
+	for i := range rgb {
+		rgb[i] = byte(math.Round(math.Min(255, float64(rgb[i])+warm[i]*w)))
+	}
+	return rgb
+}
+
 // capture copies a rendered buffer into a snapshot: display RGB with W
 // folded in, the layer showing at each pixel, and the power estimate.
 func (m *Map) capture(f clock.Frame, v app.View, buf *render.Buffer, comp *render.Compositor, preview bool) *Snapshot {
 	n := len(buf.Pix)
 	s := &Snapshot{Gen: v.Gen, T: f.T, Time: f.Time, Preview: preview, RGB: make([]byte, 3*n), Top: make([]int32, n)}
 	for p, c := range buf.Pix {
-		s.RGB[3*p] = display(c.R + c.W)
-		s.RGB[3*p+1] = display(c.G + c.W)
-		s.RGB[3*p+2] = display(c.B + c.W)
+		rgb := displayRGBW(c)
+		copy(s.RGB[3*p:3*p+3], rgb[:])
 	}
 	s.Layers = comp.Top(s.Top, nil)
 	s.Power = estimatePower(v.Layout, buf)
