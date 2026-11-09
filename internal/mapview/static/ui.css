@@ -532,10 +532,9 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 /* A row's controls never take room from its name: they have their own line. */
 .layer .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .layer .controls > button { flex: none; white-space: nowrap; }
-.layer .bri { display: flex; flex: 1 1 110px; align-items: center; gap: 6px; min-width: 100px; }
-/* A bare X beside the map, so every control fits one line; "Remove here" keeps
- * its word, and a phone always shows it. Trash is for Delete, which destroys. */
-.layer [data-a=remove]:not(.worded) span { display: none; }
+.layer .bri { display: flex; flex: 1 1 110px; align-items: center; gap: 6px; min-width: 60px; }
+/* Remove is worded at every size. The slider gives way first, so a label
+ * never wraps. Trash is for Delete, which destroys. */
 .layer .bri output { min-width: 3em; }
 .bri-word { display: none; }
 .bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-meta); }
@@ -578,7 +577,6 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   .layer .place-row { grid-column: 1; grid-row: 1; }
   .layer .tweak { grid-column: 2; grid-row: 2; }
   .layer [data-a=remove] { grid-column: 2; grid-row: 1; }
-  .layer [data-a=remove]:not(.worded) span { display: inline; }
   .layer .bri { grid-column: 1; grid-row: 2; }
   /* The primary action has its own row; the choice, the note and Clear the
    * next. The bottom padding keeps Clear off the screen's edge. */
