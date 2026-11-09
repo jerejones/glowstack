@@ -16,7 +16,9 @@ const DETENT = 'glowstack.sheet.detent';
 const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
 const PEEK = 68;   // handle (with Expand) and tab bar
 const STRIP = 200; // the map above a full sheet: --strip in ui.css
-const HALF = 0.5; // of the window's height, the same on every tab so the map holds still
+const HALF = 0.5; // of the window's height at the half detent, so the map holds still in a tab
+const TALL_HALF = 0.68; // the list tabs: their rows need the room
+const TALL_TABS = new Set(['presets', 'status']);
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
 // guardSelection stops text selection while dragging() says so.
@@ -45,7 +47,7 @@ export function createPanel(hooks) {
   const safeBottom = () => parseFloat(getComputedStyle(panel).paddingBottom) || 0;
   const heights = () => {
     const h = innerHeight, sb = safeBottom();
-    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * HALF)), full: h - STRIP };
+    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * (TALL_TABS.has(tab) ? TALL_HALF : HALF))), full: h - STRIP };
   };
   function setVisible(px) {
     visible = px;
@@ -57,6 +59,7 @@ export function createPanel(hooks) {
     if (name !== tab) $('content').scrollTop = 0; // the panel's one scroller
     tab = name;
     root.dataset.tab = name;
+    if (layout === 'sheet' && detent === 'half') setVisible(heights().half); // this tab's half
     const url = new URL(location.href);
     url.pathname = '/' + name;
     if (navigation !== 'none' && url.pathname !== location.pathname) {

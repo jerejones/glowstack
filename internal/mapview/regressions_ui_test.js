@@ -1706,10 +1706,12 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
   assert.doesNotMatch(status, /kit\.push\(nb\('version/, 'the version moved to the name tooltip');
 });
 
-test('the half sheet is one height on every tab, so the map holds still', () => {
+test('the half sheet is one fixed height per tab, taller on the list tabs', () => {
   const sheet = read('sheet.js');
   assert.match(sheet, /const HALF = 0\.5;/);
-  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\)/);
+  assert.match(sheet, /const TALL_TABS = new Set\(\['presets', 'status'\]\);/);
+  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* \(TALL_TABS\.has\(tab\) \? TALL_HALF : HALF\)\)\)/);
+  assert.match(sheet, /detent === 'half'\) setVisible\(heights\(\)\.half\);/, 'switching tabs moves to that tab\'s half');
   assert.doesNotMatch(sheet, /READING|fitHalf/);
 });
 
