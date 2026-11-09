@@ -1381,7 +1381,7 @@ test('one section heading style, Setup in order, and matching segments', () => {
 });
 
 test('desktop footer keeps to the panel bottom; legend folds; boot has the tab icons; labels fit a phone', async () => {
-  assert.match(css, /#tab-looks > \.look-bar \{ margin-top: auto/);
+  assert.doesNotMatch(css, /#tab-looks > \.look-bar/, 'the bar follows the content; sticky covers the tall case');
   assert.match(read('panel/setup.js'), /legend-toggle/);
   assert.match(css, /\.legend\.folded > :not\(\.legend-toggle\) \{ display: none/);
   assert.match(css, /\.target-list \{[^}]*padding-bottom: 12px/, 'the last chips clear the sticky bar');
@@ -2072,6 +2072,11 @@ test('B123: output names in a tight cluster hide and are counted, never overlap'
   assert.ok(placed.hidden > 0);
   const overlay = read('overlay.js');
   assert.match(overlay, /outputName\(o\)\}`, q\[0\] \+ 10, q\[1\] - 8, `rgb\(\$\{o\.color\}\)`, MAJOR, true, true\)/);
+});
+
+test('the action bar sits right below short content and sticks over tall content', () => {
+  assert.doesNotMatch(css, /#tab-looks \{ display: flex/);
+  assert.match(css, /\.look-bar \{\s*\/\*[^*]*\*\/\s*position: sticky; bottom: calc\(-1 \* var\(--content-bottom\)\)/);
 });
 
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {

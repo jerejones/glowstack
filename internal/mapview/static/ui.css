@@ -745,12 +745,6 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
 }
 
-/* With the panel at the side, the footer keeps to the bottom on a short tab. */
-@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
-  #tab-looks { display: flex; flex-direction: column; min-height: calc(100% + var(--content-bottom)); margin-bottom: calc(-1 * var(--content-bottom)); }
-  #tab-looks > .look-bar { margin-top: auto; }
-}
-
 /* Preset library and local draft editor. */
 .library-heading { justify-content: space-between; min-height: var(--title-row); margin: 10px 0 8px; }
 .field, .preset-editor > .field-label { display: grid; gap: 6px; margin: 12px 0; }
