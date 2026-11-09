@@ -216,3 +216,11 @@ test('a phone layer row is one line that says where and how bright', async () =>
   assert.equal(line.bri, '80%');
   assert.equal(line.label, 'Preview: Warm white on Porch at 80%. Show its controls');
 });
+
+test('a card previewing somewhere else says where', async () => {
+  const { previewLine } = await import('./static/panel/looks.js');
+  const same = (a, b) => a === b, name = (t) => t.toUpperCase(), layers = [{ preset: 'dusk', target: 'street' }];
+  assert.equal(previewLine(layers, 'preset:dusk', 'street', same, name), 'Previewing');
+  assert.equal(previewLine(layers, 'preset:dusk', 'yard', same, name), 'Previewing on STREET');
+  assert.equal(previewLine(layers, 'preset:other', 'yard', same, name), '');
+});

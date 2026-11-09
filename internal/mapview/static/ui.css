@@ -522,6 +522,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .layer .name-line b { overflow-wrap: anywhere; }
 .preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .live-badge { margin-top: auto; min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preset .in-badge > span, .preset .live-badge > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
 .layer {
   padding: 6px 4px 6px 12px; margin-top: 6px; position: relative; border-radius: 8px;

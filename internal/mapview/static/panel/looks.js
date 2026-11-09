@@ -113,6 +113,14 @@ export function liveLine(house, key, target, sameTarget, nameOf) {
   return on.some((l) => sameTarget(l.target, target)) ? 'Live' : `Live on ${nameOf(on[0].target)}`;
 }
 
+// previewLine is a library card's line for a look in the preview: Previewing
+// where new previews go, else on the place it's on. '' when it isn't.
+export function previewLine(layers, key, target, sameTarget, nameOf) {
+  const on = layers.filter((l) => lookKey(l) === key);
+  if (!on.length) return '';
+  return on.some((l) => sameTarget(l.target, target)) ? 'Previewing' : `Previewing on ${nameOf(on[0].target)}`;
+}
+
 // layerLine is a layer's one line on a phone, collapsed: where it goes and how
 // bright, with the words a screen reader hears for the chevron.
 export function layerLine(kind, name, place, brightness) {
@@ -497,8 +505,9 @@ export function createLooks(S, root) {
       const inPreview = on.has(b.dataset.look), other = !inPreview && elsewhere.has(b.dataset.look);
       b.classList.toggle('in-preview', inPreview);
       b.classList.toggle('elsewhere', other);
-      b.querySelector('.in-badge').lastChild.textContent = other ? 'Elsewhere' : 'Previewing';
-      b.querySelector('.in-badge').title = other ? 'Previewing elsewhere' : 'Previewing here';
+      const line = previewLine(layers, b.dataset.look, t, sameTarget, (x) => targetName(g, x)) || 'Previewing';
+      b.querySelector('.in-badge').lastChild.textContent = line;
+      b.querySelector('.in-badge').title = line;
       b.setAttribute('aria-pressed', inPreview ? 'true' : 'false');
     }
   }

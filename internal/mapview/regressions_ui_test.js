@@ -273,7 +273,7 @@ test('Remove looks the same in live and preview rows, and a row\'s edge says whi
 });
 
 test('a look in preview somewhere else stays marked', () => {
-  assert.match(read('panel/looks.js'), /Previewing elsewhere/);
+  assert.match(read('panel/looks.js'), /`Previewing on \$\{nameOf/);
   assert.match(css, /\.preset\.elsewhere \{/);
 });
 
