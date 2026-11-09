@@ -1560,7 +1560,7 @@ test('default framing centers the lights in the visible area, and leaves a place
 
 test('B95: names on cards wrap to two lines instead of being cut, and rows set their own height', async () => {
   const css = read('ui.css');
-  const wrap = /\.preset \.name, \.layer \.name-line b \{[^}]*\}/.exec(css)[0];
+  const wrap = /\.preset \.name \{\s*display: -webkit-box[^}]*\}/.exec(css)[0];
   assert.match(wrap, /-webkit-line-clamp: 2/);
   assert.doesNotMatch(wrap, /nowrap|ellipsis/);
   assert.doesNotMatch(/^\.cards \{[^}]*\}/m.exec(css)[0], /grid-auto-rows/, 'a tall row must not stretch every other row');
@@ -2054,7 +2054,7 @@ test('B111: a row\'s name has its own line, above the controls', () => {
   assert.doesNotMatch(/<div class="name-line">.*?<\/div>/.exec(row)[0], /<button|<input/, 'no control shares its line');
   for (const c of ['place-row', 'bri', 'tweak', 'data-a="remove"']) assert.ok(row.indexOf(c) > row.indexOf('class="controls"'), c);
   assert.match(css, /\.layer \.controls \{ display: flex; flex-wrap: wrap;/);
-  assert.doesNotMatch(/^\.layer \.name-line b \{[^}]*\}/m.exec(css)[0], /nowrap|ellipsis/);
+  assert.doesNotMatch(/^\.layer \.name-line b \{[^}]*\}/m.exec(css)[0], /nowrap|ellipsis|line-clamp/, 'the whole name, however long');
 });
 
 test('wiring marks: the output number has a dark disc to sit on, and the chip close icon is centered', () => {

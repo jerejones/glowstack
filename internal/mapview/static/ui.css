@@ -491,9 +491,11 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .preset .name { font-size: var(--t-h3); font-weight: 600; height: 2.6em; line-height: 1.3; }
 .preset .name, .preset .sub, .preset .in-badge { min-width: 0; }
 /* What someone chooses by wraps, up to two lines, rather than being cut. */
-.preset .name, .layer .name-line b {
+.preset .name {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
+/* A row is as tall as its name needs: it is never cut for the controls. */
+.layer .name-line b { overflow-wrap: anywhere; }
 .preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
 .layer {
