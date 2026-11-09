@@ -777,6 +777,10 @@ test('B69: beside the map the progress list fills the panel', () => {
   assert.match(css, /\.cal-body > \.cal-prog \{ flex: 1 1 0;[^}]*max-height: none; \}/);
 });
 
+test('B68: Preview holds one width, so Pin and More do not shift', () => {
+  assert.match(css, /\.preset-actions \[data-act=try\] \{ width: 7em; padding: 0; \}/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));

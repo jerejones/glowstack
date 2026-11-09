@@ -620,7 +620,8 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-title { display: grid; gap: 4px; margin: 8px 0; overflow-wrap: anywhere; }
 .preset-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .preset-actions button { display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--fg); padding: 0 8px; }
-.preset-actions [data-act=try] { min-width: 6em; }
+/* Wide enough for Previewing, so Pin and More stay put when it changes. */
+.preset-actions [data-act=try] { width: 7em; padding: 0; }
 .preset-actions .pin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 /* Wide enough for Pinned, so the row lines up whichever a card says. */
 .preset-actions [data-act=pin] { width: 6.6em; padding: 0; }
