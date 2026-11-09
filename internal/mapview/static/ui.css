@@ -6,8 +6,8 @@
  * (portrait phones) the map is full-bleed under a floating chip bar and
  * the panel is a bottom sheet; from 700 px, and on phones held
  * landscape, the panel sits at the side (300 px, collapsing to an icon
- * rail); from 1100 px it is 400 px, and from 1280 px 500 px (640 px on the
- * list-heavy Presets and Status tabs: --panel-w per tab), always open. --layout tells
+ * rail); from 1100 px it is 400 px, and from 1280 px 580 px on every tab, so the
+ * map never changes size between them; always open. --layout tells
  * app.js which one applies. Calibration mode is at the end. */
 
 :root {
@@ -64,8 +64,7 @@
 html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; --t-h2: 20px; --t-xl: 26px; --picker-rows: 4; }
 
 @media (min-width: 1280px) {
-  :root { --panel-w: 500px; }
-  :root[data-tab=presets], :root[data-tab=status] { --panel-w: 640px; }
+  :root { --panel-w: 580px; }
   body.calibrating { --panel-w: 500px; } /* Calibrate's own width, whichever tab opened it */
 }
 @media (max-width: 1099.98px) {

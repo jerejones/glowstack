@@ -239,9 +239,10 @@ test('nothing is under the caption size, and small text uses it', () => {
   for (const m of css.matchAll(/font-size: ([^;]+);/g)) assert.match(m[1], /var\(--t-[a-z0-9]+\)/, m[0]);
 });
 
-test('the panel width is one CSS variable per tab, and Calibrate keeps its own', () => {
+test('the panel is one width on every tab, and Calibrate keeps its own', () => {
   assert.match(css, /--panel-w: 400px/);
-  assert.match(css, /:root\[data-tab=presets\], :root\[data-tab=status\] \{ --panel-w: 640px; \}/);
+  assert.match(css, /--panel-w: 580px/);
+  assert.doesNotMatch(css, /data-tab=[a-z]+\][^{]*\{ --panel-w/);
   assert.match(css, /body\.calibrating \{ --panel-w: 500px; \}/);
 });
 

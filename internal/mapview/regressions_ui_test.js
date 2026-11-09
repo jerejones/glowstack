@@ -2075,7 +2075,7 @@ test('B123: output names in a tight cluster hide and are counted, never overlap'
 });
 
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
-  assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 500px; \}/);
+  assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 580px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);
 });
 
