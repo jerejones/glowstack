@@ -88,7 +88,9 @@ func (a *App) Reload() (*ReloadResult, error) {
 }
 
 // reload is called with presetMu held, including by writeConfig.
-func (a *App) reload() (*ReloadResult, error) {
+func (a *App) reload() (*ReloadResult, error) { return a.reloadPreserving(nil) }
+
+func (a *App) reloadPreserving(preserve []string) (*ReloadResult, error) {
 	a.reloadMu.Lock()
 	defer a.reloadMu.Unlock()
 	cfg, err := config.Load(a.opts.ConfigDir, a.opts.DataDir)
@@ -110,6 +112,17 @@ func (a *App) reload() (*ReloadResult, error) {
 
 	pw := a.checkPresets(View{Config: cfg, Layout: lay, Mappings: ms, Palettes: pal, Engine: eng})
 
+	// Freeze only looks affected by a library edit, using the old engine.
+	// All config validation above has succeeded; a failed reload leaves stacks alone.
+	old := a.Current()
+	for _, id := range preserve {
+		name := id
+		if p, ok := old.Config.Preset(id); ok && p.Name != "" {
+			name = p.Name
+		}
+		a.Stack.FreezePreset(id, name, old.Engine.Expand)
+		a.Preview.FreezePreset(id, name, old.Engine.Expand)
+	}
 	a.mu.Lock()
 	res := &ReloadResult{Config: cfg, Pixels: n, PixelsWere: len(a.Layout.Pixels)}
 	a.Config, a.Layout, a.Mappings, a.Palettes, a.Engine = cfg, lay, ms, pal, eng

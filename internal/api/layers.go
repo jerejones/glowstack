@@ -438,7 +438,7 @@ func (api *API) setLook(l *stack.Layer, req *request) error {
 			return errorf(http.StatusBadRequest, "no preset %q (presets: %s)", preset, quoteList(presetIDs(v)))
 		}
 	}
-	l.Effect, l.Preset = effect, preset
+	l.Effect, l.Preset, l.Name = effect, preset, ""
 	return nil
 }
 

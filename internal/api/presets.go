@@ -26,6 +26,7 @@ const (
 // Preset is a preset as the API lists it: the effective presets, where a
 // saved preset replaces a configured one with the same id.
 type Preset struct {
+	Pinned bool           `json:"pinned"`
 	ID     string         `json:"id"`
 	Name   string         `json:"name,omitempty"`
 	Effect string         `json:"effect"`
@@ -40,7 +41,7 @@ type Preset struct {
 }
 
 func toPreset(cfg *config.Config, p config.Preset) Preset {
-	out := Preset{ID: p.ID, Name: p.Name, Effect: p.Effect, Params: p.Params, Source: SourceConfig}
+	out := Preset{Pinned: cfg.PresetPins[p.ID], ID: p.ID, Name: p.Name, Effect: p.Effect, Params: p.Params, Source: SourceConfig}
 	if p.Saved {
 		out.Source = SourceSaved
 		out.Shadows = slices.ContainsFunc(cfg.Presets, func(q config.Preset) bool { return q.ID == p.ID && !q.Saved })
@@ -77,7 +78,7 @@ func (api *API) preset(w http.ResponseWriter, r *http.Request) error {
 //	name        display name
 //	params      parameter values, common ones (blend, mapping, …) too
 //	id          optional; must match the path
-var presetFields = []string{"id", "name", "effect", "params", "from_layer", "preview"}
+var presetFields = []string{"id", "name", "effect", "params", "from_layer", "preview", "pinned"}
 
 // SavedPreset is the reply to a save or delete.
 type SavedPreset struct {
@@ -110,6 +111,7 @@ func (api *API) savePreset(w http.ResponseWriter, r *http.Request) error {
 		Params    map[string]any `json:"params"`
 		FromLayer string         `json:"from_layer"`
 		Preview   bool           `json:"preview"`
+		Pinned    *bool          `json:"pinned"`
 	}
 	b, _ := json.Marshal(body)
 	if err := json.Unmarshal(b, &req); err != nil {
@@ -152,7 +154,7 @@ func (api *API) savePreset(w http.ResponseWriter, r *http.Request) error {
 	if len(p.Params) == 0 {
 		p.Params = nil
 	}
-	created, res, err := api.app.SavePreset(p)
+	created, res, err := api.app.SavePreset(p, app.PresetOptions{Library: r.URL.Query().Get("library") == "true", Pinned: req.Pinned})
 	if err != nil {
 		return presetError(err)
 	}
@@ -167,7 +169,7 @@ func (api *API) savePreset(w http.ResponseWriter, r *http.Request) error {
 
 func (api *API) deletePreset(w http.ResponseWriter, r *http.Request) error {
 	id := r.PathValue("id")
-	res, err := api.app.DeletePreset(id)
+	res, err := api.app.DeletePreset(id, app.PresetOptions{Library: r.URL.Query().Get("library") == "true"})
 	if err != nil {
 		return presetError(err)
 	}
@@ -196,4 +198,22 @@ func presetError(err error) error {
 		return e
 	}
 	return err
+}
+
+func (api *API) pinPreset(w http.ResponseWriter, r *http.Request) error {
+	body, err := readJSON(r)
+	if err != nil {
+		return err
+	}
+	raw, ok := body["pinned"]
+	var pinned *bool
+	if !ok || len(body) != 1 || json.Unmarshal(raw, &pinned) != nil || pinned == nil {
+		return errorf(http.StatusBadRequest, "expected pinned: true or false")
+	}
+	res, err := api.app.PinPreset(r.PathValue("id"), *pinned)
+	if err != nil {
+		return presetError(err)
+	}
+	p, _ := res.Config.Preset(r.PathValue("id"))
+	return writeJSON(w, http.StatusOK, toPreset(res.Config, *p))
 }

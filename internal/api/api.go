@@ -104,6 +104,7 @@ func (api *API) Register(s *httpserver.Server) {
 	h("GET /api/v1/presets", api.presets)
 	h("GET /api/v1/presets/{id}", api.preset)
 	h("PUT /api/v1/presets/{id}", api.savePreset)
+	h("PATCH /api/v1/presets/{id}/pin", api.pinPreset)
 	h("DELETE /api/v1/presets/{id}", api.deletePreset)
 	h("GET /api/v1/areas", api.areas)
 	h("GET /api/v1/zones", api.zones)

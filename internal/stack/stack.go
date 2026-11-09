@@ -42,6 +42,7 @@ func WLEDOwner(zone string, segment int) string {
 
 // Layer is one stack entry as stored and as the API sees it.
 type Layer struct {
+	Name   string `json:"name,omitempty"` // display name retained when a library edit detaches a preset
 	ID     string `json:"id"`
 	Owner  string `json:"owner,omitempty"`
 	Target string `json:"target"`           // area id
@@ -579,4 +580,27 @@ func (s *Stack) Load(st storage.Store) (warnings []string, err error) {
 		return nil, err
 	}
 	return s.Restore(data)
+}
+
+// FreezePreset keeps the rendered specification of existing looks when their
+// saved preset is edited/deleted. IDs, timing, fades and seeds stay intact.
+func (s *Stack) FreezePreset(id, name string, expand func(*Layer) (string, map[string]any, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	changed := false
+	for _, e := range s.entries {
+		if e.Preset != id {
+			continue
+		}
+		effect, params, err := expand(&e.Layer)
+		if err != nil {
+			continue
+		}
+		e.Effect, e.Params, e.Preset, e.Name = effect, cloneParams(params), "", name
+		e.Revision = s.version + 1
+		changed = true
+	}
+	if changed {
+		s.changed()
+	}
 }

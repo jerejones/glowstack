@@ -48,7 +48,7 @@ func (m *Map) Register(mux interface{ Handle(string, http.Handler) }) {
 	mux.Handle("GET /{$}", servePage)
 	mux.Handle("GET /map", redirect("/"))
 	mux.Handle("GET /map/{$}", redirect("/"))
-	for _, section := range []string{"looks", "setup", "status"} {
+	for _, section := range []string{"looks", "presets", "setup", "status"} {
 		mux.Handle("GET /"+section, servePage)
 		mux.Handle("GET /"+section+"/{$}", redirect("/"+section))
 		mux.Handle("GET /map/"+section, redirect("/"+section))

@@ -696,10 +696,12 @@ func (s *Stop) unmarshalNode(d *decoder, n *yaml.Node) error {
 
 // PresetsFile is presets.yaml (config dir) or presets.saved.yaml (data dir).
 type PresetsFile struct {
-	Schema     int         `yaml:"schema" json:"schema"`
-	Presets    []Preset    `yaml:"presets" json:"presets"`
-	Composites []Composite `yaml:"composites" json:"composites,omitempty"`
-	Shows      []Show      `yaml:"shows" json:"shows,omitempty"`
+	Hidden     []string        `yaml:"hidden,omitempty" json:"hidden,omitempty"`
+	Pins       map[string]bool `yaml:"pins,omitempty" json:"pins,omitempty"`
+	Schema     int             `yaml:"schema" json:"schema"`
+	Presets    []Preset        `yaml:"presets" json:"presets"`
+	Composites []Composite     `yaml:"composites" json:"composites,omitempty"`
+	Shows      []Show          `yaml:"shows" json:"shows,omitempty"`
 }
 
 // Preset is a saved layer specification without a target. Params holds raw

@@ -23,6 +23,7 @@ export function valuesFor(S, layer) {
   return { ...(p ? p.params : {}), ...(layer.params || {}) };
 }
 export function layerName(S, layer) {
+  if (layer.name) return layer.name;
   if (layer.preset) { const p = presetOf(S, layer.preset); return (p && p.name) || layer.preset; }
   const e = effectFor(S, layer);
   return (e && e.name) || layer.effect || 'layer';

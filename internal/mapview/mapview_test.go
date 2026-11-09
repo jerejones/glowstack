@@ -968,7 +968,7 @@ func TestMapDistinguishesWarmWhiteFromRGBWhite(t *testing.T) {
 
 func TestSectionRoutes(t *testing.T) {
 	f := newFixture(t)
-	for _, path := range []string{"/", "/looks", "/setup", "/status", "/looks/", "/setup/", "/status/", "/map/", "/map/looks", "/map/setup", "/map/status", "/map/looks/", "/map/setup/", "/map/status/"} {
+	for _, path := range []string{"/presets", "/presets/", "/map/presets", "/map/presets/", "/", "/looks", "/setup", "/status", "/looks/", "/setup/", "/status/", "/map/", "/map/looks", "/map/setup", "/map/status", "/map/looks/", "/map/setup/", "/map/status/"} {
 		t.Run(path, func(t *testing.T) {
 			resp, err := http.Get(f.srv.URL + path)
 			if err != nil {
@@ -996,7 +996,7 @@ func TestSectionRoutes(t *testing.T) {
 func TestLegacySectionRedirects(t *testing.T) {
 	f := newFixture(t)
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	for from, to := range map[string]string{"/map": "/", "/map/": "/", "/map/looks": "/looks", "/map/setup/": "/setup", "/map/status?show=house": "/status?show=house", "/looks/": "/looks"} {
+	for from, to := range map[string]string{"/map/presets": "/presets", "/presets/": "/presets", "/map": "/", "/map/": "/", "/map/looks": "/looks", "/map/setup/": "/setup", "/map/status?show=house": "/status?show=house", "/looks/": "/looks"} {
 		resp, err := client.Get(f.srv.URL + from)
 		if err != nil {
 			t.Fatal(err)

@@ -28,6 +28,7 @@ export function createLooks(S, root) {
     <div class="target"><span class="muted">Looks go on</span><select id="lkTarget" aria-label="Where looks go"></select></div>
     <div id="lkSel" class="muted small"></div>
     <div class="cards" id="lkPresets"></div>
+    <details id="lkOtherPresets"><summary>More presets <span class="muted"></span></summary><div class="cards"></div></details>
     <details id="lkEffects"><summary>Effects <span class="muted">(${(S.catalog.effects || []).length})</span></summary><div class="cards"></div></details>
     <div class="lane" id="lkPreview">
       <div class="row"><h2>Preview <small>on the map only</small></h2><span class="row">
@@ -91,9 +92,20 @@ export function createLooks(S, root) {
   }
   function renderCatalog() {
     const pres = $$('#lkPresets');
-    pres.replaceChildren(...S.presets.map((p) => card(p.name || p.id, (effectFor(S, { preset: p.id }) || {}).name || p.effect,
-      lookStrip(S, p.effect, p.params), () => push({ preset: p.id }), `Preview ${p.name || p.id} here`)));
-    if (!S.presets.length) pres.innerHTML = '<div class="empty">No presets yet. Save one with glowstack preset save, or add them to glowstack.yaml.</div>';
+    const presetCard = (p) => card(p.name || p.id, (effectFor(S, { preset: p.id }) || {}).name || p.effect,
+      lookStrip(S, p.effect, p.params), () => push({ preset: p.id }), `Preview ${p.name || p.id} here`);
+    pres.replaceChildren(...S.presets.filter((p) => p.pinned).map(presetCard));
+    if (!pres.childElementCount) {
+      const hint = document.createElement('button');
+      hint.type = 'button'; hint.className = 'quiet';
+      hint.textContent = S.presets.length ? 'Pin favorites in Presets to show them here' : 'Create your first preset';
+      hint.onclick = () => S.panel.openTab('presets');
+      pres.append(hint);
+    }
+    const other = S.presets.filter((p) => !p.pinned);
+    $$('#lkOtherPresets').hidden = !other.length;
+    $$('#lkOtherPresets summary span').textContent = `(${other.length})`;
+    $$('#lkOtherPresets .cards').replaceChildren(...other.map(presetCard));
     $$('#lkEffects .cards').replaceChildren(...(S.catalog.effects || []).map((e) => card(e.name || e.id, 'effect', lookStrip(S, e.id, {}), () => push({ effect: e.id }))));
   }
 
@@ -375,6 +387,7 @@ export function createLooks(S, root) {
 
   // ---------- wiring ----------
 
+  S.on('presets', () => { renderCatalog(); renderLanes(); });
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);

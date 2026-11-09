@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 // File names in the config and data folders.
@@ -58,6 +59,7 @@ type Config struct {
 	Flows          []Flow
 	Mappings       []Mapping
 	Palettes       []Palette
+	PresetPins     map[string]bool
 	Presets        []Preset         // presets.yaml then presets.saved.yaml (Saved set)
 	Composites     []Composite      // presets.yaml then presets.saved.yaml
 	Shows          []Show           // presets.yaml
@@ -127,6 +129,8 @@ func Load(dir, dataDir string) (*Config, error) {
 		p.Saved = true
 		c.Presets = append(c.Presets, p)
 	}
+	c.Presets = slices.DeleteFunc(c.Presets, func(p Preset) bool { return slices.Contains(saved.Hidden, p.ID) })
+	c.PresetPins = saved.Pins
 	c.Composites = append(presets.Composites, saved.Composites...)
 	c.Shows = presets.Shows
 	c.Anchors = anchors.Anchors

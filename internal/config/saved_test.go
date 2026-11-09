@@ -13,7 +13,7 @@ import (
 
 func TestPresetsFileRoundTrip(t *testing.T) {
 	half := 0.5
-	in := &PresetsFile{Schema: 1,
+	in := &PresetsFile{Schema: 1, Hidden: []string{"removed"}, Pins: map[string]bool{"red": true, "7": false},
 		Presets: []Preset{
 			{ID: "red", Name: "Red", Effect: "solid", Params: map[string]any{"color": "#ff0000", "opacity": 0.5}},
 			{ID: "7", Effect: "bands", Params: map[string]any{

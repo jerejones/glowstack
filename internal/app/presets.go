@@ -29,17 +29,29 @@ var (
 	ErrBadPreset = errors.New("invalid preset")
 )
 
+// PresetOptions enables the library UI's non-destructive editing semantics.
+// The legacy CLI/API behavior is unchanged when Library is false.
+type PresetOptions struct {
+	Library bool
+	Pinned  *bool
+}
+
 var presetID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 // SavePreset adds p to presets.saved.yaml in the data folder, or replaces
 // the saved preset with its id, then reloads so it can be used at once.
 // It's checked first against the effects, palettes and mappings. A preset
 // that's only in presets.yaml can't be replaced (ErrReadOnlyPreset); save
-// it under another id. created is false if a saved preset was replaced.
+// it under another id, unless PresetOptions.Library is set. Library edits
+// preserve running looks. created is false if a saved preset was replaced.
 //
 // The file is written atomically through the Store. If the reload fails,
 // the old file is put back and nothing changes.
-func (a *App) SavePreset(p config.Preset) (created bool, res *ReloadResult, err error) {
+func (a *App) SavePreset(p config.Preset, options ...PresetOptions) (created bool, res *ReloadResult, err error) {
+	var opt PresetOptions
+	if len(options) > 0 {
+		opt = options[0]
+	}
 	if !presetID.MatchString(p.ID) {
 		return false, nil, fmt.Errorf("%w: id %q: use letters, digits, '.', '_' and '-'", ErrBadPreset, p.ID)
 	}
@@ -51,7 +63,7 @@ func (a *App) SavePreset(p config.Preset) (created bool, res *ReloadResult, err 
 	}
 	i := slices.IndexFunc(f.Presets, func(q config.Preset) bool { return q.ID == p.ID })
 	v := a.Current()
-	if q, ok := v.Config.Preset(p.ID); ok && !q.Saved && i < 0 {
+	if q, ok := v.Config.Preset(p.ID); ok && !q.Saved && i < 0 && !opt.Library {
 		return false, nil, fmt.Errorf("preset %q: %w; save it under another id", p.ID, ErrReadOnlyPreset)
 	}
 	if err := preset.CheckSpec(preset.Expand(p, nil), a.Effects, v.Palettes, v.Layout.Pitch, v.Engine.CheckMapping); err != nil {
@@ -63,15 +75,27 @@ func (a *App) SavePreset(p config.Preset) (created bool, res *ReloadResult, err 
 	} else {
 		f.Presets = append(f.Presets, p)
 	}
-	res, err = a.writeSaved(f, old)
+	f.Hidden = slices.DeleteFunc(f.Hidden, func(id string) bool { return id == p.ID })
+	if opt.Pinned != nil {
+		if f.Pins == nil {
+			f.Pins = map[string]bool{}
+		}
+		f.Pins[p.ID] = *opt.Pinned
+	}
+	var preserve []string
+	if opt.Library {
+		preserve = []string{p.ID}
+	}
+	res, err = a.writeSaved(f, old, preserve...)
 	return i < 0, res, err
 }
 
 // DeletePreset removes a preset from presets.saved.yaml and reloads. A
 // configured preset with the same id, if any, takes effect again. Layers
 // that named the preset and no longer validate are dropped (see
-// ReloadResult.Dropped).
-func (a *App) DeletePreset(id string) (*ReloadResult, error) {
+// ReloadResult.Dropped). With Library set, the ID is hidden even if configured,
+// and running looks keep their expanded specification.
+func (a *App) DeletePreset(id string, options ...PresetOptions) (*ReloadResult, error) {
 	a.presetMu.Lock()
 	defer a.presetMu.Unlock()
 	f, old, err := a.readSaved()
@@ -79,6 +103,19 @@ func (a *App) DeletePreset(id string) (*ReloadResult, error) {
 		return nil, err
 	}
 	i := slices.IndexFunc(f.Presets, func(q config.Preset) bool { return q.ID == id })
+	if len(options) > 0 && options[0].Library {
+		if _, ok := a.Current().Config.Preset(id); !ok {
+			return nil, fmt.Errorf("%w %q", ErrNoSavedPreset, id)
+		}
+		if i >= 0 {
+			f.Presets = slices.Delete(f.Presets, i, i+1)
+		}
+		if !slices.Contains(f.Hidden, id) {
+			f.Hidden = append(f.Hidden, id)
+		}
+		delete(f.Pins, id)
+		return a.writeSaved(f, old, id)
+	}
 	if i < 0 {
 		if _, ok := a.Current().Config.Preset(id); ok {
 			return nil, fmt.Errorf("preset %q: %w", id, ErrReadOnlyPreset)
@@ -109,10 +146,28 @@ func (a *App) readSaved() (f *config.PresetsFile, old []byte, err error) {
 }
 
 // writeSaved writes f and reloads, putting old back if the reload fails.
-func (a *App) writeSaved(f *config.PresetsFile, old []byte) (*ReloadResult, error) {
+func (a *App) writeSaved(f *config.PresetsFile, old []byte, preserve ...string) (*ReloadResult, error) {
 	data, err := config.EncodePresetsFile(f)
 	if err != nil {
 		return nil, err
 	}
-	return a.writeConfig(config.SavedPresetsFileName, data, old)
+	return a.writeConfig(config.SavedPresetsFileName, data, old, preserve...)
+}
+
+// PinPreset stores a shared library preference without changing a preset.
+func (a *App) PinPreset(id string, pinned bool) (*ReloadResult, error) {
+	a.presetMu.Lock()
+	defer a.presetMu.Unlock()
+	if _, ok := a.Current().Config.Preset(id); !ok {
+		return nil, fmt.Errorf("%w %q", ErrNoSavedPreset, id)
+	}
+	f, old, err := a.readSaved()
+	if err != nil {
+		return nil, err
+	}
+	if f.Pins == nil {
+		f.Pins = map[string]bool{}
+	}
+	f.Pins[id] = pinned
+	return a.writeSaved(f, old)
 }

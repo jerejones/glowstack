@@ -370,3 +370,18 @@ body.calibrating .panel { display: none; }
   .calibrate { top: 35%; left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
   body.calibrating .chipbar .views, body.calibrating #fitBtn { display: none; }
 }
+
+/* Preset library and local draft editor. */
+.library-heading { justify-content: space-between; margin-top: 12px; }
+.preset-search, .preset-editor > label { display: grid; gap: 6px; margin: 12px 0; }
+.preset-search input, .preset-editor > label input[type=text], .preset-editor select { width: 100%; min-width: 0; }
+.preset-editor > label.check { display: flex; }
+.preset-editor, .preset-entry { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 12px 0; background: var(--surface, #16191e); }
+.preset-title { display: grid; gap: 4px; margin: 8px 0; overflow-wrap: anywhere; }
+.preset-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.preset-actions [aria-pressed=true] { color: #ffd878; border-color: #8b723e; }
+.preset-entry > .strip { display: block; height: 10px; border-radius: 3px; }
+.preset-editor h3 { margin-top: 0; }
+.preset-editor .row { flex-wrap: wrap; }
+.tabs button { min-width: 0; padding-left: 7px; padding-right: 7px; }
+@media (max-width: 420px) { .tabs button { gap: 4px; font-size: 0.9em; } }

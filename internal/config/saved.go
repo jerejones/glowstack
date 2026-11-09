@@ -47,10 +47,12 @@ func EncodePresetsFile(f *PresetsFile) ([]byte, error) {
 		Layers []layer `yaml:"layers"`
 	}
 	out := struct {
-		Schema     int         `yaml:"schema"`
-		Presets    []preset    `yaml:"presets"`
-		Composites []composite `yaml:"composites,omitempty"`
-	}{Schema: 1, Presets: []preset{}}
+		Hidden     []string        `yaml:"hidden,omitempty"`
+		Pins       map[string]bool `yaml:"pins,omitempty"`
+		Schema     int             `yaml:"schema"`
+		Presets    []preset        `yaml:"presets"`
+		Composites []composite     `yaml:"composites,omitempty"`
+	}{Schema: 1, Presets: []preset{}, Hidden: f.Hidden, Pins: f.Pins}
 	for _, p := range f.Presets {
 		out.Presets = append(out.Presets, preset{p.ID, p.Name, p.Effect, p.Params})
 	}

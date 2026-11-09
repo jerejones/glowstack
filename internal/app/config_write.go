@@ -26,11 +26,11 @@ func (a *App) WriteDataConfig(name string, data []byte) (*ReloadResult, error) {
 
 // writeConfig runs with presetMu held. An empty schema document restores
 // the absence of measurements/presets when no previous file existed.
-func (a *App) writeConfig(name string, data, old []byte) (*ReloadResult, error) {
+func (a *App) writeConfig(name string, data, old []byte, preserve ...string) (*ReloadResult, error) {
 	if err := a.Store.Write(name, data); err != nil {
 		return nil, err
 	}
-	res, err := a.reload()
+	res, err := a.reloadPreserving(preserve)
 	if err == nil {
 		return res, nil
 	}

@@ -14,6 +14,7 @@ import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
 import { buildTree, nodeName, nodeKinds } from './select.js';
 import { openPlan } from './plan.js';
+import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
@@ -419,18 +420,27 @@ function placeCard() {
 // ---------- the stream ----------
 
 let ws = null, ranges = [];
+let geometrySignature = '';
+const geometryKey = ({ gen, ...rest }) => JSON.stringify(rest);
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/map/ws');
   ws.binaryType = 'arraybuffer';
   ws.onopen = () => { S.connected = true; subscribe(); };
   ws.onclose = () => { S.connected = false; badge(); setTimeout(connect, 1000); };
-  ws.onmessage = (e) => {
+  ws.onmessage = async (e) => {
     const t0 = performance.now();
     if (typeof e.data === 'string') {
       const m = JSON.parse(e.data);
       if (m.type === 'subscribed') {
         // The config was reloaded: the pixel table may have changed.
-        if (m.gen !== S.geo.gen) { location.reload(); return; }
+        if (m.gen !== S.geo.gen) {
+          try {
+            const geo = await api('/api/map/geometry');
+            if (geometryKey(geo) !== geometrySignature) { location.reload(); return; }
+            S.geo.gen = geo.gen;
+            await S.refreshPresets();
+          } catch (err) { S.toast('Could not refresh the preset library.'); }
+        }
         ranges = m.ranges;
         S.stream = m;
         S.rgb.fill(0);
@@ -580,6 +590,7 @@ async function main() {
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
   S.geo = await api('/api/map/geometry');
+  geometrySignature = geometryKey(S.geo);
   S.visibility = runVisibility(S.geo, S.allRuns);
   S.rgb = new Uint8Array(S.geo.pixels.count * 3);
   S.tree = buildTree(S.geo);
@@ -590,6 +601,7 @@ async function main() {
   S.panel = createPanel({ onLayout, onDetent, onTab: (name) => S.emit('tab', name) });
   S.overlay = createOverlay(S);
   S.looks = createLooks(S, $('tab-looks'));
+  S.presetLibrary = createPresets(S, $('tab-presets'));
   S.setup = createSetup(S, $('tab-setup'));
   S.status = createStatus(S, $('tab-status'));
   bindChrome();

@@ -173,3 +173,73 @@ func TestConcurrentPresetSaveAndDelete(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestPresetLibrary(t *testing.T) {
+	f := newFixture(t, nil)
+	// Library edits can override config presets; the mounted config stays intact.
+	configBefore, err := os.ReadFile(filepath.Join(f.config, config.PresetsFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.must(200, "PATCH", "/api/v1/presets/warm-white/pin", map[string]any{"pinned": true})
+	p := f.must(200, "GET", "/api/v1/presets/warm-white", nil)
+	if p["pinned"] != true {
+		t.Fatal(p)
+	}
+	f.must(201, "PUT", "/api/v1/presets/warm-white?library=true", map[string]any{"name": "Evening", "effect": "solid", "params": map[string]any{"color": "#ff0000", "fade_in": "0s"}})
+	live := f.must(201, "POST", "/api/v1/layers", map[string]any{"target": "porch", "preset": "warm-white"})
+	preview := f.must(201, "POST", "/api/v1/preview/layers", map[string]any{"target": "porch", "preset": "warm-white"})
+	f.render(0)
+	f.expect(f.porch, "100", "before library edit")
+	f.must(200, "PUT", "/api/v1/presets/warm-white?library=true", map[string]any{"name": "Green evening", "effect": "solid", "params": map[string]any{"color": "#00ff00"}})
+	f.render(0)
+	f.expect(f.porch, "100", "saving must not change active lights")
+	for path, before := range map[string]map[string]any{"/api/v1/layers/": live, "/api/v1/preview/layers/": preview} {
+		after := f.must(200, "GET", path+before["id"].(string), nil)
+		if after["preset"] != nil || after["name"] != "Evening" || after["effect"] != "solid" || after["seed"] != before["seed"] || after["created"] != before["created"] {
+			t.Fatalf("detached look: %v", after)
+		}
+	}
+	f.must(200, "DELETE", "/api/v1/presets/warm-white?library=true", nil)
+	f.must(404, "GET", "/api/v1/presets/warm-white", nil)
+	f.render(0)
+	f.expect(f.porch, "100", "deleting must not change active lights")
+	f.restart()
+	f.must(404, "GET", "/api/v1/presets/warm-white", nil)
+	configAfter, _ := os.ReadFile(filepath.Join(f.config, config.PresetsFileName))
+	if string(configBefore) != string(configAfter) {
+		t.Fatal("changed mounted presets")
+	}
+	// Reusing a deleted ID removes its tombstone. Pins survive restart and unpinning.
+	f.must(201, "PUT", "/api/v1/presets/warm-white?library=true", map[string]any{"effect": "solid", "pinned": true})
+	f.restart()
+	if p := f.must(200, "GET", "/api/v1/presets/warm-white", nil); p["pinned"] != true {
+		t.Fatal(p)
+	}
+	f.must(200, "PATCH", "/api/v1/presets/warm-white/pin", map[string]any{"pinned": false})
+	f.restart()
+	if p := f.must(200, "GET", "/api/v1/presets/warm-white", nil); p["pinned"] != false {
+		t.Fatal(p)
+	}
+	f.must(404, "PATCH", "/api/v1/presets/missing/pin", map[string]any{"pinned": true})
+	f.must(400, "PATCH", "/api/v1/presets/warm-white/pin", map[string]any{"pinned": nil})
+}
+
+func TestLibraryDeleteConfigPresetPreservesRunningLook(t *testing.T) {
+	f := newFixture(t, nil)
+	p := f.must(200, "GET", "/api/v1/presets/warm-white", nil)
+	live := f.must(201, "POST", "/api/v1/layers", map[string]any{"target": "porch", "preset": "warm-white"})
+	// Invalid edits must not detach or otherwise mutate the running layer.
+	f.must(400, "PUT", "/api/v1/presets/warm-white?library=true", map[string]any{"effect": "not-an-effect"})
+	unchanged := f.must(200, "GET", "/api/v1/layers/"+live["id"].(string), nil)
+	if unchanged["preset"] != "warm-white" {
+		t.Fatal(unchanged)
+	}
+	f.must(200, "DELETE", "/api/v1/presets/warm-white?library=true", nil)
+	after := f.must(200, "GET", "/api/v1/layers/"+live["id"].(string), nil)
+	if after["effect"] != p["effect"] || after["preset"] != nil {
+		t.Fatal(after)
+	}
+	f.restart()
+	f.must(404, "GET", "/api/v1/presets/warm-white", nil)
+}
