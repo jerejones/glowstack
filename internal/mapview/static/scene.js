@@ -308,7 +308,9 @@ export async function open(glCanvas, input, opts) {
   const v = opts.map.view || null;
   const viewFov = (v && v.fov) || 40;
   // cam is how the camera was set: the site's view or Fit (auto: framed
-  // again whenever the viewport changes) or by the user (free).
+  // again whenever the viewport changes) or by the user (free). A framed
+  // camera's distance is always the fit to the free area: a configured
+  // distance never holds the lights small in a short band of map.
   const cam = { mode: 'street', auto: true, fov: viewFov, ...siteView() };
   let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0;
   let version = 0; // bumps when the projection changes
@@ -376,8 +378,8 @@ export async function open(glCanvas, input, opts) {
   // centerOn moves target so points fill the free area evenly from dir, and
   // returns the distance that fits them. Perspective makes the middle move as
   // the distance does, so this settles over a few passes.
-  function centerOn(dir, target, points, minDist = 0) {
-    const fit = () => Math.max(fitDistance(dir, target, points), minDist);
+  function centerOn(dir, target, points) {
+    const fit = () => fitDistance(dir, target, points);
     const { r, u, f } = axes(dir);
     let d = fit();
     const rel = new THREE.Vector3();
@@ -393,25 +395,25 @@ export async function open(glCanvas, input, opts) {
   function frame() {
     project();
     const target = cam.target ? cam.target.clone() : box.getCenter(new THREE.Vector3());
-    let d = Math.max(fitDistance(cam.dir, target, corners()), cam.minDist);
+    let d = fitDistance(cam.dir, target, corners());
     // The site's view and Fit center the lights in what's left of the map; a
     // camera someone placed stays where they put it. Perspective makes the
     // middle move as the distance does, so this settles over a few passes.
     const lights = cam.auto ? litPoints() : [];
-    if (lights.length) d = centerOn(cam.dir, target, lights, cam.minDist);
+    if (lights.length) d = centerOn(cam.dir, target, lights);
     place(cam.dir, target, d);
   }
 
   // siteView is the configured angle. frame centers the lights, so a view's
   // `to` doesn't set the opening view's center.
   function siteView() {
-    if (v && v.direction) return { dir: toThree(v.direction).normalize(), target: v.to ? toThree(v.to) : null, minDist: 0 };
+    if (v && v.direction) return { dir: toThree(v.direction).normalize(), target: v.to ? toThree(v.to) : null };
     if (v && v.from && v.to) {
-      // The old absolute form: its camera, unless the house wouldn't fit.
+      // The old absolute form: its angle; the distance is the fit, as above.
       const from = toThree(v.from), to = toThree(v.to);
-      return { dir: from.clone().sub(to).normalize(), target: to, minDist: from.distanceTo(to) };
+      return { dir: from.clone().sub(to).normalize(), target: to };
     }
-    return { dir: toThree(THREE_QUARTER).normalize(), target: null, minDist: 0 };
+    return { dir: toThree(THREE_QUARTER).normalize(), target: null };
   }
 
   let restoring = false;
@@ -464,7 +466,7 @@ export async function open(glCanvas, input, opts) {
   function setView(name) {
     if (name === 'fit') {
       cam.dir = camera.position.clone().sub(controls.target).normalize();
-      cam.target = null; cam.minDist = 0; cam.auto = true;
+      cam.target = null; cam.auto = true;
       if (cam.mode === 'free') cam.mode = 'fit';
       frame();
     }
@@ -657,7 +659,7 @@ export async function open(glCanvas, input, opts) {
           const f = toThree(st.from), t = toThree(st.to);
           place(f.clone().sub(t).normalize(), t, f.distanceTo(t));
         } else if (st && st.auto && st.mode === 'fit' && st.dir) {
-          Object.assign(cam, { mode: 'fit', auto: true, dir: toThree(st.dir).normalize(), target: null, minDist: 0, fov: st.fov || viewFov });
+          Object.assign(cam, { mode: 'fit', auto: true, dir: toThree(st.dir).normalize(), target: null, fov: st.fov || viewFov });
           frame();
         } else {
           Object.assign(cam, siteView(), { mode: 'street', auto: true, fov: viewFov });

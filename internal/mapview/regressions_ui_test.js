@@ -2478,3 +2478,13 @@ test('B135: toasts arriving together fold into one, and the phone sheet shows on
   assert.match(app, /const folded = foldable\(showing, \{ error: err \|\| opts\.error, action: opts\.action \}, S\.panel \? S\.panel\.layout\(\) : 'wide', Date\.now\(\)\)/);
   assert.match(app, /for \(const t of folded\) t\.el\.remove\(\)/);
 });
+
+test('B136: a configured camera distance never holds the lights small in the map band', () => {
+  const scene = read('scene.js');
+  // The older { from, to } view gives its angle only; the distance is the fit.
+  assert.doesNotMatch(scene, /minDist/, 'no distance floor on a framed camera');
+  assert.match(scene, /return \{ dir: from\.clone\(\)\.sub\(to\)\.normalize\(\), target: to \};/);
+  assert.match(scene, /let d = fitDistance\(cam\.dir, target, corners\(\)\);/);
+  assert.match(scene, /if \(lights\.length\) d = centerOn\(cam\.dir, target, lights\);/);
+  assert.match(read('../../../docs/design.md'), /it gives the angle, and the\s+distance is worked out the same way/);
+});

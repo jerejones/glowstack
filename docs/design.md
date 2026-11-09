@@ -1262,8 +1262,10 @@ desk.
     left visible by the panel or sheet, so the view keeps its angle but not
     an exact aim point. A camera placed by hand and saved stays exactly where
     it was. The older
-    `{ from, to, fov }` form still works: its camera is used unless the
-    house wouldn't fit. Without a `view`, the map frames the model from an
+    `{ from, to, fov }` form still works: it gives the angle, and the
+    distance is worked out the same way, so a camera placed far back in
+    config never leaves the lights small in a phone's short band of map.
+    Without a `view`, the map frames the model from an
     elevated three-quarter angle. **Copy camera position** puts the current camera on
     the clipboard in the direction form, for pasting into config (over plain
     http, where browsers block the clipboard API, it falls back to a dialog
