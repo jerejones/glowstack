@@ -2279,3 +2279,10 @@ test('phone previewing: a full sheet leaves a readable band of map, and the libr
   assert.match(app, /S\.view\.release\(h\);/, 'and comes back when the band grows');
   assert.match(css, /scroll-padding-bottom: calc\(var\(--look-bar, 0px\) \+ 8px\)/, 'the last library row clears the bar');
 });
+
+test('Preview, Pin and More share one button style; Pinned keeps its state', () => {
+  const rules = css.match(/^\.preset-actions \[data-act=(?:try|pin|more)\][^{]*\{[^}]*\}/gm).join('\n');
+  assert.doesNotMatch(rules, /border-color: transparent|font-weight|background: var/, 'no button of the three has its own weight or ghost state');
+  assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ color: var\(--accent\); border-color: var\(--accent\); \}/);
+  assert.match(read('panel/presets.js'), /icon\(p\.pinned \? 'pinFilled' : 'pin'\)/);
+});
