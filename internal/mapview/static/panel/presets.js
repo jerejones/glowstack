@@ -23,7 +23,7 @@ export function createPresets(S, root) {
   let closeMenu = null; // closes the row menu that's open
   root.innerHTML = `
     <div class="row library-heading"><h1 class="title">Presets</h1><button type="button" id="prNew" class="icon-btn">${icon('plus')}New preset</button></div>
-    <p class="muted small">Save looks for later. Pin favorites to keep them visible on Looks.</p>
+    <p class="muted small tab-intro">Save looks for later. Pin favorites to keep them visible on Looks.</p>
     <div id="prMessage" role="status" class="small"></div>
     <div id="prEditor" class="preset-editor" hidden></div>
     ${textField({ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' })}

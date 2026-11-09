@@ -1703,7 +1703,7 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
 
 test('the half sheet is one fixed height on every tab', () => {
   const sheet = read('sheet.js');
-  assert.match(sheet, /const HALF = 0\.5;/);
+  assert.match(sheet, /const HALF = 0\.64;/);
   assert.doesNotMatch(sheet, /TALL_/);
   assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\), full: h - STRIP/);
   assert.doesNotMatch(sheet, /READING|fitHalf/);
@@ -2502,4 +2502,24 @@ test('B137: the palette note names the colors it replaces, by the layer that ign
   assert.match(form, /for \(const g of groups\.values\(\)\) g\.colors\[g\.colors\.length - 1\]\.row\.after\(g\.line\)/);
   assert.match(form, /g\.line\.textContent = unusedNote\(names, owner\)/);
   assert.doesNotMatch(form, /'This effect takes its colors from the palette\.'/);
+});
+
+test('Move A: the phone sheet opens to the task at the half detent', async () => {
+  const { compactStage } = await import('./static/panel/looks.js');
+  // One line: the long title gives way, the sub follows the dot in lower case.
+  assert.deepEqual(compactStage({ title: "Previewing over what's on the lights", sub: 'Replaces Porch glitter', preview: 1, live: 1 }), { title: 'Previewing', sub: 'replaces Porch glitter' });
+  assert.deepEqual(compactStage({ title: 'On the lights', sub: '', preview: 0, live: 1 }), { title: 'On the lights', sub: '' });
+  assert.deepEqual(compactStage({ title: 'Previewing', sub: "Couldn't refresh. This is the last known state.", preview: 1, live: 0 }).sub, "couldn't refresh. This is the last known state.");
+  const looks = read('panel/looks.js');
+  assert.match(looks, /if \(compact\(\)\) head = compactStage\(/);
+  assert.match(looks, /S\.on\('detent', renderStage\)/, 'the stage re-renders as the sheet moves');
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
+  assert.match(phone, /body\[data-detent=half\] \.stage-head \{ display: flex; align-items: baseline;/);
+  assert.match(phone, /body\[data-detent=half\] \.stage-head > small:not\(:empty\)::before \{ content: '· '; \}/);
+  assert.match(phone, /body\[data-detent=half\] \.lib-filters \{ flex-wrap: nowrap;/, 'filters and search share a line');
+  assert.match(phone, /body\[data-detent=half\] \.lib-filters \.field > \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\);/, 'folded away, still the input\'s name');
+  assert.match(phone, /body\[data-detent=half\] \.tab-intro \{ display: none; \}/, "Presets' explanation waits for the full sheet");
+  assert.match(read('panel/presets.js'), /class="muted small tab-intro"/);
+  const { textField } = await import('./static/field.js');
+  assert.match(textField({ label: 'Find a look', id: 'x' }), /<label class="field"><span class="lbl">Find a look<\/span><input/);
 });

@@ -16,7 +16,7 @@ const DETENT = 'glowstack.sheet.detent';
 const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
 const PEEK = 68;   // handle (with Expand) and tab bar
 const STRIP = 200; // the map above a full sheet: --strip in ui.css
-const HALF = 0.5; // of the window's height at the half detent, the same on every tab so the map holds still
+const HALF = 0.64; // of the window's height at the half detent, the same on every tab so the map holds still: the sheet opens to the task, and the map band above it still shows the whole lit outline
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
 // keepsPlace says opening el must not scroll the panel: it asks not to

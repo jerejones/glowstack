@@ -412,6 +412,29 @@ input[type=checkbox]:checked::after {
   .legend-rows > .ramp, .legend-rows > .row, .legend-rows > .key, .legend-rows > .key-row, .legend-rows > .label-note, .legend-rows > div:first-child { flex: 0 0 100%; }
   body[data-detent=peek]:not(.calibrating) .legend, :root:not([data-tab=setup]) body[data-detent=half]:not(.calibrating) .legend { display: flex; }
   .tab h1.title, .tab .library-heading { margin-top: 16px; }
+  /* Half open, the sheet opens to the task. On Looks the stage compacts so
+   * the Library's first row is on screen: a one-line header ("Previewing ·
+   * replaces Porch glitter", Clear preview at the right), the filters and
+   * search on one line. Presets keeps its title and New preset and folds
+   * its explanation away. Full shows everything. */
+  body[data-detent=half] .stage { padding: 6px 8px; margin: 4px 0 6px; }
+  body[data-detent=half] .stage-head { display: flex; align-items: baseline; gap: 4px; padding: 0; }
+  body[data-detent=half] .stage-head > h2 { flex: none; }
+  body[data-detent=half] .stage-head > small { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body[data-detent=half] .stage-head > small:not(:empty)::before { content: '· '; }
+  /* Clear keeps its full tap height without adding to the line's. */
+  body[data-detent=half] .stage-head > #lkClear { flex: none; margin: -8px 0 -8px auto; padding: 0; align-self: center; }
+  body[data-detent=half] .stage-warn { padding: 0 8px; margin-top: 4px; }
+  body[data-detent=half] .layer.two-line .name-line { padding: 2px 0; }
+  body[data-detent=half] .catalog-head { margin: 4px 0; flex-wrap: nowrap; }
+  body[data-detent=half] .catalog-head .scope-line { flex-wrap: nowrap; min-width: 0; }
+  /* The scope's link keeps its tap height without making the heading taller. */
+  body[data-detent=half] .catalog-head .target-btn { margin: -8px 0; }
+  body[data-detent=half] .lib-filters { flex-wrap: nowrap; margin-bottom: 4px; }
+  body[data-detent=half] .lib-filters .field { flex: 1 1 auto; }
+  /* The label's words fold out of sight, not out of the input's name. */
+  body[data-detent=half] .lib-filters .field > .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body[data-detent=half] .tab-intro { display: none; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }

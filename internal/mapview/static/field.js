@@ -11,7 +11,9 @@ import { esc } from './util.js';
 export function textField({ label = '', ariaLabel = '', id, type = 'text', placeholder = '', maxlength, required = false }) {
   const attrs = `id="${esc(id)}" type="${esc(type)}" autocomplete="off"${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${maxlength ? ` maxlength="${maxlength}"` : ''}${required ? ' required' : ''}${ariaLabel ? ` aria-label="${esc(ariaLabel)}"` : ''}`;
   const err = `<span class="field-err" id="${esc(id)}Err" role="alert"></span>`;
-  return label ? `<label class="field">${esc(label)}<input ${attrs}>${err}</label>` : `<div class="field"><input ${attrs}>${err}</div>`;
+  // The label's words are their own span, so a layout can fold them away
+  // (the phone's half sheet, where the placeholder says it) and keep the input.
+  return label ? `<label class="field"><span class="lbl">${esc(label)}</span><input ${attrs}>${err}</label>` : `<div class="field"><input ${attrs}>${err}</div>`;
 }
 
 // setFieldError shows message under input's field, or clears it with ''.

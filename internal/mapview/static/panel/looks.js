@@ -84,6 +84,14 @@ export function stageTitle({ live, preview, read = true, status = 'available' })
   return 'Nothing on the lights';
 }
 
+// compactStage is the stage header as one line, for the phone's half sheet:
+// "Previewing · replaces Porch glitter". The long title gives way to the
+// rows, which say what is live, and the sub follows the dot in lower case.
+export function compactStage({ title, sub, preview, live }) {
+  const t = preview && live ? 'Previewing' : title;
+  return { title: t, sub: sub ? sub[0].toLowerCase() + sub.slice(1) : sub };
+}
+
 // stageSub is the stage's one line under its title. A failed refresh keeps
 // the last state and says so.
 export function stageSub({ rows, stale, word, read = true, status = 'available' }) {
@@ -250,6 +258,7 @@ export function createLooks(S, root) {
   let filter = load(FILTER, '');      // the library's list; '' follows the pins
   let mode = 'replace';               // Replace or Add, while a preview can do either
   const cards = new Map(); // lane:id → row
+  const compact = () => S.panel.layout() === 'sheet' && S.panel.detent() === 'half';
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
     <div class="looks-head"><h1 class="title">Looks</h1></div>
@@ -728,8 +737,10 @@ export function createLooks(S, root) {
     const house = S.house.filter((l) => !l.ephemeral);
     renderRows(prev, house);
     const stale = S.houseStatus !== 'available' && S.houseRead;
-    $$('#lkStageTitle').textContent = stageTitle({ live: house.length, preview: prev.length, read: !!S.houseRead, status: S.houseStatus });
-    $$('#lkStageSub').textContent = stageSub({ rows: prev.length + house.length, stale, word, read: !!S.houseRead, status: S.houseStatus });
+    let head = { title: stageTitle({ live: house.length, preview: prev.length, read: !!S.houseRead, status: S.houseStatus }), sub: stageSub({ rows: prev.length + house.length, stale, word, read: !!S.houseRead, status: S.houseStatus }) };
+    if (compact()) head = compactStage({ ...head, preview: prev.length, live: house.length });
+    $$('#lkStageTitle').textContent = head.title;
+    $$('#lkStageSub').textContent = head.sub;
     $$('#lkStage').classList.toggle('stale', stale);
     const notRead = S.houseStatus === 'available' || S.houseRead ? null : houseState(S.houseStatus, S.house.length);
     stageState(previewState(S.preview, S.previewStatus) || notRead);
@@ -802,7 +813,7 @@ export function createLooks(S, root) {
     go.title = applyTitle(plan, S.houseStatus === 'unavailable' || !!S.statusFailed);
     $$('#lkBarNote').textContent = plan.note;
     // A phone's bar is one row: what Replace does is the stage's line instead.
-    if (S.panel.layout() === 'sheet' && plan.note && !$$('#lkStageSub').textContent) $$('#lkStageSub').textContent = plan.note;
+    if (S.panel.layout() === 'sheet' && plan.note && !$$('#lkStageSub').textContent) $$('#lkStageSub').textContent = compact() ? compactStage({ sub: plan.note }).sub : plan.note;
     fitNote();
   }
   // fitNote gives the note its own full-width line when it can't share one,
@@ -995,6 +1006,7 @@ export function createLooks(S, root) {
     if (cut) reveal(cut, true);
   }
   S.on('detent', clearBar);
+  S.on('detent', renderStage); // the half sheet's stage is the compact one
   S.on('tab', () => { syncBarInset(); fitNote(); });
   S.on('layout', fitNote);
   S.on('status', renderStage); // a zone's brightness changed the warning
