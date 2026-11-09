@@ -85,20 +85,29 @@ export function stageTitle({ live, preview, read = true, status = 'available' })
   return 'Nothing on the lights';
 }
 
-// compactStage is the stage header as one line, for the phone's half sheet:
-// "Previewing · replaces Porch glitter". The long title gives way to the
-// rows, which say what is live, and the sub follows the dot in lower case.
+// compactStage is the stage header for the phone's half sheet: the state,
+// then the sub after a dot in lower case while it fits on the state's line
+// ("Previewing · replaces Porch glitter"); when it doesn't, ui.css puts it
+// on the line below, whole, with its first letter back in upper case
+// (fitStageHead decides). The long title gives way to the rows, which say
+// what is live.
 export function compactStage({ title, sub, preview, live }) {
   const t = preview && live ? 'Previewing' : title;
   return { title: t, sub: sub ? sub[0].toLowerCase() + sub.slice(1) : sub };
 }
 
+// subBelow says the compact header's sub must take its own line: it has
+// text and does not fit whole in the room left beside the state.
+export const subBelow = (text, scrollWidth, clientWidth) => !!text && scrollWidth > clientWidth + 1;
+
 // stageSub is the stage's one line under its title. A failed refresh keeps
-// the last state and says so.
-export function stageSub({ rows, stale, word, read = true, status = 'available' }) {
+// the last state and says so. compact is the phone's half sheet, whose
+// hint is short and complete: it has to fit the header, never be cut.
+export function stageSub({ rows, stale, word, read = true, status = 'available', compact = false }) {
   if (stale) return "Couldn't refresh. This is the last known state.";
   if (!read && !rows && status === 'unavailable') return "Glowstack didn't answer, so what's on the lights isn't known.";
-  return rows ? '' : `${word} a look below to preview it on the map; the lights don't change.`;
+  if (rows) return '';
+  return compact ? `${word} a look to preview it. The lights change only when you apply.` : `${word} a look below to preview it on the map; the lights don't change.`;
 }
 
 const FILTER_WORDS = { pinned: 'Pinned', presets: 'All presets', effects: 'Effects' };
@@ -745,7 +754,7 @@ export function createLooks(S, root) {
     const house = S.house.filter((l) => !l.ephemeral);
     renderRows(prev, house);
     const stale = S.houseStatus !== 'available' && S.houseRead;
-    let head = { title: stageTitle({ live: house.length, preview: prev.length, read: !!S.houseRead, status: S.houseStatus }), sub: stageSub({ rows: prev.length + house.length, stale, word, read: !!S.houseRead, status: S.houseStatus }) };
+    let head = { title: stageTitle({ live: house.length, preview: prev.length, read: !!S.houseRead, status: S.houseStatus }), sub: stageSub({ rows: prev.length + house.length, stale, word, read: !!S.houseRead, status: S.houseStatus, compact: compact() }) };
     if (compact()) head = compactStage({ ...head, preview: prev.length, live: house.length });
     $$('#lkStageTitle').textContent = head.title;
     $$('#lkStageSub').textContent = head.sub;
@@ -758,6 +767,7 @@ export function createLooks(S, root) {
     const landing = lightOutcome(g, S.statusData?.brightness, prev.map((x) => targetRanges(g, S.tree, x.target)));
     renderDark(zoneWarning(lit, landing, { previewing: prev.length > 0 }));
     renderBar(prev);
+    fitStageHead();
     markPreviewed();
     S.refreshBadge?.();
     $$('#lkClockBox').hidden = !prev.length;
@@ -767,6 +777,15 @@ export function createLooks(S, root) {
       copies = Object.fromEntries(Object.entries(copies).filter(([k]) => ids.has(k)));
       save(COPIES, copies);
     }
+  }
+  // fitStageHead keeps the compact header's words whole: the sub shares the
+  // state's line while it fits there, and takes the line below when it
+  // doesn't (B138: the first-use hint and the replaced-look list were cut).
+  function fitStageHead() {
+    const head = $$('.stage-head'), sub = $$('#lkStageSub');
+    head.classList.remove('sub-below');
+    if (!compact() || !sub.offsetParent) return;
+    if (subBelow(sub.textContent, sub.scrollWidth, sub.clientWidth)) head.classList.add('sub-below');
   }
   // renderDark is the one 0% line, inside the stage. Drawn only on a change: a
   // poll mustn't replace the button under a press.
@@ -1030,7 +1049,7 @@ export function createLooks(S, root) {
   S.on('ready', clearBar);
   S.tiles?.watch($$('#lkPresets'));
   // The rows' words are fitted to the width they have, so refit on a resize.
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); }).observe($$('#lkRows'));
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); fitStageHead(); }).observe($$('#lkRows'));
 
   return {
     push,

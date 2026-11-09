@@ -2454,7 +2454,7 @@ test('B134: a collapsed phone row keeps the look\'s name whole; place and level 
   assert.match(phone, /\.layer\.two-line \.line-level::before \{ content: '· '; \}/, 'Everything · 100%');
   const looks = read('panel/looks.js');
   assert.match(looks, /if \(name\.scrollWidth > name\.clientWidth \+ 1\) el\.classList\.add\('two-line'\)/);
-  assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
+  assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); fitStageHead\(\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
 });
 
 test('B135: toasts arriving together fold into one, and the phone sheet shows one at a time', async () => {
@@ -2512,7 +2512,7 @@ test('Move A: the phone sheet opens to the task at the half detent', async () =>
   assert.match(looks, /if \(compact\(\)\) head = compactStage\(/);
   assert.match(looks, /S\.on\('detent', renderStage\)/, 'the stage re-renders as the sheet moves');
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
-  assert.match(phone, /body\[data-detent=half\] \.stage-head \{ display: flex; align-items: baseline;/);
+  assert.match(phone, /body\[data-detent=half\] \.stage-head \{ display: flex; align-items: baseline; flex-wrap: wrap;/);
   assert.match(phone, /body\[data-detent=half\] \.stage-head > small:not\(:empty\)::before \{ content: '· '; \}/);
   assert.match(phone, /body\[data-detent=half\] \.lib-filters \{ flex-wrap: nowrap;/, 'filters and search share a line');
   assert.match(phone, /body\[data-detent=half\] \.lib-filters \.field > \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\);/, 'folded away, still the input\'s name');
@@ -2669,4 +2669,28 @@ test('Refinement 7: the Power copy names who is affected and where the current i
   const partial = powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }, bare('b', 1)], controllers: [{ ma: 1500, known: true }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
   assert.match(partial.notSet, /B output 1, so its draw[^.]*\. Set max_ma/);
   assert.equal(powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }], controllers: [{ ma: 1, known: true }], stage: { scale: 1 } }).notSet, '');
+});
+
+test('B138: the compact state card never cuts its own words', async () => {
+  const { stageSub, compactStage, subBelow } = await import('./static/panel/looks.js');
+  // The half sheet's first-use hint is short and complete, with the lights' rule in it.
+  assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap', compact: true }), 'Tap a look to preview it. The lights change only when you apply.');
+  assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap' }), "Tap a look below to preview it on the map; the lights don't change.", 'the full sheet keeps the long one');
+  assert.equal(stageSub({ rows: 1, stale: false, word: 'Tap', compact: true }), '');
+  assert.equal(compactStage({ title: 'Nothing on the lights', sub: 'Tap a look to preview it. The lights change only when you apply.', preview: 0, live: 0 }).sub, 'tap a look to preview it. The lights change only when you apply.');
+  // The sub takes its own line when it does not fit whole beside the state; an empty sub never does.
+  assert.equal(subBelow('replaces Lantern and Porch glitter', 240, 120), true);
+  assert.equal(subBelow('replaces Lantern', 100, 120), false);
+  assert.equal(subBelow('', 10, 0), false);
+  const looks = read('panel/looks.js');
+  assert.match(looks, /stageSub\(\{[^}]*compact: compact\(\)/, 'the compact header asks for the short hint');
+  assert.match(looks, /if \(subBelow\(sub\.textContent, sub\.scrollWidth, sub\.clientWidth\)\) head\.classList\.add\('sub-below'\)/);
+  assert.match(looks, /renderBar\(prev\);\s*fitStageHead\(\);/, 'measured after the bar may have set the sub');
+  assert.match(looks, /fitControls\(c\); fitStageHead\(\); \}\)\.observe/, 'refits on a resize');
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
+  const sub = /body\[data-detent=half\] \.stage-head > small \{([^}]*)\}/.exec(phone)[1];
+  assert.doesNotMatch(sub, /text-overflow/, 'no ellipsis on the compact header');
+  assert.match(phone, /body\[data-detent=half\] \.stage-head\.sub-below > small \{ display: block; flex: 0 0 100%; order: 3; white-space: normal; overflow: visible;/);
+  assert.match(phone, /body\[data-detent=half\] \.stage-head\.sub-below > small::before \{ content: none; \}/, 'no dot at the start of its own line');
+  assert.match(phone, /body\[data-detent=half\] \.stage-head\.sub-below > small::first-letter \{ text-transform: uppercase; \}/, 'a line of its own starts with a capital');
 });

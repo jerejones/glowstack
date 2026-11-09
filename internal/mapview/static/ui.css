@@ -438,10 +438,16 @@ input[type=checkbox]:checked::after {
    * search on one line. Presets keeps its title and New preset and folds
    * its explanation away. Full shows everything. */
   body[data-detent=half] .stage { padding: 6px 8px; margin: 4px 0 6px; }
-  body[data-detent=half] .stage-head { display: flex; align-items: baseline; gap: 4px; padding: 0; }
+  body[data-detent=half] .stage-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 4px; padding: 0; }
   body[data-detent=half] .stage-head > h2 { flex: none; }
-  body[data-detent=half] .stage-head > small { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The hint or the replaced-look list follows the state on its line while it
+   * fits there whole. When it doesn't (looks.js measures: .sub-below), it takes
+   * the line under the state, wrapping as it needs; nothing is ever cut. */
+  body[data-detent=half] .stage-head > small { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; }
   body[data-detent=half] .stage-head > small:not(:empty)::before { content: '· '; }
+  body[data-detent=half] .stage-head.sub-below > small { display: block; flex: 0 0 100%; order: 3; white-space: normal; overflow: visible; text-wrap: pretty; }
+  body[data-detent=half] .stage-head.sub-below > small::before { content: none; }
+  body[data-detent=half] .stage-head.sub-below > small::first-letter { text-transform: uppercase; }
   /* Clear keeps its full tap height without adding to the line's. */
   body[data-detent=half] .stage-head > #lkClear { flex: none; margin: -8px 0 -8px auto; padding: 0; align-self: center; }
   body[data-detent=half] .stage-warn { padding: 0 8px; margin-top: 4px; }
