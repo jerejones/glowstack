@@ -46,8 +46,7 @@ export function createSetup(S, root) {
     <h1 class="title">Set up the map</h1>
     <section class="setup-cal">
       <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
-      <div class="row"><button type="button" id="suCal" class="go grow icon-btn"></button></div>
-      <div class="muted small" id="suCalN"></div>
+      <div class="row"><button type="button" id="suCal" class="go grow icon-btn"></button><div class="muted small" id="suCalN"></div></div>
     </section>
     <h2 class="sub">Color the map by</h2>
     <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
@@ -106,10 +105,13 @@ export function createSetup(S, root) {
   const calLabel = calibrateButton($$('#suCal'), S);
   S.on('calibration', calLabel);
   // The same count the calibration screen shows, from the same reading.
+  // Once a point is measured, Calibrate is a button like the others, with
+  // the count beside it; before that it is the panel's one big call.
   const showCount = (st) => {
     const count = st ? calCount(st) : null;
     $$('#suCalN').textContent = count ? count.text : '';
     $$('#suCalN').title = count ? count.title : '';
+    $$('.setup-cal').classList.toggle('started', (st?.measured || 0) >= 1);
   };
   S.on('calprogress', showCount);
 

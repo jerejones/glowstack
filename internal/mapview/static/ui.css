@@ -743,6 +743,11 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 /* ---------- Setup and Status ---------- */
 .setup-cal { margin: 0 0 16px; padding: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .setup-cal p { margin-top: 0; }
+/* Nothing measured yet: Calibrate takes the row, its count under it. Once a
+ * point is, the button is its own width and the count sits beside it. */
+.setup-cal .row { gap: 6px 12px; }
+.setup-cal:not(.started) #suCalN { flex: 1 1 100%; }
+.setup-cal.started #suCal { flex: none; }
 .help { margin-top: 6px; }
 #suAdvanced { margin-top: 16px; }
 .section-disclosure > summary, #suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }

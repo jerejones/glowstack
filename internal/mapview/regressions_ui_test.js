@@ -2648,3 +2648,11 @@ test('Refinement 5: a section status has its own slot', () => {
   // A phone keeps the status on its own line under the words.
   assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block;[^}]*\}\s*\.status-head \{ display: block; \}/);
 });
+
+test("Refinement 6: Calibrate's weight on Setup", () => {
+  const setup = read('panel/setup.js');
+  assert.match(setup, /<div class="row"><button type="button" id="suCal" class="go grow icon-btn"><\/button><div class="muted small" id="suCalN"><\/div><\/div>/, 'the count shares the row');
+  assert.match(setup, /classList\.toggle\('started', \(st\?\.measured \|\| 0\) >= 1\)/, 'from the first measured point');
+  assert.match(css, /\.setup-cal:not\(\.started\) #suCalN \{ flex: 1 1 100%; \}/, 'at 0 measured the button keeps the row');
+  assert.match(css, /\.setup-cal\.started #suCal \{ flex: none; \}/, 'then it is its own width');
+});
