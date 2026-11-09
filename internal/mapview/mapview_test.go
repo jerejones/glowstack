@@ -1013,8 +1013,8 @@ func TestSectionRoutes(t *testing.T) {
 		}
 		body, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
-		if resp.StatusCode != http.StatusNotFound || !bytes.Contains(body, []byte("Back to the map")) {
-			t.Fatalf("%s: got %d, designed page: %v", path, resp.StatusCode, bytes.Contains(body, []byte("Back to the map")))
+		if resp.StatusCode != http.StatusNotFound || !bytes.Contains(body, []byte("not-found-nav")) {
+			t.Fatalf("%s: got %d, designed page: %v", path, resp.StatusCode, bytes.Contains(body, []byte("not-found-nav")))
 		}
 	}
 	resp, err := http.Get(f.srv.URL + "/api/map/nothing-here")
