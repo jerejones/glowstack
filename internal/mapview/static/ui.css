@@ -290,12 +290,22 @@ details[open] > summary::before { content: '▾'; }
 .form .f .ctl output { min-width: 4.5em; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
 .form .f .doc { grid-column: 2; color: var(--muted); font-size: 0.85em; margin-top: -2px; }
 .form .f.bad input { border-color: var(--bad); }
-.form .colors { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.form .colors { width: 100%; min-width: 0; }
-.form .warm-white { display: flex; flex: 1 0 100%; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.form .warm-white-label { width: 100%; color: #cbd5e1; font-size: 0.9em; }
-.form .warm-white input { flex: 1; width: 100%; min-width: 0; accent-color: #ffd19a; }
-.form .w { width: 4.2em; }
+.form .colors { display: flex; width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; align-items: center; }
+.form .color-picker { width: 100%; min-width: 0; }
+.form .color-picker summary { gap: 8px; }
+.form .color-swatch { display: inline-block; width: 32px; height: 28px; border: 1px solid #64748b; border-radius: 7px; }
+.form .f:has(.color-picker[open]) > .ctl { grid-column: 1 / -1; }
+.form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 1px solid var(--line); border-radius: 10px; }
+.form .channel-row { display: grid; grid-template-columns: 70px minmax(40px, 1fr) 48px; align-items: center; gap: 8px; margin: 10px 0; }
+.form .channel-row label { font-size: 0.85em; color: #e2e8f0; }
+.form .channel-row input[type=number] { width: 48px; min-width: 0; padding: 0 3px; text-align: center; }
+.form .channel-row input[type=range] { appearance: none; -webkit-appearance: none; height: 14px; border-radius: 8px; border: 1px solid #64748b; touch-action: pan-y; }
+.form .channel-row input[type=range]::-webkit-slider-thumb { appearance: none; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 2px solid #475569; box-shadow: 0 1px 4px #0008; }
+.form .channel-row input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #475569; box-shadow: 0 1px 4px #0008; }
+.form .channel-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.form .color-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
+.form .color-choices button { font-size: 0.85em; padding: 4px 7px; }
+.form .color-note { color: var(--muted); font-size: 0.8em; line-height: 1.4; margin-top: 12px; }
 .form .list { grid-column: 1 / -1; border-left: 2px solid var(--line); padding-left: 8px; }
 .form .list .item { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
 .form textarea { min-height: 160px; font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }

@@ -8,7 +8,7 @@
 // palette), then every param of the effect's schema under More, then
 // the params as JSON. Edits go out through a patcher: changes made
 // within ~80 ms are merged, and one PATCH is in flight at a time.
-import { esc, parseColor, formatColor, displayColor, parseQty, formatQty, showQty, clamp, patch } from './util.js';
+import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, patch } from './util.js';
 
 // ---------- looks as data ----------
 
@@ -199,42 +199,64 @@ export function createForm(ctx) {
     return f;
   }
 
-  // colorInput is a color picker with a warm-white amount (W).
+  // One color is four independent channels. Every track previews the mix
+  // along that channel while holding the other three at their current values.
   function colorInput(get, set) {
-    const box = document.createElement('span');
-    box.className = 'colors';
-    const pick = document.createElement('input');
-    pick.type = 'color';
-    pick.setAttribute('aria-label', 'RGB color');
-    const warm = document.createElement('label');
-    warm.className = 'warm-white';
-    const caption = document.createElement('span');
-    caption.className = 'warm-white-label';
-    caption.textContent = 'Warm white LED';
-    const slider = document.createElement('input');
-    slider.type = 'range'; slider.min = 0; slider.max = 255; slider.step = 1;
-    slider.setAttribute('aria-label', 'Warm white LED');
-    const w = document.createElement('input');
-    w.type = 'number'; w.min = 0; w.max = 255; w.className = 'w'; w.title = 'Warm white, 0–255'; w.placeholder = 'W';
-    w.step = 1; w.setAttribute('aria-label', 'Warm white LED value');
+    const box = document.createElement('details');
+    box.className = 'color-picker';
+    const summary = document.createElement('summary');
+    const swatch = document.createElement('span');
+    swatch.className = 'color-swatch';
+    swatch.setAttribute('aria-hidden', 'true');
+    const title = document.createElement('span');
+    title.textContent = 'Edit color';
+    summary.append(swatch, title);
+    const panel = document.createElement('div');
+    panel.className = 'color-mixer';
     const read = () => parseColor(get()) || { r: 0, g: 0, b: 0, w: 0 };
-    const sync = () => {
-      if (box.contains(document.activeElement)) return;
-      const c = read();
-      pick.value = formatColor({ ...c, w: 0 });
-      w.value = c.w;
-      slider.value = c.w;
+    const channels = [];
+    const paint = (c) => {
+      swatch.style.background = displayColor(c);
+      summary.title = `RGB + warm white: ${c.r}, ${c.g}, ${c.b}, ${c.w}`;
+      for (const { key, slider, number } of channels) {
+        slider.value = number.value = c[key];
+        slider.style.backgroundImage = channelGradient(c, key);
+      }
     };
-    const write = () => {
-      const c = parseColor(pick.value) || { r: 0, g: 0, b: 0 };
-      set(formatColor({ ...c, w: clamp(+w.value || 0, 0, 255) }));
-    };
-    pick.oninput = write;
-    slider.oninput = () => { w.value = slider.value; write(); };
-    w.oninput = () => { slider.value = clamp(+w.value || 0, 0, 255); write(); };
-    warm.title = 'Dedicated white LED channel. Set RGB to black for pure warm white.';
-    warm.append(caption, slider);
-    box.append(pick, warm, w);
+    const write = (c) => { paint(c); set(formatColor(c)); };
+    for (const [key, name] of [['r', 'Red'], ['g', 'Green'], ['b', 'Blue'], ['w', 'Warm white']]) {
+      const row = document.createElement('div');
+      row.className = 'channel-row';
+      const label = document.createElement('label');
+      label.textContent = name;
+      const slider = document.createElement('input');
+      slider.type = 'range'; slider.min = 0; slider.max = 255; slider.step = 1;
+      slider.id = id(`channel-${key}`); label.htmlFor = slider.id;
+      slider.setAttribute('aria-label', name);
+      const number = document.createElement('input');
+      number.type = 'number'; number.min = 0; number.max = 255; number.step = 1;
+      number.setAttribute('aria-label', `${name} value`);
+      const change = (input) => write({ ...read(), [key]: Math.round(clamp(+input.value || 0, 0, 255)) });
+      slider.oninput = () => change(slider);
+      number.oninput = () => change(number);
+      row.append(label, slider, number);
+      panel.append(row);
+      channels.push({ key, slider, number });
+    }
+    const choices = document.createElement('div');
+    choices.className = 'color-choices';
+    for (const [name, color] of [['Warm white', '#000000/ff'], ['RGB white', '#ffffff'], ['Off', '#000000']]) {
+      const button = document.createElement('button');
+      button.type = 'button'; button.textContent = name;
+      button.onclick = () => write(parseColor(color));
+      choices.append(button);
+    }
+    const note = document.createElement('div');
+    note.className = 'color-note';
+    note.textContent = 'Screen preview is approximate. Each slider keeps the other channels fixed.';
+    panel.append(choices, note);
+    box.append(summary, panel);
+    const sync = () => { if (!box.contains(document.activeElement)) paint(read()); };
     sync();
     ctrls.push({ sync });
     return box;

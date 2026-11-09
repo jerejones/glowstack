@@ -110,6 +110,16 @@ export function displayColor(s) {
   return `rgb(${[c.r, c.g, c.b].map((v, i) => Math.round(Math.min(255, v + WARM[i] * k))).join(',')})`;
 }
 
+// Each stop changes only this channel. Intermediate stops preserve clipping
+// in the RGBW screen approximation; endpoint-only gradients miss that shape.
+export function channelGradient(color, channel) {
+  const stops = Array.from({ length: 17 }, (_, i) => {
+    const value = Math.round(255 * i / 16);
+    return `${displayColor({ ...color, [channel]: value })} ${100 * i / 16}%`;
+  });
+  return `linear-gradient(to right, ${stops.join(', ')})`;
+}
+
 // ---------- quantities ----------
 
 // Units the parameter types accept, as multipliers to SI. A length or
