@@ -2010,10 +2010,15 @@ test('B106, B108, B112: nothing is reserved for what is gone, and Apply leaves t
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /heldSlot|slotBefore|minHeight/, 'B112: no fixed slot');
   assert.doesNotMatch(css, /looks-slot/);
-  assert.doesNotMatch(/async function apply[\s\S]*?\n  \}\n/.exec(looks)[0], /scrollTo/, 'B106: the scroll stays');
+  assert.match(/async function apply[\s\S]*?\n  \}\n/.exec(looks)[0], /applying = false;\s+renderStage\(\);[\s\S]*?root\.parentElement\.scrollTop = 0;/, 'B117: after Apply the heading is in view');
   assert.match(looks, /if \(applying\) return;/, 'B106: rows are not dropped and re-added mid-Apply');
   assert.match(css, /\.content \{ overflow-anchor: none;/, 'B106: the browser does not re-scroll for a swapped row');
   assert.match(looks, /S\.panel\.layout\(\) === 'sheet' && S\.panel\.tab\(\) === 'looks' && !S\.panel\.collapsed\(\)/, 'B108: beside the map a click does not scroll the grid');
+});
+
+test('B117: leaving Calibrate lands at the top of the panel, its heading in view', () => {
+  const body = /function close\(\) \{[\s\S]*?\n  \}/.exec(read('panel/calibrate.js'))[0];
+  assert.match(body, /openTab\(to\);\s+\/\/[^\n]*\n\s+S\.panel\?\.toTop\?\.\(\);/);
 });
 
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {

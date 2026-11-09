@@ -783,6 +783,8 @@ export function createLooks(S, root) {
     await S.status?.poll();
     applying = false;
     renderStage();
+    // The result is at the top: the panel's heading and the new rows in view.
+    root.parentElement.scrollTop = 0;
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);

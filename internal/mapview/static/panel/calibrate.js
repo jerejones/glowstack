@@ -357,6 +357,8 @@ export function createCalibrate(S, root) {
     const to = returnTab(from, S.panel?.tab?.());
     rememberFrom('');
     if (to) S.panel.openTab(to);
+    // Back to the top of the panel, its heading in view, not a stale scroll.
+    S.panel?.toTop?.();
   }
 
   // leave exits the mode because the page moved on. A session that is

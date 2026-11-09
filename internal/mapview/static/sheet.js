@@ -228,6 +228,8 @@ export function createPanel(hooks) {
     // contents can't be seen.
     collapsed: () => (layout === 'sheet' ? detent === 'peek' : layout === 'side' && rail),
     refresh: () => refresh(false),
+    // toTop scrolls the panel back to its heading.
+    toTop: () => { $('content').scrollTop = 0; },
   });
   return panelApi;
 }
