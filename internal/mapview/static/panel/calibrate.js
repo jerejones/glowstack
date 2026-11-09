@@ -112,6 +112,24 @@ export function referenceColors(g, cal) {
   return out;
 }
 
+// KEPT names the fields a redraw must not reset: what's been chosen or
+// typed there is the person's until they change it.
+const KEPT = ['run', 'ctl', 'a', 'b', 'i'];
+export function readFields(body) {
+  const out = {};
+  for (const name of KEPT) {
+    const el = body.querySelector(`[name=${name}]`);
+    if (el && el.value !== '') out[name] = el.value;
+  }
+  return out;
+}
+export function restoreFields(body, saved) {
+  for (const [name, value] of Object.entries(saved)) {
+    const el = body.querySelector(`[name=${name}]`);
+    if (el) el.value = value;
+  }
+}
+
 // loadState is the screen's state before the first reading: loading, or
 // the failure with Retry. null once there is a session state to draw.
 export function loadState(C) {
@@ -243,7 +261,7 @@ export function createCalibrate(S, root) {
     if (C.st && C.st.active) {
       left = true;
       remember(true);
-      S.toast('Calibration is still running on the lights. Resume or stop it from Setup.');
+      S.toast('Calibration is still running on the lights. Resume or stop it from Setup.', { warn: true });
     }
   }
   S.on('tab', leave);
@@ -417,9 +435,10 @@ export function createCalibrate(S, root) {
     }
 
     const body = $$('#caBody');
-    const top = body.scrollTop;
+    const top = body.scrollTop, fields = readFields(body);
     body.innerHTML = parts.join('');
     upgradeSelects(body);
+    restoreFields(body, fields);
     if (!active && S.offline) for (const b of body.querySelectorAll('button.go')) b.disabled = true;
     body.scrollTop = top;
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
@@ -448,6 +467,7 @@ export function createCalibrate(S, root) {
     if (document.hidden) return;
     const f = document.activeElement;
     if (open && f && root.contains(f) && (f.tagName === 'INPUT' || f.tagName === 'SELECT')) return;
+    if (open && root.querySelector('.picker.open')) return;
     const now = Date.now();
     if (!open && now - lastPoll < 4000) return;
     lastPoll = now;

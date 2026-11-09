@@ -172,11 +172,11 @@ test('calibration navigation and utilities are separate rows', () => {
 function overlayFor(extra = {}) {
   return import('./static/overlay.js').then(({ createOverlay }) => {
     const nodes = [{ id: 'a', name: 'Alpha', plan: 0, x: 50, y: 50, z: 0 }, { id: 'b', name: 'Beta', plan: 0, x: 60, y: 54, z: 0 }, { id: 'c', name: 'Gamma', plan: 0, x: 400, y: 400, z: 0 }];
-    const S = { geo: { pixels: { count: 0 }, controllers: [{ id: 'c1', name: 'Board', base: 0, outputs: [] }], mappings: [], zones: [], edges: [], runs: [], nodes }, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x, y], size: () => ({ w: 1000, h: 800 }) }, ...extra };
+    const S = { geo: { pixels: { count: 0 }, controllers: [{ id: 'c1', name: 'Board', base: 0, outputs: [] }], controller_locations: extra.geoExtra ? [{ id: 'back-shed', controller: -1, plan: 0, x: 200, y: 200, z: 0 }] : [], mappings: [], zones: [], edges: [], runs: [], nodes }, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x, y], size: () => ({ w: 1000, h: 800 }) }, ...extra };
     const overlay = createOverlay(S);
     overlay.st.nodes = overlay.st.labels = true;
     const out = { plates: 0, texts: [] };
-    const ctx = { fillRect() { out.plates++; }, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, fillText(t) { out.texts.push(t); }, measureText: (t) => ({ width: t.length * 6 }) };
+    const ctx = { fillRect() { out.plates++; }, rect() {}, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, fillText(t) { out.texts.push(t); }, measureText: (t) => ({ width: t.length * 6 }) };
     return { overlay, ctx, out };
   });
 }
@@ -248,9 +248,11 @@ test('there is one page title per tab, one row tall', () => {
   for (const sel of ['h1\\.title', '\\.looks-head', '\\.library-heading']) assert.match(css, new RegExp(`${sel} \\{[^}]*min-height: var\\(--title-row\\)`), sel);
 });
 
-test('pressed chips carry a keyline and a check', () => {
+test('pressed chips carry a keyline and the one SVG check, with no text for screen readers', () => {
   assert.match(css, /\.chips > button\.on \{[^}]*box-shadow/);
-  assert.match(css, /\.chips > button\.on::before \{ content: "\\2713"/);
+  assert.doesNotMatch(css, /\\2713/);
+  assert.match(css, /\.chips > button\.on::before \{\s*content: '';[^}]*mask: var\(--check\)/);
+  assert.match(css, /--check: url\("data:image\/svg\+xml[^;]*M3 8\.5l3\.2 3\.2L13 5/, 'the same path as the check icon');
 });
 
 test('single-choice sets are segmented and the show-on-map group has a name', () => {
@@ -280,4 +282,109 @@ test('offline follows a lost connection, not startup', () => {
   const app = read('app.js');
   assert.match(app, /ws\.onclose = [^\n]*setOffline\(true\)/);
   assert.doesNotMatch(app, /S\.offline = true/);
+});
+
+// ---------- round 3 review ----------
+
+test('B27: a redraw keeps what was chosen in the calibration pickers', async () => {
+  const { readFields, restoreFields } = await import('./static/panel/calibrate.js');
+  const body = (vals) => ({ querySelector: (sel) => { const n = /name=(\w+)/.exec(sel)[1]; return n in vals ? vals[n] : null; } });
+  const before = { run: { value: 'fence-east' }, ctl: { value: 'yard' }, a: { value: '' } };
+  const saved = readFields(body(before));
+  assert.deepEqual(saved, { run: 'fence-east', ctl: 'yard' }, 'an empty field keeps nothing');
+  const after = { run: { value: 'shed-eave' }, ctl: { value: 'shed' }, a: { value: '' } };
+  restoreFields(body(after), saved);
+  assert.equal(after.run.value, 'fence-east');
+  assert.equal(after.ctl.value, 'yard');
+  assert.match(read('panel/calibrate.js'), /readFields\(body\);\s+body\.innerHTML = parts\.join\(''\);\s+upgradeSelects\(body\);\s+restoreFields\(body, fields\)/);
+});
+
+test('B28: Escape closes a popover and stops there', async () => {
+  const { escapeCloses } = await import('./static/picker.js');
+  let handler, closed = 0, open = true;
+  escapeCloses({ addEventListener: (_, fn) => { handler = fn; } }, () => open, () => { closed++; });
+  const press = (key) => { const e = { key, stopped: false, preventDefault() {}, stopPropagation() { this.stopped = true; } }; handler(e); return e; };
+  assert.equal(press('a').stopped, false);
+  assert.equal(closed, 0);
+  assert.equal(press('Escape').stopped, true, 'it must not go on to clear the selection');
+  assert.equal(closed, 1);
+  open = false;
+  assert.equal(press('Escape').stopped, false, 'a closed popover leaves the key alone');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /escapeCloses\(el, \(\) => !picker\.hidden, \(\) => \{ openPicker\(false\); targetBtn\.focus\(\); \}\)/, 'Show on returns focus');
+  assert.match(looks, /setAttribute\('aria-expanded', on \? 'true' : 'false'\)/);
+  assert.match(read('form.js'), /escapeCloses\(box, \(\) => box\.open/, 'the color editor');
+  assert.match(read('picker.js'), /escapeCloses\(el, \(\) => !pop\.hidden, \(\) => close\(true\)\)/, 'the picker');
+});
+
+test('B29: calibration names wrap, undoing the single-line .nv rule', () => {
+  const rule = /\.cal-prog li \.name \{[^}]*\}/.exec(css)[0];
+  assert.match(rule, /white-space: normal/);
+  assert.match(rule, /overflow: visible/);
+});
+
+test('B33: toasts sit above the map toggle and legend, and over the phone calibration sheet', async () => {
+  const { toastBottom } = await import('./static/map-frame.js');
+  assert.equal(toastBottom({ height: 900, layout: 'wide', calibrating: false, calTop: 0, floats: 120 }), 128);
+  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: false, calTop: 354, floats: 450 }), 458, 'above the sheet and its toggle');
+  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 800 }), 498);
+  assert.match(read('app.js'), /\.filter\(\(r\) => r\.height\)/, 'a legend hidden by CSS has no top');
+});
+
+test('B34: picker lists show whole rows, and Show on has no scroll of its own', () => {
+  assert.match(css, /\.picker-list \{[^}]*max-height: calc\(var\(--tap\) \* var\(--picker-rows\)\)[^}]*scroll-snap-type: y mandatory/);
+  assert.match(css, /\.picker-option \{[^}]*height: var\(--tap\)[^}]*scroll-snap-align: start/);
+  assert.doesNotMatch(css, /\.target-list \{[^}]*max-height/);
+  assert.match(css, /\.picker-pop \{[^}]*scroll-margin/);
+});
+
+test('B35: a warning toast is the warning color', () => {
+  assert.match(css, /\.toast\.warn \{ border-left-color: var\(--warn\)/);
+  assert.match(read('panel/looks.js'), /S\.toast\(dark, \{ ms: 9000, warn: true \}\)/);
+  assert.match(read('app.js'), /opts\.warn \? ' warn'/);
+});
+
+test('B36: Apply closes Show on', () => {
+  assert.match(read('panel/looks.js'), /S\.fail\('apply the look', e\);[^\n]*\n\s+openPicker\(false\);/);
+});
+
+test('B37: the inspect card reads like the panel', async () => {
+  const { showingLabel } = await import('./static/form.js');
+  const S = { presets: [{ id: 'lantern-glow', name: 'Lantern glow', effect: 'bands', params: {} }], catalog: { effects: [{ id: 'chase', name: 'Chase', params: [] }] } };
+  assert.equal(showingLabel(S, { layer: 'p1', preview: true, preset: 'lantern-glow', effect: 'bands' }, 'everything'), 'Lantern glow (in preview) on everything');
+  assert.equal(showingLabel(S, { layer: 'x', effect: 'chase' }, 'Porch'), 'Chase on Porch');
+  assert.doesNotMatch(read('app.js'), /sh\.layer|preset ' \+ esc/);
+});
+
+test('B38: Chase and Sparkle strips show what those effects paint', async () => {
+  const { lookStrip } = await import('./static/form.js');
+  const S = { palettes: [{ id: 'default', name: 'Default', stops: [] }, { id: 'color-1', name: 'Color 1', stops: [] }], catalog: { effects: [
+    { id: 'chase', params: [{ name: 'width', default: '0.2 m' }, { name: 'spacing', default: '1 m' }, { name: 'colors', type: 'colors', default: ['#ffffff'] }, { name: 'background', default: '#000000' }] },
+    { id: 'sparkle', params: [{ name: 'color', type: 'color', default: '#ffffff' }, { name: 'palette', type: 'palette', default: 'Default' }] },
+  ] } };
+  const chase = lookStrip(S, 'chase', {});
+  assert.match(chase, /rgb\(255,255,255\)/);
+  assert.match(chase, /rgb\(0,0,0\)/, 'the gaps between pulses');
+  const two = lookStrip(S, 'chase', { colors: ['#ff0000', '#00ff00'], background: '#0000ff' });
+  for (const c of ['rgb(255,0,0)', 'rgb(0,255,0)', 'rgb(0,0,255)']) assert.ok(two.includes(c), `${c} in ${two}`);
+  const sparkle = lookStrip(S, 'sparkle', { color: '#ff0000' });
+  assert.match(sparkle, /^linear-gradient\(90deg, #0b0d10 .*transparent/, 'specks, not a bar');
+  assert.match(sparkle, /rgb\(255,0,0\)$/);
+});
+
+test('B39: map controller labels use display names, even for a board the config lacks', async () => {
+  const { overlay, ctx, out } = await overlayFor({ geoExtra: true });
+  overlay.st.nodes = overlay.st.labels = false;
+  overlay.st.controllers = true;
+  overlay.draw(ctx);
+  assert.ok(out.texts.includes('Back shed'), out.texts.join());
+  assert.ok(!out.texts.includes('back-shed'), out.texts.join());
+});
+
+test('B40: an opened Tweak form scrolls into view', () => {
+  assert.match(read('panel/looks.js'), /form\.el\.scrollIntoView\(\{ block: 'nearest'/);
+});
+
+test('Escape on a confirm dialog leaves the sheet where it is', () => {
+  assert.match(read('app.js'), /t\.closest\?\.\('dialog'\)\) return;[\s\S]{0,300}e\.key === 'Escape'/);
 });

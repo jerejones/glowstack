@@ -28,6 +28,24 @@ export function stepActive(key, active, count) {
   return null;
 }
 
+// escapeCloses gives a popover its Escape: el is everything that can hold
+// focus while it's open. Handled here, the key doesn't go on to clear the
+// map's selection or drop the sheet.
+export function escapeCloses(el, isOpen, close) {
+  el.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !isOpen()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    close();
+  });
+}
+
+// keepInList scrolls only the list, by what's needed to show row c.
+function keepInList(list, c) {
+  if (c.offsetTop < list.scrollTop) list.scrollTop = c.offsetTop;
+  else if (c.offsetTop + c.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = c.offsetTop + c.offsetHeight - list.clientHeight;
+}
+
 let pickers = 0;
 
 // createPicker takes options as [{ value, label, swatch }]; swatch is a
@@ -59,7 +77,7 @@ export function createPicker(options = [], { label = '', id = '', name = '' } = 
     active = i;
     [...list.children].forEach((c, n) => c.classList.toggle('active', n === i));
     const c = list.children[i];
-    if (c) { (search.hidden ? list : search).setAttribute('aria-activedescendant', c.id); c.scrollIntoView?.({ block: 'nearest' }); }
+    if (c) { (search.hidden ? list : search).setAttribute('aria-activedescendant', c.id); keepInList(list, c); }
   }
   function paintList() {
     shown = matchOptions(options, search.value);
@@ -87,7 +105,7 @@ export function createPicker(options = [], { label = '', id = '', name = '' } = 
     search.hidden = options.length < SEARCH_FROM;
     search.value = '';
     paintList();
-    (search.hidden ? list : search).focus();
+    (search.hidden ? list : search).focus({ preventScroll: true });
     pop.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
     document.addEventListener('pointerdown', outside, true);
   }
@@ -113,9 +131,9 @@ export function createPicker(options = [], { label = '', id = '', name = '' } = 
     const next = stepActive(e.key, active, shown.length);
     if (next !== null && !(e.target === search && (e.key === 'Home' || e.key === 'End'))) { e.preventDefault(); setActive(next); return; }
     if (e.key === 'Enter') { e.preventDefault(); if (shown[active]) choose(shown[active]); }
-    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(true); }
     else if (e.key === 'Tab') close();
   };
+  escapeCloses(el, () => !pop.hidden, () => close(true));
   search.oninput = paintList;
   search.onchange = (e) => e.stopPropagation();
 

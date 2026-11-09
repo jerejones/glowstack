@@ -275,7 +275,7 @@ export function createOverlay(S) {
       }
       ctx.fillStyle = cfg ? CTRL : CTRL_OFF; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
-      const display = cfg ? cfg.name || c.id : c.id;
+      const display = controllerName(g, c.id); // a board the config doesn't list has only an id
       const name = st.labels && c.label ? `${display} · ${c.label}` : display;
       label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF);
     }

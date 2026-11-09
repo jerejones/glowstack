@@ -11,7 +11,7 @@ const byId = (list, id) => (list || []).find((x) => x.id === id);
 
 export const runName = (g, id) => byId(g.runs, id)?.name || humanize(id);
 export const nodeDisplay = (g, id) => byId(g.nodes, id)?.name || humanize(id);
-export const controllerName = (g, id) => byId(g.controllers, id)?.name || id;
+export const controllerName = (g, id) => byId(g.controllers, id)?.name || humanize(id);
 export const areaName = (g, id) => byId(g.areas, id)?.name || humanize(id);
 export const zoneName = (g, id) => byId(g.zones, id)?.name || humanize(id);
 

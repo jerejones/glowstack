@@ -10,7 +10,7 @@
 // within ~80 ms are merged, and one PATCH is in flight at a time.
 import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, api, patch, humanize } from './util.js';
 import { icon } from './icons.js';
-import { createPicker } from './picker.js';
+import { createPicker, escapeCloses } from './picker.js';
 
 // ---------- looks as data ----------
 
@@ -31,7 +31,13 @@ export function layerName(S, layer) {
   if (layer.name) return layer.name;
   if (layer.preset) { const p = presetOf(S, layer.preset); return p ? presetName(p) : humanize(layer.preset); }
   const e = effectFor(S, layer);
-  return (e && e.name) || layer.effect || 'layer';
+  return (e && e.name) || (layer.effect ? humanize(layer.effect) : 'Look');
+}
+
+// showingLabel is what the inspect card says a pixel shows, in the panel's
+// words: where is the place as the layer's card reads it.
+export function showingLabel(S, sh, where) {
+  return `${layerName(S, sh)}${sh.preview ? ' (in preview)' : ''}${where ? ' on ' + where : ''}`;
 }
 
 // palette finds a palette as the server does: by id, then by name in
@@ -86,9 +92,38 @@ function paletteStrip(S, value, owner, colors) {
   return p.interpolate === 'step' ? stepStrip(p.stops, p.wrap !== false) : stopsStrip(p.stops);
 }
 
+// A dark layer with gaps, over the colors: sparkles are specks, not a bar.
+const SPECKS = 'linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 22%, transparent 22% 24%, #0b0d10 24% 37%, transparent 37% 38.5%, #0b0d10 38.5% 55%, transparent 55% 57%, #0b0d10 57% 66%, transparent 66% 67.5%, #0b0d10 67.5% 84%, transparent 84% 86%, #0b0d10 86% 100%)';
+
+// chaseStrip draws Chase as it runs: its pulses, each color in turn, over
+// its background.
+function chaseStrip(schema, v) {
+  const value = (name) => (v[name] !== undefined ? v[name] : (schema.find((q) => q.name === name) || {}).default);
+  const list = value('colors');
+  const colors = Array.isArray(list) && list.length ? list : ['#ffffff'];
+  const bg = displayColor(value('background') || '#000000');
+  const duty = clamp(parseQty('length', value('width') || '0.2 m') / parseQty('length', value('spacing') || '1 m') || 0.2, 0.08, 0.6);
+  const pulses = Math.max(4, colors.length);
+  const stops = [];
+  for (let i = 0; i < pulses; i++) {
+    const at = (x) => `${(100 * (i + x) / pulses).toFixed(2)}%`;
+    const c = displayColor(colors[i % colors.length]);
+    stops.push(`${c} ${at(0)}`, `${c} ${at(duty)}`, `${bg} ${at(duty)}`, `${bg} ${at(1)}`);
+  }
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
 // lookStrip is a CSS background showing a look's colors: its bands,
-// palette, colors or color, in that order of preference.
+// palette, colors or color, in that order of preference. Chase and Sparkle
+// are mostly dark, and the strip says so.
 export function lookStrip(S, effectId, params) {
+  const schema = ((S.catalog.effects || []).find((x) => x.id === effectId) || { params: [] }).params;
+  if (effectId === 'chase') return chaseStrip(schema, params || {});
+  const strip = colorStrip(S, effectId, params);
+  return effectId === 'sparkle' ? `${SPECKS}, ${strip}` : strip;
+}
+
+function colorStrip(S, effectId, params) {
   const v = params || {};
   const key = (suffix) => Object.keys(v).find((k) => k === suffix || k.endsWith('.' + suffix));
   const e = (S.catalog.effects || []).find((x) => x.id === effectId);
@@ -336,6 +371,7 @@ export function createForm(ctx) {
     note.textContent = 'Screen preview is approximate. Each slider keeps the other channels fixed.';
     panel.append(choices, note);
     box.append(summary, panel);
+    escapeCloses(box, () => box.open, () => { box.open = false; summary.focus(); });
     const sync = () => { if (!box.contains(document.activeElement)) paint(read()); };
     sync();
     ctrls.push({ sync });

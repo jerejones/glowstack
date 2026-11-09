@@ -42,7 +42,7 @@ test('Default resolves to each effect\'s own palette', async () => {
   const { lookStrip } = await form();
   assert.match(lookStrip(S, 'gradient', {}), /255,0,0/, 'gradient defaults to Rainbow');
   assert.match(lookStrip(S, 'noise', {}), /85,0,171/, 'noise defaults to Party');
-  assert.equal(lookStrip(S, 'sparkle', { color: '#ff0000' }), 'rgb(255,0,0)', 'sparkle defaults to its color');
+  assert.match(lookStrip(S, 'sparkle', { color: '#ff0000' }), /, rgb\(255,0,0\)$/, 'sparkle defaults to its color');
 });
 
 test('the color palettes use the look\'s colors', async () => {
@@ -79,7 +79,7 @@ test('a composite uses its first palette, whichever key is written first', async
 
 test('plain color lists still draw', async () => {
   const { lookStrip } = await form();
-  assert.equal(lookStrip(S, 'chase', { colors: ['#ff0000', '#0000ff'] }), 'linear-gradient(90deg, rgb(255,0,0), rgb(0,0,255))');
+  assert.equal(lookStrip(S, 'solid-list', { colors: ['#ff0000', '#0000ff'] }), 'linear-gradient(90deg, rgb(255,0,0), rgb(0,0,255))');
 });
 
 test('tapping a look already in preview takes it off rather than stacking it', async () => {

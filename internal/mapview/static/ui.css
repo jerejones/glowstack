@@ -41,11 +41,13 @@
   --sheet-visible: var(--peek);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --layout: wide;
+  --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3.2L13 5'/%3E%3C/svg%3E");
+  --picker-rows: 8;
   color-scheme: dark;
 }
-@media (pointer: coarse) { :root { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-l: 17px; --t-xl: 26px; } }
+@media (pointer: coarse) { :root { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-l: 17px; --t-xl: 26px; --picker-rows: 4; } }
 /* ?pointer=coarse: touch sizing with a mouse, for testing */
-html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-l: 17px; --t-xl: 26px; }
+html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-l: 17px; --t-xl: 26px; --picker-rows: 4; }
 
 @media (max-width: 1099.98px) {
   :root { --layout: side; --panel-w: 300px; }
@@ -133,7 +135,11 @@ label.check { display: inline-flex; align-items: center; gap: 6px; min-height: v
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips > button { border-radius: 999px; }
 .chips > button.on { background: #36404f; border-color: #cbd5e1; box-shadow: inset 0 0 0 1px #cbd5e1; }
-.chips > button.on::before { content: "\2713"; margin-right: 5px; }
+/* The one check, as a mask: generated text would be read out by screen readers. */
+.chips > button.on::before {
+  content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background: currentColor;
+  -webkit-mask: var(--check) center / contain no-repeat; mask: var(--check) center / contain no-repeat;
+}
 
 /* ---------- the map ---------- */
 #stage { position: absolute; top: 0; left: 0; bottom: 0; right: var(--panel-space); overflow: hidden; }
@@ -206,7 +212,7 @@ label.check { display: inline-flex; align-items: center; gap: 6px; min-height: v
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 
 .toasts {
-  position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: 12px;
+  position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: 12px; /* app.js keeps it above what's on the map's bottom edge */
   display: flex; flex-direction: column; gap: 6px; width: min(460px, calc(100% - 16px)); pointer-events: none;
 }
 .toast {
@@ -215,6 +221,7 @@ label.check { display: inline-flex; align-items: center; gap: 6px; min-height: v
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 .toast.error { border-left-color: var(--bad); color: var(--fg); }
+.toast.warn { border-left-color: var(--warn); }
 .toast .msg { flex: 1; }
 .toast .msg div { font-size: var(--t-s); color: var(--muted); }
 .toast button { min-width: var(--tap); padding: 0; background: transparent; border: 0; }
@@ -297,7 +304,6 @@ label.check { display: inline-flex; align-items: center; gap: 6px; min-height: v
   #stRuns li { flex-wrap: wrap; }
   #stRuns li .what { flex-basis: 100%; }
   #stRuns li button { margin-left: auto; }
-  .toasts { bottom: calc(var(--sheet-visible) + 10px); top: auto; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }
@@ -327,7 +333,6 @@ details[open] > summary::before { transform: rotate(90deg); }
 .target-btn b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .target-picker { display: grid; gap: 6px; margin: 0 0 10px; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
 .target-picker input { width: 100%; }
-.target-list { max-height: 260px; overflow-y: auto; overscroll-behavior: contain; }
 .target-list h3 { margin: 8px 0 4px; font-size: var(--t-s); color: var(--muted); font-weight: 600; }
 .now { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 4px 8px; margin: 0 0 8px; border-radius: var(--radius); }
 .now .strip { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid #0007; }
@@ -424,6 +429,9 @@ details[open] > summary::before { transform: rotate(90deg); }
 .verdict { display: flex; align-items: center; gap: 8px; font-size: var(--t-l); font-weight: 600; margin: 4px 0 10px; }
 .verdict.bad { color: #fca5a5; }
 .verdict.ok { color: var(--house); }
+.verdict.warn { color: var(--warn); }
+.health { display: flex; align-items: center; gap: 8px; margin: -6px 0 10px; color: var(--muted); }
+.health.bad { color: #fca5a5; }
 .issues { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
 .issue { background: #2a2110; border: 1px solid #6b4b16; border-radius: var(--radius); padding: 8px 10px; }
 .issue-text { display: flex; gap: 8px; align-items: flex-start; color: #fcd9a5; }
@@ -497,9 +505,11 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-prog .group > div { font-weight: 600; color: #cbd5e1; margin-bottom: 2px; }
 .cal-prog ul { list-style: none; margin: 0; padding: 0; }
 .cal-prog li { min-height: var(--tap); padding: 4px 8px; border-radius: 6px; cursor: pointer; }
-.cal-prog li .name { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.cal-prog li .name span { overflow-wrap: anywhere; }
-.cal-prog li .icon { width: 12px; height: 12px; }
+/* A name wraps; the row's name and value top-align so a long one reads as a unit. */
+.cal-prog li.nv { align-items: start; }
+.cal-prog li .name { display: flex; align-items: flex-start; gap: 6px; min-width: 0; white-space: normal; overflow: visible; }
+.cal-prog li .name span { min-width: 0; overflow-wrap: break-word; }
+.cal-prog li .icon { width: 12px; height: 12px; margin-top: 4px; }
 .cal-prog li:hover { background: #1a1e24; }
 .cal-prog li.done { color: var(--house); }
 .cal-prog li.here { background: #262c36; outline: 1px solid #4b5563; }
@@ -549,10 +559,12 @@ dialog.confirm .row { margin-top: 10px; }
 .picker-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); background: var(--field); border-color: var(--field-line); text-align: left; }
 .picker-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .picker-swatch { flex: none; width: 34px; height: 12px; border-radius: 3px; }
-.picker-pop { display: grid; gap: 6px; margin-top: 4px; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.picker-pop { display: grid; gap: 6px; margin-top: 4px; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); scroll-margin: 8px; }
 .picker-pop input { width: 100%; }
-.picker-list { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
-.picker-option { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 0 8px; border-radius: 6px; cursor: pointer; }
+/* A whole number of rows, snapped, so no row is ever cut at an edge. */
+.picker-list { position: relative; max-height: calc(var(--tap) * var(--picker-rows)); overflow-y: auto; overscroll-behavior: contain; scroll-snap-type: y mandatory; }
+.picker-option { display: flex; align-items: center; gap: 8px; height: var(--tap); padding: 0 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; scroll-snap-align: start; }
+.picker-option > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .picker-option:hover, .picker-option.active { background: #2b3340; }
 .picker-option[aria-selected=true] { font-weight: 600; box-shadow: inset 2px 0 0 var(--accent); }
 .picker-none { padding: 6px 8px; }

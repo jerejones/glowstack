@@ -7,6 +7,13 @@
 // at the top of the map only while calibrating on a phone. Everywhere else
 // it is at the bottom, and counting it at the top leaves nothing to frame.
 
+// toastBottom is how far above the stage's bottom toasts sit: over the
+// toggle, the legend and the sheet, or on a phone that's calibrating, over
+// the calibration sheet.
+export function toastBottom({ height, layout, calibrating, calTop, floats }) {
+  return (calibrating && layout === 'sheet' ? height - calTop : floats) + 8;
+}
+
 // frameInsets takes the page's measurements, in px from the stage's top:
 // height (the stage's), chips and crumbs (their bottoms; crumbs is null
 // when hidden), controls (the toggle's bottom), layout, full (the sheet is

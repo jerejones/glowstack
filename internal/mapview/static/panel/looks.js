@@ -16,6 +16,7 @@ import { houseStatusMessage, darkZones, darkMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState } from '../states.js';
 import { icon } from '../icons.js';
+import { escapeCloses } from '../picker.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
@@ -149,15 +150,19 @@ export function createLooks(S, root) {
     }));
     if (!groups.length) showState($$('#lkTargetList'), { kind: 'empty', title: 'No place by that name' });
   }
+  const outside = (e) => { if (!picker.contains(e.target) && !targetBtn.contains(e.target)) openPicker(false); };
   function openPicker(on) {
     picker.hidden = !on;
     targetBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
     if (on) { search.value = ''; fillTargets(); if (!S.coarse) search.focus(); }
   }
+  for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { openPicker(false); targetBtn.focus(); });
   function choose(value) {
     target = value;
     save(TARGET, target);
     openPicker(false);
+    targetBtn.focus({ preventScroll: true });
     if (S.sel && value !== nodeTarget(S.sel.node)) S.select(null);
     else { fillTargets(); markPreviewed(); }
   }
@@ -472,7 +477,7 @@ export function createLooks(S, root) {
       } catch (e) { S.fail('copy the layer for editing', e); return; }
       const pc = cards.get('preview:' + id);
       if (pc && !pc.form) tweak(pc);
-      if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      else if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       S.toast(`Editing a preview of ${layerName(S, c.layer)}. Apply to update the lights.`);
       return;
     }
@@ -485,6 +490,8 @@ export function createLooks(S, root) {
     c.el.querySelector('.slot').append(form.el);
     c.el.querySelector('.tweak').setAttribute('aria-expanded', 'true');
     c.el.querySelector('.tweak').classList.add('on');
+    // The form can open below the sticky bar, where a tap seems to do nothing.
+    form.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   // apply promotes preview layers (all with ids empty) onto the lights,
@@ -494,6 +501,7 @@ export function createLooks(S, root) {
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
     } catch (e) { S.fail('apply the look', e); await S.refresh(); return; }
+    openPicker(false); // the result, not the list of places, is what to see
     const replaced = [];
     for (const id of list) {
       const orig = copies[id];
@@ -507,7 +515,7 @@ export function createLooks(S, root) {
     // The status poll's brightness can be seconds old: read it now.
     await S.status?.poll();
     const dark = darkMessage([...new Set(S.house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
-    if (dark) S.toast(dark, { ms: 9000 });
+    if (dark) S.toast(dark, { ms: 9000, warn: true });
   }
   $$('#lkPushAll').onclick = () => apply([]);
   $$('#lkClear').onclick = async () => {

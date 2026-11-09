@@ -26,8 +26,9 @@ import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, bootFailure } from './states.js';
-import { frameInsets } from './map-frame.js';
-import { runName, controllerName } from './names.js';
+import { frameInsets, toastBottom } from './map-frame.js';
+import { runName, controllerName, areaName, zoneName } from './names.js';
+import { showingLabel } from './form.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -76,15 +77,21 @@ function toast(msg, opts = {}) {
   const box = $('toasts');
   const err = msg instanceof Error;
   const el = document.createElement('div');
-  el.className = 'toast' + (err || opts.error ? ' error' : '');
+  el.className = 'toast' + (err || opts.error ? ' error' : opts.warn ? ' warn' : '');
   const details = err ? msg.details || [] : opts.details || [];
   el.innerHTML = `<span class="msg">${esc(err ? msg.message : msg)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
+  placeToasts();
   box.appendChild(el);
   while (box.children.length > 3) box.firstChild.remove();
   setTimeout(() => el.remove(), opts.ms || (err || opts.error ? 8000 : 3500));
 }
 S.toast = toast;
+function placeToasts() {
+  if (!S.panel) return;
+  const stage = $('stage').getBoundingClientRect();
+  $('toasts').style.bottom = toastBottom({ height: stage.height, layout: S.panel.layout(), calibrating: S.calibrating, calTop: $('calibrate').getBoundingClientRect().top - stage.top, floats: floatsBottom(stage) }) + 'px';
+}
 // S.fail reports an action that failed, naming the action.
 S.fail = (doing, e) => toast(failure(doing, e), { error: true, details: (e && e.details) || [] });
 
@@ -146,6 +153,7 @@ function resize() {
   S.view.resize(r.width, r.height, dpr);
   placeCrumbs();
   setInsets();
+  placeToasts();
   markDirty();
 }
 
@@ -173,7 +181,8 @@ S.setInsets = setInsets;
 // floatsBottom is how much of the map's bottom edge the side-layout toggle
 // and legend take up.
 function floatsBottom(stage) {
-  const tops = [$('mapControls'), $('legend')].filter((el) => !el.hidden).map((el) => el.getBoundingClientRect().top);
+  // Height 0 is a legend ui.css hides on phones.
+  const tops = [$('mapControls'), $('legend')].map((el) => el.getBoundingClientRect()).filter((r) => r.height).map((r) => r.top);
   return Math.max(0, stage.bottom - Math.min(stage.bottom, ...tops));
 }
 S.resize = resize;
@@ -396,7 +405,7 @@ function renderInspect() {
   const r = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
   const o = S.overlay.outputOf(d.id);
   const sh = d.showing;
-  const layer = sh ? `${esc(sh.layer)}${sh.preview ? ' (preview)' : ''}${sh.effect ? ' · ' + esc(sh.effect) : ''}${sh.preset ? ' · preset ' + esc(sh.preset) : ''}${sh.target ? ' on ' + esc(targetName(S.geo, sh.target)) : ''}` : '<span class="muted">Nothing</span>';
+  const layer = sh ? esc(showingLabel(S, sh, sh.target === 'all' ? 'everything' : sh.target ? targetName(S.geo, sh.target) : '')) : '<span class="muted">Nothing</span>';
   const maps = d.mappings.map((m) => r(esc(m.id), `${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`)).join('');
   const html = `<div class="head"><b>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</b>${pinned ? `<button type="button" class="quiet" data-unpin aria-label="Unpin" title="Unpin">${icon('close')}</button>` : ''}</div>
     <table>
@@ -409,8 +418,8 @@ function renderInspect() {
     ${r('Controller pixel', `${esc(d.controller)}:${d.index}`)}
     ${d.run ? r('Pixel on run', d.run_pixel) : ''}
     ${o ? r('LED on output', `${d.id - o.first + 1} of ${o.count}`) : ''}
-    ${r('Areas', esc(d.areas.join(', ') || '—'))}
-    ${r('Zones', esc(d.zones.join(', ') || '—'))}
+    ${r('Areas', esc(d.areas.map((id) => areaName(S.geo, id)).join(', ') || '—'))}
+    ${r('Zones', esc(d.zones.map((id) => zoneName(S.geo, id)).join(', ') || '—'))}
     ${r('Segment', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}
     ${r('Pixel size', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
     ${S.view.kind === '3d' ? r('Position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`) : r('Plan position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
@@ -591,6 +600,7 @@ function bindChrome() {
   }
   addEventListener('keydown', (e) => {
     const t = e.target;
+    if (t && t.closest?.('dialog')) return; // Escape there is the dialog's
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.key === 'Escape') {
       if (S.pinned >= 0) unpin();
