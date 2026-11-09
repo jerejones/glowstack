@@ -7,7 +7,7 @@
 // model's drawing layers, the plan, the camera (named views, Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
-import { $, api, esc, copyText, save, press } from '../util.js';
+import { $, api, esc, copyText, save, press, failure } from '../util.js';
 import { MODES } from '../overlay.js';
 
 export function createSetup(S, root) {
@@ -88,7 +88,7 @@ export function createSetup(S, root) {
   async function refreshLegend() {
     ov.remember();
     let html = '';
-    try { html = await ov.apply(); } catch (e) { S.toast(e); }
+    try { html = await ov.apply(); } catch (e) { S.fail('draw that overlay', e); }
     for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = html; el.hidden = !html; }
     S.markDirty();
   }

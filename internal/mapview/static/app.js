@@ -9,7 +9,7 @@
 // double-tap), the selection with its breadcrumb and halo, the
 // inspect card, toasts and the keyboard. Plain JS modules, no build
 // step.
-import { $, api, esc, outputName, fmt, load, save, press } from './util.js';
+import { $, api, esc, outputName, fmt, load, save, press, failure } from './util.js';
 import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
 import { buildTree, nodeName, nodeKinds } from './select.js';
@@ -21,6 +21,8 @@ import { createStatus } from './panel/status.js';
 import { createCalibrate } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll } from './house-status.js';
+import { createLibrary } from './library.js';
+import { stateHTML, bootFailure } from './states.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -77,6 +79,8 @@ function toast(msg, opts = {}) {
   setTimeout(() => el.remove(), opts.ms || (err || opts.error ? 8000 : 3500));
 }
 S.toast = toast;
+// S.fail reports an action that failed, naming the action.
+S.fail = (doing, e) => toast(failure(doing, e), { error: true, details: (e && e.details) || [] });
 
 S.setAllRuns = (all) => {
   S.allRuns = !!all;
@@ -333,7 +337,7 @@ async function inspect(p) {
   const seq = ++inspectSeq;
   if (p < 0) { inspected = null; renderInspect(); return; }
   let d;
-  try { d = await api('/api/map/pixels/' + p + showQ()); } catch (e) { return; }
+  try { d = await api('/api/map/pixels/' + p + showQ()); } catch (e) { return; } // the next hover or poll retries
   if (seq !== inspectSeq) return;
   inspected = d;
   renderInspect();
@@ -578,6 +582,7 @@ function onDetent(d) {
 
 // ---------- boot ----------
 
+let bootStep = 'load the map';
 async function main() {
   const q = new URLSearchParams(location.search);
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
@@ -587,18 +592,21 @@ async function main() {
   S.visibility = runVisibility(S.geo, S.allRuns);
   S.rgb = new Uint8Array(S.geo.pixels.count * 3);
   S.tree = buildTree(S.geo);
-  [S.catalog, S.presets] = await Promise.all([
-    api('/api/v1/effects').catch(() => ({ common: [], effects: [] })),
-    api('/api/v1/presets').then((r) => r.presets).catch(() => []),
-  ]);
+  const loadLibrary = createLibrary(S, api);
+  await loadLibrary();
+  // A failed load stays recorded; each panel shows it with Retry.
+  S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };
+  bootStep = 'set up the page';
   S.panel = createPanel({ onLayout, onDetent, onTab: (name) => S.emit('tab', name) });
   S.overlay = createOverlay(S);
   S.looks = createLooks(S, $('tab-looks'));
   S.presetLibrary = createPresets(S, $('tab-presets'));
   S.setup = createSetup(S, $('tab-setup'));
   S.status = createStatus(S, $('tab-status'));
+  $('bootLoading').remove();
   bindChrome();
   bindMap();
+  bootStep = 'draw the map';
   let plan = +load(PLAN, 0);
   if (!(plan >= 0 && plan < S.geo.plans.length)) plan = 0;
   await openView(plan);
@@ -629,5 +637,9 @@ window.glowstack = S;
 
 main().catch((e) => {
   console.error(e);
-  document.body.insertAdjacentHTML('afterbegin', `<pre class="error" style="position:fixed;z-index:9;inset:auto 8px 8px 8px;white-space:pre-wrap">${esc(e.stack || e)}</pre>`);
+  $('bootLoading')?.remove();
+  const box = $('bootError');
+  box.innerHTML = stateHTML({ ...bootFailure(bootStep, e), retry: true });
+  box.hidden = false;
+  box.querySelector('[data-retry]').onclick = () => location.reload();
 });

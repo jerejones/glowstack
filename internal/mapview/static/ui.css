@@ -66,6 +66,19 @@ code { font: 0.92em ui-monospace, SFMono-Regular, Menlo, monospace; }
 .error { color: #fca5a5; }
 .grow { flex: 1; }
 
+/* Loading, error and empty, the same on every panel. */
+.state { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; margin: 10px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.state-text { flex: 1; min-width: 12em; display: grid; gap: 2px; }
+.state-text span { color: var(--muted); }
+.state.empty { background: transparent; border-style: dashed; }
+.state.error { border-color: #7f1d1d; }
+.state.error b { color: #fca5a5; }
+.spinner { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--fg); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.boot-error { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
+.boot-error .state { max-width: 460px; width: 100%; }
+
 /* ---------- controls ---------- */
 button, select, input, textarea { font: inherit; color: inherit; }
 button, select, .chip {

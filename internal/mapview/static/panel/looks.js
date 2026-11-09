@@ -14,6 +14,7 @@ import { api, post, del, esc, accentFor, save, load, parseQty, press, covers, sa
 import { nodeName, nodeTarget, targetRanges } from '../select.js';
 import { houseStatusMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip } from '../form.js';
+import { showState } from '../states.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
@@ -29,7 +30,7 @@ export function createLooks(S, root) {
     <div id="lkSel" class="muted small"></div>
     <div class="cards" id="lkPresets"></div>
     <details id="lkOtherPresets"><summary>More presets <span class="muted"></span></summary><div class="cards"></div></details>
-    <details id="lkEffects"><summary>Effects <span class="muted">(${(S.catalog.effects || []).length})</span></summary><div class="cards"></div></details>
+    <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
     <div class="lane" id="lkPreview">
       <div class="row"><h2>Preview <small>on the map only</small></h2><span class="row">
         <button type="button" class="go" id="lkPushAll" title="Move every preview layer onto the lights">Push all to lights</button>
@@ -94,6 +95,16 @@ export function createLooks(S, root) {
     const pres = $$('#lkPresets');
     const presetCard = (p) => card(p.name || p.id, (effectFor(S, { preset: p.id }) || {}).name || p.effect,
       lookStrip(S, p.effect, p.params), () => push({ preset: p.id }), `Preview ${p.name || p.id} here`);
+    $$('#lkEffects summary span').textContent = `(${(S.catalog.effects || []).length})`;
+    if (S.library.presets === 'failed' || S.library.catalog === 'failed') {
+      // Failing is not the same as having nothing: say so, with Retry.
+      $$('#lkOtherPresets').hidden = $$('#lkEffects').hidden = true;
+      pres.classList.remove('cards');
+      showState(pres, { kind: 'error', title: S.library.presets === 'failed' ? 'Could not load your looks' : 'Could not load the effects', detail: 'Glowstack did not return them. The lights are not affected.', retry: S.retryLibrary });
+      return;
+    }
+    pres.classList.add('cards');
+    $$('#lkEffects').hidden = false;
     pres.replaceChildren(...S.presets.filter((p) => p.pinned).map(presetCard));
     if (!pres.childElementCount) {
       const hint = document.createElement('button');
@@ -116,7 +127,7 @@ export function createLooks(S, root) {
       await post('/api/map/preview/layers', { target: t, ...look });
       if (S.show === 'house') { S.setShow(''); S.toast('Showing your preview on the map.'); }
       await S.refresh();
-    } catch (e) { S.toast(e); }
+    } catch (e) { S.fail('preview the look', e); }
   }
 
   // ---------- lanes ----------
@@ -150,7 +161,7 @@ export function createLooks(S, root) {
       if (part) await post(base, { target: part, effect: 'solid', params: { color: '#000000' } });
       else { await del(base + '/' + encodeURIComponent(c.id)); if (c.lane === 'preview') forget(c.id); }
       await S.refresh();
-    } catch (e) { S.toast(e); }
+    } catch (e) { S.fail('remove the layer', e); }
   }
 
   function makeCard(lane, l) {
@@ -166,7 +177,7 @@ export function createLooks(S, root) {
       <div class="slot"></div>`;
     const c = { lane, id: l.id, el, layer: l, form: null };
     const base = lane === 'preview' ? '/api/v1/preview/layers/' : '/api/v1/layers/';
-    c.patch = patcher(() => base + encodeURIComponent(c.id), 80, (nl) => { c.layer = { ...c.layer, ...nl }; }, (e) => S.toast(e));
+    c.patch = patcher(() => base + encodeURIComponent(c.id), 80, (nl) => { c.layer = { ...c.layer, ...nl }; }, (e) => S.fail('change the layer', e));
     const bri = el.querySelector('.bri input'), out = el.querySelector('.bri output');
     bri.oninput = () => { out.textContent = Math.round(bri.value * 100) + '%'; c.patch.set({ brightness: +bri.value }); };
     el.querySelector('.tweak').onclick = () => tweak(c);
@@ -287,7 +298,7 @@ export function createLooks(S, root) {
         }
         if (S.show === 'house') S.setShow('');
         await S.refresh();
-      } catch (e) { S.toast(e); return; }
+      } catch (e) { S.fail('copy the layer for editing', e); return; }
       const pc = cards.get('preview:' + id);
       if (pc && !pc.form) tweak(pc);
       if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -311,13 +322,13 @@ export function createLooks(S, root) {
     const list = ids.length ? ids : (S.preview ? S.preview.layers.map((l) => l.id) : []);
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
-    } catch (e) { S.toast(e); await S.refresh(); return; }
+    } catch (e) { S.fail('apply the look', e); await S.refresh(); return; }
     const replaced = [];
     for (const id of list) {
       const orig = copies[id];
       forget(id);
       if (!orig) continue;
-      try { await del('/api/v1/layers/' + encodeURIComponent(orig)); replaced.push(orig); } catch (e) { if (e.status !== 404) S.toast(e); }
+      try { await del('/api/v1/layers/' + encodeURIComponent(orig)); replaced.push(orig); } catch (e) { if (e.status !== 404) S.fail('remove the look it replaces', e); }
     }
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     S.toast(`Applied ${list.length === 1 ? 'the layer' : list.length + ' layers'} to the lights${replaced.length ? ', in place of ' + orig : ''}.`);
@@ -325,14 +336,14 @@ export function createLooks(S, root) {
   }
   $$('#lkPushAll').onclick = () => apply([]);
   $$('#lkClear').onclick = async () => {
-    try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.toast(e); }
+    try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.fail('clear the preview', e); }
   };
 
   // ---------- the clock ----------
 
   const speedLabel = (s) => (s >= 1 ? s.toFixed(s >= 10 ? 0 : 1) : s.toFixed(2)) + '×';
   const control = async (body) => {
-    try { S.preview = await post('/api/map/preview', body); renderClock(); S.emit('preview', S.preview); } catch (e) { S.toast(e); }
+    try { S.preview = await post('/api/map/preview', body); renderClock(); S.emit('preview', S.preview); } catch (e) { S.fail('change the preview clock', e); }
   };
   const fps = g.house_fps || 40;
   $$('#lkPlay').onclick = () => control({ action: S.preview && S.preview.paused ? 'resume' : 'pause' });
@@ -355,7 +366,7 @@ export function createLooks(S, root) {
   scrub.oninput = async () => {
     if (scrubBase === null) {
       scrubBase = NaN;
-      try { const st = await post('/api/map/preview', { action: 'pause' }); scrubBase = st.t; S.preview = st; } catch (e) { scrubBase = null; S.toast(e); return; }
+      try { const st = await post('/api/map/preview', { action: 'pause' }); scrubBase = st.t; S.preview = st; } catch (e) { scrubBase = null; S.fail('pause the preview clock', e); return; }
     }
     if (Number.isNaN(scrubBase)) return;
     want = scrubBase + +scrub.value;
@@ -391,8 +402,6 @@ export function createLooks(S, root) {
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);
-  api('/api/v1/palettes').then((r) => { S.palettes = r.palettes; renderCatalog(); renderLanes(); }).catch(() => {});
-  S.palettes = S.palettes || [];
   fillTargets();
   renderCatalog();
 

@@ -2,8 +2,9 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { api, patch, del, esc } from '../util.js';
+import { api, patch, del, esc, failure } from '../util.js';
 import { createForm, lookStrip } from '../form.js';
+import { showState, stateHTML } from '../states.js';
 
 export function presetSlug(name, presets) {
   const base = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'preset';
@@ -30,6 +31,7 @@ export function createPresets(S, root) {
     if (!Array.isArray(response?.presets)) throw Error('Preset library unavailable.');
     if (seq !== refreshSequence) return;
     S.presets = response.presets;
+    S.library.presets = 'ready';
     S.emit('presets');
   };
   const discard = () => !dirty || confirm('Discard your unsaved preset changes?');
@@ -40,6 +42,12 @@ export function createPresets(S, root) {
   const endpoint = (id) => '/api/v1/presets/' + encodeURIComponent(id);
 
   function renderList() {
+    if (S.library.presets === 'failed') {
+      $('#prNew').disabled = true;
+      showState($('#prList'), { kind: 'error', title: 'Could not load your presets', detail: 'They are safe; Glowstack just could not read them.', retry: S.retryLibrary });
+      return;
+    }
+    $('#prNew').disabled = busy || S.library.catalog === 'failed';
     const query = $('#prSearch').value.toLowerCase().trim();
     const list = S.presets.filter((p) => `${p.name || p.id} ${p.effect}`.toLowerCase().includes(query));
     const box = $('#prList'); box.replaceChildren();
@@ -60,7 +68,7 @@ export function createPresets(S, root) {
           if (draft?.id === p.id) { draft.pinned = !p.pinned; const checkbox = $('#prPinned'); if (checkbox) checkbox.checked = draft.pinned; }
           await S.refreshPresets();
           say(p.pinned ? 'Unpinned from Looks.' : 'Pinned to Looks.');
-        } catch (e) { say(e.message); } finally { setBusy(false); }
+        } catch (e) { say(failure('pin the preset', e)); } finally { setBusy(false); }
       };
       row.querySelector('[data-act=delete]').onclick = async () => {
         if (busy || !confirm(`Delete “${p.name || p.id}”? Running lights will keep their current look.`)) return;
@@ -71,11 +79,11 @@ export function createPresets(S, root) {
           if (draft?.id === p.id) closeEditor();
           await S.refreshPresets(); await S.refresh();
           say('Preset deleted. Running lights are unchanged.');
-        } catch (e) { say(e.message); } finally { setBusy(false); }
+        } catch (e) { say(failure('delete the preset', e)); } finally { setBusy(false); }
       };
       box.append(row);
     }
-    if (!list.length) { const msg = document.createElement('p'); msg.className = 'muted'; msg.textContent = S.presets.length ? 'No matching presets.' : 'No presets yet. Create one to get started.'; box.append(msg); }
+    if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? 'No matching presets' : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.' });
     if (busy) setBusy(true);
   }
   function closeEditor() { draft = null; dirty = false; $('#prEditor').hidden = true; $('#prEditor').replaceChildren(); }
@@ -133,13 +141,13 @@ export function createPresets(S, root) {
       await api(endpoint(id) + '?library=true', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       closeEditor(); await S.refreshPresets(); await S.refresh();
       say(`Saved “${name}”.${body.pinned ? ' Pinned to Looks.' : ''}`);
-    } catch (e) { if ($('#prError')) $('#prError').textContent = e.message; else say(e.message); }
+    } catch (e) { const message = failure('save the preset', e); if ($('#prError')) $('#prError').textContent = message; else say(message); }
     finally { setBusy(false); }
   }
   $('#prNew').onclick = () => openEditor();
   $('#prSearch').oninput = renderList;
   S.on('presets', renderList);
-  S.on('tab', (name) => { if (name === 'presets' || name === 'looks') S.refreshPresets().catch((e) => say(e.message)); });
+  S.on('tab', (name) => { if (name === 'presets' || name === 'looks') S.refreshPresets().catch((e) => say(failure('refresh the presets', e))); });
   addEventListener('beforeunload', (event) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
   renderList();
   return { openEditor };

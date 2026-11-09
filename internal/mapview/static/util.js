@@ -18,13 +18,39 @@ export function press(b, on) {
   b.classList.toggle('on', !!on);
   b.setAttribute('aria-pressed', on ? 'true' : 'false');
 }
+// plural is a count with its noun: "1 output", "2 outputs".
+export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
+// humanize turns an id or parameter key into words: "sparkle.fade_in" is
+// "Sparkle fade in".
+export function humanize(id) {
+  const s = String(id).replace(/\.(\d+)/g, (_, i) => ` ${+i + 1}`).replace(/[._-]+/g, ' ').trim();
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
 
 // ---------- API ----------
 
+export const NOT_RESPONDING = "Glowstack isn't responding.";
+
+// failure says what went wrong with an action, for a person: the
+// server's own message when it sent one, or what could not be done when
+// nothing answered. doing reads after "Could not": "apply the look".
+export function failure(doing, e) {
+  return e && e.network ? `Could not ${doing}. ${NOT_RESPONDING}` : (e && e.message) || `Could not ${doing}.`;
+}
+
 // api fetches JSON. A failure throws an Error carrying the server's
-// message, its file:line details (errors) and the status.
+// message, its file:line details (errors) and the status; when nothing
+// answered, the Error has network set and status 0.
 export async function api(path, opts) {
-  const r = await fetch(path, opts);
+  let r;
+  try { r = await fetch(path, opts); } catch (e) {
+    if (e.name === 'AbortError') throw e;
+    const err = new Error(NOT_RESPONDING);
+    err.network = true;
+    err.status = 0;
+    err.details = [];
+    throw err;
+  }
   const text = await r.text();
   let body = null;
   try { body = text ? JSON.parse(text) : null; } catch (e) { body = null; }

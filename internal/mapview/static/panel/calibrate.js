@@ -11,9 +11,15 @@
 // a laptop share it; a session already running opens this mode. The
 // screen is kept awake while a session runs. createSession is the
 // session logic without the page, for tests.
-import { esc } from '../util.js';
+import { esc, plural, NOT_RESPONDING } from '../util.js';
 
 const BASE = '/api/v1/calibration';
+// What each action is called when it fails on the network.
+const DOING = {
+  '': 'read the calibration state', '/start': 'start calibrating', '/end': 'stop calibrating',
+  '/target': 'pick that point', '/next': 'move to the next point', '/nudge': 'move the test pixel',
+  '/set': 'go to that pixel', '/side': 'switch sides', '/confirm': 'save the measurement', '/forget': 'forget the measurement',
+};
 
 // createSession talks to the calibration API. Actions run in tap order
 // (confirming waits for earlier nudges); a poll waits until no action is
@@ -42,9 +48,10 @@ export function createSession({ fetch, storage, onState }) {
       });
       const text = await r.text();
       if (polling && my !== seq) return;
-      const j = JSON.parse(text);
-      if (!r.ok) {
-        C.error = j.error || r.statusText; C.details = j.errors || [];
+      let j = null;
+      try { j = JSON.parse(text); } catch (_) { /* reported below */ }
+      if (!r.ok || j === null) {
+        C.error = j?.error || text || r.statusText; C.details = j?.errors || [];
       } else {
         if (polling && text === last && !C.lost) return;
         last = text; C.st = j;
@@ -52,7 +59,7 @@ export function createSession({ fetch, storage, onState }) {
       }
     } catch (e) {
       if (polling && my !== seq) return;
-      C.error = String(e.message || e); C.details = []; C.lost = polling;
+      C.error = `Could not ${DOING[path]}. ${NOT_RESPONDING}`; C.details = []; C.lost = polling;
     }
     onState(C);
   }
