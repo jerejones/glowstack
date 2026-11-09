@@ -664,12 +664,13 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   .layer [data-a=remove] { grid-column: 2; grid-row: 1; }
   .layer .bri { grid-column: 1; grid-row: 2; }
   /* The phone's bar says the mode once: the button states it, and the link
-   * under it is the other way. The Replace/Add pair is the desktop's. */
+   * beside it is the other way. The Replace/Add pair is the desktop's. The
+   * bar stays one row, so the half detent keeps its library row: a long
+   * label wraps inside the button rather than pushing the link under it. */
   .look-bar { display: block; padding: 8px 12px; }
-  .bar-main { flex-wrap: wrap; row-gap: 0; }
-  .bar-main .go { flex: 1 1 100%; }
+  .bar-main .go { flex: 1 1 auto; }
   .bar-main .seg { display: none; }
-  .bar-main .swap { display: inline-block; margin: -4px 0 -6px auto; min-height: 36px; font-size: var(--t-help); }
+  .bar-main .swap { display: inline-block; flex: none; min-height: var(--tap); font-size: var(--t-help); text-align: right; }
   .bar-line { display: none; }
 }
 

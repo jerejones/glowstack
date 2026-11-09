@@ -2041,7 +2041,7 @@ test('B120: the action bar never truncates its note and clears the phone edge', 
   assert.match(looks, /note\.scrollWidth > note\.clientWidth \+ 1\) bar\.classList\.add\('note-below'\)/);
   assert.match(css, /\.look-bar\.note-below \.bar-note \{[^}]*flex: 0 0 100%; white-space: normal/);
   assert.match(css, /\.look-bar \{ display: block; padding: 8px 12px; \}/);
-  assert.match(css, /\.bar-main \.go \{ flex: 1 1 100%; \}/, 'the action takes the row (Refinement 4: the mode link sits under it)');
+  assert.match(css, /\.bar-main \.go \{ flex: 1 1 auto; \}/, 'the action takes what the mode link leaves of the row (Refinement 4)');
   assert.match(css, /  \.bar-line \{ display: none; \}/, 'Clear moved to the stage header; the note to its line');
 });
 
@@ -2637,7 +2637,8 @@ test('Refinement 4: the phone footer says Replace once', async () => {
   assert.match(looks, /\$\$\('#lkSwap'\)\.onclick = \(\) => \{ mode = mode === 'add' \? 'replace' : 'add'; renderStage\(\); \};/);
   // The desktop keeps its Replace/Add pair and never shows the link; the phone the reverse.
   assert.match(css, /^\.bar-main \.swap \{ display: none; \}/m);
-  assert.match(css, /  \.bar-main \.seg \{ display: none; \}\n  \.bar-main \.swap \{ display: inline-block; margin: -4px 0 -6px auto; min-height: 36px;/);
+  assert.match(css, /  \.bar-main \.seg \{ display: none; \}\n  \.bar-main \.swap \{ display: inline-block; flex: none; min-height: var\(--tap\);/);
+  assert.doesNotMatch(css, /\.bar-main \{ flex-wrap: wrap/, 'the bar stays one row, so the half detent keeps its library row');
 });
 
 test('Refinement 5: a section status has its own slot', () => {
