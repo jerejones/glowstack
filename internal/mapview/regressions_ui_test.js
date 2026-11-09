@@ -1378,7 +1378,7 @@ test('desktop footer keeps to the panel bottom; legend folds; boot has the tab i
   for (const ic of icons) assert.ok(html.includes(ic + '<svg'), ic);
   const { icon } = await import('./static/icons.js');
   assert.ok(html.includes(icon('looks')), 'the same drawing the app uses');
-  assert.match(read('panel/presets.js'), /\$\{icon\('more'\)\}More/, 'More carries the kebab, like Preview and Pin carry theirs');
+  assert.match(read('panel/presets.js'), /\$\{icon\('more'\)\}<span class="lbl">More<\/span>/, 'More carries the kebab, like Preview and Pin carry theirs');
   assert.doesNotMatch(css, /\.color-picker summary::before \{ order: 2/, 'the chevron is a disclosure like the rest');
   assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-h2\)/);
   assert.match(css, /text-wrap: balance/);
@@ -1496,7 +1496,7 @@ test('essential metadata is 14px and a phone heading qualifier gets its own line
 test('every secondary action on a card or row has its icon and word, and category keys share one swatch', () => {
   const looks = read('panel/looks.js'), presets = read('panel/presets.js'), overlay = read('overlay.js');
   assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
-  assert.match(presets, /\$\{icon\('more'\)\}More/);
+  assert.match(presets, /\$\{icon\('more'\)\}<span class="lbl">More<\/span>/);
   assert.match(looks, /\$\{icon\('tweak'\)\}Tweak/);
   assert.match(looks, /\$\{icon\('close'\)\}<span>Remove/);
   assert.match(looks, /\$\{icon\('apply'\)\}Apply only this/);
@@ -2741,6 +2741,28 @@ test('Refinement 4 (round 2): the chip names what is on the lights, with weight'
   assert.match(app, /levels: S\.statusData\?\.brightness && S\.geo\?\.zones \? S\.geo\.zones\.map\(\(z\) => S\.statusData\.brightness\.zones\?\.\[z\.id\] \?\? 1\) : null/);
   assert.match(app, /S\.on\('house', badge\)/, 'redrawn when the stack changes');
   assert.doesNotMatch(read('index.html'), /<span id="badge"[^>]*>[^<]*<(input|button)/, 'nothing in the chip is a slider or a button');
+});
+
+test('Refinement 5 (round 2): a denser desktop library and compact preset rows', () => {
+  // Looks: three columns at the 580 px pane (no four), spacing of 6 and 4 so a fourth row fits at 1440x900.
+  assert.match(css, /@media \(min-width: 1280px\) \{ \.cards \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \} \}/);
+  assert.doesNotMatch(css, /repeat\(4, minmax/, 'no four-column grid');
+  assert.match(css, /\.cards \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(132px, 1fr\)\); gap: 6px; \}/);
+  assert.match(css, /\.stage \{ margin: 0 0 6px;/);
+  assert.match(css, /\.catalog-head \{[^}]*margin: 4px 0 4px; \}/);
+  assert.match(css, /\.lib-filters \{[^}]*margin: 0 0 4px; \}/);
+  // Presets: on a fine pointer the row is one line with icon buttons; a coarse one keeps the labels.
+  const fine = css.slice(css.indexOf('@media (pointer: fine) {'));
+  assert.match(fine, /html:not\(\.coarse\) \.preset-entry \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto; align-items: center;/);
+  assert.match(fine, /html:not\(\.coarse\) \.preset-actions \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\);/, 'the words stay for a screen reader');
+  assert.match(fine, /\[data-act=more\] \{ width: var\(--tap\); min-width: var\(--tap\); padding: 0; gap: 0; \}/);
+  assert.doesNotMatch(css, /\.preset-actions \.lbl \{ display: none/, 'never hidden from assistive tech');
+  const src = read('panel/presets.js');
+  assert.match(src, /data-act="pin"[^>]*aria-label="\$\{esc\(\(p\.pinned \? 'Unpin ' : 'Pin '\) \+ presetName\(p\)\)\}" title="\$\{p\.pinned \? 'Unpin from Looks' : 'Pin to Looks'\}"/, 'Pin has a title and an aria-label');
+  assert.match(src, /<span class="lbl">\$\{p\.pinned \? 'Pinned' : 'Pin'\}<\/span>/);
+  assert.match(src, /data-act="more"[^>]*aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="Edit, duplicate or delete">\$\{icon\('more'\)\}<span class="lbl">More<\/span>/);
+  assert.match(src, /b\.innerHTML = `\$\{icon\('eye'\)\}<span class="lbl">\$\{on \? 'Previewing' : 'Preview'\}<\/span>`;\s*b\.setAttribute\('aria-label', on \? 'Previewing' : 'Preview'\);/);
+  assert.match(src, /row\.querySelector\('\[data-act=try\]'\)\.onclick = row\.querySelector\('\.preset-body'\)\.onclick/, 'the row body previews');
 });
 
 test('B138: the compact state card never cuts its own words', async () => {

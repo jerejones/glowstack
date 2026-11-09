@@ -99,8 +99,8 @@ export function createPresets(S, root) {
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
       row.innerHTML = `<div class="preset-body" title="Show this on the map; the lights don't change"><span class="strip sprite"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div></div><div class="preset-actions">
         <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
-        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'pinFilled' : 'pin')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
-        <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}">${icon('more')}More</button>
+        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}" title="${p.pinned ? 'Unpin from Looks' : 'Pin to Looks'}"><span class="pin">${icon(p.pinned ? 'pinFilled' : 'pin')}<span class="lbl">${p.pinned ? 'Pinned' : 'Pin'}</span></span></button>
+        <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}" title="Edit, duplicate or delete">${icon('more')}<span class="lbl">More</span></button>
           <div class="preset-menu" role="menu" hidden><button type="button" role="menuitem" data-act="edit">${icon('edit')}Edit</button><button type="button" role="menuitem" data-act="copy">${icon('copy')}Duplicate</button><button type="button" role="menuitem" data-act="delete" class="danger">${icon('trash')}Delete</button></div></div></div>`;
       const sprite = spriteURL('preset', p.id, p.params, effect), drawn = lookStrip(S, p.effect, p.params);
       row.querySelector('.strip').style.cssText = spriteStyle(sprite, drawn);
@@ -224,7 +224,8 @@ export function createPresets(S, root) {
   function markTry() {
     for (const b of root.querySelectorAll('[data-act=try]')) {
       const on = !!S.looks?.inPreview(b.dataset.preset);
-      b.innerHTML = `${icon('eye')}${on ? 'Previewing' : 'Preview'}`;
+      b.innerHTML = `${icon('eye')}<span class="lbl">${on ? 'Previewing' : 'Preview'}</span>`;
+      b.setAttribute('aria-label', on ? 'Previewing' : 'Preview');
       b.closest('.preset-entry').classList.toggle('in-preview', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }

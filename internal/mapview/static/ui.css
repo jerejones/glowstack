@@ -513,7 +513,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .looks-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: var(--title-row); margin: 10px 0 8px; }
 .looks-head h1.title, .library-heading h1.title { margin: 0; flex: none; }
 .looks-head { position: relative; }
-.catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 6px 0 4px; }
+.catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 4px 0 4px; }
 .catalog-head .group-head { margin: 0; }
 .place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
 .place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
@@ -539,7 +539,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .target-group { padding: 8px 0; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
 .target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
-.stage { margin: 0 0 8px; padding: 8px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.stage { margin: 0 0 6px; padding: 8px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .stage-head { display: grid; gap: 1px; padding: 2px 4px; }
 .stage-head h2 { margin: 0; }
 .stage-head small { color: var(--muted); font-size: var(--t-meta); }
@@ -552,7 +552,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stage-warn button { flex: none; white-space: nowrap; }
 .library { margin-top: 4px; }
-.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 6px; }
+.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 4px; }
 .lib-filters .seg { flex: none; width: auto; }
 .lib-filters .field { flex: 1 1 100%; margin: 0; min-width: 0; } /* one search field on Looks and Presets: its own row, full width */
 .lib-filters .field input { width: 100%; }
@@ -580,7 +580,8 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .live-sum[aria-expanded=true] > .icon { transform: rotate(180deg); }
 .tab-intro-compact { display: none; }
 #lkWords { margin-top: 12px; }
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+/* Spacing around the library is 6 and 4, not 8: at 1440x900 a fourth row of cards fits above the footer with a warning showing. */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 6px; }
 /* Three columns at the wide panel: room for a long name on one line. */
 @media (min-width: 1280px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .preset {
@@ -987,6 +988,16 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-menu button.danger { color: #fca5a5; border-color: transparent; }
 .preset-menu button:hover, .preset-menu button:focus-visible { background: var(--card); border-color: var(--line); }
 .preset-entry .strip { display: block; height: 8px; border-radius: 3px; border: 1px solid var(--rim); }
+/* A fine pointer gets the compact row: the strip, name and type on the left, and Preview, Pin and
+ * More as icon buttons with their words for a title, aria-label and screen reader. A coarse pointer
+ * (and ?pointer=coarse) keeps the labeled buttons on their own line. */
+@media (pointer: fine) {
+  html:not(.coarse) .preset-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 10px; }
+  html:not(.coarse) .preset-title { margin: 4px 0 0; }
+  html:not(.coarse) .preset-actions { flex-wrap: nowrap; gap: 4px; }
+  html:not(.coarse) .preset-actions .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  html:not(.coarse) .preset-actions [data-act=try], html:not(.coarse) .preset-actions [data-act=pin], html:not(.coarse) .preset-actions [data-act=more] { width: var(--tap); min-width: var(--tap); padding: 0; gap: 0; }
+}
 .preset-editor h3 { margin-top: 0; }
 .preset-editor .row { flex-wrap: wrap; }
 .tabs button { min-width: 0; padding-left: 7px; padding-right: 7px; }
