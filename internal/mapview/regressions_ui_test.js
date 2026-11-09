@@ -1557,8 +1557,6 @@ test('the polish round: tall primaries, ringed thumbs, a real glyph, even segmen
   assert.doesNotMatch(stateHTML({ title: 'x' }), /class="go"/);
   assert.match(read('panel/presets.js'), /id: 'prEmptyNew', label: 'New preset'/);
   assert.match(read('panel/looks.js'), /id: 'lkEmptyNew', label: 'New preset'/);
-  assert.match(read('panel/looks.js'), /now-go">Manage/);
-  assert.match(css, /\.now\.idle \.now-go \{ display: none; \}/);
 });
 
 test('a layered effect palette reads the colors of its own layer', async () => {
@@ -1610,4 +1608,13 @@ test('B96: revealing a lane\'s first card brings the lane\'s heading, not a sliv
   assert.equal(revealDelta(laneAim({ top: 540, bottom: 900 }, 560, true), 541, 800), 19, 'a tall form never takes the heading past the top');
   assert.deepEqual(laneAim(card, 485, false), card, 'a later card has its own name for a heading');
   assert.doesNotMatch(read('panel/looks.js'), /el\.scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'cards go through reveal');
+});
+
+test('B98: the row above the catalog says what its button does, and pressing it always shows something', () => {
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /Manage|now-go[^\n]*chevron/, 'no menu chevron on a button that opens no menu');
+  assert.match(looks, /id="lkNowGo"[^>]*>Adjust<\/button>/);
+  assert.match(looks, /lkNowGo'\)\.hidden = !house\.length/, 'with nothing on the lights there is nothing to go to');
+  assert.match(looks, /for \(const el of list\.querySelectorAll\('\.layer'\)\) flash\(el\)/, 'visible when the cards are already on screen');
+  assert.match(/<div class="now" id="lkNow"[^\n]*/.exec(looks)[0], /div/, 'the row itself is no longer a dead button');
 });

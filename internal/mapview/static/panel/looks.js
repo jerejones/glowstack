@@ -174,7 +174,7 @@ export function createLooks(S, root) {
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
     <div class="looks-head"><h1 class="title">Looks</h1></div>
-    <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><span class="now-go">Manage${icon('chevronDown')}</span></button>
+    <div class="now" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><button type="button" class="now-go quiet" id="lkNowGo" title="Go to what is on the lights, to adjust or remove it">Adjust</button></div>
     <div class="catalog-head" id="lkCatalogHead">
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Goes on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
@@ -390,13 +390,14 @@ export function createLooks(S, root) {
     }
   }
 
+  const flash = (el) => { el.classList.add('sel'); setTimeout(() => el.classList.remove('sel'), 1200); };
+
   // focusLayer brings a preview layer's card into view and marks it.
   function focusLayer(id) {
     const c = cards.get('preview:' + id);
     if (!c) return;
     reveal(c.el, true);
-    c.el.classList.add('sel');
-    setTimeout(() => c.el.classList.remove('sel'), 1200);
+    flash(c.el);
   }
 
   // push toggles a look on the current target. One tap at a time per
@@ -634,12 +635,18 @@ export function createLooks(S, root) {
     now.classList.toggle('stale', line.stale);
     now.classList.toggle('dark', line.dark);
     // With nothing listed below there's nowhere for it to go.
-    const idle = !house.length;
-    now.classList.toggle('idle', idle);
-    now.tabIndex = idle ? -1 : 0;
-    now.title = idle ? '' : 'Go to what is on the lights, to adjust or remove it';
-    now.onclick = () => $$('#lkHouse').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    now.classList.toggle('idle', !house.length);
+    $$('#lkNowGo').hidden = !house.length;
   }
+  // Adjust goes to the cards on the lights, and marks them: already on
+  // screen there is no scroll to see.
+  $$('#lkNowGo').onclick = () => {
+    const list = $$('#lkHouse .list'), first = list.querySelector('.layer');
+    if (!first) return;
+    reveal(first, true);
+    for (const el of list.querySelectorAll('.layer')) flash(el);
+    first.querySelector('.tweak').focus({ preventScroll: true });
+  };
   // reveal brings a card into view, below the tabs and above the Apply bar.
   function reveal(el, smooth = false) {
     const content = root.parentElement, bar = $$('#lkBar'), view = content.getBoundingClientRect();
