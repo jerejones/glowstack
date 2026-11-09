@@ -1643,6 +1643,12 @@ test('B97: a failed calibration read or action is said in words, with Retry that
   assert.doesNotMatch(cal, /text \|\| r\.statusText/);
 });
 
+test('each tab says it is loading until its own code draws it', () => {
+  const app = read('app.js');
+  assert.ok(app.indexOf('showLoadingTabs();') < app.lastIndexOf("await api('/api/map/geometry')"), 'before the first wait');
+  assert.match(app, /kind: 'loading', title: `Loading \$\{name\}…`/);
+});
+
 test('the 0% warning is said once on a screen, with how the brightnesses combine', async () => {
   const { nowLine } = await import('./static/panel/looks.js');
   const { BRIGHTNESS_RULE, darkMessage } = await import('./static/house-status.js');

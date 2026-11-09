@@ -742,6 +742,11 @@ async function startWithoutMap(e) {
   }
 }
 
+// showLoadingTabs says each tab is on its way, until its own code draws it.
+function showLoadingTabs() {
+  for (const [id, name] of [['looks', 'Looks'], ['presets', 'presets'], ['setup', 'Setup'], ['status', 'Status']]) $('tab-' + id).innerHTML = stateHTML({ kind: 'loading', title: `Loading ${name}…` });
+}
+
 let bootStep = 'load the map';
 async function main() {
   fillIcons(document);
@@ -749,6 +754,7 @@ async function main() {
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
   S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
+  showLoadingTabs();
   try { S.geo = await api('/api/map/geometry'); } catch (e) { await startWithoutMap(e); return; }
   geometrySignature = geometryKey(S.geo);
   S.visibility = runVisibility(S.geo, S.allRuns);
