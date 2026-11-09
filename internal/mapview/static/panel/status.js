@@ -134,6 +134,10 @@ export const statusIssues = (dark, list) => groupIssues([...(dark ? [{ summary: 
 // powerSummary is the power estimate in words: name(id) reads a
 // controller. An output with no LED current is unknown, never zero, and
 // that carries through the totals and the limiting line.
+// SET_CURRENT is where the current is set: nothing in this UI does, so the
+// sentence names the config field.
+export const SET_CURRENT = 'Set max_ma on each output in the controllers config to get one.';
+
 export function powerSummary(pw, name = (id) => id) {
   const unknown = pw.estimate.filter((o) => !o.known);
   const anyKnown = pw.estimate.some((o) => o.known);
@@ -153,7 +157,8 @@ export function powerSummary(pw, name = (id) => id) {
     limiting,
     overall: !anyKnown ? 'Unknown' : unknown.length ? `At least ${amps(knownMA)}` : amps(knownMA),
     partial: anyKnown && unknown.length > 0,
-    notSet: !anyKnown && unknown.length ? "No LED current is set for any output, so the draw and any power limiting can't be estimated." : groups.length ? `No LED current is set for ${joined(groups)}, so ${unknown.length === 1 ? 'its' : 'their'} draw and any power limiting can't be estimated.` : '',
+    notSet: !anyKnown && unknown.length ? `No LED current is set for any output on ${joined([...byCtl.keys()].map(name))}, so the draw and any power limiting can't be estimated. ${SET_CURRENT}`
+      : groups.length ? `No LED current is set for ${joined(groups)}, so ${unknown.length === 1 ? 'its' : 'their'} draw and any power limiting can't be estimated. ${SET_CURRENT}` : '',
   };
 }
 

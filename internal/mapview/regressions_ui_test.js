@@ -2656,3 +2656,16 @@ test("Refinement 6: Calibrate's weight on Setup", () => {
   assert.match(css, /\.setup-cal:not\(\.started\) #suCalN \{ flex: 1 1 100%; \}/, 'at 0 measured the button keeps the row');
   assert.match(css, /\.setup-cal\.started #suCal \{ flex: none; \}/, 'then it is its own width');
 });
+
+test('Refinement 7: the Power copy names who is affected and where the current is set', async () => {
+  const { powerSummary, SET_CURRENT } = await import('./static/panel/status.js');
+  const name = (id) => id.toUpperCase();
+  const bare = (controller, output) => ({ controller, output, known: false });
+  const none = powerSummary({ estimate: [bare('a', 1), bare('b', 1), bare('b', 2)], controllers: [{ ma: 0, known: false }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
+  assert.match(none.notSet, /^No LED current is set for any output on A and B, so/, 'names the controllers');
+  assert.match(none.notSet, /max_ma/, 'and the field that sets it');
+  assert.match(SET_CURRENT, /^Set max_ma on each output in the controllers config/);
+  const partial = powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }, bare('b', 1)], controllers: [{ ma: 1500, known: true }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
+  assert.match(partial.notSet, /B output 1, so its draw[^.]*\. Set max_ma/);
+  assert.equal(powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }], controllers: [{ ma: 1, known: true }], stage: { scale: 1 } }).notSet, '');
+});
