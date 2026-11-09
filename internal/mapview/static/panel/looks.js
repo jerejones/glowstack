@@ -16,7 +16,7 @@ import { houseStatusMessage, lightOutcome, joined, turnOnLabel, turnOnZones, zon
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState, stateHTML } from '../states.js';
 import { icon } from '../icons.js';
-import { textField } from '../field.js';
+import { textField, wireClear } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 
@@ -144,6 +144,23 @@ export function previewLine(layers, key, target, sameTarget, nameOf) {
 export function layerLine(kind, name, place, brightness) {
   const bri = Math.round(brightness * 100) + '%';
   return { place, bri, label: `${kind}: ${String(name).replace(/\u00a0/g, ' ')} on ${place} at ${bri}. Show its controls` };
+}
+
+// liveSummary is the folded live rows' one line: how many looks are on the
+// lights and their names, in order, front first.
+export function liveSummary(house, nameOf) {
+  const n = house.length;
+  if (!n) return '';
+  return `${n} look${n === 1 ? '' : 's'} on the lights · ${house.map((l) => String(nameOf(l)).replace(/\u00a0/g, ' ')).join(', ')}`;
+}
+
+// liveFold says whether the live rows fold behind their summary: on the half
+// sheet, while a preview is present and the fold has not been opened. The
+// summary shows whenever the fold applies, open or closed; the full sheet
+// shows every row.
+export function liveFold({ compact, preview, live, open }) {
+  const summary = compact && preview > 0 && live > 0;
+  return { summary, folded: summary && !open };
 }
 
 // lookAction is what tapping a look does, given the preview's layers: add
@@ -280,7 +297,7 @@ export function createLooks(S, root) {
       <div class="stage-head"><h2 id="lkStageTitle"></h2><small id="lkStageSub"></small></div>
       <p class="muted small stage-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
       <div class="stage-warn" id="lkDark" data-dark hidden></div>
-      <div class="list" id="lkRows"></div>
+      <div class="list" id="lkRows"><button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live</small><span class="text"></span>${icon('chevronDown')}</button></div>
       <div id="lkStageState"></div>
     </section>
     <section class="library" aria-label="Presets and effects">
@@ -295,8 +312,8 @@ export function createLooks(S, root) {
         </div>
       </div>
       <div class="lib-filters">
-        <div class="seg" id="lkFilter" role="group" aria-label="Which looks to list"><button type="button" data-filter="pinned">Pinned</button><button type="button" data-filter="presets">All presets</button><button type="button" data-filter="effects">Effects</button></div>
-        ${textField({ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks' })}
+        <div class="seg" id="lkFilter" role="group" aria-label="Which looks to list"><button type="button" data-filter="pinned">${icon('pin')}<span>Pinned</span></button><button type="button" data-filter="presets">${icon('presets')}<span>All presets</span></button><button type="button" data-filter="effects">${icon('looks')}<span>Effects</span></button></div>
+        ${textField({ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks', clearable: true })}
       </div>
       <div class="cards" id="lkPresets"></div>
       <details class="words" id="lkWords"><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>
@@ -514,7 +531,9 @@ export function createLooks(S, root) {
     markPreviewed();
   }
   for (const b of $$('#lkFilter').children) b.onclick = () => { filter = b.dataset.filter; save(FILTER, filter); renderCatalog(); };
-  $$('#lkFind').oninput = renderCatalog;
+  // The search grows to the row while in use on the half sheet (field.js
+  // marks it); clearing puts the library back where it was scrolled to.
+  wireClear($$('#lkFind'), renderCatalog, document.getElementById('content'));
 
   // markPreviewed shows which cards are in the preview on the current
   // target: the same look on somewhere else isn't this one.
@@ -711,16 +730,29 @@ export function createLooks(S, root) {
 
   // renderRows keeps the stage's list in order: the preview's rows, then the
   // lights', each already top first, so the top of the list is what's in front.
+  // liveOpen is whether the half sheet's folded live rows are shown.
+  let liveOpen = false;
   function renderRows(prev, house) {
     const box = $$('#lkRows'), rows = [...prev.map((l) => ['preview', l]), ...house.map((l) => ['house', l])];
     const keep = new Set();
-    let last = null;
+    // On the half sheet a preview folds the live rows into one line (A2), so
+    // the Library's first row stays on screen; the chevron opens them in place.
+    const sum = $$('#lkLiveSum'), fold = liveFold({ compact: compact(), preview: prev.length, live: house.length, open: liveOpen });
+    sum.hidden = !fold.summary;
+    sum.setAttribute('aria-expanded', liveOpen ? 'true' : 'false');
+    sum.querySelector('.text').textContent = liveSummary(house, (l) => layerName(S, l));
+    box.classList.toggle('live-folded', fold.folded);
+    let last = null, placed = false; // placed: the summary sits before the first live row
     for (const [lane, l] of rows) {
       const key = lane + ':' + l.id, front = rows.length > 1 && l === rows[0][1];
       keep.add(key);
       let c = cards.get(key);
       if (!c) { c = makeCard(lane, l); cards.set(key, c); }
       updateCard(c, l, front);
+      if (lane === 'house' && !placed) {
+        if (sum.previousSibling !== last) box.insertBefore(sum, last ? last.nextSibling : box.firstChild);
+        last = sum; placed = true;
+      }
       const next = last ? last.nextSibling : box.firstChild;
       if (c.el !== next) box.insertBefore(c.el, next);
       last = c.el;
@@ -732,6 +764,7 @@ export function createLooks(S, root) {
       cards.delete(key);
     }
   }
+  $$('#lkLiveSum').onclick = () => { liveOpen = !liveOpen; renderStage(); };
 
   // stageState shows the stage's loading or failed state after its rows. It's
   // redrawn only when it changes: the stage repaints every poll, and a Retry

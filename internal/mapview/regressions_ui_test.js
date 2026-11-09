@@ -2270,7 +2270,7 @@ test('Preview, Pin and More share one button style; Pinned keeps its state', () 
 });
 
 test('search fields are one pattern on Looks and Presets', () => {
-  assert.match(read('panel/looks.js'), /textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks' \}\)/);
+  assert.match(read('panel/looks.js'), /textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks', clearable: true \}\)/);
   assert.match(read('panel/presets.js'), /textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' \}\)/);
   assert.match(css, /\.lib-filters \.field \{ flex: 1 1 100%;/, 'the full width of the panel, like Presets');
 });
@@ -2744,4 +2744,48 @@ test('B140: a preview row and a live row share one layout', () => {
   const looks = read('panel/looks.js');
   assert.match(looks, /el\.classList\.remove\('tight', 'two-line'\);/, 'one fit for both lanes');
   assert.doesNotMatch(looks, /lane === 'preview'[^\n]*two-line/, 'the two-line rule does not look at the lane');
+});
+
+test('A2: the half sheet keeps the Library in reach while previewing; the search grows to the row; Presets keeps its sentence', async () => {
+  const { liveSummary, liveFold } = await import('./static/panel/looks.js');
+  const { textField, searching } = await import('./static/field.js');
+  // One line for the live rows while a preview is present on the half sheet; the chevron opens them in place.
+  assert.equal(liveSummary([{ name: 'Lantern' }, { name: 'Porch glitter' }], (l) => l.name), '2 looks on the lights · Lantern, Porch glitter');
+  assert.equal(liveSummary([{ name: 'Lantern' }], (l) => l.name), '1 look on the lights · Lantern');
+  assert.equal(liveSummary([], (l) => l.name), '');
+  assert.deepEqual(liveFold({ compact: true, preview: 1, live: 2, open: false }), { summary: true, folded: true });
+  assert.deepEqual(liveFold({ compact: true, preview: 1, live: 2, open: true }), { summary: true, folded: false }, 'opened in place: the summary stays, the rows show');
+  assert.deepEqual(liveFold({ compact: true, preview: 0, live: 2, open: false }), { summary: false, folded: false }, 'no preview: every row');
+  assert.deepEqual(liveFold({ compact: false, preview: 1, live: 2, open: false }), { summary: false, folded: false }, 'the full sheet shows every row');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /<button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live<\/small><span class="text"><\/span>\$\{icon\('chevronDown'\)\}<\/button>/);
+  assert.match(looks, /liveFold\(\{ compact: compact\(\), preview: prev\.length, live: house\.length, open: liveOpen \}\)/);
+  assert.match(looks, /\$\$\('#lkLiveSum'\)\.onclick = \(\) => \{ liveOpen = !liveOpen; renderStage\(\); \};/);
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
+  assert.match(phone, /body\[data-detent=half\] #lkRows\.live-folded \.layer\.house \{ display: none; \}/);
+  assert.match(phone, /body\[data-detent=half\] \.live-sum \{ display: grid; \}/);
+  assert.match(css, /\.live-sum \{ display: none;/, 'the summary is the half sheet\'s');
+  // The search: in use when focused or holding a query; then it takes the row and the other segments
+  // slide out, the chosen one staying with its icon and word.
+  assert.equal(searching(true, ''), true);
+  assert.equal(searching(false, 'glit'), true);
+  assert.equal(searching(false, '  '), false);
+  assert.match(textField({ label: 'Find a look', id: 'lkFind', type: 'search', clearable: true }), /<label class="field clearable"><span class="lbl">Find a look<\/span><input [^>]*><button type="button" class="field-clear" id="lkFindClear" aria-label="Clear Find a look" hidden>×<\/button>/);
+  assert.doesNotMatch(textField({ label: 'Name', id: 'x' }), /field-clear/);
+  assert.match(looks, /wireClear\(\$\$\('#lkFind'\), renderCatalog, document\.getElementById\('content'\)\)/, 'clearing restores the panel\'s scroll');
+  assert.match(looks, /<button type="button" data-filter="pinned">\$\{icon\('pin'\)\}<span>Pinned<\/span><\/button><button type="button" data-filter="presets">\$\{icon\('presets'\)\}<span>All presets<\/span><\/button><button type="button" data-filter="effects">\$\{icon\('looks'\)\}<span>Effects<\/span><\/button>/);
+  assert.match(css, /\.lib-filters \.seg > button > \.icon \{ display: none; \}/, 'icons only while searching on the half sheet');
+  assert.match(phone, /body\[data-detent=half\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
+  assert.match(phone, /body\[data-detent=half\] \.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
+  assert.match(phone, /body\[data-detent=half\] \.lib-filters:has\(\.field\.searching\) \.seg > button\.on > \.icon \{ display: block; \}/);
+  assert.match(css, /\.field-clear \{ position: absolute; right: 2px;/);
+  assert.match(css, /input\[type=search\]::-webkit-search-cancel-button \{ display: none;/, 'not two clear buttons: the browser\'s is off');
+  const field = read('field.js');
+  assert.match(field, /if \(input\.value && before === null && scroller\) before = scroller\.scrollTop;/, 'the scroll is kept from the query\'s first character');
+  assert.match(field, /if \(scroller && before !== null\) scroller\.scrollTop = before;/);
+  // Presets' compact header: one short sentence, whole, where the intro was.
+  assert.match(read('panel/presets.js'), /<p class="muted small tab-intro-compact">Saved looks\. Pin one to show it on Looks\.<\/p>/);
+  assert.match(css, /\.tab-intro-compact \{ display: none; \}/);
+  assert.match(phone, /body\[data-detent=half\] \.tab-intro-compact \{ display: block;/);
+  assert.doesNotMatch(/body\[data-detent=half\] \.tab-intro-compact \{[^}]*\}/.exec(phone)[0], /ellipsis|nowrap/);
 });
