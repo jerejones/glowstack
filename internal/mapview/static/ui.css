@@ -212,6 +212,12 @@ input[type=checkbox]:checked::after {
  * independent on/off is a pill that fills when it is on, with no box or
  * check inside it. A picked place keeps its one check. */
 .chips > button.on { background: var(--on); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #fff; }
+/* A toggle pill leads with a dot that says its state beyond the fill: an
+ * outline when off, filled when on, so the two read apart in grayscale. It is
+ * drawn, not text, so nothing is read out; the state is aria-pressed. */
+.chips.toggles > button { display: inline-flex; align-items: center; gap: 7px; }
+.chips.toggles > button::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid currentColor; opacity: 0.75; }
+.chips.toggles > button.on::before { background: currentColor; opacity: 1; }
 /* The one check, as a mask: generated text would be read out by screen readers. */
 .chips:not(.toggles) > button.on::before {
   content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background: currentColor;
