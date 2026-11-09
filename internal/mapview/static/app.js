@@ -31,7 +31,7 @@ import { frameInsets, toastBottom, toastHome } from './map-frame.js';
 import { foldable, merged } from './toast-merge.js';
 import { createTiles } from './tiles.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
-import { showingLabel } from './form.js';
+import { showingLabel, layerName } from './form.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -638,7 +638,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, calActive: !!S.cal?.active, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed, reading: S.houseStatus === 'loading' && !S.statusFailed, dimZones: S.dimZones || 0 });
+  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, calActive: !!S.cal?.active, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed, reading: S.houseStatus === 'loading' && !S.statusFailed, dimZones: S.dimZones || 0, looks: S.house.filter((l) => !l.ephemeral).map((l) => layerName(S, l)), levels: S.statusData?.brightness && S.geo?.zones ? S.geo.zones.map((z) => S.statusData.brightness.zones?.[z.id] ?? 1) : null });
   const b = $('badge');
   b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;

@@ -2705,6 +2705,44 @@ test('Refinement 3 (round 2): one primary-action shape per role', () => {
   assert.match(design, /Labels are a verb first in sentence case/);
 });
 
+test('Refinement 4 (round 2): the chip names what is on the lights, with weight', async () => {
+  const { mapStatus, badgeHTML, litWords, zonesPhrase, NAMES_SHOWN } = await import('./static/map-status.js');
+  const base = { connected: true, show: '', target: false, preview: { previewing: false }, lit: { dark: '', zones: [], ids: [], message: '' } };
+  const two = mapStatus({ ...base, looks: ['Lantern', 'Porch glitter'], levels: [1, 1, 1, 1] });
+  assert.equal(two.text, 'Lantern, Porch glitter on the lights');
+  assert.equal(two.detail, ' · 4 zones at 100%');
+  assert.equal(two.cls, 'house');
+  assert.equal(two.short, '2 looks on the lights', 'the phone says the state and the count');
+  assert.equal(badgeHTML(two), '<span><b>Lantern, Porch glitter</b> on the lights<span class="detail"> · 4 zones at 100%</span></span>', 'names in weight, the state word plain');
+  assert.equal(badgeHTML(two, true), '<span class="stack"><span>2 looks on the lights</span><span class="detail">4 zones at 100%</span></span>');
+  // Two names, then a count.
+  assert.equal(NAMES_SHOWN, 2);
+  assert.equal(litWords(['A', 'B', 'C', 'D'], [1]).names, 'A, B, +2 more');
+  assert.equal(litWords(['Solo'], null).text, 'Solo on the lights');
+  assert.equal(litWords(['Solo'], null).short, '1 look on the lights');
+  assert.equal(litWords(['Solo'], null).detail, '', 'no reading, no level');
+  // Levels: one figure when the zones agree, a range when not, zones at 0 left out.
+  assert.equal(zonesPhrase([1, 1]), '2 zones at 100%');
+  assert.equal(zonesPhrase([0.5, 1, 0]), '2 zones at 50–100%');
+  assert.equal(zonesPhrase([0, 0]), '');
+  assert.equal(zonesPhrase(null), '');
+  // A hidden preview is still said; nothing on the lights reads as before.
+  assert.equal(mapStatus({ ...base, preview: { previewing: true }, show: 'house', looks: ['Lantern'], levels: [1] }).detail, ' · 1 zone at 100% · preview hidden');
+  assert.equal(mapStatus(base).text, 'Showing the lights');
+  assert.equal(mapStatus({ ...base, lit: { dark: 'none', zones: ['Yard'], ids: ['a'], message: 'x' }, looks: ['Lantern'], levels: [0] }).text, 'Lights: dark', 'dark zones come first');
+  // The chip is body size; the state word is in the text color, the green on the rim.
+  assert.match(css, /\.badge \{[^}]*font-size: var\(--t-m\)/);
+  assert.match(css, /\.badge\.house \{ color: var\(--fg\); border-color: #24543a; \}/);
+  assert.match(css, /  \.badge \{ max-width: calc\(100% - 204px\); font-size: var\(--t-meta\); \}/, 'the phone chip has the room for its longest first line at 14 px');
+  assert.match(css, /\.badge b \{ font-weight: 600; \}/);
+  // Wired from the stack and the brightness reading; no control in the chip.
+  const app = read('app.js');
+  assert.match(app, /looks: S\.house\.filter\(\(l\) => !l\.ephemeral\)\.map\(\(l\) => layerName\(S, l\)\)/);
+  assert.match(app, /levels: S\.statusData\?\.brightness && S\.geo\?\.zones \? S\.geo\.zones\.map\(\(z\) => S\.statusData\.brightness\.zones\?\.\[z\.id\] \?\? 1\) : null/);
+  assert.match(app, /S\.on\('house', badge\)/, 'redrawn when the stack changes');
+  assert.doesNotMatch(read('index.html'), /<span id="badge"[^>]*>[^<]*<(input|button)/, 'nothing in the chip is a slider or a button');
+});
+
 test('B138: the compact state card never cuts its own words', async () => {
   const { stageSub, compactStage, subBelow } = await import('./static/panel/looks.js');
   // The half sheet's first-use hint is short and complete, with the lights' rule in it.

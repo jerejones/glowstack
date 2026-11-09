@@ -4,7 +4,7 @@
 
 // What the map is showing, worked out once: the chip's words and the
 // Preview/Lights toggle both come from here, so they can't disagree.
-import { esc } from './util.js';
+import { esc, plural } from './util.js';
 import { MODES } from './overlay.js';
 
 // What the chip calls a calibration step that isn't a target pattern.
@@ -23,8 +23,10 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // reading hasn't come back yet, so nothing has failed), dimZones (how many
 // zones at 0% the preview draws dim). The chip follows one rule, on every tab and with
 // the sheet open or shut: nothing lit never reads as the lights showing, and
-// the tab says why, once.
-export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true, reading = false, dimZones = 0 }) {
+// the tab says why, once. looks names the looks on the lights (stack order)
+// and levels is each zone's brightness, 0–1; with looks on and lit the chip
+// names them (see litWords).
+export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true, reading = false, dimZones = 0, looks = [], levels = null }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
@@ -46,7 +48,33 @@ export function mapStatus({ connected, connecting = false, show, preview, target
     const zones = !lit.empty && lit.zones.length > 0;
     return { ...toggle, text: lit.dark === 'none' ? (zones ? 'Lights: dark' : 'Lights: nothing lit') : 'Lights: partly lit', detail: zones ? ', zones at 0%' : lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message };
   }
+  if (looks.length) {
+    const w = litWords(looks, levels);
+    return { ...toggle, ...w, detail: w.detail + (previewing ? ' · preview hidden' : ''), cls: 'house', title: `On the lights: ${looks.join(', ')}. The map shows what the lights show.` };
+  }
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
+}
+
+// NAMES_SHOWN is how many look names the chip spells out before "+N more":
+// two keep it to one line at 1440 px beside the brand and the toggle.
+export const NAMES_SHOWN = 2;
+
+// litWords is the chip with looks on the lights: the names (two, then
+// "+N more") and the state word, with the zones' level as the detail. short
+// is the phone's form, the state and the count of looks.
+export function litWords(looks, levels) {
+  const names = looks.slice(0, NAMES_SHOWN).map((n) => String(n).replace(/\u00a0/g, ' ')).join(', ') + (looks.length > NAMES_SHOWN ? `, +${looks.length - NAMES_SHOWN} more` : '');
+  const zones = zonesPhrase(levels);
+  return { names, text: `${names} on the lights`, short: `${plural(looks.length, 'look')} on the lights`, detail: zones ? ` · ${zones}` : '' };
+}
+
+// zonesPhrase is the zones that are on and their level: one figure when they
+// agree, a range when they don't; '' with no reading or every zone at 0.
+export function zonesPhrase(levels) {
+  const on = (levels || []).filter((l) => l > 0).map((l) => Math.round(l * 100));
+  if (!on.length) return '';
+  const lo = Math.min(...on), hi = Math.max(...on);
+  return `${plural(on.length, 'zone')} at ${lo === hi ? `${lo}%` : `${lo}–${hi}%`}`;
 }
 
 // showButton is one Preview/Lights button's state: off, with the reason, until
@@ -64,6 +92,8 @@ export function showButton(choice, { ready, failed, canPreview, word }) {
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.
 export function badgeHTML(m, stacked = false) {
+  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${m.detail ? `<span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span>` : ''}</span>`;
+  if (m.names) return `<span><b>${esc(m.names)}</b>${esc(m.text.slice(m.names.length))}<span class="detail">${esc(m.detail)}</span></span>`;
   if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, '').replace(' shown dim', ' dim'))}</span></span>`;
   return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }
