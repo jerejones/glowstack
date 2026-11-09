@@ -398,6 +398,9 @@ export function createForm(ctx) {
     c.append(...[].concat(body));
     // A slider has no <label> tied to it: its row's label is its name.
     for (const r of c.querySelectorAll('input[type=range]:not([aria-label])')) r.setAttribute('aria-label', label);
+    // A slider row: on a phone the value shares the label's line and the
+    // track takes the next one whole.
+    if (c.querySelector(':scope > input[type=range]') && c.querySelector(':scope > output')) f.classList.add('slider');
     f.append(lab, c);
     if (doc) {
       const d = document.createElement('div');

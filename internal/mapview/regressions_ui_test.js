@@ -2435,3 +2435,14 @@ test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word f
   assert.match(looks, /box\.scrollWidth > box\.clientWidth \+ 1\) c\.el\.classList\.add\('tight'\)/);
   assert.match(looks, /rm\.setAttribute\('aria-label', part \? 'Remove here' : 'Remove'\)/, 'the icon-only Remove still has its name');
 });
+
+test('B133: on a phone a Tweak row stacks, and a slider track gets the card\'s width', () => {
+  // The one-column form rule covers the phone sheet, not only the 300 px side panel.
+  assert.match(css, /\(max-width: 1099\.98px\) and \(min-width: 700px\),[^{]*\(max-width: 699\.98px\) and \(orientation: portrait\), \(max-width: 699\.98px\) and \(min-height: 500px\) \{\s*\.form \.f, \.form details > \.f, \.form details > \.f\.stack \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  // A slider's value stays at the right of its label's line; the track takes the next.
+  assert.match(css, /\.form \.f\.slider > \.ctl \{ display: contents; \}/);
+  assert.match(css, /\.form \.f\.slider > \.ctl > output \{ grid-column: 2; grid-row: 1; text-align: right; \}/);
+  assert.match(css, /\.form \.f\.slider > \.ctl > input\[type=range\] \{ grid-column: 1 \/ -1; grid-row: 2; \}/);
+  assert.match(css, /\.form \.channel-row input\[type=range\] \{ grid-column: 1 \/ -1; grid-row: 2; \}/, 'the mixer channels stack the same way');
+  assert.match(read('form.js'), /c\.querySelector\(':scope > input\[type=range\]'\) && c\.querySelector\(':scope > output'\)\) f\.classList\.add\('slider'\)/);
+});
