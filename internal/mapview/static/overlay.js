@@ -8,8 +8,8 @@
 // nodes, links, anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
-import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE, humanize } from './util.js';
-import { controllerName, nodeDisplay } from './names.js';
+import { api, load, save, esc, outputName, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize } from './util.js';
+import { controllerName, controllerLabel, nodeDisplay } from './names.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -17,7 +17,7 @@ const OVERLAY_VERSION = 2;
 export const MODES = [
   ['live', 'Live colors', 'What the map or the lights are showing'],
   ['flow', 'Direction', 'Which way effects travel along the lights'],
-  ['stretch', 'Spacing', 'Where lights are packed tighter or looser than drawn'],
+  ['stretch', 'Spacing', 'Where lights are packed tighter or looser than drawn; a run Status flags is in full color'],
   ['areas', 'Areas', 'The areas that make up a zone'],
   ['outputs', 'Wiring', 'Which controller output drives each light'],
 ];
@@ -84,29 +84,31 @@ export function createOverlay(S) {
   }
   const outputOf = (p) => outputs().find((o) => p >= o.first && p <= o.last) || null;
 
-  // colors computes the view's colors for the mode, and the legend.
+  // colors computes the view's colors for the mode and its legend, as
+  // { rgb, legend }.
   async function colors() {
     const out = new Uint8Array(n * 3);
+    let legend = '';
     if (st.mode === 'flow' || st.mode === 'stretch') {
       const m = await mapping(st.mapping);
       for (let p = 0; p < n; p++) {
         const c = m.u[p] === null ? [70, 70, 70]
-          : st.mode === 'flow' ? ramp((m.u[p] - m.min) / ((m.max - m.min) || 1)) : stretchColor(m.stretch[p]);
+          : st.mode === 'flow' ? ramp((m.u[p] - m.min) / ((m.max - m.min) || 1)) : spacingColor(m.spacing[p]);
         out.set(c, 3 * p);
       }
       if (st.mode === 'flow') {
         const stops = [0, 0.25, 0.5, 0.75, 1].map((t) => `rgb(${ramp(t)})`).join(',');
         const unit = m.kind === 'index' ? '' : ' m';
-        st.legend = `<div>Distance along <b>${esc(humanize(m.id))}</b>; arrows show the direction</div>
+        legend = `<div>Distance along <b>${esc(humanize(m.id))}</b>; arrows show the direction</div>
           <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
           <div class="row"><span>${fmt(m.min, 2)}${unit}</span><span>${fmt(m.max, 2)}${unit}</span></div>`;
       } else {
-        const stops = [1 / 1.5, 1 / 1.2, 1, 1.2, 1.5].map((s) => `rgb(${stretchColor(s)})`).join(',');
-        st.legend = `<div>Spacing along <b>${esc(humanize(m.id))}</b>${m.flow ? '' : ' (even everywhere)'}</div>
+        const stops = [1 / SPACING_FULL, 1 / 1.1, 1, 1.1, SPACING_FULL].map((s) => `rgb(${spacingColor(s)})`).join(',');
+        legend = `<div>Spacing against the drawing; full color is what Status flags</div>
           <div class="ramp" style="background:linear-gradient(90deg,${stops})"></div>
           <div class="row"><span>tighter</span><span>as drawn</span><span>looser</span></div>`;
       }
-      return out;
+      return { rgb: out, legend };
     }
     out.fill(40);
     if (st.mode === 'areas') {
@@ -119,10 +121,10 @@ export function createOverlay(S) {
         const c = PALETTE[i % PALETTE.length];
         for (const [a, b] of parts[i].area.ranges) for (let p = a; p <= b; p++) out.set(c, 3 * p);
       }
-      st.legend = z ? `<div>Parts of <b>${esc(z.name || humanize(z.id))}</b></div>` +
+      legend = z ? `<div>Parts of <b>${esc(z.name || humanize(z.id))}</b></div>` +
         parts.map((pt, i) => `<div><span class="sw" style="background:rgb(${PALETTE[i % PALETTE.length]})"></span>${esc(pt.name)}</div>`).join('')
         : '<div class="muted">No zones.</div>';
-      return out;
+      return { rgb: out, legend };
     }
     // outputs
     let html = '<div class="muted">Rings mark where each output starts</div>', ctrl = '';
@@ -132,22 +134,25 @@ export function createOverlay(S) {
       if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(controllerName(g, ctrl))}</b></div>`; }
       html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${o.count} px (${o.start}–${o.start + o.count - 1})</div>`;
     }
-    st.legend = html;
-    return out;
+    return { rgb: out, legend: html };
   }
 
   // apply puts the mode's colors on the view and returns the legend.
   async function apply() {
-    st.legend = '';
     const o = shown();
-    S.view.setColors(o.mode === 'live' ? null : await colors());
+    // Built up here and only then stored: two applies in flight (a mode
+    // change during a run filter change) mustn't write the keys twice.
+    const made = o.mode === 'live' ? { rgb: null, legend: '' } : await colors();
+    S.view.setColors(made.rgb);
+    let legend = made.legend;
     if (o.nodes) {
-      st.legend += `<div class="key"><span><i class="sw" style="background:#5ddc8a"></i>measured point</span><span><i class="sw" style="background:#ffb347"></i>estimated</span><span><i class="sw" style="background:#f472b6"></i>shared corner</span></div>`;
+      legend += `<div class="key"><span><i class="sw" style="background:#5ddc8a"></i>measured point</span><span><i class="sw" style="background:#ffb347"></i>estimated</span><span><i class="sw" style="background:#f472b6"></i>shared corner</span></div>`;
     }
     if (o.controllers && (g.controller_locations || []).some((c) => c.plan === S.plan)) {
-      st.legend += `<div class="key"><span><i class="sw" style="background:${CTRL}"></i>controller</span><span><i class="sw" style="background:${CTRL_OFF}"></i>not in config</span></div>`;
+      legend += `<div class="key"><span><i class="sw" style="background:${CTRL}"></i>controller</span><span><i class="sw" style="background:${CTRL_OFF}"></i>not in config</span></div>`;
     }
-    return st.legend;
+    st.legend = legend;
+    return legend;
   }
 
   // ----- drawing -----
@@ -240,12 +245,23 @@ export function createOverlay(S) {
     }
   }
 
-  function stretchLabels(m) {
+  // spacingLabels says how far each stretch is from its drawing. flowLabels
+  // is the Direction mode's: where a flow stretches or compresses a pattern.
+  function spacingLabels(m) {
+    for (const pixels of edgePixels().values()) {
+      const mid = pixels[Math.floor(pixels.length / 2)], s = m.spacing[mid];
+      if (s === null || pixels.length < 2) continue;
+      const pct = Math.round(Math.abs(s - 1) * 100);
+      if (!pct && !st.evenSpacing) continue; // as drawn: nothing to say
+      const q = pixelAt(mid);
+      if (q) label(pct ? `${pct}% ${s < 1 ? 'tighter' : 'looser'}` : 'as drawn', q[0] + 6, q[1] + 14, '#eee', MINOR);
+    }
+  }
+  function flowLabels(m) {
     if (!m.flow) return;
     for (const [e, pixels] of edgePixels()) {
       const s = m.flow.edge_stretch[e];
-      if (s === null || pixels.length < 2) continue;
-      if (s.toFixed(2) === '1.00' && !st.evenSpacing) continue; // as drawn: nothing to say
+      if (s === null || pixels.length < 2 || s.toFixed(2) === '1.00') continue;
       const q = pixelAt(pixels[Math.floor(pixels.length / 2)]);
       if (q) label('×' + s.toFixed(2), q[0] + 6, q[1] + 14, '#eee', MINOR);
     }
@@ -283,7 +299,7 @@ export function createOverlay(S) {
       ctx.fillStyle = cfg ? CTRL : CTRL_OFF; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
       const display = controllerName(g, c.id); // a board the config doesn't list has only an id
-      const name = st.labels && c.label ? `${display} · ${c.label}` : display;
+      const name = st.labels ? controllerLabel(display, c.label) : display;
       label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR);
     }
   }
@@ -362,8 +378,8 @@ export function createOverlay(S) {
   function draw(c) {
     ctx = c;
     const m = mappings.get(st.mapping), o = shown();
-    if (o.mode === 'flow' && m) arrows(m);
-    if (o.mode === 'stretch' && m) stretchLabels(m);
+    if (o.mode === 'flow' && m) { arrows(m); flowLabels(m); }
+    if (o.mode === 'stretch' && m) spacingLabels(m);
     if (o.mode === 'outputs') outputStarts();
     // Measuring one point: every other point steps back.
     ctx.globalAlpha = S.calibrating && S.cal?.active && S.cal.target ? 0.4 : 1;

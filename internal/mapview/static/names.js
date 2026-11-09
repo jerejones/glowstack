@@ -15,6 +15,14 @@ export const controllerName = (g, id) => byId(g.controllers, id)?.name || humani
 export const areaName = (g, id) => byId(g.areas, id)?.name || humanize(id);
 export const zoneName = (g, id) => byId(g.zones, id)?.name || humanize(id);
 
+// controllerLabel is what a controller's map label reads: its name, then
+// its location with any word the name already says left out.
+export function controllerLabel(name, location) {
+  const said = new Set(String(name).toLowerCase().split(/\s+/));
+  const rest = String(location || '').split(/\s+/).filter((w) => w && !said.has(w.toLowerCase()));
+  return rest.length ? `${name} · ${rest.join(' ')}` : name;
+}
+
 // allNames is [id, name] for every id a server message can mention, the
 // longest id first so that "shed-eave-mid" wins over "shed-eave".
 function allNames(g) {

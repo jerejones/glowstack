@@ -53,34 +53,7 @@ func joinOr(s []string) string {
 // a drawing that is off in scale overall from warning everywhere.
 func (b *builder) checkDensity(ri int) {
 	r := &b.l.Runs[ri]
-	if r.PlanPath == nil || r.DrawnLength <= 0 {
-		return
-	}
-	type knot struct {
-		at, drawn float64
-		node      int
-		measured  bool
-		pos       Anchor
-	}
-	var ks []knot
-	for j, a := range r.Anchors {
-		var d float64
-		switch {
-		case a.Source == SourceEnd && j == 0:
-			d = 0
-		case a.Source == SourceEnd:
-			d = r.DrawnLength
-		case a.Source != SourceMeasured:
-			continue
-		default:
-			_, dd, ok := r.PlanPath.Vertex(b.l.Nodes[a.Node].ID)
-			if !ok {
-				continue
-			}
-			d = dd
-		}
-		ks = append(ks, knot{at: a.At, drawn: d, node: a.Node, measured: a.Source == SourceMeasured, pos: a})
-	}
+	ks := densityKnots(b.l, r)
 	avg := float64(r.Count) / r.DrawnLength
 	for i := 1; i < len(ks); i++ {
 		p, q := ks[i-1], ks[i]
@@ -102,4 +75,68 @@ func (b *builder) checkDensity(ri int) {
 		b.l.Density = append(b.l.Density, d)
 		b.warnf(pos, "%s", d)
 	}
+}
+
+// knot is one of a run's fixed points: its ends and measured anchors, at
+// a position along the run and along its drawing.
+type knot struct {
+	at, drawn float64
+	node      int
+	measured  bool
+	pos       Anchor
+}
+
+// densityKnots lists a run's fixed points in run order. A run with no
+// drawing has none.
+func densityKnots(l *Layout, r *Run) []knot {
+	if r.PlanPath == nil || r.DrawnLength <= 0 {
+		return nil
+	}
+	var ks []knot
+	for j, a := range r.Anchors {
+		var d float64
+		switch {
+		case a.Source == SourceEnd && j == 0:
+			d = 0
+		case a.Source == SourceEnd:
+			d = r.DrawnLength
+		case a.Source != SourceMeasured:
+			continue
+		default:
+			_, dd, ok := r.PlanPath.Vertex(l.Nodes[a.Node].ID)
+			if !ok {
+				continue
+			}
+			d = dd
+		}
+		ks = append(ks, knot{at: a.At, drawn: d, node: a.Node, measured: a.Source == SourceMeasured, pos: a})
+	}
+	return ks
+}
+
+// Spacing is each pixel's spacing against its run's drawing, by global
+// id: 1 as drawn, below 1 packed tighter, above 1 looser. It is the
+// inverse of the ratio the density check warns about, per stretch between
+// fixed points. NaN for a pixel on no run or on a run with no drawing.
+func (l *Layout) Spacing() []float32 {
+	out := make([]float32, len(l.Pixels))
+	for i := range out {
+		out[i] = float32(math.NaN())
+	}
+	for ri := range l.Runs {
+		r := &l.Runs[ri]
+		ks := densityKnots(l, r)
+		avg := float64(r.Count) / r.DrawnLength
+		for i := 1; i < len(ks); i++ {
+			p, q := ks[i-1], ks[i]
+			px, want := q.at-p.at, (q.drawn-p.drawn)*avg
+			if px <= 0 || want <= 0 {
+				continue
+			}
+			for k := int(math.Ceil(p.at)); k < r.Count && float64(k) < q.at+1e-9; k++ {
+				out[r.Pixel(l, k)] = float32(want / px)
+			}
+		}
+	}
+	return out
 }

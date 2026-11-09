@@ -148,6 +148,7 @@ type MappingJSON struct {
 	Kind    string    `json:"kind"`
 	U       floats    `json:"u"`       // per global id; null outside the domain
 	Stretch floats    `json:"stretch"` // per global id
+	Spacing floats    `json:"spacing"` // per global id: against the drawing, 1 as drawn; null without one
 	Min     float     `json:"min"`     // range of u
 	Max     float     `json:"max"`
 	Flow    *FlowJSON `json:"flow,omitempty"`
@@ -163,12 +164,13 @@ type FlowJSON struct {
 }
 
 func (m *Map) handleMapping(w http.ResponseWriter, r *http.Request) {
-	mp, ok := m.state().Mappings.Get(r.PathValue("id"))
+	st := m.state()
+	mp, ok := st.Mappings.Get(r.PathValue("id"))
 	if !ok {
 		httpError(w, http.StatusNotFound, "no mapping %q", r.PathValue("id"))
 		return
 	}
-	out := MappingJSON{ID: mp.ID, Kind: mp.Kind, U: floats32(mp.U), Stretch: floats32(mp.Stretch)}
+	out := MappingJSON{ID: mp.ID, Kind: mp.Kind, U: floats32(mp.U), Stretch: floats32(mp.Stretch), Spacing: floats32(st.Layout.Spacing())}
 	lo, hi := math.Inf(1), math.Inf(-1)
 	for _, u := range mp.U {
 		if !math.IsNaN(float64(u)) {

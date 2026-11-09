@@ -5,6 +5,7 @@
 package layout
 
 import (
+	"math"
 	"slices"
 	"strings"
 	"testing"
@@ -63,6 +64,24 @@ func TestDensityWrongCorner(t *testing.T) {
 	}
 	if n != 2 {
 		t.Errorf("warnings = %v", l.Warnings)
+	}
+}
+
+// TestSpacing: a stretch the density check flags reads as tighter or looser
+// than drawn pixel by pixel, not as even (B52: Spacing mode drew a flow's
+// stretch, which is 1 on most runs whatever their pixels do).
+func TestSpacing(t *testing.T) {
+	l := loop(t, 269) // 2× the pixels on the first stretch, 0.67× after
+	sp := l.Spacing()
+	if s := float64(sp[100]); math.Abs(s-0.5) > 0.03 {
+		t.Errorf("flagged-tight stretch: spacing %v, want about 0.5", s)
+	}
+	if s := float64(sp[400]); math.Abs(s-1.5) > 0.05 {
+		t.Errorf("flagged-loose stretch: spacing %v, want about 1.5", s)
+	}
+	even := loop(t, 134).Spacing()
+	if s := float64(even[100]); math.Abs(s-1) > 0.02 {
+		t.Errorf("right corner: spacing %v, want about 1", s)
 	}
 }
 

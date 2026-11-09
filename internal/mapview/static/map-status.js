@@ -5,17 +5,21 @@
 // What the map is showing, worked out once: the chip's words and the
 // Preview/Lights toggle both come from here, so they can't disagree.
 import { esc } from './util.js';
+import { MODES } from './overlay.js';
 
 // mapStatus takes the page's state: connected, show ('' or 'house'),
 // preview (the /api/map/preview state, or null before the first read),
-// target (the map is drawing a calibration target).
-export function mapStatus({ connected, show, preview, target }) {
+// target (the map is drawing a calibration target), mode (the Setup color
+// mode, 'live' when the map shows real colors).
+export function mapStatus({ connected, show, preview, target, mode = 'live' }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = previewing && show !== 'house' ? 'preview' : 'lights';
   const toggle = { showing, canPreview: previewing };
   if (!connected) return { ...toggle, text: 'Offline', detail: '', cls: 'off', title: 'Not connected to Glowstack. The map may be out of date.' };
   if (target) return { ...toggle, text: 'Target pattern', detail: '', cls: 'preview', title: 'Fixed reference: adjust the real lights to match' };
+  const colored = MODES.find(([id]) => id === mode && id !== 'live');
+  if (colored) return { ...toggle, text: `Colored by ${colored[1]}`, detail: '', cls: 'mode', title: colored[2] };
   if (showing === 'preview') {
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }

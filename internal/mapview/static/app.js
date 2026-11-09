@@ -541,7 +541,7 @@ let badgeShown = false;
 // badge shows what the map is showing, on the chip and on the toggle.
 function badge() {
   badgeShown = true;
-  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target: S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind) });
+  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target: S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind), mode: S.calibrating ? 'live' : S.overlay?.st.mode });
   const b = $('badge');
   b.innerHTML = badgeHTML(m);
   b.className = 'badge ' + m.cls;

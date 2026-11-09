@@ -98,11 +98,14 @@ export function ramp(t) {
   t = clamp(t, 0, 1);
   return hsl(260 - 260 * t, 0.85, 0.55);
 }
-// stretchColor is diverging: blue compressed, white 1, red stretched;
-// full strength at 1/1.5 and 1.5.
-export function stretchColor(s) {
+// SPACING_FULL is where the spacing ramp reaches full color: the layout's
+// DensityTolerance, so that a stretch Status flags is unmistakably off.
+export const SPACING_FULL = 1.25;
+// spacingColor is diverging: blue packed tighter than drawn, white as
+// drawn, red looser; full strength at SPACING_FULL either way.
+export function spacingColor(s) {
   if (s === null || !(s > 0)) return [70, 70, 70];
-  const x = clamp(Math.log2(s) / Math.log2(1.5), -1, 1);
+  const x = clamp(Math.log2(s) / Math.log2(SPACING_FULL), -1, 1);
   const w = 235;
   if (x < 0) return [Math.round(w + (40 - w) * -x), Math.round(w + (110 - w) * -x), 255];
   return [255, Math.round(w + (60 - w) * x), Math.round(w + (50 - w) * x)];

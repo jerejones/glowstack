@@ -462,7 +462,7 @@ test('Apply offers Replace only for layers the preview would cover completely', 
 test('labels never share pixels, and spacing labels at 1.00 stay off by default', async () => {
   const src = read('overlay.js');
   assert.match(src, /placed\.some\(\(b\) => hit\(box, b, 1\)\)/);
-  assert.match(src, /s\.toFixed\(2\) === '1\.00' && !st\.evenSpacing/);
+  assert.match(src, /!pct && !st\.evenSpacing/);
   assert.match(src, /evenSpacing: false/);
 });
 
@@ -484,4 +484,58 @@ test('every lit pixel outweighs the model, and unlit ones keep their outline', (
   assert.match(scene, /lit \? clamp\(s \* 1\.5/);
   assert.match(scene, /subdue\(anyLit\(/);
   assert.match(read('plan.js'), /Unlit: a dim outline/);
+});
+
+test('B52: a stretch flagged as off is far from the as-drawn color, and a small one is tinted', async () => {
+  const { spacingColor } = await import('./static/util.js');
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const drawn = spacingColor(1);
+  assert.ok(dist(spacingColor(0.8), drawn) > 150, `flagged tight is only ${dist(spacingColor(0.8), drawn)} from white`);
+  assert.ok(dist(spacingColor(1.25), drawn) > 150, 'flagged loose');
+  assert.ok(dist(spacingColor(0.95), drawn) > 30, '5% tight still reads');
+  assert.deepEqual(spacingColor(null), [70, 70, 70], 'nothing drawn to compare with');
+  assert.match(read('overlay.js'), /spacingColor\(m\.spacing\[p\]\)/, 'colors use spacing against the drawing, not a flow stretch');
+});
+
+test('B48: the chip names the color mode, and only when a color mode is on', async () => {
+  const { mapStatus } = await import('./static/map-status.js');
+  const preview = { previewing: true };
+  assert.equal(mapStatus({ connected: true, show: '', preview, mode: 'outputs' }).text, 'Colored by Wiring');
+  assert.equal(mapStatus({ connected: true, show: '', preview, mode: 'stretch' }).text, 'Colored by Spacing');
+  assert.equal(mapStatus({ connected: true, show: '', preview, mode: 'live' }).text, 'Showing your preview');
+  assert.equal(mapStatus({ connected: false, show: '', preview, mode: 'areas' }).text, 'Offline', 'being offline comes first');
+  assert.equal(mapStatus({ connected: true, show: '', preview, target: true, mode: 'areas' }).text, 'Target pattern');
+});
+
+test('a controller label drops the words its name already says', async () => {
+  const { controllerLabel } = await import('./static/names.js');
+  assert.equal(controllerLabel('Shed', 'Shed'), 'Shed');
+  assert.equal(controllerLabel('Shed north', 'Shed wall'), 'Shed north · wall');
+  assert.equal(controllerLabel('Shed', ''), 'Shed');
+  assert.equal(controllerLabel('Shed', 'Back wall'), 'Shed · Back wall');
+});
+
+test('map labels never overlap, however dense the scene', async () => {
+  const { createOverlay } = await import('./static/overlay.js');
+  const nodes = Array.from({ length: 400 }, (_, i) => ({ id: 'p' + i, name: `Sample point ${i}`, plan: 0, x: Math.sin(i) * 200, y: Math.cos(i * 1.7) * 120, z: 0, locations: [] }));
+  const geo = { pixels: { count: 0, plan: [], x: [], y: [], z: [], edge: [] }, mappings: [], zones: [], controllers: [], nodes, edges: [], runs: [], controller_locations: [] };
+  const S = { geo, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x + 400, y + 300], size: () => ({ w: 800, h: 600 }) }, labelAvoid: () => [{ x0: 0, x1: 800, y0: 0, y1: 40 }] };
+  globalThis.localStorage = { getItem: () => null, setItem() {} };
+  const overlay = createOverlay(S);
+  overlay.st.labels = true; overlay.st.nodes = true;
+  const ctx = new Proxy({ measureText: (t) => ({ width: t.length * 6.5 }), setLineDash() {}, arc() {}, beginPath() {}, moveTo() {}, lineTo() {}, stroke() {}, fill() {}, closePath() {}, fillRect() {}, strokeRect() {}, fillText() {} }, { get: (t, k) => (k in t ? t[k] : undefined), set: () => true });
+  overlay.draw(ctx);
+  const placed = overlay.placed();
+  assert.ok(placed.length > 10, `${placed.length} placed`);
+  for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+    const a = placed[i], b = placed[j];
+    assert.ok(!(a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1), `${a.text} overlaps ${b.text}`);
+  }
+  assert.ok(placed.every((b) => b.y0 >= 40), 'clear of what it was told to avoid');
+});
+
+test('two overlay applies in flight write the legend once', async () => {
+  const src = read('overlay.js');
+  assert.match(src, /let legend = made\.legend;/);
+  assert.doesNotMatch(src, /st\.legend \+=/);
 });

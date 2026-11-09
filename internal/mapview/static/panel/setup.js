@@ -41,7 +41,7 @@ export function createSetup(S, root) {
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
       <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
-      <button type="button" id="suEven" title="Also label runs whose lights are spaced just as drawn" hidden>Even runs too</button>
+      <button type="button" id="suEven" title="Also label lights spaced just as drawn" hidden>Even runs too</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
     <div id="suModel" hidden><h3 class="sub">Parts of the model</h3><div class="chips" id="suLayers"></div></div>
@@ -91,6 +91,7 @@ export function createSetup(S, root) {
   async function setMode(mode) {
     ov.st.mode = mode;
     renderOverlay();
+    S.refreshBadge();
     await refreshLegend();
   }
   S.setOverlayMode = setMode;
@@ -105,7 +106,7 @@ export function createSetup(S, root) {
   function renderOverlay() {
     ov.remember();
     for (const b of $$('#suModes').children) press(b, b.dataset.mode === ov.st.mode);
-    $$('#suMappingRow').hidden = !(ov.st.mode === 'flow' || ov.st.mode === 'stretch');
+    $$('#suMappingRow').hidden = ov.st.mode !== 'flow'; // spacing is against the drawing, whichever flow
     $$('#suZoneRow').hidden = ov.st.mode !== 'areas';
     $$('#suMapping').value = ov.st.mapping;
     $$('#suZone').value = ov.st.zone;
