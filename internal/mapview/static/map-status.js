@@ -91,9 +91,14 @@ export function showButton(choice, { ready, failed, canPreview, word }) {
 // badgeHTML is the chip's content. One element holds both parts: the chip
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.
+// RESERVED is a stacked chip's second line when there is nothing to say on
+// it: the line is kept, empty, so the state's words sit at the same height in
+// every state and the header never changes shape between them.
+const RESERVED = '<span class="detail reserved" aria-hidden="true">&nbsp;</span>';
 export function badgeHTML(m, stacked = false) {
-  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${m.detail ? `<span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span>` : ''}</span>`;
+  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${m.detail ? `<span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span>` : RESERVED}</span>`;
   if (m.names) return `<span><b>${esc(m.names)}</b>${esc(m.text.slice(m.names.length))}<span class="detail">${esc(m.detail)}</span></span>`;
   if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, '').replace(' shown dim', ' dim'))}</span></span>`;
+  if (stacked) return `<span class="stack"><span>${esc(m.text)}</span>${RESERVED}</span>`;
   return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }

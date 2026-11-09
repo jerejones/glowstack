@@ -511,7 +511,7 @@ test('Refinement 3: the phone\'s search opens fully, with the list as a chip tha
   const phone = css.slice(css.indexOf('/* The search takes the row while in use'));
   assert.match(phone, /body\[data-detent\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
   assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
-  assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button\.on \{ padding: 0 8px; gap: 0; font-size: var\(--t-s\);/);
+  assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button\.on \{ padding: 0 6px; gap: 0; font-size: var\(--t-s\);/);
   assert.match(css, /\.lib-filters \.seg > button > \.icon \{ display: none; \}/, 'the chip is its word');
   // The chip names the list, and the search is searching from focus: blur with nothing typed folds it back.
   const { searching } = await import('./static/field.js');
@@ -543,4 +543,27 @@ test('Refinement 4: the power tile says "Not configured" and is a link; qualifie
   assert.doesNotMatch(css, /\.status-head > small \{[^}]*text-align: right/);
   assert.match(status, /Controllers <small id="stCtlShared"><\/small>/);
   assert.match(status, /Runs <small>drawn vs measured length<\/small>/);
+});
+
+test('Refinement 5: a selected segment is 3:1 and heavier; the phone chip keeps its second line', async () => {
+  // The segment: fill against fill at least 3:1, and a weight change.
+  const hex = (name) => new RegExp(`--${name}: (#[0-9a-f]{6});`).exec(css)[1];
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255); };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  assert.ok(ratio(hex('seg-on'), hex('card2')) >= 3, `selected against unselected: ${ratio(hex('seg-on'), hex('card2'))}`);
+  assert.ok(ratio('#ffffff', hex('seg-on')) >= 4.5, 'its white label still reads');
+  assert.match(css, /^\.seg > button\.on \{ background: var\(--seg-on\); color: #fff; font-weight: 600;/m);
+  assert.match(css, /^\.seg > button \{[^}]*background: var\(--card2\);/m);
+  for (const where of ['.map-controls', '.chipbar']) assert.match(css, new RegExp(`\\${where} \\.seg > button\\.on \\{ background: var\\(--seg-on\\); \\}`));
+  // The phone's chip: two lines in every state, the second kept empty when there is nothing for it.
+  const { badgeHTML } = await import('./static/map-status.js');
+  const reserved = /<span class="detail reserved" aria-hidden="true">&nbsp;<\/span><\/span>$/;
+  assert.match(badgeHTML({ text: 'Showing your preview', detail: '' }, true), reserved);
+  assert.match(badgeHTML({ text: 'Showing your preview', detail: '' }, true), /^<span class="stack"><span>Showing your preview<\/span>/);
+  assert.match(badgeHTML({ short: 'Target pattern', text: 'Target pattern', detail: '' }, true), reserved);
+  const two = badgeHTML({ text: 'Lights: nothing lit', detail: ' · no looks on them' }, true);
+  assert.match(two, /^<span class="stack"><span>Lights: nothing lit<\/span><span class="detail">no looks on them<\/span><\/span>$/);
+  assert.doesNotMatch(badgeHTML({ text: 'Showing your preview', detail: '' }), /stack|reserved/, 'the desktop chip is one line, as before');
+  assert.match(css, /body\.calibrating \.badge \.detail \{ visibility: hidden; \}/, 'kept while calibrating too');
 });

@@ -24,6 +24,7 @@
   --line-strong: #6b7480; /* a border that says these belong together */
   --rim: rgba(255, 255, 255, 0.35); /* around a color swatch, so black shows */
   --on: #2c4a6e;         /* the one fill for a selected chip or segment */
+  --seg-on: #3d6fa8;     /* a segmented bar's selected segment: 3.1:1 against an unselected one (white text: 5.2:1) */
   --card: #15181d;
   --card2: #1c2027;
   --accent: #7cc4ff;     /* interaction; amber is only ever a warning */
@@ -219,7 +220,8 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
 .seg { display: inline-flex; border-radius: 9px; overflow: hidden; border: 1px solid var(--control-line); }
 .seg > button { border: 0; border-radius: 0; background: var(--card2); white-space: nowrap; }
 .seg > button + button { border-left: 0; box-shadow: inset 1px 0 0 var(--control-line); }
-.seg > button.on { background: var(--on); color: #fff; box-shadow: inset 0 0 0 1px var(--accent); }
+/* The selected segment differs from the others by its fill (3:1 or more) and by its weight, not by hue alone. */
+.seg > button.on { background: var(--seg-on); color: #fff; font-weight: 600; box-shadow: inset 0 0 0 1px var(--accent); }
 .seg > button.on + button { box-shadow: none; } /* the selected edge is the divider */
 .seg > button:disabled, .seg > button[aria-disabled=true]:not(.on) { color: var(--disabled); cursor: not-allowed; }
 .tab .seg { display: flex; width: 100%; }
@@ -263,7 +265,7 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .map-controls .seg > button { background: transparent; }
-.map-controls .seg > button.on { background: var(--on); }
+.map-controls .seg > button.on { background: var(--seg-on); }
 
 .chipbar {
   position: absolute; z-index: 3; left: 8px; right: 8px; top: max(8px, env(safe-area-inset-top));
@@ -274,7 +276,7 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
   background: rgba(22, 25, 30, 0.88); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .chipbar .seg > button { background: transparent; }
-.chipbar .seg > button.on { background: var(--on); }
+.chipbar .seg > button.on { background: var(--seg-on); }
 .brand {
   display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); padding: 0 10px;
   border: 1px solid var(--line); border-radius: 999px; font-weight: 650; letter-spacing: 0.01em;
@@ -549,7 +551,7 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
    * its word, so a 25-character query shows whole at 390 px; a tap on it moves to the next list. */
   body[data-detent] .lib-filters .field.searching { flex: 1 1 100%; }
   body[data-detent] .lib-filters:has(.field.searching) .seg > button:not(.on) { display: none; }
-  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 8px; gap: 0; font-size: var(--t-s); border-radius: 999px; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 6px; gap: 0; font-size: var(--t-s); border-radius: 999px; }
   body[data-detent] .lib-filters:has(.field.searching) .seg { border-radius: 999px; }
   body[data-detent] .lib-filters .field.searching input { padding-left: 10px; }
 }
@@ -1132,7 +1134,8 @@ html.coarse .cal-prog li .redo { min-height: var(--tap); }
   /* The sheet is gone, whatever its detent: the chip and the toggle share
    * one row above the map, and framing keeps the target below that row. */
   body.calibrating .chipbar { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; bottom: auto; }
-  body.calibrating .brand, body.calibrating .badge .detail { display: none; }
+  body.calibrating .brand { display: none; }
+  body.calibrating .badge .detail { visibility: hidden; } /* its line is kept: the chip is one shape in every state */
   body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   /* The point key, on the map just above the calibration sheet. */
   body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); max-height: calc(var(--cal-map) - var(--tap) - 32px); }
