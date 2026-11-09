@@ -339,11 +339,11 @@ export function createOverlay(S) {
     marks = [];
     if (placed.hidden !== hiddenShown) { hiddenShown = placed.hidden; S.refreshLabelNote?.(); }
   }
-  function ring(q, r, color, width = 2, dash = null) {
+  function ring(q, r, color, width = 2, dash = null, disc = null) {
     mark(q, r * 0.7);
     ctx.strokeStyle = color; ctx.lineWidth = width;
     if (dash) ctx.setLineDash(dash);
-    ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 2 * Math.PI); ctx.stroke();
+    ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 2 * Math.PI); if (disc) { ctx.fillStyle = disc; ctx.fill(); } ctx.stroke();
     if (dash) ctx.setLineDash([]);
   }
 
@@ -410,7 +410,11 @@ export function createOverlay(S) {
     for (const o of outputs()) {
       const q = pixelAt(o.input);
       if (!q) continue;
-      ring(q, 8, `rgb(${o.color})`);
+      ring(q, 11, `rgb(${o.color})`, 2, null, 'rgba(0,0,0,.8)');
+      // Colors can repeat on a big site: the number inside says which output.
+      ctx.fillStyle = '#fff'; ctx.font = '600 13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(o.output), q[0], q[1]);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       // The phone's map strip is short: the panel's legend has the rest.
       if (S.panel?.layout() === 'sheet') label(`${controllerName(g, o.controller)} ${o.output}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true);
       else label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR);

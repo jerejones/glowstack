@@ -197,7 +197,7 @@ test('output input marker honors WLED reversal without changing output ranges', 
   const rings = [];
   const S = { geo:g, plan:0, hover:-1, pinned:-1, view:{toScreen:(x,y)=>[x,y]} };
   const overlay = createOverlay(S); overlay.st.mode = 'outputs';
-  overlay.draw({ fillRect(){}, beginPath(){}, arc(x,y){rings.push([x,y]);}, stroke(){}, strokeText(){}, fillText(){} });
+  overlay.draw({ fillRect(){}, beginPath(){}, arc(x,y){rings.push([x,y]);}, fill(){}, stroke(){}, strokeText(){}, fillText(){} });
   assert.deepEqual(rings, [[5,0],[14,0]]);
   assert.deepEqual(overlay.outputs().map(o=>[o.first,o.last]), [[5,8],[9,14]]);
   assert.equal(overlay.outputOf(9).output, 2);
@@ -339,7 +339,7 @@ test('the calibration cursor ring is only drawn inside the mode', async () => {
     cal: { active: true, side: 0, target: { kind: 'anchor' }, cursors: [{ node: 'corner', controller: 'shed', index: 5, estimate: 5 }] },
     view: { toScreen: (x, y, z) => [x, y + z] } };
   const rings = [];
-  createOverlay(S).draw({ fillRect() {}, beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {}, strokeText() {}, fillText() {} });
+  createOverlay(S).draw({ fillRect() {}, beginPath() {}, arc(x, y) { rings.push([x, y]); }, fill() {}, stroke() {}, strokeText() {}, fillText() {} });
   assert.deepEqual(rings, []);
 });
 

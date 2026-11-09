@@ -375,8 +375,7 @@ export function createForm(ctx) {
 
   // One color is four independent channels. Every track previews the mix
   // along that channel while holding the other three at their current values.
-  // ignored says the look doesn't draw with this color; the row says so.
-  function colorInput(get, set, ignored = () => false) {
+  function colorInput(get, set) {
     const box = document.createElement('details');
     box.className = 'color-picker';
     const summary = document.createElement('summary');
@@ -384,7 +383,7 @@ export function createForm(ctx) {
     swatch.className = 'color-swatch';
     swatch.setAttribute('aria-hidden', 'true');
     const title = document.createElement('span');
-    const say = () => { title.textContent = ignored() ? 'Not used by this palette' : get() == null ? 'Not set' : 'Edit color'; };
+    const say = () => { title.textContent = get() == null ? 'Not set' : 'Edit color'; };
     say();
     noted.push(say);
     summary.append(swatch, title);
@@ -443,6 +442,7 @@ export function createForm(ctx) {
   // ---- the WLED controls ----
   const wled = document.createElement('div');
   if (effect.wled && effect.wled.bindings && effect.wled.bindings.length) {
+    const unusedColors = [];
     for (const b of effect.wled.bindings) {
       const lf = leaf(schema, b.param);
       if (!lf) continue;
@@ -450,10 +450,9 @@ export function createForm(ctx) {
       const label = paramLabel(b.param);
       if (lf.type === 'color') {
         const ignored = () => ignoredColor(S, schema, vals, b.param, effect.id);
-        const row = field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v)), ignored), null, title);
-        const dim = () => row.classList.toggle('unused', ignored());
-        dim();
-        noted.push(dim);
+        const row = field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
+        // A color the palette doesn't draw with leaves its row for the one line below.
+        unusedColors.push({ row, label, ignored });
       } else if (lf.type === 'palette' || b.slider === 'pal') {
         field(wled, label, paletteSelect(() => lf.get(vals), (v) => apply(lf.set(vals, v)), layerPrefix(b.param)), null, title);
       } else if (lf.type === 'bool') {
@@ -463,6 +462,18 @@ export function createForm(ctx) {
       } else {
         field(wled, label, bindingSlider(b, lf), null, title);
       }
+    }
+    if (unusedColors.length) {
+      const line = Object.assign(document.createElement('p'), { className: 'muted small unused-note' });
+      wled.append(line);
+      const sync = () => {
+        for (const c of unusedColors) c.row.hidden = c.ignored();
+        const names = unusedColors.filter((c) => c.ignored()).map((c) => c.label);
+        line.hidden = !names.length;
+        line.textContent = `Not used by this palette: ${names.join(', ')}`;
+      };
+      sync();
+      noted.push(sync);
     }
   }
 

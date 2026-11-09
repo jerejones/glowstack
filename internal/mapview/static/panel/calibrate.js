@@ -310,7 +310,7 @@ export function createCalibrate(S, root) {
 
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
-      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal">${icon('close')}Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
+      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal">${icon('stop')}Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
     <div class="cal-toasts" id="caToasts" aria-live="polite"></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>

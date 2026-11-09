@@ -268,7 +268,7 @@ input[type=checkbox]:checked::after {
 }
 .crumbs button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 .crumbs .sep { color: var(--muted); }
-.crumbs .x { min-width: var(--tap); padding: 0; }
+.crumbs .x { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); padding: 0; }
 
 .legend {
   position: absolute; z-index: 2; left: 8px; bottom: calc(max(8px, var(--safe-b)) + var(--tap) + 10px); max-width: min(260px, 60%); max-height: 45%; display: flex; flex-direction: column;
@@ -541,7 +541,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .form .color-picker { width: 100%; min-width: 0; }
 .form .color-picker summary { gap: 8px; justify-content: flex-start; }
 .form .color-picker > summary::before { order: 2; }
-.form .f.unused > label, .form .f.unused summary > span:last-child { color: var(--muted); }
+.unused-note { margin: 6px 0 2px; }
 .form .color-swatch { display: inline-block; width: 32px; height: 28px; border: 1px solid #64748b; border-radius: 7px; }
 .form .f:has(.color-picker[open]) > .ctl, .form .f:has(.picker.open) > .ctl { grid-column: 1 / -1; }
 .form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 1px solid var(--line); border-radius: 10px; }
@@ -723,6 +723,10 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-title { display: grid; gap: 0; margin: 6px 0; overflow-wrap: anywhere; }
 .preset-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .preset-actions button { display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--fg); padding: 0 8px; }
+/* Preview leads a card; Pin and More are there when wanted. */
+.preset-actions [data-act=try] { background: var(--card2); border-color: var(--line-strong); font-weight: 600; }
+.preset-actions [data-act=pin]:not([aria-pressed=true]), .preset-actions [data-act=more] { border-color: transparent; color: var(--muted); }
+.preset-actions [data-act=pin]:hover, .preset-actions [data-act=more]:hover { border-color: var(--control-line); color: var(--fg); }
 /* Wide enough for Previewing, so Pin and More stay put when it changes. */
 .preset-actions [data-act=try] { width: 8.4em; padding: 0; gap: 5px; }
 .preset-actions .pin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }

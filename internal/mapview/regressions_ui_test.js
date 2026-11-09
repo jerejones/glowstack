@@ -1984,3 +1984,23 @@ test('camera: no Overhead code and no named-view text is left', () => {
   assert.doesNotMatch(scene, /overhead|named view|named\(/i);
   assert.doesNotMatch(read('panel/setup.js'), /overhead|suCamMode|named views/);
 });
+
+test('polish: apply and stop have their own icons, Calibrate no longer looks like a sparkle', () => {
+  const icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
+  assert.notEqual(path('apply'), path('check'));
+  assert.notEqual(path('stop'), path('close'));
+  assert.match(path('target'), /a6 6 0/, 'a bullseye, unlike the four-point sparkle');
+  assert.match(read('panel/calibrate.js'), /\$\{icon\('stop'\)\}Stop/);
+});
+
+test('unused palette colors fold into one line', () => {
+  const form = read('form.js');
+  assert.match(form, /`Not used by this palette: \$\{names\.join\(', '\)\}`/);
+  assert.match(form, /c\.row\.hidden = c\.ignored\(\)/);
+});
+
+test('wiring marks: the output number has a dark disc to sit on, and the chip close icon is centered', () => {
+  assert.match(read('overlay.js'), /ring\(q, 11, `rgb\(\$\{o\.color\}\)`, 2, null, 'rgba\(0,0,0,\.8\)'\)/);
+  assert.match(read('overlay.js'), /600 13px/);
+  assert.match(css, /\.crumbs \.x \{ display: inline-flex; align-items: center; justify-content: center;/);
+});
