@@ -208,8 +208,9 @@ export function createSetup(S, root) {
   S.on('stream', renderRate);
 
   S.on('offline', () => { $$('#suCal').disabled = S.offline; });
-  S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); S.panel.refit(); });
-  S.on('tab', (t) => { if (t === 'setup') renderRate(); });
+  S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); S.panel.refit(); refreshLegend(); });
+  // Setup's colors and labels are Setup's: the other tabs show the plain map.
+  S.on('tab', (t) => { if (t === 'setup') renderRate(); refreshLegend(); });
   renderOverlay();
   renderRate();
   calLabel(false);

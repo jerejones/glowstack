@@ -545,10 +545,7 @@ S.labelAvoid = () => {
   return rects;
 };
 // litNow says whether what's on the lights can be seen, for the chip.
-// A warning card on the open tab says why the lights are dark: the chip
-// doesn't say it again. It still says so when that card can't be seen.
-const darkInPanel = () => !S.panel.collapsed() && !!$(`tab-${S.panel.tab()}`).querySelector('[data-dark]:not([hidden])');
-const litNow = () => lightOutcome(S.geo, S.statusData?.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(S.geo, S.tree, l.target)));
+const litNow = () => lightOutcome(S.geo, S.statusData?.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(S.geo, S.tree, l.target)), S.houseStatus === 'available');
 S.refreshBadge = badge;
 let badgeShown = false;
 // badge shows what the map is showing, on the chip and on the toggle.
@@ -556,9 +553,9 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.calibrating ? 'live' : S.overlay?.st.mode, lit: !S.calibrating && darkInPanel() ? null : litNow() });
+  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed });
   const b = $('badge');
-  b.innerHTML = badgeHTML(m);
+  b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;
   b.title = m.title;
   // A calibration step is neither choice, and the chip says which it is.
@@ -663,6 +660,7 @@ function onDetent(d) {
 
 // showMapError puts a map failure in the map's pane, with Retry.
 function showMapError(step, e, serverUp = false) {
+  S.mapFailed = true;
   const box = $('mapError');
   box.innerHTML = stateHTML({ ...bootFailure(step, e, serverUp), retry: true });
   box.hidden = false;
@@ -677,15 +675,18 @@ const NEEDS_MAP = [['looks', 'Looks'], ['setup', 'Set up the map']];
 async function startWithoutMap(e) {
   console.error(e);
   $('bootLoading').remove();
-  const serverUp = await api('/api/v1/status').then(() => true, () => false);
+  // An error answer is still an answer: only no answer at all is offline.
+  const serverUp = await api('/api/v1/status').then(() => true, (err) => !err.network);
   showMapError('load the map', e, serverUp);
-  $('badge').textContent = 'Map unavailable';
-  $('badge').className = 'badge off';
+  S.connected = serverUp;
   $('mapControls').hidden = true;
-  addEventListener('resize', () => { S.panel.refresh(); resize(); });
+  addEventListener('resize', () => { S.panel.refresh(); resize(); badge(); });
   const controllers = await api('/api/v1/controllers').then((r) => r.controllers || [], () => []);
   // The API counts a controller's outputs; the geometry lists them.
   S.geo = { mapless: true, mappings: [], controllers: controllers.map((c) => ({ ...c, outputs: Array(c.outputs || 0).fill({}) })), zones: [], areas: [], runs: [], nodes: [], plans: [] };
+  // No stream to lose here: Status's own reads say whether the server is there.
+  S.setServerUp = (up) => { if (S.connected === up) return; S.connected = up; setOffline(!up); badge(); };
+  badge();
   S.status = createStatus(S, $('tab-status'));
   const loadLibrary = createLibrary(S, api);
   await loadLibrary();
@@ -737,6 +738,7 @@ async function main() {
   S.on('house', badge);
   S.on('tab', badge);
   S.on('detent', badge);
+  S.on('layout', badge);
   await S.refresh();
   setInterval(pollPreview, 1000);
   setInterval(pollHouse, 2000);

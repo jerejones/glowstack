@@ -1156,7 +1156,7 @@ test('B75: the dark warning is said once on a screen', async () => {
   assert.equal(hidden.warn, true);
   assert.match(hidden.text, /0% brightness/);
   // The chip steps back while a card on the open tab explains it.
-  assert.match(read('app.js'), /lit: !S\.calibrating && darkInPanel\(\) \? null : litNow\(\)/);
+  assert.doesNotMatch(read('app.js'), /darkInPanel/, 'the chip says the same with or without the tab\'s warning');
   // Status: the verdict carries the fix instead of a card repeating it.
   const status = read('panel/status.js');
   assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
@@ -1250,4 +1250,26 @@ test('polish: a preset row previews like a Looks card and its icons agree', () =
   assert.match(src, /querySelector\('\.preset-body'\)\.onclick = \(\) => S\.looks\.push/);
   assert.match(src, /icon\('eye'\)/);
   assert.match(read('panel/looks.js'), /className = 'target-group'/, 'places are grouped');
+});
+
+test('B82: Setup\'s map colors and labels stay on Setup, and come back there', async () => {
+  const { overlayShown, createOverlay } = await import('./static/overlay.js');
+  const { mapStatus } = await import('./static/map-status.js');
+  const st = { mode: 'outputs', nodes: true, labels: true, controllers: true };
+  assert.deepEqual(overlayShown(st, { tab: 'looks' }), { mode: 'live', nodes: false, labels: false, controllers: false });
+  assert.deepEqual(overlayShown(st, { tab: 'presets' }).mode, 'live');
+  assert.equal(overlayShown(st, { tab: 'setup' }), st, 'Setup shows what was chosen');
+  assert.deepEqual(overlayShown(st, { tab: 'looks', calibrating: true }), { mode: 'live', nodes: true, labels: true, controllers: true }, 'calibration keeps its own view');
+  // Saved on Setup, then a reload on Looks: the choice stays, the map doesn't show it.
+  const saved = { v: 2, mode: 'outputs', labels: true };
+  globalThis.localStorage = { getItem: () => JSON.stringify(saved), setItem() {} };
+  try {
+    let tab = 'looks';
+    const ov = createOverlay({ geo: { pixels: { count: 0 }, mappings: [], zones: [], controllers: [] }, panel: { tab: () => tab } });
+    assert.equal(ov.st.mode, 'outputs');
+    assert.equal(ov.shown().mode, 'live');
+    assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: false }, mode: ov.shown().mode }).text, 'Showing the lights');
+    tab = 'setup';
+    assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: false }, mode: ov.shown().mode }).text, 'Colored by Wiring');
+  } finally { delete globalThis.localStorage; }
 });

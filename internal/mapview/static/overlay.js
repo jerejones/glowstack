@@ -22,6 +22,16 @@ export const MODES = [
   ['outputs', 'Wiring', 'Which controller output drives each light'],
 ];
 
+// overlayShown is what the map draws of the overlay state st. The color
+// mode and the map options belong to Setup: other tabs show the plain map,
+// and st keeps the choice for coming back. While calibrating, the map shows
+// the anchors over the live colors whatever the saved overlays say; this
+// reads st and never writes to it, so nothing is left to restore or save.
+export function overlayShown(st, { calibrating = false, tab = 'setup' } = {}) {
+  if (calibrating) return { ...st, mode: 'live', nodes: true };
+  return tab === 'setup' ? st : { ...st, mode: 'live', nodes: false, labels: false, controllers: false };
+}
+
 const hit = (a, b, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
 const SPOTS = (w, H) => [[0, 0], [0, H], [0, -H], [-w - 20, 0], [-w - 20, H], [-w - 20, -H], [0, 2 * H], [0, -2 * H]];
 const NAME_ROOM = 10;     // px of clear space around a name label
@@ -105,10 +115,7 @@ export function createOverlay(S) {
   }
   const remember = () => save('glowstack.overlays', Object.fromEntries([['v', OVERLAY_VERSION],
     ...['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers', 'evenSpacing'].map((key) => [key, st[key]])]));
-  // While calibrating, the map shows the anchors over the live colors
-  // whatever the saved overlays say. The mode reads through this and never
-  // writes to st, so it leaves nothing behind to restore or to save.
-  const shown = () => (S.calibrating ? { ...st, mode: 'live', nodes: true } : st);
+  const shown = () => overlayShown(st, { calibrating: S.calibrating, tab: S.panel?.tab() });
   const mappings = new Map();
   let outs = null, edgeCache = null;
 
@@ -323,12 +330,13 @@ export function createOverlay(S) {
   // for one controllers.yaml doesn't list. In Outputs mode a dashed line
   // runs to each output's input ring; it isn't the cable's route.
   function controllers() {
+    const o = shown();
     for (const c of g.controller_locations || []) {
       if (c.plan !== S.plan) continue;
       const q = at(c.x, c.y, c.z);
       if (!q) continue;
       const cfg = c.controller >= 0 ? g.controllers[c.controller] : null;
-      if (cfg && st.mode === 'outputs') {
+      if (cfg && o.mode === 'outputs') {
         ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
         for (const o of outputs()) {
           if (o.controller !== cfg.id) continue;
@@ -342,7 +350,7 @@ export function createOverlay(S) {
       ctx.fillStyle = cfg ? CTRL : CTRL_OFF; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
       const display = controllerName(g, c.id); // a board the config doesn't list has only an id
-      const name = st.labels ? controllerLabel(display, c.label) : display;
+      const name = o.labels ? controllerLabel(display, c.label) : display;
       // On the small map these are names like any other: only those with room.
       label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR, S.panel?.layout?.() === 'sheet');
     }
@@ -351,6 +359,7 @@ export function createOverlay(S) {
   // nodes: sync points, links and gaps, anchors (measured solid green,
   // estimated dashed amber).
   function nodes() {
+    const o = shown();
     ctx.lineWidth = 1.5;
     for (const e of g.edges) {
       if (e.kind === 'strip') continue;
@@ -359,7 +368,7 @@ export function createOverlay(S) {
       ctx.setLineDash(e.kind === 'link' ? [6, 4] : [2, 3]);
       ctx.strokeStyle = e.kind === 'link' ? '#c4b5fd' : '#7dd3fc';
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      if (st.labels) label(e.kind === 'link' ? 'link' : `gap ${e.length.toFixed(2)} m`, (a[0] + b[0]) / 2 - 20, (a[1] + b[1]) / 2 + 16, ctx.strokeStyle, MINOR, true);
+      if (o.labels) label(e.kind === 'link' ? 'link' : `gap ${e.length.toFixed(2)} m`, (a[0] + b[0]) / 2 - 20, (a[1] + b[1]) / 2 + 16, ctx.strokeStyle, MINOR, true);
     }
     ctx.setLineDash([]);
     // What a name is for right now: the point under the pointer, or the selected run.
@@ -395,7 +404,7 @@ export function createOverlay(S) {
         ctx.fill();
         const display = nd.name || nd.id;
         const name = shared && p.runs.length ? `${display} · ${p.runs.map((id) => g.runs.find((r) => r.id === id)?.name || id).join(' / ')}` : display;
-        if (!st.labels) continue;
+        if (!o.labels) continue;
         const focused = (near && Math.hypot(near[0] - x, near[1] - y) < 40) || (chosen && p.runs.some((id) => chosen.has(id)));
         // A corner several runs meet at matters most, then the rest by room.
         label(name, x + 8, y - 6, sync ? '#f9a8d4' : '#e5e7eb', focused ? FOCUS : sync ? 1.2 : 1, !focused);
@@ -445,5 +454,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, placed: () => lastPlaced, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, placed: () => lastPlaced, hiddenLabels: () => lastPlaced.hidden || 0, live: () => shown().mode === 'live' };
 }
