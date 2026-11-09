@@ -2103,7 +2103,7 @@ test('one word for taking a layer off, Pin matches the Presets tab, and the empt
 });
 
 test('More settings keeps controls in one right column with help on one line of the row', () => {
-  assert.match(css, /\.form > details > \.f \{ grid-template-columns: minmax\(0, 8\.5em\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.form > details > \.f, \.form > details > \.f\.stack \{ grid-template-columns: minmax\(0, 8\.5em\) minmax\(0, 1fr\)/);
   assert.match(css, /\.form \.f \.doc \{ grid-column: 1 \/ -1;/);
 });
 

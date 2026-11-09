@@ -576,7 +576,7 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .form .f.stack { grid-template-columns: minmax(0, 1fr); }
 /* More settings: one label column, one right column of controls, a long label
  * wraps in its column, and the help has the row's one full-width line below. */
-.form > details > .f { grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); align-items: start; }
+.form > details > .f, .form > details > .f.stack { grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); align-items: start; }
 .form > details > .f > label { min-height: var(--tap); display: flex; align-items: center; overflow: visible; overflow-wrap: anywhere; }
 .form .f > label { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; }
 .form .f .ctl { display: flex; align-items: center; gap: 6px; min-width: 0; }
