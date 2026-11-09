@@ -1690,7 +1690,7 @@ test('wording: one phrase for scope, a calm empty list, amber real-lights warnin
 
 test('polish: disabled segment, labeled color buttons, nothing to clear, quieter controllers', async () => {
   assert.doesNotMatch(/\.seg > button:disabled, \.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*\}/.exec(css)[0], /opacity/, 'a readable color, not half strength');
-  assert.match(/\.seg > button:disabled, \.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*\}/.exec(css)[0], /color: var\(--muted\)/);
+  assert.match(/\.seg > button:disabled, \.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*\}/.exec(css)[0], /color: var\(--disabled\)/);
   assert.match(css, /\.form \.color-picker > summary::before \{ order: 2; \}/);
   const form = read('form.js');
   assert.match(form, /\$\{icon\('plus'\)\}Add color/);

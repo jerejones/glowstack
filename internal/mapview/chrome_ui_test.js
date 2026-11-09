@@ -253,6 +253,13 @@ test('B116: a segment inside a tab is at least as wide as its own label', () => 
   assert.match(css, /\.bar-main \.seg \{ flex: none; width: auto; \}/);
 });
 
+test('disabled controls use the one readable gray', () => {
+  assert.match(css, /--disabled: #a8b0bc/);
+  assert.match(css, /button:disabled, button\[aria-disabled=true\] \{ color: var\(--disabled\);/);
+  assert.match(css, /\.seg > button:disabled[^{]*\{ color: var\(--disabled\);/);
+  assert.doesNotMatch(css, /button:disabled[^{]*\{[^}]*opacity/);
+});
+
 test('a harmless 404 is neutral, not an error', () => {
   const html = fs.readFileSync(path.join(__dirname, 'static/404.html'), 'utf8');
   assert.doesNotMatch(html, /state error|role="alert"/);

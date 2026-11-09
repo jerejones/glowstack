@@ -18,6 +18,7 @@
   --fg: #e6e8eb;
   --muted: #8b93a1;
   --muted-raised: #c7ced9; /* --muted on a pressed or raised surface */
+  --disabled: #a8b0bc;   /* a disabled control's words: off, but readable */
   --line: #2a2f37;
   --line-strong: #6b7480; /* a border that says these belong together */
   --rim: rgba(255, 255, 255, 0.35); /* around a color swatch, so black shows */
@@ -139,7 +140,7 @@ button, .chip {
   padding: 0 10px; cursor: pointer; touch-action: manipulation;
 }
 button:hover { border-color: #8b95a3; }
-button:disabled, button[aria-disabled=true] { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; }
+button:disabled, button[aria-disabled=true] { color: var(--disabled); background: transparent; border-style: dashed; cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 /* --muted misses AA on these surfaces; what's inside reads the lighter one. */
@@ -149,10 +150,10 @@ button.go, .go { background: var(--go); border-color: var(--go); color: #fff; fo
 .setup-cal button.go, .calibrate button.go { min-height: max(40px, var(--tap)); }
 button.go:hover { background: var(--go-hover); border-color: var(--go-hover); }
 button.go:active { background: var(--go-active); border-color: var(--go-active); }
-button.go:disabled { background: transparent; border-color: var(--line); color: var(--muted); font-weight: 400; }
+button.go:disabled { background: transparent; border-color: var(--line); color: var(--disabled); font-weight: 400; }
 button.danger { color: #fecaca; border-color: #7f1d1d; }
 /* Offline the controls are inert, and look it: the banner says so. */
-[inert] button, [inert] .picker-btn, [inert] .chip { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; font-weight: 400; }
+[inert] button, [inert] .picker-btn, [inert] .chip { color: var(--disabled); background: transparent; border-style: dashed; cursor: not-allowed; font-weight: 400; }
 [inert] input, [inert] .preset .strip, [inert] .layer .strip { opacity: 0.45; }
 input[type=text], input[type=number], input[type=search], input:not([type]), textarea {
   min-height: var(--tap); background: var(--field); border: 1px solid var(--field-line); border-radius: 8px; padding: 0 8px;
@@ -189,7 +190,7 @@ input[type=checkbox]:checked::after {
 .seg > button + button { border-left: 0; box-shadow: inset 1px 0 0 var(--control-line); }
 .seg > button.on { background: var(--on); color: #fff; box-shadow: inset 0 0 0 1px var(--accent); }
 .seg > button.on + button { box-shadow: none; } /* the selected edge is the divider */
-.seg > button:disabled, .seg > button[aria-disabled=true]:not(.on) { color: var(--muted); cursor: not-allowed; }
+.seg > button:disabled, .seg > button[aria-disabled=true]:not(.on) { color: var(--disabled); cursor: not-allowed; }
 .tab .seg { display: flex; width: 100%; }
 .tab .seg > button { flex: 1 0 auto; } /* at least its own label: a segment never clips one */
 /* Five choices share one row, at the size of the page's other segments. */
