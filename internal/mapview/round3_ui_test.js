@@ -403,3 +403,29 @@ test('Refinement 2: Status leads with what needs action; one explanation in one 
   assert.ok(LATE_NOTE.length <= 95, 'one line at the panel\'s width');
   assert.match(status, /<details id="stDiag" class="section-disclosure"><summary>Diagnostics<\/summary><div class="stats" id="stDiagStats"><\/div><p class="muted small" id="stLateNote">\$\{LATE_NOTE\}<\/p><\/details>/);
 });
+
+test('Refinement 3: one toggle idiom: a box with a check, never a circle', () => {
+  // The box: one size token, one shape, for a real checkbox and for a toggle pill.
+  const box = /^input\[type=checkbox\] \{[^}]*\}/m.exec(css)[0];
+  assert.match(box, /width: var\(--box\); height: var\(--box\);/);
+  assert.match(box, /border: 1\.5px solid var\(--control-line\); border-radius: 4px;/);
+  assert.match(css, /input\[type=checkbox\]:checked \{ background: var\(--accent\) var\(--check\) center \/ 82% no-repeat; border-color: var\(--accent\); \}/);
+  const pill = /^\.chips\.toggles > button::before \{[^}]*\}/m.exec(css)[0];
+  assert.match(pill, /width: var\(--box\); height: var\(--box\);[^}]*border: 1\.5px solid var\(--control-line\); border-radius: 4px;/, 'the same box inside the pill');
+  assert.match(css, /\.chips\.toggles > button\.on::before \{ background: var\(--accent\) var\(--check\) center \/ 82% no-repeat; border-color: var\(--accent\); \}/);
+  // Off and on differ without color: an empty box against a filled one with a check.
+  assert.doesNotMatch(pill, /var\(--check\)/);
+  // No independent toggle draws a circle.
+  for (const rule of css.match(/(input\[type=checkbox\]|\.chips\.toggles > button)[^{]*\{[^}]*\}/g)) assert.doesNotMatch(rule, /border-radius: (50%|999px)/, rule.slice(0, 60));
+  // Every independent toggle exposes its state: aria-pressed on a pill, a real checkbox otherwise.
+  const setup = read('panel/setup.js');
+  for (const id of ['suNodes', 'suLabels', 'suControllers', 'suEven']) assert.match(setup, new RegExp(`<button type="button" id="${id}" aria-pressed="false"`), id);
+  assert.match(setup, /<div class="chips toggles" id="suLayers"><\/div>/, 'Parts of the model');
+  assert.match(setup, /press\(b, l\.visible\);/);
+  assert.match(read('util.js'), /b\.setAttribute\('aria-pressed', on \? 'true' : 'false'\)/);
+  assert.match(read('panel/presets.js'), /<label class="check"><input type="checkbox" id="prPinned"> Pin to Looks<\/label>/);
+  assert.match(read('panel/calibrate.js'), /<label class="check small"><input type="checkbox" id="caNext"> Go to next after<\/label>/);
+  // Circles stay for one-of-many only; segmented bars are unchanged.
+  assert.doesNotMatch(css, /\.seg > button::before/);
+  assert.match(design, /\*\*Toggles\.\*\*[\s\S]{0,400}a box with a check/);
+});

@@ -972,8 +972,8 @@ test('Setup uses one segmented style and one toggle chip style', () => {
   assert.doesNotMatch(setup, /seg grid/);
   assert.equal((setup.match(/class="chips toggles"/g) || []).length, 2);
   assert.doesNotMatch(css, /\.seg\.grid/);
-  // Refinement 1 (round 2): a toggle pill fills when on and leads with a state dot; no checkbox glyph.
-  assert.doesNotMatch(css, /\.chips\.toggles > button(\.on)?::before \{[^}]*mask/);
+  // Round 3: a toggle pill leads with the checkbox's box, checked when on.
+  assert.match(css, /\.chips\.toggles > button\.on::before \{ background: var\(--accent\) var\(--check\) center \/ 82% no-repeat;/);
 });
 
 test('a control boundary is at least 3:1 where it identifies the control', () => {
@@ -2551,9 +2551,9 @@ test('Move B: library tiles show the effect moving, from the renderer\'s own spr
 });
 
 test('Refinement 1: one toggle vocabulary', () => {
-  // An independent on/off is a pill that fills when on, with no box or check drawn inside it; its
-  // state dot (round 2) is a circle, outline off and filled on, never a check.
-  assert.doesNotMatch(css, /\.chips\.toggles > button(\.on)?::before \{[^}]*(mask|--check)/, 'no checkbox glyph inside a toggle pill');
+  // An independent on/off is a pill that fills when on. Round 3 settled its state mark: the
+  // checkbox's box, never a circle (a circle is one-of-many).
+  assert.doesNotMatch(css, /\.chips\.toggles > button(\.on)?::before \{[^}]*border-radius: 50%/, 'no radio-like dot inside a toggle pill');
   assert.doesNotMatch(css, /--check-on/);
   assert.match(css, /\.chips > button\.on \{ background: var\(--on\); border-color: var\(--accent\);/, 'a pill fills when on');
   // Nothing disabled or inert is dashed: inert fades instead.
@@ -3011,9 +3011,9 @@ test('D: the preview has no clock controls; the room went to the Library', () =>
 });
 
 test('Refinement 1 (round 2): a toggle pill says off as well as on', () => {
-  // The leading dot: an outline when off, filled when on; drawn, so nothing is read out.
-  assert.match(css, /\.chips\.toggles > button::before \{ content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; border: 1\.5px solid currentColor; opacity: 0\.75; \}/);
-  assert.match(css, /\.chips\.toggles > button\.on::before \{ background: currentColor; opacity: 1; \}/);
+  // The leading mark (round 3: a box, not round 2's dot): empty when off, checked when on; drawn, so nothing is read out.
+  assert.match(css, /\.chips\.toggles > button::before \{ content: ''; flex: none; width: var\(--box\); height: var\(--box\); box-sizing: border-box; border: 1\.5px solid var\(--control-line\); border-radius: 4px; background: var\(--field\); \}/);
+  assert.match(css, /\.chips\.toggles > button\.on::before \{ background: var\(--accent\) var\(--check\) center \/ 82% no-repeat; border-color: var\(--accent\); \}/);
   // Every toggle pill exposes aria-pressed from its first paint, and press() keeps it right.
   const setup = read('panel/setup.js');
   for (const id of ['suNodes', 'suLabels', 'suControllers', 'suEven']) assert.match(setup, new RegExp(`<button type="button" id="${id}" aria-pressed="false"`), id);

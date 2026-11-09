@@ -1361,6 +1361,12 @@ desk.
   (one, or all in order) onto the house stack with the same look and seed.
   Applying is always a separate, green button; nothing on the map applies
   by itself.
+- **Toggles.** One idiom per kind of choice. An independent on/off choice
+  (Points, Names, Controllers, the parts of the model, Pin to Looks, Go to
+  next after) is a box with a check when it is on: a real checkbox, or the
+  same box at the start of a pill where the pill form is kept, with its
+  state in `aria-pressed`. Off and on differ without color. A circle is
+  only ever one of many. A choice among several is a segmented bar.
 - **Undo after apply.** Every change to the real lights made from the map
   (Put, Add, Update, Replace, and Remove on a live look) can be taken back
   once. The confirmation toast carries **Undo** for 10 seconds, and the

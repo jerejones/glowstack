@@ -197,17 +197,20 @@ input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 
 output { min-width: 3.6em; text-align: right; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 input[type=color] { width: var(--tap); height: var(--tap); padding: 2px; border: 1px solid var(--field-line); border-radius: 8px; background: #0f1115; }
 label.check { display: inline-flex; align-items: center; gap: 6px; min-height: var(--tap); }
+/* One toggle idiom (round 3): an independent on/off choice is a box with a
+ * check when it is on. A real checkbox draws it itself; a toggle pill draws
+ * the same box at its start (.chips.toggles, below). A circle is only ever
+ * one-of-many. --box is the box's side on this pointer. */
+:root { --box: 16px; }
+html.coarse { --box: 20px; }
+@media (pointer: coarse) { :root { --box: 20px; } }
 input[type=checkbox] {
-  appearance: none; -webkit-appearance: none; flex: none; display: inline-grid; place-items: center; margin: 0; cursor: pointer;
-  width: calc(var(--tap) * 0.64); height: calc(var(--tap) * 0.64); max-width: 22px; max-height: 22px;
-  background: var(--field); border: 1px solid var(--field-line); border-radius: 5px;
+  appearance: none; -webkit-appearance: none; flex: none; display: inline-block; margin: 0; cursor: pointer;
+  width: var(--box); height: var(--box);
+  background: var(--field); border: 1.5px solid var(--control-line); border-radius: 4px;
 }
 input[type=checkbox]:hover { border-color: #8b95a3; }
-input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
-input[type=checkbox]:checked::after {
-  content: ''; width: 80%; height: 80%; background: #0d0e10;
-  -webkit-mask: var(--check) center / contain no-repeat; mask: var(--check) center / contain no-repeat;
-}
+input[type=checkbox]:checked { background: var(--accent) var(--check) center / 82% no-repeat; border-color: var(--accent); }
 .seg { display: inline-flex; border-radius: 9px; overflow: hidden; border: 1px solid var(--control-line); }
 .seg > button { border: 0; border-radius: 0; background: var(--card2); white-space: nowrap; }
 .seg > button + button { border-left: 0; box-shadow: inset 1px 0 0 var(--control-line); }
@@ -223,15 +226,16 @@ input[type=checkbox]:checked::after {
 #suLayers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #suLayers > button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* One toggle vocabulary: an exclusive choice is a segmented bar (.seg); an
- * independent on/off is a pill that fills when it is on, with no box or
- * check inside it. A picked place keeps its one check. */
+ * independent on/off is a pill that fills when it is on and leads with the
+ * checkbox's box. A picked place keeps its one check. */
 .chips > button.on { background: var(--on); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #fff; }
-/* A toggle pill leads with a dot that says its state beyond the fill: an
- * outline when off, filled when on, so the two read apart in grayscale. It is
- * drawn, not text, so nothing is read out; the state is aria-pressed. */
+/* A toggle pill leads with the checkbox's box: empty when off, filled with
+ * its check when on, so the two read apart in grayscale and never as a
+ * radio button. It is drawn, not text, so nothing is read out; the state
+ * is aria-pressed. */
 .chips.toggles > button { display: inline-flex; align-items: center; gap: 7px; }
-.chips.toggles > button::before { content: ''; flex: none; width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; border: 1.5px solid currentColor; opacity: 0.75; }
-.chips.toggles > button.on::before { background: currentColor; opacity: 1; }
+.chips.toggles > button::before { content: ''; flex: none; width: var(--box); height: var(--box); box-sizing: border-box; border: 1.5px solid var(--control-line); border-radius: 4px; background: var(--field); }
+.chips.toggles > button.on::before { background: var(--accent) var(--check) center / 82% no-repeat; border-color: var(--accent); }
 /* The one check, as a mask: generated text would be read out by screen readers. */
 .chips:not(.toggles) > button.on::before {
   content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background: currentColor;
