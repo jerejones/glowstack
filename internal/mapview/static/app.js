@@ -20,7 +20,7 @@ import { cardCorner, createAim, rectGap } from './card-place.js';
 import { inspectSentences, inspectTechnical } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
-import { createCalibrate } from './panel/calibrate.js';
+import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll, lightOutcome } from './house-status.js';
 import { createLibrary } from './library.js';
@@ -525,7 +525,7 @@ function connect() {
         if (m.gen !== S.geo.gen) {
           try {
             const geo = await api('/api/map/geometry');
-            if (geometryKey(geo) !== geometrySignature) { location.reload(); return; }
+            if (geometryKey(geo) !== geometrySignature) { sessionStorage.setItem(OWN_RELOAD, '1'); location.reload(); return; }
             S.geo.gen = geo.gen;
             S.geo.presets = geo.presets;
             await S.refreshPresets();

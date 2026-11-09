@@ -501,7 +501,7 @@ export function createLooks(S, root) {
     el.querySelector('.what b').textContent = layerName(S, l);
     // A preview layer's place is a control; on the lights it's a fact.
     const placeName = targetName(g, l.target), placeBtn = el.querySelector('.place');
-    if (placeBtn) placeBtn.innerHTML = `<span class="muted">On</span><b>${esc(placeName)}</b>${icon('chevronDown')}`;
+    if (placeBtn) placeBtn.innerHTML = `<span class="muted">Goes on</span><b>${esc(placeName)}</b>${icon('chevronDown')}`;
     const bits = placeBtn ? [] : [`On ${placeName}`];
     if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
     if (l.expires) bits.push('until ' + new Date(l.expires).toLocaleTimeString());

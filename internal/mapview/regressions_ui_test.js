@@ -1115,7 +1115,7 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   assert.match(head[0], />Goes on</);
   // A preview layer's place is a control of its own, on its own card.
   assert.match(src, /className: 'place icon-btn'/);
-  assert.match(src, /<span class="muted">On<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
+  assert.match(src, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
   assert.match(src, /\/api\/v1\/preview\/layers\/.*\{ target: value \}/, 'moving a layer patches only that layer');
   assert.match(src, /escapeCloses\(place, \(\) => pickFor === c/, 'Escape closes it, even with focus left on the button');
   // Choosing for a layer must not change where the next look goes.
@@ -1688,4 +1688,16 @@ test('a zoomed-out run has one label, and a map strip too small to read has none
   assert.equal(roomy.length, 2);
   assert.match(read('scene.js'), /uAlpha: \{ value: 0\.5 \}/, 'the halo shows on an unlit model');
   assert.match(read('plan.js'), /globalAlpha = 0\.5; ctx\.strokeStyle = '#fff'/);
+});
+
+test('wording: one phrase for scope, a calm empty list, amber real-lights warning, nudge help by the buttons', () => {
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /class="muted">On</, 'the same control has one name');
+  assert.match(read('panel/setup.js'), /None missing: every light shown is on the map\./);
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /warningHTML\('This changes the real lights until you stop\.'\)/);
+  assert.ok(cal.indexOf('id="caHow"') < cal.indexOf('class="nudges"'), 'the explanation sits above the buttons');
+  assert.match(cal, /\$\$\('#caHow'\)\.hidden = nudgeOff/);
+  assert.match(cal, /A calibration is still running on the lights/);
+  assert.match(read('app.js'), /setItem\(OWN_RELOAD, '1'\); location\.reload\(\)/);
 });

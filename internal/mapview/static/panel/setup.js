@@ -84,9 +84,7 @@ export function createSetup(S, root) {
     <div class="muted small help" id="suStream"></div>
     </details>
     <h2 class="sub">${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
-    <ul class="list-rows" id="suUndrawn">${undrawn.length
-    ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
-    : '<li class="muted">Every light is on the map.</li>'}</ul>`;
+    <ul class="list-rows" id="suUndrawn"></ul>`;
   upgradeSelects(root);
   const $$ = (s) => root.querySelector(s);
   $$('#suAdvanced').open = !!load(ADVANCED, false);
@@ -111,7 +109,7 @@ export function createSetup(S, root) {
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
-    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
+    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('') : '<li class="muted">None missing: every light shown is on the map.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
     $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown, based on the condition of each strip`;
   }

@@ -635,6 +635,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-pixel { flex: 1 1 10em; min-width: 9em; }
 .cal-why { margin: 0 0 8px; color: var(--muted); font-size: var(--t-help); }
 .cal-dock { flex: none; padding: 8px 12px calc(10px + var(--safe-b)); border-top: 1px solid var(--line); background: #0d0f12; }
+.cal-nudge-how { margin: 0 0 6px; color: var(--muted); font-size: var(--t-s); }
 .nudges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .nudges button { min-height: 56px; font-size: var(--t-l); font-weight: 650; font-variant-numeric: tabular-nums; }
 .cal-confirm { display: flex; gap: 8px; margin-top: 8px; }

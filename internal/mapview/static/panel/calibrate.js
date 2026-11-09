@@ -249,6 +249,9 @@ export function dockReason(target, cursor) {
   return '';
 }
 
+// OWN_RELOAD marks a page load Glowstack caused itself.
+export const OWN_RELOAD = 'glowstack.ownReload';
+
 // sheetShift is how far to raise the phone's calibration sheet so no row
 // is cut at the scroller's resting edge: the smallest move, up or down, that
 // leaves the edge between rows. rows are {top, bottom} from the top of the
@@ -306,6 +309,7 @@ export function createCalibrate(S, root) {
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
       <p class="cal-why" id="caWhy" hidden></p>
+      <p class="cal-nudge-how" id="caHow">+ moves it away from the strip's start, − back toward it.</p>
       <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}">${n > 0 ? '+' : '−'}${Math.abs(n)}</button>`).join('')}</div>
       <div class="cal-confirm"><button type="button" class="go" id="caConfirm" title="Save this pixel as the measured position">Confirm</button>
         <label class="check small"><input type="checkbox" id="caNext"> Go to next after</label></div>
@@ -412,7 +416,12 @@ export function createCalibrate(S, root) {
     S.cal = C.st;
     const running = !!(C.st && C.st.active);
     if (!running && left) { left = false; remember(false); }
-    if (running && !open && !left) show(true);
+    if (running && !open && !left) {
+      show(true);
+      // Glowstack's own reload, after a confirm changed the model, is no news.
+      if (!globalThis.sessionStorage?.getItem(OWN_RELOAD)) S.toast?.('A calibration is still running on the lights. Stop returns them to normal.', { warn: true, ms: 9000 });
+    }
+    globalThis.sessionStorage?.removeItem?.(OWN_RELOAD);
     if (running !== wasActive) { wasActive = running; S.subscribe?.(); S.emit('calibration', running); }
     S.emit('calprogress', C.st);
     if (!open) { S.markDirty(); return; }
@@ -437,7 +446,7 @@ export function createCalibrate(S, root) {
     else if (!active) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
-      parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm. This changes the real lights until you stop.</p>`);
+      parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point on the house. Move the white pixel onto the real corner, then confirm.</p>${warningHTML('This changes the real lights until you stop.')}`);
       parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
@@ -457,7 +466,7 @@ export function createCalibrate(S, root) {
         const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
         if (!isGap) parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout puts it` : 'Not moved yet: still where the layout puts it'}</span></div>`);
         parts.push(nav());
-        parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : 'Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.'}</p>`);
+        parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : 'Move the real white pixel onto the circled corner.'}</p>`);
         const was = $$('#caBody details.tech'), wasIds = $$('#caBody details.ids');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Test pixel</th><td>${c.index < 0 ? '—' : `Pixel ${c.index} on ${esc(controllerName(g, c.controller))}`}</td></tr>
@@ -480,6 +489,7 @@ export function createCalibrate(S, root) {
       for (const w of st.checks || []) parts.push(warningHTML(humanText(g, w)));
       const nudgeOff = !c || c.fixed || c.index < 0;
       for (const b of root.querySelectorAll('[data-by]')) b.disabled = nudgeOff;
+      $$('#caHow').hidden = nudgeOff;
       const confirmable = st.target && st.target.kind !== 'bands' && st.target.kind !== 'gap';
       $$('#caConfirm').disabled = !confirmable;
       const why = dockReason(st.target, c);
