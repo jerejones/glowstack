@@ -320,8 +320,8 @@ export function createLooks(S, root) {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'preset';
-    b.title = title || '';
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}Previewing</span>`;
+    b.title = title || name;
+    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}<span>Previewing</span></span>`;
     b.dataset.look = look;
     b.onclick = onclick;
     return b;

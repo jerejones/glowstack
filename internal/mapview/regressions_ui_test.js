@@ -1412,3 +1412,16 @@ test('desktop footer keeps to the panel bottom; legend folds; boot has the tab i
   assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-h2\)/);
   assert.match(css, /text-wrap: balance/);
 });
+
+test('B93: a preset card has no reserved row, and its name is the largest text', () => {
+  assert.doesNotMatch(css, /\.tab \.sub \{/, "Setup's heading rule must not reach the cards' type line");
+  assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{/);
+  assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\)/, 'the name takes the heading size');
+  assert.match(css, /--t-meta: 14px/);
+  assert.match(css, /--t-h3: 15px/, 'above the type line on desktop as well');
+  const oneLine = /\.preset \.name, \.preset \.sub, \.preset \.in-badge \{[^}]*\}/.exec(css)[0];
+  assert.match(oneLine, /white-space: nowrap/);
+  assert.match(oneLine, /text-overflow: ellipsis/);
+  assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ min-height: 1\.4em;/, 'Previewing takes the type line\'s slot');
+  assert.match(css, /\.cards \{[^}]*grid-auto-rows: 1fr/, 'every card in a grid is one height');
+});
