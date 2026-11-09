@@ -420,7 +420,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .target-btn b { min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .target-picker { position: absolute; z-index: 4; top: calc(100% + 4px); left: 0; right: 0; display: grid; gap: 6px; padding: 8px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
 .target-picker.up { top: auto; bottom: calc(100% + 4px); }
-.target-list { overflow-y: auto; overscroll-behavior: contain; }
+.target-list { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
 .target-picker input { width: 100%; }
 .target-group { padding: 8px 0; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
@@ -652,6 +652,12 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); }
   .cal-prog { max-height: 220px; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
+}
+
+/* With the panel at the side, the footer keeps to the bottom on a short tab. */
+@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
+  #tab-looks { display: flex; flex-direction: column; min-height: calc(100% + var(--content-bottom)); margin-bottom: calc(-1 * var(--content-bottom)); }
+  #tab-looks > .look-bar { margin-top: auto; }
 }
 
 /* Beside the map the progress list takes whatever the panel has left. */
