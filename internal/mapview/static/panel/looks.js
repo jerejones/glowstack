@@ -241,7 +241,7 @@ export function createLooks(S, root) {
       </div>
       <div class="lib-filters">
         <div class="seg" id="lkFilter" role="group" aria-label="Which looks to list"><button type="button" data-filter="pinned">Pinned</button><button type="button" data-filter="presets">All presets</button><button type="button" data-filter="effects">Effects</button></div>
-        ${textField({ ariaLabel: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Find a look' })}
+        ${textField({ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks' })}
       </div>
       <div class="cards" id="lkPresets"></div>
       <details class="words" id="lkWords"><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>

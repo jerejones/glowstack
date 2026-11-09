@@ -471,7 +471,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .library { margin-top: 4px; }
 .lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 8px; }
 .lib-filters .seg { flex: none; width: auto; }
-.lib-filters .field { flex: 1 1 90px; margin: 0; min-width: 0; gap: 0; }
+.lib-filters .field { flex: 1 1 100%; margin: 0; min-width: 0; } /* one search field on Looks and Presets: its own row, full width */
 .lib-filters .field input { width: 100%; }
 #lkWords { margin-top: 12px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }

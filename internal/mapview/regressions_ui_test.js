@@ -2286,3 +2286,9 @@ test('Preview, Pin and More share one button style; Pinned keeps its state', () 
   assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ color: var\(--accent\); border-color: var\(--accent\); \}/);
   assert.match(read('panel/presets.js'), /icon\(p\.pinned \? 'pinFilled' : 'pin'\)/);
 });
+
+test('search fields are one pattern on Looks and Presets', () => {
+  assert.match(read('panel/looks.js'), /textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks' \}\)/);
+  assert.match(read('panel/presets.js'), /textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' \}\)/);
+  assert.match(css, /\.lib-filters \.field \{ flex: 1 1 100%;/, 'the full width of the panel, like Presets');
+});
