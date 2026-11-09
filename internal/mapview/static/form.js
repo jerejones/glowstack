@@ -425,7 +425,7 @@ export function createForm(ctx) {
   }
 
   function paletteSelect(get, set) {
-    const choices = () => (S.palettes || []).map((p) => ({ value: p.id, label: p.name, swatch: paletteStrip(S, p.id, effect.id, Array.isArray(vals.colors) ? vals.colors : []) }));
+    const choices = () => (S.palettes || []).map((p) => ({ value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch: paletteStrip(S, p.id, effect.id, Array.isArray(vals.colors) ? vals.colors : []) }));
     const s = createPicker(choices());
     const sync = () => {
       if (s.isOpen) return;
@@ -507,9 +507,9 @@ export function createForm(ctx) {
       case 'list': return listEditor(p, get, set, from);
     }
     if (QTY.has(p.type)) {
-      return textInput(get, set, (s) => Number.isFinite(parseQty(p.type, s, ctx.pitch)), String(p.default ?? ''));
+      return textInput(get, set, (s) => Number.isFinite(parseQty(p.type, s, ctx.pitch)), String(p.default ?? 'Default'));
     }
-    return textInput(get, set, (s) => (p.type === 'int' || p.type === 'seed' ? /^-?\d+$/.test(s) : Number.isFinite(Number(s)) || p.type === 'string'), String(p.default ?? ''));
+    return textInput(get, set, (s) => (p.type === 'int' || p.type === 'seed' ? /^-?\d+$/.test(s) : Number.isFinite(Number(s)) || p.type === 'string'), String(p.default ?? 'Default'));
   }
 
   // colorsList edits a list of colors from index from; earlier ones are

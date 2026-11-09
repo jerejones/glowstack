@@ -243,14 +243,14 @@ const (
 var CommonParams = []Param{
 	{Name: ParamMapping, Type: TMapping, Default: "", Doc: "which coordinates to use; default the zone's mapping"},
 	{Name: ParamReverse, Type: TBool, Default: false, Doc: "flip direction"},
-	{Name: ParamOffset, Type: TLength, Default: "0", Doc: "shift along u"},
+	{Name: ParamOffset, Type: TLength, Default: "0", Doc: "shift along the lights"},
 	{Name: ParamBrightness, Type: TFraction, Default: 1.0, Doc: "layer brightness"},
 	{Name: ParamOpacity, Type: TFraction, Default: 1.0, Doc: "blend amount"},
 	{Name: ParamBlend, Type: TEnum, Default: BlendOver, Enum: []string{BlendReplace, BlendOver, BlendAdd, BlendMax, BlendMultiply}},
 	{Name: ParamWhite, Type: TEnum, Default: WhiteExplicit, Enum: []string{WhiteExplicit, WhiteNone, WhiteBrighter, WhiteAccurate}},
 	{Name: ParamSmooth, Type: TBool, Default: true, Doc: "sub-pixel rendering for slow motion"},
-	{Name: ParamFadeIn, Type: TDuration, Doc: "fade-in time; default from glowstack.yaml"},
-	{Name: ParamFadeOut, Type: TDuration, Doc: "fade-out time; default from glowstack.yaml"},
+	{Name: ParamFadeIn, Type: TDuration, Doc: "fade-in time; blank uses the site's default"},
+	{Name: ParamFadeOut, Type: TDuration, Doc: "fade-out time; blank uses the site's default"},
 }
 
 // IsCommon reports whether name is a common parameter.

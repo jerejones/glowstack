@@ -30,7 +30,7 @@ func Chase() *render.Def {
 		Params: []render.Param{
 			{Name: "width", Type: render.TLength, Default: "0.2 m"},
 			{Name: "spacing", Type: render.TLength, Default: "1 m", Doc: "from one pulse to the next"},
-			{Name: "speed", Type: render.TSpeed, Default: "0.5 m/s", Doc: "along u; negative moves backwards"},
+			{Name: "speed", Type: render.TSpeed, Default: "0.5 m/s", Doc: "along the lights; negative moves backwards"},
 			{Name: "colors", Type: render.TColors, Default: []any{"#ffffff"}, Doc: "pulse colors, in turn"},
 			{Name: "tail", Type: render.TLength, Default: "0 m", Doc: "fading trail behind each pulse"},
 			{Name: "spill_tail", Type: render.TNumber, Default: 1.0, Doc: "on a route's spill, the tail is this many times as long"},

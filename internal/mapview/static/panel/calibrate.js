@@ -155,7 +155,7 @@ export function calCount(st) {
 // visited in any order, so it says its place and its own state, never a
 // count that could be read against the number done.
 export function stepPlace(index, item) {
-  return `Step ${index + 1} in the list · ${item.done ? 'done' : 'not done yet'}`;
+  return `Step ${index + 1} · ${item.done ? 'done' : 'not done yet'}`;
 }
 
 // partName is an anchor's name within its run: the run's name is on the
@@ -355,7 +355,7 @@ export function createCalibrate(S, root) {
         const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
         parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
-        parts.push('<p class="cal-how">Move the real white pixel onto the circled corner.<br>+ goes toward the end of the run.</p>');
+        parts.push('<p class="cal-how">Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.</p>');
         const was = $$('#caBody details.tech');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
@@ -364,7 +364,7 @@ export function createCalibrate(S, root) {
           ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
       }
       if (st.target && st.target.kind === 'gap') {
-        parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9"></label><button type="submit">Confirm length</button></form>`);
+        parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9" placeholder="2.5 m"></label><button type="submit">Confirm length</button></form>`);
       }
       const tr = st.target && (st.target.run || (c && c.run));
       // Navigation on one row, utilities on the next, by design.

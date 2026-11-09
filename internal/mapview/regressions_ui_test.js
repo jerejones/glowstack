@@ -101,7 +101,7 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   const { calCount, stepPlace } = await import('./static/panel/calibrate.js');
   const st = { anchors: 2, measured: 1, progress: [{ done: true }, { done: false }, { done: false }] };
   assert.equal(calCount(st).text, '1 of 3 steps done');
-  assert.equal(stepPlace(1, { done: false }), 'Step 2 in the list · not done yet');
+  assert.equal(stepPlace(1, { done: false }), 'Step 2 · not done yet');
   assert.doesNotMatch(stepPlace(1, { done: true }), / of /, 'visited out of order, "step N of M" read as a count');
   const setup = read('panel/setup.js');
   assert.match(setup, /calCount\(st\)/);
@@ -176,7 +176,7 @@ function overlayFor(extra = {}) {
     const overlay = createOverlay(S);
     overlay.st.nodes = overlay.st.labels = true;
     const out = { plates: 0, texts: [] };
-    const ctx = { fillRect() { out.plates++; }, rect() {}, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, fillText(t) { out.texts.push(t); }, measureText: (t) => ({ width: t.length * 6 }) };
+    const ctx = { fillRect() { out.plates++; }, strokeRect() {}, rect() {}, beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, fillText(t) { out.texts.push(t); }, measureText: (t) => ({ width: t.length * 6 }) };
     return { overlay, ctx, out };
   });
 }
@@ -437,4 +437,51 @@ test('the status run list leads with problems and never offers Calibrate on a ru
 
 test('an open After limiting disclosure survives the poll', () => {
   assert.match(read('panel/status.js'), /wasOpen = box\.querySelector\('details'\)\?\.open/);
+});
+
+test('a look on an area covering everything counts as the same place as All', async () => {
+  const { lookAction } = await import('./static/panel/looks.js');
+  const layers = [{ id: 'p1', target: 'all', preset: 'warm', params: {} }];
+  const same = (a, b) => ['all', 'everything'].includes(a) && ['all', 'everything'].includes(b);
+  assert.deepEqual(lookAction(layers, 'everything', { preset: 'warm' }, {}, same), { remove: 'p1' });
+  assert.deepEqual(lookAction(layers, 'everything', { preset: 'warm' }), { add: true });
+});
+
+test('Apply offers Replace only for layers the preview would cover completely', async () => {
+  const { replacedBy } = await import('./static/panel/looks.js');
+  const areas = { all: [[0, 99]], left: [[0, 49]], right: [[50, 99]], gapped: [[0, 10], [60, 70]] };
+  const rangesOf = (t) => areas[t] || null;
+  const house = [{ id: 'a', target: 'left' }, { id: 'b', target: 'right' }, { id: 'c', target: 'gone' }];
+  assert.deepEqual(replacedBy(house, [{ target: 'all' }], rangesOf).map((l) => l.id), ['a', 'b']);
+  assert.deepEqual(replacedBy(house, [{ target: 'left' }], rangesOf).map((l) => l.id), ['a']);
+  assert.deepEqual(replacedBy(house, [{ target: 'gapped' }], rangesOf), []);
+  assert.deepEqual(replacedBy(house, [{ target: 'left' }, { target: 'right' }], rangesOf).map((l) => l.id), ['a', 'b'], 'two halves cover both');
+  assert.deepEqual(replacedBy(house, [{ target: 'all' }], rangesOf, new Set(['a'])).map((l) => l.id), ['b'], 'an original is already being replaced');
+});
+
+test('labels never share pixels, and spacing labels at 1.00 stay off by default', async () => {
+  const src = read('overlay.js');
+  assert.match(src, /placed\.some\(\(b\) => hit\(box, b, 1\)\)/);
+  assert.match(src, /s\.toFixed\(2\) === '1\.00' && !st\.evenSpacing/);
+  assert.match(src, /evenSpacing: false/);
+});
+
+test('no segment wraps, the five map colors leave no orphan, and checkboxes are styled', () => {
+  const css = read('ui.css');
+  assert.match(css, /\.seg > button \{[^}]*white-space: nowrap/);
+  assert.match(css, /\.seg\.grid > button:nth-child\(-n\+2\) \{ grid-column: span 3/);
+  assert.match(css, /input\[type=checkbox\] \{[^}]*appearance: none/);
+});
+
+test('internals stay off the screen', () => {
+  assert.match(read('form.js'), /p\.name\.replace\(\/\^\\\*\\s\*\/, ''\)/);
+  for (const f of ['panel/setup.js', 'util.js']) assert.doesNotMatch(read(f), /glowstack\.yaml/, f);
+  assert.doesNotMatch(read('panel/calibrate.js'), /\+ goes toward the end/);
+});
+
+test('every lit pixel outweighs the model, and unlit ones keep their outline', () => {
+  const scene = read('scene.js');
+  assert.match(scene, /lit \? clamp\(s \* 1\.5/);
+  assert.match(scene, /subdue\(anyLit\(/);
+  assert.match(read('plan.js'), /Unlit: a dim outline/);
 });

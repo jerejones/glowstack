@@ -335,6 +335,6 @@ export async function copyText(text) {
   let ok = false;
   try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
   ta.remove();
-  if (!ok) prompt('Copy this into glowstack.yaml:', text);
+  if (!ok) prompt('Copy these camera settings:', text);
   return ok;
 }

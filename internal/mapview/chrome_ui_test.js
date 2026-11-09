@@ -87,7 +87,7 @@ test('the palette passes AA, including the primary action in every state', () =>
 test('secondary text passes AA on every pressed and raised surface', () => {
   const raised = token('muted-raised');
   assert.match(css, /button\.on, \.toast, \.cal-prog li\.here, \.cal-prog li:hover \{ --muted: var\(--muted-raised\); \}/);
-  const surfaces = [...css.matchAll(/([^{}\n]*(?:\.on|\.here|li:hover)[^{}\n]*)\{[^}]*background: (#[0-9a-f]{6})/g)].filter((m) => !m[1].includes('.crumbs'));
+  const surfaces = [...css.matchAll(/([^{}\n]*(?:\.on|\.here|li:hover)[^{}\n]*)\{[^}]*background: (#[0-9a-f]{6}|var\(--on\))/g)].filter((m) => !m[1].includes('.crumbs')).map((m) => [m[0], m[1], m[2] === 'var(--on)' ? token('on') : m[2]]);
   assert.ok(surfaces.length >= 5, surfaces.length + ' surfaces');
   for (const [, sel, bg] of [...surfaces, ['', '.toast', '#20242c']]) assert.ok(contrast(raised, bg) >= 4.5, `${sel.trim()} ${bg}`);
   assert.ok(contrast(token('house'), '#262c36') >= 4.5, 'a done step while current');

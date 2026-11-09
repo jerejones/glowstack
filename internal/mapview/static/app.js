@@ -25,7 +25,7 @@ import { createHousePoll } from './house-status.js';
 import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
-import { stateHTML, bootFailure } from './states.js';
+import { stateHTML, showState, bootFailure } from './states.js';
 import { frameInsets, toastBottom } from './map-frame.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
 import { showingLabel } from './form.js';
@@ -528,10 +528,13 @@ S.streamRate = streamRate;
 
 S.labelAvoid = () => {
   const stage = $('stage').getBoundingClientRect();
-  return ['legend', 'mapControls', 'chips', 'crumbs', 'inspectCard'].filter((id) => !$(id).hidden).map((id) => {
+  const rects = ['legend', 'mapControls', 'chips', 'crumbs', 'inspectCard', 'calibrate'].filter((id) => !$(id).hidden).map((id) => {
     const r = $(id).getBoundingClientRect();
     return { x0: r.left - stage.left, x1: r.right - stage.left, y0: r.top - stage.top, y1: r.bottom - stage.top };
   });
+  // Where the sheet ends up, not where its animation has got to.
+  if (S.panel.layout() === 'sheet' && !S.calibrating) rects.push({ x0: 0, x1: stage.width, y0: stage.height - S.panel.covered(), y1: stage.height });
+  return rects;
 };
 S.refreshBadge = badge;
 let badgeShown = false;
@@ -615,12 +618,14 @@ function bindChrome() {
 
 function onLayout() {
   resize();
+  if (!S.view) return;
   renderInspect();
   S.emit('layout', S.panel.layout());
 }
 
 let fullHold = null;
 function onDetent(d) {
+  if (!S.view) return; // still loading
   placeCrumbs(); // setInsets reads where the crumbs are
   if (d === 'full' && !fullHold) {
     fullHold = S.view.hold();
@@ -643,6 +648,9 @@ async function main() {
   const q = new URLSearchParams(location.search);
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
+  // The panel first, so loading shows the active tab with a state in it.
+  S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
+  showState($('tab-' + S.panel.tab()), { kind: 'loading', title: 'Loading…' });
   S.geo = await api('/api/map/geometry');
   geometrySignature = geometryKey(S.geo);
   S.visibility = runVisibility(S.geo, S.allRuns);
@@ -653,7 +661,6 @@ async function main() {
   // A failed load stays recorded; each panel shows it with Retry.
   S.retryLibrary = async () => { await loadLibrary(); S.emit('presets'); };
   bootStep = 'set up the page';
-  S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
   S.overlay = createOverlay(S);
   S.looks = createLooks(S, $('tab-looks'));
   S.presetLibrary = createPresets(S, $('tab-presets'));

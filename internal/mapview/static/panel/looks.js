@@ -54,7 +54,8 @@ export function previewState(preview, status, word = 'Tap') {
 export function houseState(status, count) {
   const title = houseStatusMessage(status, count);
   if (!title) return null;
-  return { kind: status === 'unavailable' ? 'error' : status === 'available' ? 'empty' : 'loading', title };
+  if (status === 'unavailable') return { kind: 'error', title, detail: "Glowstack didn't answer. The lights are not affected." };
+  return { kind: status === 'available' ? 'empty' : 'loading', title };
 }
 
 // lookKey says which look a layer (or a card's look) is.
@@ -63,11 +64,34 @@ export const lookKey = (l) => (l.preset ? 'preset:' + l.preset : 'effect:' + l.e
 // lookAction is what tapping a look does, given the preview's layers: add
 // it, or, when the target already has it, take it back off. A layer that
 // has been tweaked isn't thrown away by a tap: it is focused instead.
-export function lookAction(layers, target, look, copies = {}) {
+// sameTarget says two targets are the same lights.
+export function lookAction(layers, target, look, copies = {}, sameTarget = (a, b) => a === b) {
   const key = lookKey(look);
-  const same = layers.find((l) => l.target === target && lookKey(l) === key);
+  const same = layers.find((l) => sameTarget(l.target, target) && lookKey(l) === key);
   if (!same) return { add: true };
   return copies[same.id] || Object.keys(same.params || {}).length ? { focus: same.id } : { remove: same.id };
+}
+
+// replacedBy lists the lights' layers the preview would hide completely:
+// every one of their pixels is under a preview layer. rangesOf gives a
+// target's pixels as [first, last] pairs; originals are layers the preview
+// already stands in for, which Apply removes anyway.
+export function replacedBy(house, preview, rangesOf, originals = new Set()) {
+  const covers = (ranges, [a, b]) => {
+    let next = a;
+    for (const [x, y] of [...ranges].sort((p, q) => p[0] - q[0])) {
+      if (x > next) return false;
+      next = Math.max(next, y + 1);
+      if (next > b) return true;
+    }
+    return false;
+  };
+  const over = preview.flatMap((l) => rangesOf(l.target) || []);
+  return house.filter((l) => {
+    if (originals.has(l.id)) return false;
+    const rs = rangesOf(l.target);
+    return rs && rs.length && rs.every((r) => covers(over, r));
+  });
 }
 
 export function createLooks(S, root) {
@@ -104,9 +128,11 @@ export function createLooks(S, root) {
       <button type="button" class="quiet icon-btn" id="lkClockMore" aria-expanded="false" title="Clock controls" aria-label="Clock controls"></button>
     </div>
     <div class="clock-more" id="lkClockPanel" hidden>
-      <button type="button" id="lkBack" class="icon-btn" title="Step back one frame" aria-label="Step back one frame">${icon('stepBack')}</button>
-      <span class="muted">Step one frame</span>
-      <button type="button" id="lkFwd" class="icon-btn" title="Step forward one frame" aria-label="Step forward one frame">${icon('stepForward')}</button>
+      <div class="step-pair" role="group" aria-label="Step one frame">
+        <button type="button" id="lkBack" class="icon-btn" title="Step back one frame" aria-label="Step back one frame">${icon('stepBack')}</button>
+        <button type="button" id="lkFwd" class="icon-btn" title="Step forward one frame" aria-label="Step forward one frame">${icon('stepForward')}</button>
+        <span class="muted">Step one frame</span>
+      </div>
       <span>Speed</span><input type="range" id="lkSpeed" min="-1" max="1" step="0.01" value="0"><output id="lkSpeedOut">1×</output>
       <span>Scrub</span><input type="range" id="lkScrub" min="-30" max="30" step="0.02" value="0"><span class="muted small">±30 s</span>
       <span></span><button type="button" id="lkLive" title="Back in step with the lights">Now</button><span></span>
@@ -114,8 +140,11 @@ export function createLooks(S, root) {
     <div class="look-bar" id="lkBar" hidden>
       <span class="strip" id="lkBarStrip"></span>
       <div class="what"><b id="lkBarName"></b><span id="lkBarSub"></span></div>
-      <button type="button" id="lkClear" title="Remove every look from the preview; the lights don't change">Clear preview</button>
-      <button type="button" class="go" id="lkPushAll" title="Move what's in preview onto the lights">Apply to lights</button>
+      <div class="look-acts">
+        <button type="button" id="lkClear" title="Remove every look from the preview; the lights don't change">Clear preview</button>
+        <button type="button" id="lkAdd" hidden title="Put this on the lights above what's already there">Add on top</button>
+        <button type="button" class="go" id="lkPushAll">Apply to lights</button>
+      </div>
     </div>`;
   const $$ = (sel) => root.querySelector(sel);
 
@@ -128,6 +157,8 @@ export function createLooks(S, root) {
     return target && targetRanges(g, S.tree, target) ? target : 'all';
   }
   const picker = $$('#lkPicker'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch');
+  const targetKey = (t) => JSON.stringify(targetRanges(g, S.tree, t));
+  const sameTarget = (a, b) => a === b || targetKey(a) === targetKey(b);
   function fillTargets() {
     const t = currentTarget();
     $$('#lkTargetName').textContent = S.sel ? nodeName(S.sel.node) : targetName(g, t);
@@ -142,7 +173,7 @@ export function createLooks(S, root) {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = it.label;
-        press(b, it.value === t);
+        press(b, sameTarget(it.value, t));
         b.onclick = () => choose(it.value);
         return b;
       }));
@@ -220,8 +251,8 @@ export function createLooks(S, root) {
   function markPreviewed() {
     const t = currentTarget();
     const layers = S.preview ? S.preview.layers : [];
-    const on = new Set(layers.filter((l) => l.target === t).map(lookKey));
-    const elsewhere = new Set(layers.filter((l) => l.target !== t).map(lookKey));
+    const on = new Set(layers.filter((l) => sameTarget(l.target, t)).map(lookKey));
+    const elsewhere = new Set(layers.filter((l) => !sameTarget(l.target, t)).map(lookKey));
     for (const b of root.querySelectorAll('.preset')) {
       const inPreview = on.has(b.dataset.look), other = !inPreview && elsewhere.has(b.dataset.look);
       b.classList.toggle('in-preview', inPreview);
@@ -249,7 +280,7 @@ export function createLooks(S, root) {
     if (!t || tapping.has(key)) return;
     tapping.add(key);
     try {
-      const act = lookAction(S.preview ? S.preview.layers : [], t, look, copies);
+      const act = lookAction(S.preview ? S.preview.layers : [], t, look, copies, sameTarget);
       if (act.focus) { focusLayer(act.focus); return; }
       if (act.remove) await del('/api/map/preview/layers/' + encodeURIComponent(act.remove));
       else {
@@ -433,6 +464,7 @@ export function createLooks(S, root) {
   }
   // renderBar keeps what's in preview, and the way to apply it, in view
   // however far the lists scroll. It is the one primary action here.
+  let hidden = []; // the lights' layers that Apply would replace
   function renderBar(prev) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
@@ -445,7 +477,13 @@ export function createLooks(S, root) {
     $$('#lkBarName').textContent = prev.length === 1 ? layerName(S, l) : `${prev.length} looks in preview`;
     $$('#lkBarSub').textContent = prev.length === 1 ? 'in preview' : prev.map((x) => layerName(S, x)).join(', ');
     const updates = prev.some((x) => copies[x.id]);
-    $$('#lkPushAll').textContent = updates ? 'Update lights' : prev.length === 1 ? 'Apply to lights' : `Apply ${prev.length} to lights`;
+    const n = prev.length === 1 ? '' : prev.length + ' ';
+    hidden = updates ? [] : replacedBy(S.house.filter((x) => !x.ephemeral), prev, (t) => targetRanges(g, S.tree, t), new Set(Object.values(copies)));
+    $$('#lkAdd').hidden = !hidden.length;
+    $$('#lkPushAll').textContent = updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`;
+    $$('#lkPushAll').title = updates ? 'Put your changes on the lights in place of the original'
+      : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`
+        : "Adds this to the lights; whatever is on them stays underneath";
   }
   const forget = (id) => { if (copies[id]) { delete copies[id]; save(COPIES, copies); } };
 
@@ -496,17 +534,19 @@ export function createLooks(S, root) {
 
   // apply promotes preview layers (all with ids empty) onto the lights,
   // then removes the lights layers the promoted copies stand in for.
-  async function apply(ids) {
+  async function apply(ids, replace = []) {
     const list = ids.length ? ids : (S.preview ? S.preview.layers.map((l) => l.id) : []);
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
     } catch (e) { S.fail('apply the look', e); await S.refresh(); return; }
     openPicker(false); // the result, not the list of places, is what to see
-    const replaced = [];
+    const replaced = [], replaceIds = replace.map((l) => l.id);
     for (const id of list) {
       const orig = copies[id];
       forget(id);
-      if (!orig) continue;
+      if (orig) replaceIds.push(orig);
+    }
+    for (const orig of replaceIds) {
       try { await del('/api/v1/layers/' + encodeURIComponent(orig)); replaced.push(orig); } catch (e) { if (e.status !== 404) S.fail('remove the look it replaces', e); }
     }
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
@@ -517,7 +557,8 @@ export function createLooks(S, root) {
     const dark = darkMessage([...new Set(S.house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
     if (dark) S.toast(dark, { ms: 9000, warn: true });
   }
-  $$('#lkPushAll').onclick = () => apply([]);
+  $$('#lkPushAll').onclick = () => apply([], hidden);
+  $$('#lkAdd').onclick = () => apply([]);
   $$('#lkClear').onclick = async () => {
     try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.fail('clear the preview', e); }
   };
@@ -592,6 +633,9 @@ export function createLooks(S, root) {
   renderCatalog();
 
   return {
+    push,
+    // inPreview says a preset is in the preview on the current target.
+    inPreview: (preset) => (S.preview ? S.preview.layers : []).some((l) => l.preset === preset && sameTarget(l.target, currentTarget())),
     togglePause: () => control({ action: S.preview && S.preview.paused ? 'resume' : 'pause' }),
     fmtClock: () => $$('#lkClockText').textContent,
   };

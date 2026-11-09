@@ -60,9 +60,12 @@ export function createPresets(S, root) {
       const row = document.createElement('article'); row.className = 'preset-entry';
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
       row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? `${effect.name || effect.id} · ${effectKind(effect)}` : p.effect)}</span></div><div class="preset-actions">
+        <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
         <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'presetsFilled' : 'presets')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <button type="button" data-act="edit">Edit</button><button type="button" data-act="copy">Duplicate</button><button type="button" data-act="delete" class="danger">Delete</button></div>`;
       row.querySelector('.strip').style.background = lookStrip(S, p.effect, p.params);
+      row.querySelector('[data-act=try]').dataset.preset = p.id;
+      row.querySelector('[data-act=try]').onclick = () => S.looks.push({ preset: p.id });
       row.querySelector('[data-act=edit]').onclick = () => openEditor(p);
       row.querySelector('[data-act=copy]').onclick = () => openEditor({ ...p, id: '', name: `${presetName(p)} copy`, pinned: false });
       row.querySelector('[data-act=pin]').onclick = async () => {
@@ -89,6 +92,7 @@ export function createPresets(S, root) {
       box.append(row);
     }
     if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? 'No matching presets' : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.' });
+    markTry();
     if (busy) setBusy(true);
   }
   const markName = (bad) => { if (bad) $('#prName').setAttribute('aria-invalid', 'true'); else $('#prName').removeAttribute('aria-invalid'); };
@@ -152,6 +156,16 @@ export function createPresets(S, root) {
   }
   $('#prNew').onclick = () => openEditor();
   $('#prSearch').oninput = renderList;
+  // markTry shows which presets are in the preview, as on Looks.
+  function markTry() {
+    for (const b of root.querySelectorAll('[data-act=try]')) {
+      const on = !!S.looks?.inPreview(b.dataset.preset);
+      b.textContent = on ? 'Trying' : 'Try';
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  S.on('preview', markTry);
+  S.on('select', markTry);
   S.on('presets', renderList);
   S.on('tab', (name) => { if (name === 'presets' || name === 'looks') S.refreshPresets().catch((e) => say(failure('refresh the presets', e))); });
   addEventListener('beforeunload', (event) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });

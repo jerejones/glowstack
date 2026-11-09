@@ -22,7 +22,7 @@ func Gradient() *render.Def {
 			{Name: "palette", Type: render.TPalette, Default: "Default", Doc: "Default is Rainbow"},
 			colorsParam("colors for the color palettes (* Color 1, …)"),
 			{Name: "span", Type: render.TLength, Default: "2 m", Doc: "length of one full palette cycle"},
-			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "along u; negative moves backwards"},
+			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "along the lights; negative moves backwards"},
 		},
 		WLED: &render.WLED{FX: 65, Name: "Palette", Bindings: append([]render.Binding{
 			{Slider: render.SliderSpeed, Param: "speed", Curve: render.CurveExp, Min: "0 m/s", Max: "10 m/s"},

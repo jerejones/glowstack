@@ -20,42 +20,42 @@ export function createSetup(S, root) {
   const undrawn = g.runs.filter((r) => r.plan < 0);
   root.innerHTML = `
     <h1 class="title">Set up the map</h1>
-    <div class="section">
+    <section class="setup-cal">
       <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
       <div class="row"><button type="button" id="suCal" class="go grow">Calibrate</button></div>
       <div class="muted small" id="suCalN"></div>
-    </div>
-    <h2>Which lights to show</h2>
+    </section>
+    <h2>Map display</h2>
+    <h3 class="sub">Which lights to show</h3>
     <div class="seg" id="suRuns" role="group" aria-label="Runs shown">
       <button type="button" data-all="false">Working lights</button>
       <button type="button" data-all="true">All lights</button>
     </div>
     <div class="muted small" id="suRunsCount"></div>
-    <h2>Color the map by</h2>
+    <h3 class="sub">Color the map by</h3>
     <div class="seg grid" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
-    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
+    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(humanize(m.id))}</option>`).join('')}</select></div>
     <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone" aria-label="Zone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
-    <h2>Show on the map</h2>
+    <h3 class="sub">Show on the map</h3>
     <div class="chips" role="group" aria-label="Show on the map">
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
       <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
+      <button type="button" id="suEven" title="Also label runs whose lights are spaced just as drawn" hidden>Even runs too</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
-    <div id="suModel" hidden><h2>Parts of the model</h2><div class="chips" id="suLayers"></div></div>
-    <div id="suPlanRow" hidden><h2>Plan</h2><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
+    <div id="suModel" hidden><h3 class="sub">Parts of the model</h3><div class="chips" id="suLayers"></div></div>
+    <div id="suPlanRow" hidden><h3 class="sub">Plan</h3><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
-      <h2>Camera <small id="suCamMode"></small></h2>
+      <h3 class="sub">Camera <small id="suCamMode"></small></h3>
       <div class="row">
         <button type="button" id="suDefault" title="Forget this device's camera and go back to the site's view">Default</button>
-        <button type="button" id="suCopy" title="Copy this camera as glowstack.yaml map: view">Copy view</button>
+        <button type="button" id="suCopy" title="Copy this camera's settings">Copy view</button>
       </div>
       <div class="muted small">Copy view copies this camera, so it can be set as the view everyone starts from.</div>
     </div>
-    <h2>Map updates</h2>
-    <div class="row"><span class="muted">Update rate</span>
-      <span class="seg" id="suRate">${[[0, 'Max'], [10, '10'], [5, '5'], [1, '1']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</span>
-      <span class="muted">a second</span></div>
+    <h3 class="sub">Map updates</h3>
+    <div class="seg" id="suRate" role="group" aria-label="Map update rate">${[[0, 'Max'], [10, '10/s'], [5, '5/s'], [1, '1/s']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</div>
     <div class="muted small" id="suStream"></div>
     <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
@@ -113,10 +113,13 @@ export function createSetup(S, root) {
     press($$('#suLabels'), ov.st.labels);
     press($$('#suControllers'), ov.st.controllers);
     $$('#suControllers').hidden = !(g.controller_locations || []).length;
+    press($$('#suEven'), ov.st.evenSpacing);
+    $$('#suEven').hidden = ov.st.mode !== 'stretch';
   }
   for (const b of $$('#suModes').children) b.onclick = () => setMode(b.dataset.mode);
   $$('#suMapping').onchange = (e) => { ov.st.mapping = e.target.value; refreshLegend(); };
   $$('#suZone').onchange = (e) => { ov.st.zone = e.target.value; refreshLegend(); };
+  $$('#suEven').onclick = () => { ov.st.evenSpacing = !ov.st.evenSpacing; renderOverlay(); refreshLegend(); };
   $$('#suNodes').onclick = () => { ov.st.nodes = !ov.st.nodes; renderOverlay(); refreshLegend(); };
   $$('#suLabels').onclick = () => { ov.st.labels = !ov.st.labels; renderOverlay(); S.markDirty(); };
   $$('#suControllers').onclick = () => { ov.st.controllers = !ov.st.controllers; renderOverlay(); refreshLegend(); };

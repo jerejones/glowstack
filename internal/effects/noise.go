@@ -35,7 +35,7 @@ func Noise() *render.Def {
 			{Name: "palette", Type: render.TPalette, Default: "Default", Doc: "Default is Party"},
 			colorsParam("colors for the color palettes (* Color 1, …)"),
 			{Name: "scale", Type: render.TLength, Default: "1 m", Measure: render.MeasurePhysical, Doc: "feature size"},
-			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "drift along u (or plan x)"},
+			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "drift along the lights"},
 			{Name: "evolve", Type: render.TRate, Default: "0.2 /s", Doc: "how fast the pattern changes in place"},
 			{Name: "space", Type: render.TEnum, Default: "u", Enum: []string{"u", "xy"}},
 			{Name: "seed", Type: render.TSeed, Default: 0, Doc: "mixed with the layer's seed"},

@@ -39,7 +39,7 @@ func Sparkle() *render.Def {
 			{Name: "decay", Type: render.TDuration, Default: "300 ms", Doc: "fade-out time"},
 			{Name: "color", Type: render.TColor, Default: "#ffffff"},
 			{Name: "palette", Type: render.TPalette, Default: "Default",
-				Doc: "pick each sparkle's color from a palette; Default uses `color`"},
+				Doc: "pick each sparkle's color from a palette; Default uses the Color setting"},
 			{Name: "seed", Type: render.TSeed, Default: 0, Doc: "mixed with the layer's seed"},
 		},
 		WLED: &render.WLED{FX: 20, Name: "Sparkle", Bindings: []render.Binding{

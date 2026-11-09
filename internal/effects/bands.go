@@ -27,16 +27,16 @@ func Bands() *render.Def {
 		Name:   "Bands",
 		Coords: render.CoordU,
 		Params: []render.Param{
-			{Name: "bands", Type: render.TList, Doc: "the repeating sequence, in order of increasing u",
+			{Name: "bands", Type: render.TList, Doc: "the repeating sequence, in order along the lights",
 				Default: []any{
 					map[string]any{"color": "#ffa000", "width": "0.5 m"},
 					map[string]any{"color": "#000000", "width": "0.5 m"},
 				},
 				Fields: []render.Param{
 					{Name: "color", Type: render.TColor, Default: "#ffffff"},
-					{Name: "width", Type: render.TLength, Default: "0.5 m", Doc: "band width; add `physical` to ignore stretch"},
+					{Name: "width", Type: render.TLength, Default: "0.5 m", Doc: "band width; add the word physical to ignore stretched spacing"},
 				}},
-			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "along u; negative moves backwards"},
+			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "along the lights; negative moves backwards"},
 			{Name: "edge", Type: render.TEnum, Default: "hard", Enum: []string{"hard", "soft"}},
 		},
 		WLED: &render.WLED{FX: 83, Name: "Solid Pattern", Bindings: []render.Binding{
