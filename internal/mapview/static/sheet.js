@@ -18,7 +18,7 @@ const PEEK = 68;   // handle (with Expand) and tab bar
 const STRIP = 200; // the map above a full sheet: --strip in ui.css
 const HALF = 0.45; // of the window's height
 const HALF_READING = 0.62; // the same, for tabs that are lists to read
-const READING = new Set(['presets', 'status']);
+const READING = new Set(['presets', 'setup', 'status']);
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
 // guardSelection stops text selection while dragging() says so.

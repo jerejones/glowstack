@@ -1719,3 +1719,7 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
   assert.match(status, /h\.lastSeen && !\(h\.reachable === true && h\.sending === true\)/, 'a healthy row skips Last answered');
   assert.doesNotMatch(status, /kit\.push\(nb\('version/, 'the version moved to the name tooltip');
 });
+
+test('a phone tab opens tall enough to use: Setup reads like Presets and Status', () => {
+  assert.match(read('sheet.js'), /READING = new Set\(\['presets', 'setup', 'status'\]\)/);
+});
