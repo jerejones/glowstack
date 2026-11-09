@@ -1395,3 +1395,20 @@ test('one section heading style, Setup in order, and matching segments', () => {
   assert.match(css, /\.group-head \{ margin: 10px 0 6px; \}/, 'Pinned presets is an h2 like Preview');
   assert.doesNotMatch(css, /\.seg\.five > button \{[^}]*font-size/, 'segments match the 14px segments below');
 });
+
+test('desktop footer keeps to the panel bottom; legend folds; boot has the tab icons; labels fit a phone', async () => {
+  assert.match(css, /#tab-looks > \.look-bar \{ margin-top: auto/);
+  assert.match(read('panel/setup.js'), /legend-toggle/);
+  assert.match(css, /\.legend\.folded > :not\(\.legend-toggle\) \{ display: none/);
+  assert.match(css, /\.target-list \{[^}]*padding-bottom: 12px/, 'the last chips clear the sticky bar');
+  const html = read('index.html');
+  const icons = html.match(/<span class="ico" data-icon="\w+">/g);
+  assert.equal(icons.length, 5);
+  for (const ic of icons) assert.ok(html.includes(ic + '<svg'), ic);
+  const { icon } = await import('./static/icons.js');
+  assert.ok(html.includes(icon('looks')), 'the same drawing the app uses');
+  assert.doesNotMatch(read('panel/presets.js'), /\$\{icon\('more'\)\}More/, 'no three dots beside the word');
+  assert.doesNotMatch(css, /\.color-picker summary::before \{ order: 2/, 'the chevron is a disclosure like the rest');
+  assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-h2\)/);
+  assert.match(css, /text-wrap: balance/);
+});

@@ -502,7 +502,6 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .form .colors { display: flex; width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; align-items: center; }
 .form .color-picker { width: 100%; min-width: 0; }
 .form .color-picker summary { gap: 8px; justify-content: flex-start; }
-.form .color-picker summary::before { order: 2; }
 .form .color-swatch { display: inline-block; width: 32px; height: 28px; border: 1px solid #64748b; border-radius: 7px; }
 .form .f:has(.color-picker[open]) > .ctl, .form .f:has(.picker.open) > .ctl { grid-column: 1 / -1; }
 .form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 1px solid var(--line); border-radius: 10px; }
