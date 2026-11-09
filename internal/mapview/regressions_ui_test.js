@@ -2102,6 +2102,11 @@ test('one word for taking a layer off, Pin matches the Presets tab, and the empt
   assert.match(s.title, /^No preview yet/);
 });
 
+test('More settings keeps controls in one right column with help on one line of the row', () => {
+  assert.match(css, /\.form > details > \.f \{ grid-template-columns: minmax\(0, 8\.5em\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.form \.f \.doc \{ grid-column: 1 \/ -1;/);
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 580px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);
