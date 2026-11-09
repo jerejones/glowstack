@@ -1571,3 +1571,14 @@ test('a layered effect palette reads the colors of its own layer', async () => {
   assert.equal(layerPrefix('palette'), '');
   assert.match(read('form.js'), /value\(`\$\{prefix\}colors`\)/);
 });
+
+test('while a point is measured, marks yield to it and to the controller names', async () => {
+  const { inZones } = await import('./static/overlay.js');
+  const zones = [{ x0: 74, x1: 126, y0: 74, y1: 126 }];
+  assert.equal(inZones([100, 100], zones), true);
+  assert.equal(inZones([200, 100], zones), false);
+  assert.equal(inZones([100, 100], []), false);
+  const src = read('overlay.js');
+  assert.match(src, /inZones\(p\.q, targetZones\) \|\| inZones\(p\.q, nameZones\)/, 'node marks yield to both');
+  assert.match(src, /if \(!q \|\| inZones\(q, targetZones\)\) continue;/, 'a controller yields to the point being measured');
+});

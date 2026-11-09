@@ -47,6 +47,9 @@ export function shortLabel(text, max = NAME_LENGTH) {
   return `${(cut > 0 ? text.slice(0, cut) : text.slice(0, max - 1)).replace(/[\s,;:·/-]+$/, '')}…`;
 }
 
+// inZones says a screen point falls inside one of the boxes that outrank it.
+export const inZones = ([x, y], zones) => zones.some((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1);
+
 // placeLabels picks where each label goes, or leaves it out: highest rank
 // first, the first free spot near where it asked to be. A budget label (a
 // name, a percentage) needs room around it too, and is placed only while
@@ -351,7 +354,7 @@ export function createOverlay(S) {
     for (const c of g.controller_locations || []) {
       if (c.plan !== S.plan) continue;
       const q = at(c.x, c.y, c.z);
-      if (!q) continue;
+      if (!q || inZones(q, targetZones)) continue;
       const cfg = c.controller >= 0 ? g.controllers[c.controller] : null;
       if (cfg && o.mode === 'outputs') {
         ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
@@ -418,6 +421,7 @@ export function createOverlay(S) {
       }
       for (const p of projected) {
         const [x, y] = p.q;
+        if (inZones(p.q, targetZones) || inZones(p.q, nameZones)) continue;
         ctx.fillStyle = sync ? '#f472b6' : '#e5e7eb';
         ctx.beginPath();
         const d = 6 * k;
@@ -438,23 +442,48 @@ export function createOverlay(S) {
 
   // calCursors rings the physical target, not the moving test pixel.
   // The white pixel follows nudges; the target stays on the model corner.
-  function calCursors() {
+  function cursorPoints() {
     const cal = S.cal;
-    if (!S.calibrating || !cal || !cal.active || !cal.cursors) return;
-    cal.cursors.forEach((c, i) => {
-      if (c.index < 0) return;
+    if (!S.calibrating || !cal || !cal.active || !cal.cursors) return [];
+    return cal.cursors.flatMap((c, i) => {
+      if (c.index < 0) return [];
       const ci = g.controllers.findIndex((x) => x.id === c.controller);
-      if (ci < 0) return;
+      if (ci < 0) return [];
       const ni = c.node ? g.nodes.findIndex((n) => n.id === c.node) : -1;
       const occurrence = ni >= 0 ? g.nodes[ni].locations?.find((p) => p.run === c.run && p.plan === S.plan) : null;
       const q = occurrence ? at(occurrence.x, occurrence.y, occurrence.z) : ni >= 0 ? nodeAt(ni)
         : pixelAt(g.controllers[ci].base + (cal.target?.kind === 'end' ? c.estimate : c.index));
-      if (!q) return;
-      const on = i === cal.side;
+      if (!q) return [];
+      const name = ni >= 0 ? g.nodes[ni].name || humanize(c.node) : c.label ? humanize(c.label) : `${controllerName(g, c.controller)}:${c.index}`;
+      return [{ q, on: i === cal.side, name }];
+    });
+  }
+
+  function calCursors(cursors) {
+    for (const { q, on, name } of cursors) {
       if (on) ring(q, 14, 'rgba(13, 14, 16, 0.8)', 6);
       ring(q, on ? 13 : 10, on ? '#22d3ee' : 'rgba(34,211,238,.5)', on ? 3 : 2);
-      if (on) label(ni >= 0 ? g.nodes[ni].name || humanize(c.node) : c.label ? humanize(c.label) : `${controllerName(g, c.controller)}:${c.index}`, q[0] + 18, q[1] - 12, '#a5f3fc', TARGET);
-    });
+      if (on) label(name, q[0] + 18, q[1] - 12, '#a5f3fc', TARGET);
+    }
+  }
+
+  // While a point is measured the map keeps an order: its ring and name,
+  // then the controllers' names, then every other mark. Each gives way to
+  // what outranks it instead of being drawn on top.
+  let targetZones = [], nameZones = [];
+  function reserveZones(cursors, showControllers) {
+    targetZones = cursors.filter((c) => c.on).flatMap(({ q, name }) => [
+      { x0: q[0] - 26, x1: q[0] + 26, y0: q[1] - 26, y1: q[1] + 26 },
+      { x0: q[0] + 12, x1: q[0] + 24 + name.length * 8, y0: q[1] - 30, y1: q[1] + 2 },
+    ]);
+    nameZones = [];
+    if (!targetZones.length || !showControllers) return;
+    for (const c of g.controller_locations || []) {
+      if (c.plan !== S.plan) continue;
+      const q = at(c.x, c.y, c.z);
+      if (!q || inZones(q, targetZones)) continue;
+      nameZones.push({ x0: q[0] - 14, x1: q[0] + 14 + controllerName(g, c.id).length * 7, y0: q[1] - 14, y1: q[1] + 14 });
+    }
   }
 
   // draw paints the overlay items for the view's current projection.
@@ -464,12 +493,14 @@ export function createOverlay(S) {
     if (o.mode === 'flow' && m) { arrows(m); flowLabels(m); }
     if (o.mode === 'stretch' && m) spacingLabels(m);
     if (o.mode === 'outputs') outputStarts();
+    const cursors = cursorPoints();
+    reserveZones(cursors, o.controllers);
     // Measuring one point: every other point steps back.
     ctx.globalAlpha = S.calibrating && S.cal?.active && S.cal.target ? 0.4 : 1;
     if (o.nodes) nodes();
     if (o.controllers) controllers();
     ctx.globalAlpha = 1;
-    calCursors();
+    calCursors(cursors);
     for (const [p, color] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
       if (p < 0) continue;
       const q = pixelAt(p);
