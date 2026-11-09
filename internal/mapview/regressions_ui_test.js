@@ -993,7 +993,7 @@ test('a control boundary is at least 3:1 where it identifies the control', () =>
 test('jargon is gone or explained', async () => {
   const { modelPartLabel } = await import('./static/names.js');
   assert.equal(modelPartLabel('detail-lines', 'lines'), 'Fine detail outline');
-  assert.equal(modelPartLabel('site-lines', 'lines'), 'Ground and site outline');
+  assert.equal(modelPartLabel('site-lines', 'lines'), 'Site outline');
   assert.equal(modelPartLabel('walls-lines', 'lines'), 'Walls outline');
   const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
   assert.doesNotMatch(setup, />Even runs too</);

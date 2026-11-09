@@ -32,7 +32,7 @@ export function controllerLabel(name, location) {
 }
 
 // The model's layer names that say nothing on their own.
-const PART_WORDS = { detail: 'Fine detail', site: 'Ground and site' };
+const PART_WORDS = { detail: 'Fine detail', site: 'Site' };
 
 // modelPartLabel is how a part of the 3-D model reads: "walls-lines" of
 // kind lines is "Walls outline", not its two internal words.

@@ -7,11 +7,28 @@
 // model's drawing layers, the plan, the camera (named views, Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
-import { $, esc, copyText, save, press, failure, plural, count, humanize } from '../util.js';
+import { $, esc, copyText, save, load, press, failure, plural, count, humanize } from '../util.js';
 import { calCount } from './calibrate.js';
 import { controllerName, modelPartLabel } from '../names.js';
 import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
+
+const ADVANCED = 'glowstack.setup.advanced';
+const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
+const MAX_FIT = 64;     // past this the sheet would stop being a half
+
+// halfSpill is how far to move the sheet's edge off the first control it
+// cuts: down past it when that is near, else up above it. Rows are
+// {top, bottom}, edge the height showing. 0 when nothing is cut, or the cut
+// row is too tall to settle on.
+export function halfSpill(rows, edge) {
+  const cut = rows.find((r) => r.top < edge && r.bottom > edge);
+  if (!cut) return 0;
+  const down = Math.ceil(cut.bottom - edge) + 8;
+  if (down <= MAX_FIT) return down;
+  const up = Math.floor(cut.top - edge) - 8;
+  return -up <= MAX_FIT ? up : 0;
+}
 
 export function createSetup(S, root) {
   const g = S.geo;
@@ -25,17 +42,16 @@ export function createSetup(S, root) {
       <div class="row"><button type="button" id="suCal" class="go grow">Calibrate</button></div>
       <div class="muted small" id="suCalN"></div>
     </section>
-    <h2>Map display</h2>
+    <h3 class="sub">Color the map by</h3>
+    <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
+    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(humanize(m.id))}</option>`).join('')}</select></div>
+    <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone" aria-label="Zone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
     <h3 class="sub">Which lights to show</h3>
     <div class="seg" id="suRuns" role="group" aria-label="Runs shown">
       <button type="button" data-all="false">Working lights</button>
       <button type="button" data-all="true">All lights</button>
     </div>
-    <div class="muted small" id="suRunsCount"></div>
-    <h3 class="sub">Color the map by</h3>
-    <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
-    <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping" aria-label="Measured along">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(humanize(m.id))}</option>`).join('')}</select></div>
-    <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone" aria-label="Zone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
+    <div class="muted small help" id="suRunsCount"></div>
     <h3 class="sub">Show on the map</h3>
     <div class="chips toggles" role="group" aria-label="Show on the map">
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
@@ -44,9 +60,10 @@ export function createSetup(S, root) {
       <button type="button" id="suEven" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label evenly spaced runs</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
+    <details id="suAdvanced"><summary>Advanced</summary>
     <div id="suModel" hidden><h3 class="sub">Model detail</h3>
       <div class="seg" id="suDetail" role="group" aria-label="Model detail"><button type="button" data-detail="simple" title="A dim outline, so the lights and targets lead">Simple</button><button type="button" data-detail="full" title="Every line of the model, including what's behind walls">Full detail</button></div>
-      <h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
+      <h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small help">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
     <div id="suPlanRow" hidden><h3 class="sub">Plan</h3><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
       <h3 class="sub">Camera <small id="suCamMode"></small></h3>
@@ -54,17 +71,36 @@ export function createSetup(S, root) {
         <button type="button" id="suDefault" title="Forget this device's camera and go back to the site's view">Default</button>
         <button type="button" id="suCopy" title="Copy this camera's position as text">Copy camera position</button>
       </div>
-      <div class="muted small">Default goes back to the site's view. Copying gives this camera's settings as text, for making it the view every device starts from.</div>
+      <div class="muted small help">Default goes back to the site's view. Copying gives this camera's settings as text, for making it the view every device starts from.</div>
     </div>
     <h3 class="sub">Map updates</h3>
     <div class="seg" id="suRate" role="group" aria-label="Map update rate">${[[0, 'Max'], [10, '10/s'], [5, '5/s'], [1, '1/s']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</div>
-    <div class="muted small" id="suStream"></div>
+    <div class="muted small help" id="suStream"></div>
+    </details>
     <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
     ? undrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('')
     : '<li class="muted">Every light is on the map.</li>'}</ul>`;
   upgradeSelects(root);
   const $$ = (s) => root.querySelector(s);
+  $$('#suAdvanced').open = !!load(ADVANCED, false);
+  $$('#suAdvanced').addEventListener('toggle', () => { save(ADVANCED, $$('#suAdvanced').open); S.panel.refit(); });
+
+  // At half the sheet's edge falls between controls, never through one.
+  S.fitSetupHalf = (base) => {
+    const top = root.getBoundingClientRect().top - root.parentElement.getBoundingClientRect().top;
+    const at = root.getBoundingClientRect().top;
+    const rows = [];
+    let heading = null; // a heading is one row with the control under it
+    for (const el of root.querySelectorAll('h1, .setup-cal, h3.sub, .seg, .chips, .help, #suAdvanced > summary, h2')) {
+      if (!el.offsetHeight) continue;
+      const r = el.getBoundingClientRect(), row = { top: r.top - at + top, bottom: r.bottom - at + top };
+      if (heading) row.top = heading.top;
+      heading = el.matches('h3.sub') ? row : null;
+      if (!heading) rows.push(row);
+    }
+    return base + halfSpill(rows, base - PEEK_CHROME);
+  };
 
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
@@ -172,7 +208,7 @@ export function createSetup(S, root) {
   S.on('stream', renderRate);
 
   S.on('offline', () => { $$('#suCal').disabled = S.offline; });
-  S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); });
+  S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); S.panel.refit(); });
   S.on('tab', (t) => { if (t === 'setup') renderRate(); });
   renderOverlay();
   renderRate();

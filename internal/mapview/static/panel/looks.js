@@ -768,6 +768,7 @@ export function createLooks(S, root) {
   // At half, a card edge meets the Apply bar (or the sheet's edge): no row is
   // left half showing. From the first row that doesn't fit, by what it spills.
   S.panel.fitHalf = (base) => {
+    if (S.panel.tab() === 'setup') return S.fitSetupHalf ? S.fitSetupHalf(base) : base;
     if (S.panel.tab() !== 'looks') return base;
     const content = root.parentElement, top = content.getBoundingClientRect().top - content.scrollTop;
     const shown = base;

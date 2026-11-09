@@ -172,7 +172,7 @@ input[type=checkbox]:checked::after {
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips > button { border-radius: 999px; }
 #suLayers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-#suLayers > button { min-width: 0; overflow-wrap: anywhere; }
+#suLayers > button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* A toggle chip is one box in one slot: empty off, filled and checked on, so
  * its label never moves. Picking a place doesn't need a box at all. */
 .chips.toggles > button::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; border: 1px solid currentColor; border-radius: 3px; }
@@ -509,7 +509,11 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 /* ---------- Setup and Status ---------- */
 .setup-cal { margin: 0 0 16px; padding: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .setup-cal p { margin-top: 0; }
-.tab h3.sub { margin: 14px 0 6px; font-size: var(--t-h3); color: #cbd5e1; }
+.help { margin-top: 6px; }
+#suAdvanced { margin-top: 12px; }
+#suAdvanced > summary { font-weight: 600; }
+/* One rhythm on Setup: 16 above a heading, 6 to its control, 6 to its help. */
+.tab h3.sub { margin: 16px 0 6px; font-size: var(--t-h3); color: #cbd5e1; }
 .nv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .nv > .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
