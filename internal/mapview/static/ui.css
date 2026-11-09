@@ -582,11 +582,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   /* A row is one line until asked: kind, name, where, how bright, a chevron.
    * The Library stays within reach while previewing. */
   .layer { padding: 0 0 0 12px; margin-top: 2px; }
-  .layer .name-line { min-height: var(--tap); }
+  .layer .name-line { min-height: var(--tap); gap: 6px; }
   .layer .row-expand { display: inline-flex; flex: none; width: var(--tap); padding: 0; border: 0; background: transparent; color: var(--muted); }
   .layer.open .row-expand .icon { transform: rotate(180deg); }
   .layer .line-place, .layer .line-level { display: inline; flex: none; color: var(--muted); font-size: var(--t-meta); font-variant-numeric: tabular-nums; }
-  .layer .line-place { flex: 0 1 34%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  .layer .line-place { flex: 0 1 auto; max-width: 30%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
   .layer .name-line .strip, .layer .front { display: none; }
   .layer .name-line b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .layer:not(.open) .controls, .layer:not(.open) .note, .layer:not(.open) .slot { display: none; }

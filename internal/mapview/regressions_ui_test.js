@@ -2412,3 +2412,7 @@ test('an open More settings scrolls inside the panel beside the map', () => {
 test('a layer row gives the slider the width the place does not use', () => {
   assert.match(read('ui.css'), /\.place-row \{[^}]*flex: 0 1 auto; max-width: 41%;/);
 });
+
+test('a phone row gives its name the room the place does not use', () => {
+  assert.match(read('ui.css'), /\.layer \.line-place \{ flex: 0 1 auto; max-width: 30%;/);
+});
