@@ -1425,3 +1425,17 @@ test('B93: a preset card has no reserved row, and its name is the largest text',
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ min-height: 1\.4em;/, 'Previewing takes the type line\'s slot');
   assert.match(css, /\.cards \{[^}]*grid-auto-rows: 1fr/, 'every card in a grid is one height');
 });
+
+test('B90: the chip says connecting until the first socket result, with status data already in', async () => {
+  const { mapStatus, badgeHTML } = await import('./static/map-status.js');
+  const preview = { previewing: true };
+  const waiting = mapStatus({ connected: false, connecting: true, show: '', preview, mode: 'live' });
+  assert.equal(waiting.text, 'connecting…');
+  assert.notEqual(waiting.cls, 'off', 'not red');
+  assert.match(badgeHTML(waiting), /connecting…/);
+  assert.equal(mapStatus({ connected: false, connecting: false, show: '', preview: null }).text, 'Offline', 'lost or refused');
+  assert.equal(mapStatus({ connected: true, connecting: false, show: '', preview }).text, 'Showing your preview');
+  const app = read('app.js');
+  assert.match(app, /connected: S\.connected, connecting: S\.connecting/);
+  assert.match(app, /ws\.onclose = \(\) => \{ S\.connected = false; S\.connecting = false;/, 'a failed first attempt is Offline');
+});

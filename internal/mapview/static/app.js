@@ -50,6 +50,7 @@ const S = {
   show: load(SHOW, '') === 'house' ? 'house' : '',
   frame: { seq: 0, t: 0, preview: false, paused: false },
   connected: false,
+  connecting: true,    // no socket result yet: neither connected nor lost
   stream: null,        // the last "subscribed" message
   fps: load(RATE, 0),  // stream rate asked for; 0 is the server's cap
   preview: null,       // /api/map/preview
@@ -473,8 +474,8 @@ function setOffline(off) {
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/api/map/ws');
   ws.binaryType = 'arraybuffer';
-  ws.onopen = () => { S.connected = true; setOffline(false); subscribe(); };
-  ws.onclose = () => { S.connected = false; badge(); setOffline(true); setTimeout(connect, 1000); };
+  ws.onopen = () => { S.connected = true; S.connecting = false; setOffline(false); subscribe(); };
+  ws.onclose = () => { S.connected = false; S.connecting = false; badge(); setOffline(true); setTimeout(connect, 1000); };
   ws.onmessage = async (e) => {
     const t0 = performance.now();
     if (typeof e.data === 'string') {
@@ -553,7 +554,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed });
+  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed });
   const b = $('badge');
   b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;
@@ -679,6 +680,7 @@ async function startWithoutMap(e) {
   const serverUp = await api('/api/v1/status').then(() => true, (err) => !err.network);
   showMapError('load the map', e, serverUp);
   S.connected = serverUp;
+  S.connecting = false;
   $('mapControls').hidden = true;
   addEventListener('resize', () => { S.panel.refresh(); resize(); badge(); });
   const controllers = await api('/api/v1/controllers').then((r) => r.controllers || [], () => []);

@@ -17,13 +17,16 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // any other calibration step on the real lights, or ''), mode (the Setup
 // color mode, 'live' when the map shows real colors), lit (lightOutcome for
 // the looks on the lights), mapless (the map couldn't be loaded or drawn;
-// the page still answers). The chip follows one rule, on every tab and with
+// the page still answers), connecting (no socket result yet: a first
+// connection hasn't opened or failed). The chip follows one rule, on every tab and with
 // the sheet open or shut: nothing lit never reads as the lights showing.
-export function mapStatus({ connected, show, preview, target, measuring = '', mode = 'live', lit = null, mapless = false }) {
+export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', mode = 'live', lit = null, mapless = false }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
   const toggle = { showing, canPreview: previewing };
+  // Offline is a connection lost or refused; waiting for the first isn't one.
+  if (connecting) return { ...toggle, text: 'connecting…', detail: '', cls: '', title: 'Connecting to Glowstack' };
   if (!connected) return { ...toggle, text: 'Offline', detail: '', cls: 'off', title: 'Not connected to Glowstack. The map may be out of date.' };
   if (mapless) return { ...toggle, text: 'Map unavailable', detail: '', cls: 'off', title: "The map couldn't be loaded. Status and presets still work; use Retry on the map." };
   if (target) return { ...toggle, text: 'Target pattern', detail: '', cls: 'preview', title: 'Fixed reference: adjust the real lights to match' };
