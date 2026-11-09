@@ -35,7 +35,7 @@ export function nodeLocations(g, i, plan) {
 // plan, hover, pinned, cal (the calibration session, or null).
 export function createOverlay(S) {
   const g = S.geo, px = g.pixels, n = px.count;
-  const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: true, legend: '' };
+  const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: false, legend: '' };
   const flows = g.mappings.filter((m) => m.kind === 'flow');
   st.mapping = (flows.find((m) => m.id === g.default_mapping) || flows[0] || g.mappings[0] || {}).id || '';
   st.zone = (g.zones[0] || {}).id || '';

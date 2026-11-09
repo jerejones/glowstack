@@ -175,6 +175,9 @@ test('controller markers: config boards lead to their output inputs, others are 
       moveTo(x,y){ from=[x,y]; }, lineTo(x,y){ out.lines.push([from,[x,y]]); } });
     return out;
   };
+  assert.equal(overlay.st.controllers, false);
+  assert.deepEqual(draw().rects, []);
+  overlay.st.controllers = true;
   let d = draw();
   assert.deepEqual(d.rects, [[2,7],[30,7]]);
   assert.notEqual(d.fills[0], d.fills[1]);
