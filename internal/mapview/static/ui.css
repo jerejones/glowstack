@@ -337,16 +337,12 @@ input[type=checkbox]:checked::after {
   .map-controls { bottom: calc(var(--sheet-visible) + 8px); }
   .legend { display: none; }
   /* The sheet's half detent is short: the looks come first. */
-  body[data-detent=half] .stat:nth-child(n+4) { display: none; }
   .tab h1.title, .tab .looks-head, .tab .library-heading { margin-top: 16px; }
   body[data-detent=half] .tab .looks-head { margin: 8px 0 4px; }
   body[data-detent=half] .now { margin-bottom: 0; }
   body[data-detent=half] .now:not(.idle):not(.stale) small { display: none; }
   .look-bar > .strip { display: none; }
   .look-bar { padding-top: 4px; padding-bottom: 4px; }
-  .run-rows li { flex-wrap: wrap; }
-  .run-rows li .what { flex-basis: 100%; }
-  .run-rows li button { margin-left: auto; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }
@@ -514,7 +510,13 @@ details[open] > summary::before { transform: rotate(90deg); }
 .list-rows li .what { flex: 1; min-width: 0; }
 .list-rows li .what b { display: block; overflow-wrap: anywhere; }
 .list-rows li .val { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
-.list-rows li .what small { display: block; color: var(--muted); }
+.list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-help); }
+.run-rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
+.run-rows .len { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.run-rows .len small { display: block; color: var(--muted); font-size: var(--t-help); }
+#stDiag { margin-top: 12px; }
+.issue-list { list-style: none; margin: 6px 0 0 24px; padding: 0; display: grid; gap: 6px; color: #fcd9a5; }
+.issue-list li { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 .nb { white-space: nowrap; }
 .dev { color: var(--fg); font-size: var(--t-m); }
 .list-rows li.warn .dev { color: var(--warn); }

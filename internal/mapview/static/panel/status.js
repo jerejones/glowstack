@@ -104,6 +104,20 @@ export function powerSummary(pw, name = (id) => id) {
   };
 }
 
+// groupIssues is the warnings as cards: exact repeats dropped, and several
+// spacing warnings folded into one card that lists them, so one kind of
+// problem doesn't read as a wall of amber.
+export function groupIssues(items) {
+  const seen = new Set();
+  const out = items.filter((it) => !seen.has(it.summary) && seen.add(it.summary));
+  const spacing = out.filter((it) => it.kind === 'spacing' && it.fix);
+  if (spacing.length < 2) return out;
+  const at = out.indexOf(spacing[0]);
+  const rest = out.filter((it) => !spacing.includes(it));
+  rest.splice(at, 0, { summary: `The lights are spaced differently than drawn in ${spacing.length} places.`, group: spacing });
+  return rest;
+}
+
 // loadFailure is the failure state for a status read that never worked.
 // Whatever the server's error text was, the person gets words and Retry.
 export function loadFailure(e) {
@@ -147,6 +161,7 @@ export function createStatus(S, root) {
     <ul class="list-rows run-rows" id="stRuns"></ul>
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
+    <details id="stDiag"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
     </div>`;
   const $$ = (s) => root.querySelector(s);
   let last = null, lastAt = 0, shownFailure = false;
@@ -200,12 +215,15 @@ export function createStatus(S, root) {
     if (key === shownIssues) return;
     shownIssues = key;
     // Most urgent first: nothing lit before a run that's a little off.
-    const items = [...(dark ? [{ summary: dark, detail: '', fix: null }] : []), ...list.map((w) => warningSummary(g, w))];
-    const row = (it, i) => `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><code>${esc(it.detail)}</code></details></div>` : ''}</li>`;
+    const items = groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null }] : []), ...list.map((w) => warningSummary(g, w))]);
+    const row = (it, i) => it.group
+      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" data-fix="${i}" data-one="${j}">${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
+      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><code>${esc(it.detail)}</code></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
     for (const b of box.querySelectorAll('[data-fix]')) {
-      const { fix } = items[+b.dataset.fix];
+      const item = items[+b.dataset.fix];
+      const { fix } = item.group ? item.group[+b.dataset.one] : item;
       b.onclick = () => (fix.run ? S.calib.open({ run: fix.run }) : S.panel.openTab(fix.tab));
     }
   }
@@ -224,14 +242,17 @@ export function createStatus(S, root) {
     $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
+    // What the owner asks; how the renderer is doing is below, in Diagnostics.
     $$('#stStats').innerHTML = [
-      stat(count(st.layers), 'on the lights', 'Layers on the lights'),
-      stat(count(st.preview_layers), 'in preview', 'Layers in preview'),
+      stat(count(st.layers), 'on the lights', 'Looks on the lights'),
+      stat(count(st.preview_layers), 'in preview', 'Looks in preview'),
+      stat(count(st.solve.pixels), 'lights'),
+      stat(esc(st.uptime), 'uptime'),
+    ].join('');
+    $$('#stDiagStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
       stat(`${fmt(st.frame_ms, 2)} ms`, `per frame, max ${fmt(st.max_frame_ms, 1)}`),
       stat(count(st.late_frames), 'frames late', 'Frames that took longer than the frame rate allows'),
-      stat(esc(st.uptime), 'uptime'),
-      stat(count(st.solve.pixels), 'lights'),
       // The median: the first draws compile shaders and would swamp a mean.
       stat(`${fmt(perf.draw.p50, 2)} ms`, 'to draw the map', `this device; median of the last ${perf.draw.n} draws, p95 ${fmt(perf.draw.p95, 2)} ms`),
     ].join('');
@@ -268,9 +289,11 @@ export function createStatus(S, root) {
       const drawn = s.drawn_m || r.drawn_m;
       const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
       const points = a.measured + a.estimated;
-      return { warn, html: `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(plural(r.count, 'light'))} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
-        ${points ? `<span class="val" title="Points on this run that have been measured">${a.measured} of ${plural(points, 'point')}</span>
-        <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button>` : ''}</li>` };
+      const detail = [label.unassigned ? 'Not in a zone yet' : '', nb(plural(r.count, 'light')), points ? `<span title="Points on this run that have been measured">${nb(`${a.measured} of ${plural(points, 'point')}`)}</span>` : ''].filter(Boolean).join(' · ');
+      // Two columns: what the run is, and its length, each figure on one line.
+      return { warn, html: `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${off}${detail}</small></span>
+        <span class="len">${fmt(s.length_m ?? r.length, 2)} m${drawn ? `<small>drawn ${fmt(drawn, 2)} m</small>` : ''}</span>
+        ${points ? `<button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button>` : ''}</li>` };
     });
     // The runs with a problem, then the rest behind a disclosure.
     const problems = rows.filter((r) => r.warn), rest = rows.filter((r) => !r.warn);

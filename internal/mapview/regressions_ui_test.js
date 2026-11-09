@@ -430,7 +430,7 @@ test('B30: unknown outputs read as unknown or partial, by name', async () => {
 test('the status run list leads with problems and never offers Calibrate on a run with no points', () => {
   const status = read('panel/status.js');
   assert.match(status, /id="stRunsMore"/);
-  assert.match(status, /\$\{points \? `<span class="val"/);
+  assert.match(status, /\$\{points \? `<button/);
   assert.doesNotMatch(status, /<tfoot>/, 'totals come first');
 });
 
@@ -860,4 +860,18 @@ test('one word for previewing, in purple, and stacking is said out loud', () => 
   assert.match(css, /\[data-act=try\]\[aria-pressed=true\] \{ color: var\(--preview\)/);
   assert.match(looks, /Looks stack\. The top one in this list is in front wherever they overlap\./);
   assert.match(looks, /layers\.length > 1 && l === layers\[0\]/);
+});
+
+test('Status splits what matters from diagnostics, and repeats no amber', async () => {
+  const status = read('panel/status.js');
+  assert.match(status, /<details id="stDiag"><summary>Diagnostics/);
+  assert.ok(status.indexOf("'frames late'") > status.indexOf('stDiagStats').valueOf(), 'frame numbers are in the diagnostics');
+  const { groupIssues } = await import('./static/panel/status.js');
+  const spacing = (s) => ({ summary: s, kind: 'spacing', fix: { label: 'Calibrate this run', run: 'r' } });
+  assert.equal(groupIssues([spacing('a'), spacing('a')]).length, 1, 'a repeat is dropped');
+  const out = groupIssues([{ summary: 'dark', fix: null }, spacing('a'), { summary: 'other', fix: null }, spacing('b')]);
+  assert.deepEqual(out.map((x) => x.summary), ['dark', 'The lights are spaced differently than drawn in 2 places.', 'other']);
+  assert.equal(out[1].group.length, 2);
+  assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto auto; \}/);
+  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-help\)/, 'controller rows at 13px');
 });
