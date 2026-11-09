@@ -28,6 +28,14 @@ const NAME_ROOM = 10;     // px of clear space around a name label
 const NAME_AREA = 16000;  // px² of free map each name label may have
 const NAME_LENGTH = 26;   // longer names are cut short; hovering shows them whole
 
+// shortLabel fits text in max characters on a word boundary: it never ends
+// mid-word or on punctuation.
+export function shortLabel(text, max = NAME_LENGTH) {
+  if (text.length <= max) return text;
+  const cut = text.lastIndexOf(' ', max - 1);
+  return `${(cut > 0 ? text.slice(0, cut) : text.slice(0, max - 1)).replace(/[\s,;:·/-]+$/, '')}…`;
+}
+
 // placeLabels picks where each label goes, or leaves it out: highest rank
 // first, the first free spot near where it asked to be. A budget label (a
 // name, a percentage) needs room around it too, and is placed only while
@@ -43,7 +51,7 @@ export function placeLabels(queued, { avoid = [], width = Infinity, height = Inf
   const order = [...queued].sort((a, b) => b.rank - a.rank || (a.budget && b.budget ? a.text.length - b.text.length : 0));
   for (const raw of order) {
     if (raw.budget && spent >= budget) continue;
-    const l = raw.budget && raw.text.length > NAME_LENGTH ? { ...raw, text: raw.text.slice(0, NAME_LENGTH - 1) + '…' } : raw;
+    const l = raw.budget && raw.text.length > NAME_LENGTH ? { ...raw, text: shortLabel(raw.text) } : raw;
     const target = l.rank === 3, H = target ? 19 : 15; // the plate's height
     const w = measure(l);
     for (const [dx, dy] of SPOTS(w, H)) {

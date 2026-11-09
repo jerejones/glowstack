@@ -6,6 +6,7 @@ package effects
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/jerejones/glowstack/internal/color"
@@ -213,5 +214,19 @@ func TestBreathe(t *testing.T) {
 	}
 	if !near(mid[0], color.Color{R: perceived(0.5), G: perceived(0.5), B: perceived(0.5), A: 1}, 1e-5) {
 		t.Errorf("middle = %+v", mid[0])
+	}
+}
+
+// Help text is read by people: a parameter's Doc must not leak a code
+// comment's placeholder.
+func TestDocsHaveNoPlaceholders(t *testing.T) {
+	for _, d := range registry(t).All() {
+		for _, p := range d.Params {
+			for _, leak := range []string{"(*", "…", "TODO", "FIXME", "XXX"} {
+				if strings.Contains(p.Doc, leak) {
+					t.Errorf("%s.%s: Doc %q contains %q", d.ID, p.Name, p.Doc, leak)
+				}
+			}
+		}
 	}
 }

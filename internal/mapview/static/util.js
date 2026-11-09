@@ -246,7 +246,9 @@ export function showQty(type, v) {
     case 'fraction': return Math.round(v * 100) + '%';
     case 'angle': return n(v * 180 / Math.PI) + '°';
   }
-  return n(v) + (UNITS[type] ? ' ' + UNITS[type] : '');
+  // A per-unit reads as one word: "2/m/s", not "2 /m/s".
+  const unit = UNITS[type] || '';
+  return n(v) + (unit && !unit.startsWith('/') ? ' ' : '') + unit;
 }
 
 // ---------- pixel-id range sets ----------

@@ -47,7 +47,7 @@ func Burst() *render.Def {
 			{Name: "life", Type: render.TDuration, Default: "2.5 s", Doc: "how long a burst lasts"},
 			{Name: "glow", Type: render.TFraction, Default: 0.15, Doc: "fill inside the shell, as a fraction of the shell's brightness"},
 			{Name: "palette", Type: render.TPalette, Default: "Default", Doc: "a random color per burst; Default is Party"},
-			colorsParam("colors for the color palettes (* Color 1, …)"),
+			colorsParam("the colors for the palettes marked *"),
 			{Name: "seed", Type: render.TSeed, Default: 0, Doc: "mixed with the layer's seed"},
 		},
 		New: func() render.Effect { return &burst{} },

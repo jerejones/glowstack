@@ -20,7 +20,7 @@ func Gradient() *render.Def {
 		Coords: render.CoordU,
 		Params: []render.Param{
 			{Name: "palette", Type: render.TPalette, Default: "Default", Doc: "Default is Rainbow"},
-			colorsParam("colors for the color palettes (* Color 1, …)"),
+			colorsParam("the colors for the palettes marked *"),
 			{Name: "span", Type: render.TLength, Default: "2 m", Doc: "length of one full palette cycle"},
 			{Name: "speed", Type: render.TSpeed, Default: "0 m/s", Doc: "along the lights; negative moves backwards"},
 		},

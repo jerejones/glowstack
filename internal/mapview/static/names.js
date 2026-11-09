@@ -16,11 +16,19 @@ export const areaName = (g, id) => byId(g.areas, id)?.name || humanize(id);
 export const zoneName = (g, id) => byId(g.zones, id)?.name || humanize(id);
 
 // controllerLabel is what a controller's map label reads: its name, then
-// its location with any word the name already says left out.
+// its location with whatever the name already says left out. A location
+// listing several things loses the whole phrase, not a word out of it, so
+// what's left never ends mid-phrase or on a comma.
 export function controllerLabel(name, location) {
-  const said = new Set(String(name).toLowerCase().split(/\s+/));
-  const rest = String(location || '').split(/\s+/).filter((w) => w && !said.has(w.toLowerCase()));
-  return rest.length ? `${name} · ${rest.join(' ')}` : name;
+  const bare = (w) => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  const said = new Set(String(name).split(/\s+/).map(bare));
+  const phrases = String(location || '').split(/\s*[,;]\s*/).filter(Boolean);
+  const rest = phrases.flatMap((p) => {
+    const words = p.split(/\s+/).filter(Boolean), kept = words.filter((w) => !said.has(bare(w)));
+    if (kept.length === words.length) return [p];
+    return phrases.length > 1 || !kept.length ? [] : [kept.join(' ')];
+  });
+  return rest.length ? `${name} · ${rest.join(', ')}` : name;
 }
 
 // The model's layer names that say nothing on their own.

@@ -157,6 +157,10 @@ export function stepPlace(index, item, total) {
   return `Step ${index + 1} of ${total} · ${item.done ? 'done' : 'not done yet'}`;
 }
 
+// sourceWords says where a point's position came from.
+const SOURCE_WORDS = { measured: 'Measured', estimated: 'Estimated from the layout', partial: 'Partly measured', end: 'End of the run' };
+export const sourceWords = (source) => SOURCE_WORDS[source] || humanize(String(source || '')) || '—';
+
 // progCenter is the list's scroll position that puts a row in its middle.
 export function progCenter(rowTop, rowHeight, viewHeight) {
   return Math.max(0, rowTop - (viewHeight - rowHeight) / 2);
@@ -415,11 +419,11 @@ export function createCalibrate(S, root) {
         if (!isGap) parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout puts it` : 'Not moved yet: still where the layout puts it'}</span></div>`);
         parts.push(nav());
         parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : 'Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.'}</p>`);
-        const was = $$('#caBody details.tech');
+        const was = $$('#caBody details.tech'), wasIds = $$('#caBody details.ids');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
-          <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
-          <tr><th>Target</th><td>${esc(st.label || '—')}</td></tr>
-          <tr><th>Layout position</th><td>${c.estimate}</td></tr><tr><th>Source</th><td>${esc(c.source)}</td></tr></table>
+          <tr><th>Test pixel</th><td>${c.index < 0 ? '—' : `Pixel ${c.index} on ${esc(controllerName(g, c.controller))}`}</td></tr>
+          <tr><th>The layout puts it at</th><td>Pixel ${c.estimate}</td></tr><tr><th>Position</th><td>${esc(sourceWords(c.source))}</td></tr></table>
+          <details class="ids"${wasIds && wasIds.open ? ' open' : ''}><summary>Technical names</summary><p class="muted small">${esc(st.label || '—')}${c.index < 0 ? '' : ` · ${esc(c.controller)}:${c.index}`}</p></details>
           ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" class="cal-pixel"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
       }
       if (st.target && st.target.kind === 'gap') {

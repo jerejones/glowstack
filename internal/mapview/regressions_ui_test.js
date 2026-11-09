@@ -250,7 +250,7 @@ test('there is one page title per tab, one row tall', () => {
 test('pressed chips carry a keyline and the one SVG check, with no text for screen readers', () => {
   assert.match(css, /\.chips > button\.on \{[^}]*box-shadow/);
   assert.doesNotMatch(css, /\\2713/);
-  assert.match(css, /\.chips > button\.on::before \{\s*content: '';[^}]*mask: var\(--check\)/);
+  assert.match(css, /\.chips:not\(\.toggles\) > button\.on::before \{\s*content: '';[^}]*mask: var\(--check\)/);
   assert.match(css, /--check: url\("data:image\/svg\+xml[^;]*M3 8\.5l3\.2 3\.2L13 5/, 'the same path as the check icon');
 });
 
@@ -1061,4 +1061,55 @@ test('a long look name wraps instead of being cut off', () => {
 
 test('the runs line counts spacing warnings the way the card above does', () => {
   assert.match(read('panel/status.js'), /runsFine\(new Set\(/);
+});
+
+test('B73: only a run past the warning threshold says how far off it is', async () => {
+  const { runOff, LENGTH_WARN } = await import('./static/panel/status.js');
+  assert.equal(runOff(0, false), '');
+  assert.equal(runOff(LENGTH_WARN - 0.001, false), '', 'just under the threshold');
+  assert.equal(runOff(0.08, false), '8.0% off');
+  assert.equal(runOff(0.08, true), '', 'a run in no zone yet is a state, not a fault');
+  assert.doesNotMatch(read('panel/status.js'), /const off = mis &&/);
+});
+
+test('B76: controller labels drop repeated detail and keep whole words', async () => {
+  const { controllerLabel } = await import('./static/names.js');
+  const { shortLabel } = await import('./static/overlay.js');
+  assert.equal(controllerLabel('Workshop', 'Octa board, north workshop'), 'Workshop · Octa board');
+  assert.equal(controllerLabel('Workshop', 'Quad board, workshop'), 'Workshop · Quad board');
+  assert.equal(controllerLabel('Porch', 'Porch,'), 'Porch', 'nothing but a repeat is nothing to add');
+  assert.doesNotMatch(controllerLabel('Shed', 'Board one, Shed, garden'), /,$/);
+  assert.equal(shortLabel('Short name'), 'Short name');
+  const cut = shortLabel('Controller by the north gate, garden side');
+  assert.ok(cut.endsWith('…') && cut.length <= 26, cut);
+  assert.doesNotMatch(cut, /[,;:\s]…$/);
+  assert.equal(cut, 'Controller by the north…', 'a whole word, never part of one');
+});
+
+test('B77: a toggle chip is the same box on and off', () => {
+  const off = /\.chips\.toggles > button::before \{ ([^}]*) \}/.exec(css)[1];
+  const on = /\.chips\.toggles > button\.on::before \{ ([^}]*) \}/.exec(css)[1];
+  assert.match(off, /width: 12px; height: 12px/);
+  assert.match(off, /border: 1px solid currentColor/);
+  // The on state only fills the box: no size, border or mask of its own.
+  assert.doesNotMatch(on, /width|height|border|mask/);
+  assert.match(css, /\.chips:not\(\.toggles\) > button\.on::before/, 'only non-toggle chips use a bare check');
+});
+
+test('B78: a per-unit has no stray space, and other units keep theirs', async () => {
+  const { showQty } = await import('./static/util.js');
+  assert.equal(showQty('density', 2), '2/m/s');
+  assert.equal(showQty('rate', 0.2), '0.2/s');
+  assert.equal(showQty('speed', 3), '3 m/s');
+  assert.equal(showQty('length', 2), '2 m');
+});
+
+test('B80: Calibrate Details uses plain names, with raw ids behind their own disclosure', async () => {
+  const { sourceWords } = await import('./static/panel/calibrate.js');
+  assert.equal(sourceWords('estimated'), 'Estimated from the layout');
+  assert.equal(sourceWords('measured'), 'Measured');
+  const src = read('panel/calibrate.js');
+  assert.doesNotMatch(src, /<th>Target<\/th>/, 'the raw target is not a row');
+  assert.doesNotMatch(src, /esc\(c\.controller\) \+ ':' \+ c\.index/, 'no raw id in the plain table');
+  assert.match(src, /<details class="ids"/);
 });

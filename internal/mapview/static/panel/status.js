@@ -52,6 +52,12 @@ export function verdict(ids, health) {
 // before Status flags it.
 export const LENGTH_WARN = 0.05;
 
+// runOff is the percentage a run row calls out: only a run Status flags,
+// so the real outliers are the ones that stand out.
+export function runOff(mis, unassigned) {
+  return mis >= LENGTH_WARN && !unassigned ? `${(mis * 100).toFixed(1)}% off` : '';
+}
+
 // runsFine sums up the runs list when no run's length is off: it says what
 // it measured, so it can't be read against a spacing warning above it.
 export function runsFine(spacing) {
@@ -295,10 +301,10 @@ export function createStatus(S, root) {
       // Signed: a run can be shorter than drawn as well as longer.
       const mis = Math.abs(s.mismatch || r.length_mismatch || 0);
       const label = { ...runLabel(r.id), name: r.name || runName(g, r.id) };
-      const warn = mis >= LENGTH_WARN && !label.unassigned;
+      const offText = runOff(mis, label.unassigned), warn = !!offText;
       const a = s.anchors || { measured: 0, estimated: 0 };
       const drawn = s.drawn_m || r.drawn_m;
-      const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
+      const off = offText ? `<strong class="dev">${nb(offText)}</strong> · ` : '';
       const points = a.measured + a.estimated;
       const detail = [label.unassigned ? 'Not in a zone yet' : '', nb(plural(r.count, 'light')), points ? `<span title="Points on this run that have been measured">${nb(`${a.measured} of ${plural(points, 'point')}`)}</span>` : ''].filter(Boolean).join(' · ');
       // Two columns: what the run is, and its length, each figure on one line.
