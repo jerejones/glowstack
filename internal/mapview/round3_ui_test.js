@@ -349,3 +349,32 @@ test('E: on a phone the toast sits in the sheet above the sticky bar, not over t
   assert.match(read('index.html'), /<div id="panelToasts" class="toasts panel-toasts" aria-live="polite"><\/div>/);
   assert.match(read('app.js'), /const box = \$\(toastHome\(S\.calibrating, !!\$\('caToasts'\), sheetUp\(\)\)\);/);
 });
+
+test('Refinement 1: preset actions are readable at rest, the same words at 390 and 1440', async () => {
+  const src = read('panel/presets.js');
+  // One row component: the swatch, the name and its line, then Preview, Pin or Pinned, and More.
+  assert.match(src, /<div class="preset-body"[^>]*><span class="swatch"><\/span><div class="preset-title"><b>/);
+  assert.match(src, /b\.innerHTML = `\$\{icon\('eye'\)\}<span class="lbl">\$\{on \? 'Previewing' : 'Preview'\}<\/span>`;/, 'Preview: the eye and the word');
+  assert.match(src, /\$\{icon\(p\.pinned \? 'pinFilled' : 'pin'\)\}<span class="lbl">\$\{p\.pinned \? 'Pinned' : 'Pin'\}<\/span>/, 'an outline pin against a filled one, and the word');
+  assert.match(src, /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More is its glyph, with a title');
+  // No rule hides a word on any pointer or width: the labels are the markup's, the same everywhere.
+  assert.doesNotMatch(css, /\.preset-actions[^{]*\.lbl[^{]*\{/);
+  // Fine pointers: 28 px buttons (--tap) on the row's own line; coarse keeps 44 px.
+  const fine = css.slice(css.indexOf('@media (pointer: fine) {\n  html:not(.coarse) .preset-entry'));
+  assert.match(fine, /html:not\(\.coarse\) \.preset-actions \{ flex-wrap: nowrap; gap: 4px; \}/);
+  assert.match(css, /--tap: 28px;/); assert.match(css, /html\.coarse \{ --tap: 44px;/);
+  // Pinned and unpinned differ without color: glyph, fill and word.
+  assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ background: rgba\(124, 196, 255, 0\.16\); \}/);
+  // Hover and focus states on the row.
+  assert.match(css, /@media \(hover: hover\) \{ \.preset-entry:hover \{ background: var\(--card2\); border-color: #94a3b8; \} \}/);
+  assert.match(css, /\.preset-entry:focus-within \{ border-color: #94a3b8; \}/);
+  // The name clamps at two lines, never fewer.
+  assert.match(css, /\.preset-title b \{ display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; \}/);
+  // More: under its own button (the row's Pin stays in view); focus moves in only from the keyboard.
+  const { openedByKeyboard } = await import('./static/panel/presets.js');
+  assert.equal(openedByKeyboard({ detail: 0 }), true, 'Enter or Space');
+  assert.equal(openedByKeyboard({ detail: 1 }), false, 'a mouse or a finger');
+  assert.match(src, /if \(openedByKeyboard\(e\)\) items\[0\]\.focus\(\{ preventScroll: true \}\);/);
+  assert.match(css, /\.preset-menu \{ position: absolute; z-index: 4; top: calc\(100% \+ 4px\); right: 0;/);
+  assert.match(css, /\.preset-menu\.up \{ top: auto; bottom: calc\(100% \+ 4px\); \}/);
+});

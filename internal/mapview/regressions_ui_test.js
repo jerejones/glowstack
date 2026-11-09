@@ -1378,7 +1378,7 @@ test('desktop footer keeps to the panel bottom; legend folds; boot has the tab i
   for (const ic of icons) assert.ok(html.includes(ic + '<svg'), ic);
   const { icon } = await import('./static/icons.js');
   assert.ok(html.includes(icon('looks')), 'the same drawing the app uses');
-  assert.match(read('panel/presets.js'), /\$\{icon\('more'\)\}<span class="lbl">More<\/span>/, 'More carries the kebab, like Preview and Pin carry theirs');
+  assert.match(read('panel/presets.js'), /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More carries the kebab, named by its title (round 3)');
   assert.doesNotMatch(css, /\.color-picker summary::before \{ order: 2/, 'the chevron is a disclosure like the rest');
   assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-h2\)/);
   assert.match(css, /text-wrap: balance/);
@@ -1496,7 +1496,7 @@ test('essential metadata is 14px and a phone heading qualifier gets its own line
 test('every secondary action on a card or row has its icon and word, and category keys share one swatch', () => {
   const looks = read('panel/looks.js'), presets = read('panel/presets.js'), overlay = read('overlay.js');
   assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
-  assert.match(presets, /\$\{icon\('more'\)\}<span class="lbl">More<\/span>/);
+  assert.match(presets, /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
   assert.match(looks, /\$\{icon\('tweak'\)\}Tweak/);
   assert.match(looks, /\$\{icon\('close'\)\}<span>Remove/);
   assert.match(looks, /\$\{icon\('apply'\)\}Apply only this/);
@@ -2260,6 +2260,7 @@ test('Preview, Pin and More share one button style; Pinned keeps its state', () 
   const rules = css.match(/^\.preset-actions \[data-act=(?:try|pin|more)\][^{]*\{[^}]*\}/gm).join('\n');
   assert.doesNotMatch(rules, /border-color: transparent|font-weight|background: var/, 'no button of the three has its own weight or ghost state');
   assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ color: var\(--accent\); border-color: var\(--accent\); \}/);
+  assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ background: rgba\(124, 196, 255, 0\.16\); \}/, 'Pinned is filled, so it differs without color (round 3)');
   assert.match(read('panel/presets.js'), /icon\(p\.pinned \? 'pinFilled' : 'pin'\)/);
 });
 
@@ -2751,16 +2752,15 @@ test('Refinement 5 (round 2): a denser desktop library and compact preset rows',
   assert.match(css, /\.stage \{ margin: 0 0 6px;/);
   assert.match(css, /\.catalog-head \{[^}]*margin: 4px 0 4px; \}/);
   assert.match(css, /\.lib-filters \{[^}]*margin: 0 0 4px; \}/);
-  // Presets: on a fine pointer the row is one line with icon buttons; a coarse one keeps the labels.
+  // Presets: on a fine pointer the row is one line. Round 3 put the words back on its buttons.
   const fine = css.slice(css.indexOf('@media (pointer: fine) {'));
   assert.match(fine, /html:not\(\.coarse\) \.preset-entry \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto; align-items: center;/);
-  assert.match(fine, /html:not\(\.coarse\) \.preset-actions \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\);/, 'the words stay for a screen reader');
-  assert.match(fine, /\[data-act=more\] \{ width: var\(--tap\); min-width: var\(--tap\); padding: 0; gap: 0; \}/);
-  assert.doesNotMatch(css, /\.preset-actions \.lbl \{ display: none/, 'never hidden from assistive tech');
+  assert.doesNotMatch(css, /\.preset-actions \.lbl \{[^}]*(clip|display: none)/, 'the words show at rest on every pointer');
+  assert.match(css, /\.preset-actions \[data-act=more\] \{ width: var\(--tap\); min-width: var\(--tap\); padding: 0; \}/);
   const src = read('panel/presets.js');
   assert.match(src, /data-act="pin"[^>]*aria-label="\$\{esc\(\(p\.pinned \? 'Unpin ' : 'Pin '\) \+ presetName\(p\)\)\}" title="\$\{p\.pinned \? 'Unpin from Looks' : 'Pin to Looks'\}"/, 'Pin has a title and an aria-label');
   assert.match(src, /<span class="lbl">\$\{p\.pinned \? 'Pinned' : 'Pin'\}<\/span>/);
-  assert.match(src, /data-act="more"[^>]*aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="Edit, duplicate or delete">\$\{icon\('more'\)\}<span class="lbl">More<\/span>/);
+  assert.match(src, /data-act="more"[^>]*aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
   assert.match(src, /b\.innerHTML = `\$\{icon\('eye'\)\}<span class="lbl">\$\{on \? 'Previewing' : 'Preview'\}<\/span>`;\s*b\.setAttribute\('aria-label', on \? 'Previewing' : 'Preview'\);/);
   assert.match(src, /row\.querySelector\('\[data-act=try\]'\)\.onclick = row\.querySelector\('\.preset-body'\)\.onclick/, 'the row body previews');
 });

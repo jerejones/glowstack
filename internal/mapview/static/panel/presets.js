@@ -19,6 +19,10 @@ export function presetSlug(name, presets) {
   return id;
 }
 
+// openedByKeyboard says a click came from Enter or Space, not a pointer:
+// a keyboard click has no pointer detail.
+export const openedByKeyboard = (e) => !!e && e.detail === 0;
+
 export function createPresets(S, root) {
   let draft = null, dirty = false, busy = false, form;
   let closeMenu = null; // closes the row menu that's open
@@ -62,15 +66,21 @@ export function createPresets(S, root) {
       document.removeEventListener('pointerdown', outside, true);
       if (closeMenu === close) closeMenu = null;
     }
-    more.onclick = () => {
+    more.onclick = (e) => {
       if (!menu.hidden) { close(); return; }
       closeMenu?.();
       menu.hidden = false;
       more.setAttribute('aria-expanded', 'true');
       closeMenu = close;
       document.addEventListener('pointerdown', outside, true);
+      // It opens under its own button, below the row: the row's Pin and
+      // Preview stay in view. Near the panel's foot it opens upward instead.
+      const room = root.parentElement.getBoundingClientRect().bottom - more.getBoundingClientRect().bottom;
+      menu.classList.toggle('up', room < menu.offsetHeight + 12);
       menu.scrollIntoView({ block: 'nearest' });
-      items[0].focus({ preventScroll: true });
+      // Opened from the keyboard, focus moves into the menu and its ring
+      // shows; a mouse or a finger opened it where the pointer already is.
+      if (openedByKeyboard(e)) items[0].focus({ preventScroll: true });
     };
     menu.addEventListener('click', close);
     menu.addEventListener('keydown', (e) => {
@@ -100,7 +110,7 @@ export function createPresets(S, root) {
       row.innerHTML = `<div class="preset-body" title="Show this on the map; the lights don't change"><span class="swatch"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div></div><div class="preset-actions">
         <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
         <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}" title="${p.pinned ? 'Unpin from Looks' : 'Pin to Looks'}"><span class="pin">${icon(p.pinned ? 'pinFilled' : 'pin')}<span class="lbl">${p.pinned ? 'Pinned' : 'Pin'}</span></span></button>
-        <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}" title="Edit, duplicate or delete">${icon('more')}<span class="lbl">More</span></button>
+        <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}" title="More: edit, duplicate or delete">${icon('more')}</button>
           <div class="preset-menu" role="menu" hidden><button type="button" role="menuitem" data-act="edit">${icon('edit')}Edit</button><button type="button" role="menuitem" data-act="copy">${icon('copy')}Duplicate</button><button type="button" role="menuitem" data-act="delete" class="danger">${icon('trash')}Delete</button></div></div></div>`;
       const sprite = spriteURL('preset', p.id, p.params, effect), drawn = lookStrip(S, p.effect, p.params);
       row.querySelector('.swatch').style.cssText = spriteStyle(sprite, drawn);
