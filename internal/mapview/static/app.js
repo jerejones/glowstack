@@ -28,6 +28,7 @@ import { mapStatus, badgeHTML, showButton } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure } from './states.js';
 import { frameInsets, toastBottom, toastHome } from './map-frame.js';
+import { foldable, merged } from './toast-merge.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
 import { showingLabel } from './form.js';
 
@@ -81,8 +82,13 @@ function toast(msg, opts = {}) {
   const err = msg instanceof Error;
   const el = document.createElement('div');
   el.className = 'toast' + (err || opts.error ? ' error' : opts.warn ? ' warn' : opts.neutral ? ' neutral' : '');
-  const details = err ? msg.details || [] : opts.details || [];
-  el.innerHTML = `<span class="msg">${esc(err ? msg.message : msg)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
+  // Messages arriving together fold into this one: see toast-merge.js.
+  const showing = [...box.children].map((t) => ({ el: t, ...t.note }));
+  const folded = foldable(showing, { error: err || opts.error, action: opts.action }, S.panel ? S.panel.layout() : 'wide', Date.now());
+  for (const t of folded) t.el.remove();
+  const { text, details } = merged(err ? msg.message : msg, err ? msg.details || [] : opts.details || [], folded);
+  el.note = { at: Date.now(), error: err || opts.error, action: opts.action, text, details };
+  el.innerHTML = `<span class="msg">${esc(text)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
   if (opts.action) { // one button that does the toast's fix, then clears it
     el.classList.add('has-action');

@@ -2458,3 +2458,23 @@ test('B134: a collapsed phone row keeps the look\'s name whole; place and level 
   assert.match(looks, /if \(name\.scrollWidth > name\.clientWidth \+ 1\) el\.classList\.add\('two-line'\)/);
   assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
 });
+
+test('B135: toasts arriving together fold into one, and the phone sheet shows one at a time', async () => {
+  const { foldable, merged, MERGE_WINDOW } = await import('./static/toast-merge.js');
+  const plain = (at) => ({ at, error: false, action: null });
+  // Within the window two plain messages fold; a stale one does not, beside the map.
+  assert.deepEqual(foldable([plain(1000)], {}, 'wide', 2000), [plain(1000)]);
+  assert.deepEqual(foldable([plain(0)], {}, 'wide', MERGE_WINDOW + 1), []);
+  // On the sheet there is one toast at a time, however old the earlier one.
+  assert.deepEqual(foldable([plain(0)], {}, 'sheet', 60000), [plain(0)]);
+  // An error keeps its own card; nothing folds into an action's toast.
+  assert.deepEqual(foldable([{ at: 1000, error: true }], {}, 'sheet', 1500), []);
+  assert.deepEqual(foldable([plain(1000)], { action: { label: 'Turn on' } }, 'sheet', 1500), []);
+  assert.deepEqual(foldable([plain(1000)], { error: true }, 'sheet', 1500), []);
+  // The newest message leads; the earlier text is its detail line.
+  assert.deepEqual(merged('Applied the look.', [], [{ text: 'Turned on Street and Yard.', details: [] }]), { text: 'Applied the look.', details: ['Turned on Street and Yard.'] });
+  assert.deepEqual(merged('Third.', ['own detail'], [{ text: 'First.', details: ['a'] }, { text: 'Second.', details: [] }]), { text: 'Third.', details: ['own detail', 'Second.', 'First.', 'a'] });
+  const app = read('app.js');
+  assert.match(app, /const folded = foldable\(showing, \{ error: err \|\| opts\.error, action: opts\.action \}, S\.panel \? S\.panel\.layout\(\) : 'wide', Date\.now\(\)\)/);
+  assert.match(app, /for \(const t of folded\) t\.el\.remove\(\)/);
+});
