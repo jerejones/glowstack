@@ -1111,7 +1111,7 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   // The control sits with what it governs: the catalog, above the cards.
   const head = /<div class="catalog-head"[\s\S]*?<div class="cards" id="lkPresets">/.exec(src);
   assert.ok(head, 'the Goes on control is in the catalog heading');
-  assert.match(head[0], />Goes on</);
+  assert.match(head[0], />New previews go on</);
   // A preview layer's place is a control of its own, on its own card.
   assert.match(src, /className: 'place icon-btn'/);
   assert.match(src, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
@@ -1527,8 +1527,8 @@ test('every secondary action on a card or row has its icon and word, and categor
 
 test('the polish round: tall primaries, ringed thumbs, a real glyph, even segments, empty actions and the bar says what it does', async () => {
   assert.match(css, /\.setup-cal button\.go, \.calibrate button\.go \{ min-height: max\(40px, var\(--tap\)\)/);
-  assert.match(css, /channel-row input\[type=range\]::-webkit-slider-thumb \{[^}]*border: 2px solid #0d0e10/);
-  assert.match(css, /channel-row input\[type=range\]::-moz-range-thumb \{[^}]*border: 2px solid #0d0e10/);
+  assert.match(css, /input\[type=range\]::-webkit-slider-thumb \{[^}]*border: 2px solid #0d0e10/);
+  assert.match(css, /input\[type=range\]::-moz-range-thumb \{[^}]*border: 2px solid #0d0e10/);
   assert.doesNotMatch(read('form.js'), /repeating-linear-gradient\(135deg, #4a5361/, 'no hatch');
   assert.match(read('form.js'), /uses the look's colors/);
   assert.match(css, /\.seg > button \+ button \{ border-left: 0;/, 'a selected segment has no heavier left edge');
@@ -1593,7 +1593,7 @@ test('B96: revealing a lane\'s first card brings the lane\'s heading, not a sliv
 test('B98: the row above the catalog says what its button does, and pressing it always shows something', () => {
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /Manage|now-go[^\n]*chevron/, 'no menu chevron on a button that opens no menu');
-  assert.match(looks, /id="lkNowGo"[^>]*>Adjust<\/button>/);
+  assert.match(looks, /id="lkNowGo"[^>]*>\$\{icon\('eye'\)\}View<\/button>/);
   assert.match(looks, /lkNowGo'\)\.hidden = !house\.length/, 'with nothing on the lights there is nothing to go to');
   assert.match(looks, /for \(const el of list\.querySelectorAll\('\.layer'\)\) flash\(el\)/, 'visible when the cards are already on screen');
   assert.match(/<div class="now" id="lkNow"[^\n]*/.exec(looks)[0], /div/, 'the row itself is no longer a dead button');
@@ -1707,7 +1707,7 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
   const form = read('form.js');
   assert.match(form, /\$\{icon\('plus'\)\}Add color/);
   assert.match(form, /\$\{icon\('minus'\)\}Remove/);
-  assert.match(read('panel/calibrate.js'), /'quiet', !forgettable,/);
+  assert.match(read('panel/calibrate.js'), /'quiet icon-btn', !forgettable,/);
   const { sharedFact } = await import('./static/panel/status.js');
   const ok = { text: 'Sending', cls: 'ok' }, bad = { text: 'Unreachable', cls: 'bad' };
   assert.equal(sharedFact([ok, ok]), 'Sending');
@@ -1853,11 +1853,34 @@ test('Status: the verdict leads, the counts are a line, healthy is a check', asy
   assert.match(mark('bad'), /class="mark bad"/);
 });
 
-test('a place that reads Everything is everything, even when one zone holds every light', async () => {
-  const { nodeTarget } = await import('./static/select.js');
-  assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }, { kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }, { kind: 'all' }] }), 'all');
-  assert.equal(nodeTarget({ members: [{ kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }] }), 'a');
-  assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }] }), 'run:r');
+test('one control language: one slider, one selected fill, one readout', () => {
+  assert.match(css, /input\[type=range\]::-webkit-slider-thumb \{ appearance: none/);
+  assert.doesNotMatch(css, /accent-color/, 'no second slider look');
+  assert.doesNotMatch(css, /\.channel-row input\[type=range\]::-webkit-slider-thumb/);
+  assert.match(css, /\.tabs button\.on \{ background: var\(--on\)/);
+  assert.match(css, /\.crumbs button\.on \{ background: var\(--on\)/);
+  assert.match(css, /^output \{/m);
+});
+
+test('action buttons lead with an icon; the header says it sets new previews', () => {
+  const looks = read('panel/looks.js'), setup = read('panel/setup.js'), status = read('panel/status.js'), presets = read('panel/presets.js'), cal = read('panel/calibrate.js');
+  assert.match(looks, /id="lkAdd"[^>]*>\$\{icon\('plus'\)\}/);
+  assert.match(looks, /innerHTML = `\$\{icon\('check'\)\}\$\{updates/);
+  assert.match(looks, /\$\{icon\('close'\)\}\$\{clearLabel/);
+  assert.match(presets, /id="prNew" class="icon-btn">\$\{icon\('plus'\)\}/);
+  assert.match(setup, /icon\('target'\)\}\$\{running/);
+  assert.match(status, /\$\{icon\('target'\)\}Calibrate/);
+  assert.match(cal, /id="caConfirm"[^>]*>\$\{icon\('check'\)\}Confirm/);
+  assert.match(looks, /class="muted">New previews go on</);
+  assert.match(looks, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}/, "the card's own control keeps its name");
+});
+
+test('vocabulary: the words are explained once, and Adjust is not a second Tweak', () => {
+  const looks = read('panel/looks.js');
+  for (const w of ['look', 'preset', 'effect', 'zone', 'area', 'run']) assert.match(/id="lkWords"[\s\S]*?<p[^>]*>([^<]*)</.exec(looks)[1], new RegExp(w));
+  assert.doesNotMatch(looks, /Adjust/);
+  assert.match(looks, /\$\{icon\('eye'\)\}View/);
+  assert.match(read('panel/setup.js'), /a run is one strip of lights/);
 });
 
 test('calibration says what is unmeasured and gives one instruction', async () => {
@@ -1876,4 +1899,11 @@ test('server messages read in place names, even for ids with no name', async () 
   const g = { runs: [{ id: 'shed-eave' }], nodes: [{ id: 'gate-post' }], controllers: [] };
   assert.equal(humanText(g, 'pixel out of range at gate-post on shed-eave'), 'pixel out of range at Gate post on Shed eave');
   assert.equal(warningSummary(g, 'run shed-eave: something else changed').summary, 'Shed eave: something else changed');
+});
+
+test('a place that reads Everything is everything, even when one zone holds every light', async () => {
+  const { nodeTarget } = await import('./static/select.js');
+  assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }, { kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }, { kind: 'all' }] }), 'all');
+  assert.equal(nodeTarget({ members: [{ kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }] }), 'a');
+  assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }] }), 'run:r');
 });

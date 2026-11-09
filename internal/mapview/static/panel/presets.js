@@ -22,7 +22,7 @@ export function createPresets(S, root) {
   let draft = null, dirty = false, busy = false, form;
   let closeMenu = null; // closes the row menu that's open
   root.innerHTML = `
-    <div class="row library-heading"><h1 class="title">Presets</h1><button type="button" id="prNew">New preset</button></div>
+    <div class="row library-heading"><h1 class="title">Presets</h1><button type="button" id="prNew" class="icon-btn">${icon('plus')}New preset</button></div>
     <p class="muted small">Save looks for later. Pin favorites to keep them visible on Looks.</p>
     <div id="prMessage" role="status" class="small"></div>
     <div id="prEditor" class="preset-editor" hidden></div>
@@ -149,7 +149,7 @@ export function createPresets(S, root) {
       <label class="check"><input type="checkbox" id="prPinned"> Pin to Looks</label>
       <p class="muted small">Changes stay here until you save. Saving does not change running lights.</p>
       <div id="prParams"></div><div class="err" id="prError" role="alert"></div>
-      <div class="row editor-actions" id="prActions"><button type="button" id="prSave" class="go">Save preset</button><button type="button" id="prCancel">Cancel</button></div>`;
+      <div class="row editor-actions" id="prActions"><button type="button" id="prSave" class="go icon-btn">${icon('check')}Save preset</button><button type="button" id="prCancel">Cancel</button></div>`;
     $('#prName').value = draft.id ? presetName(draft) : draft.name;
     $('#prPinned').checked = !!draft.pinned;
     $('#prName').oninput = () => { draft.name = $('#prName').value; dirty = true; markName(''); };

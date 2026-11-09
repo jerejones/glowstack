@@ -272,8 +272,8 @@ export function createStatus(S, root) {
     // Most urgent first: nothing lit before a run that's a little off.
     const items = groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null }] : []), ...list.map((w) => warningSummary(g, w))]);
     const row = (it, i) => it.group
-      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" data-fix="${i}" data-one="${j}">${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
-      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
+      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
+      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
     for (const b of box.querySelectorAll('[data-fix]')) {
@@ -352,7 +352,7 @@ export function createStatus(S, root) {
       // Two columns: what the run is, and its length, each figure on one line.
       return { warn, html: `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${off}${detail}</small></span>
         <span class="len">${fmt(s.length_m ?? r.length, 2)} m${drawn ? `<small>drawn ${fmt(drawn, 2)} m</small>` : ''}</span>
-        ${points ? `<button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button>` : ''}</li>` };
+        ${points ? `<button type="button" class="icon-btn" data-run="${esc(r.id)}" title="Calibrate this run">${icon('target')}Calibrate</button>` : ''}</li>` };
     });
     // The runs with a problem, then the rest behind a disclosure.
     const problems = rows.filter((r) => r.warn), rest = rows.filter((r) => !r.warn);

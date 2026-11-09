@@ -310,14 +310,14 @@ export function createCalibrate(S, root) {
 
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
-      <button type="button" id="caStop" class="danger" title="End calibration and return the lights to normal">Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
+      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal">${icon('close')}Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
     <div class="cal-toasts" id="caToasts" aria-live="polite"></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
       <p class="cal-why" id="caWhy" hidden></p>
       <p class="cal-nudge-how" id="caHow">+ moves it away from the strip's start, − back toward it.</p>
       <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}">${n > 0 ? '+' : '−'}${Math.abs(n)}</button>`).join('')}</div>
-      <div class="cal-confirm"><button type="button" class="go" id="caConfirm" title="Save this pixel as the measured position">Confirm</button>
+      <div class="cal-confirm"><button type="button" class="go icon-btn" id="caConfirm" title="Save this pixel as the measured position">${icon('check')}Confirm</button>
         <label class="check small"><input type="checkbox" id="caNext"> Go to next after</label></div>
     </div>`;
   const $$ = (s) => root.querySelector(s);
@@ -454,7 +454,7 @@ export function createCalibrate(S, root) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
       parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point. ${MOVE_HOW} Then confirm.</p>${warningHTML('This changes the real lights until you stop.')}`);
-      parts.push(`<div class="row">${btn(r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating', () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow')}</div>`);
+      parts.push(`<div class="row">${btn(`${icon('target')}${r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating'}`, () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow icon-btn')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
       if (st.warning) parts.push(warningHTML(humanText(g, st.warning)));
@@ -492,7 +492,7 @@ export function createCalibrate(S, root) {
       const bands = st.target?.kind === 'bands';
       const item = i >= 0 ? st.progress[i] : null;
       const forgettable = item?.done || item?.source === 'partial' || !!(c && c.index !== c.estimate);
-      const utilities = [bands ? btn('Leave test bands', leaveBands, 'on', false, 'Back to the step you were on') : tr ? btn('Show test bands', () => showBands({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', !forgettable, forgettable ? 'Forget what was measured for this point' : 'Nothing to forget: this point has not been measured or moved') : ''].join('');
+      const utilities = [bands ? btn('Leave test bands', leaveBands, 'on', false, 'Back to the step you were on') : tr ? btn('Show test bands', () => showBands({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn(`${icon('trash')}Clear measurement`, () => session.forget(), 'quiet icon-btn', !forgettable, forgettable ? 'Forget what was measured for this point' : 'Nothing to forget: this point has not been measured or moved') : ''].join('');
       if (utilities) parts.push(`<div class="cal-nav cal-util">${utilities}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(humanText(g, st.message))}</div>`);
       for (const w of st.checks || []) parts.push(warningHTML(humanText(g, w)));

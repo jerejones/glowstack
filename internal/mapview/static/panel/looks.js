@@ -183,11 +183,12 @@ export function createLooks(S, root) {
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
     <div class="looks-head"><h1 class="title">Looks</h1></div>
-    <div class="now" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><button type="button" class="now-go quiet" id="lkNowGo" title="Go to what is on the lights, to adjust or remove it">Adjust</button></div>
+    <div class="now" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><button type="button" class="now-go quiet icon-btn" id="lkNowGo" title="Go to what is on the lights, to tweak or remove it">${icon('eye')}View</button></div>
     <div id="lkDark" data-dark hidden></div>
+    <details class="words" id="lkWords" hidden><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p></details>
     <div class="catalog-head" id="lkCatalogHead">
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
-      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Goes on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
+      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their cards." aria-haspopup="dialog"><span class="muted">New previews go on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
       <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
         <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
         ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
@@ -227,9 +228,9 @@ export function createLooks(S, root) {
     <div class="look-bar" id="lkBar" hidden>
       <p class="bar-note" id="lkBarNote" hidden></p>
       <div class="look-acts">
-        <button type="button" id="lkClear" class="quiet" title="Take everything off the preview; the lights don't change">Clear preview</button>
-        <button type="button" id="lkAdd" class="quiet" hidden title="Put this on the lights above what's already there">Add on top</button>
-        <button type="button" class="go" id="lkPushAll">Apply to lights</button>
+        <button type="button" id="lkClear" class="quiet icon-btn" title="Take everything off the preview; the lights don't change"></button>
+        <button type="button" id="lkAdd" class="quiet icon-btn" hidden title="Put this on the lights above what's already there">${icon('plus')}Add on top</button>
+        <button type="button" class="go icon-btn" id="lkPushAll">${icon('check')}Apply to lights</button>
       </div>
     </div>`;
   const $$ = (sel) => root.querySelector(sel);
@@ -596,6 +597,7 @@ export function createLooks(S, root) {
     // An empty lane says nothing the current-state line doesn't.
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     $$('#lkStack').hidden = prev.length < 2;
+    $$('#lkWords').hidden = !!prev.length || S.house.some((l) => !l.ephemeral);
     // The toggle can be on Lights with a preview open: this section says so.
     $$('#lkMapNote').hidden = !(prev.length && S.show === 'house');
     // Once something is previewing it's the thing being worked on: the long
@@ -661,7 +663,7 @@ export function createLooks(S, root) {
     now.classList.toggle('idle', !house.length);
     $$('#lkNowGo').hidden = !house.length;
   }
-  // Adjust goes to the cards on the lights, and marks them: already on
+  // View goes to the cards on the lights, and marks them: already on
   // screen there is no scroll to see.
   $$('#lkShowPreview').onclick = () => S.setShow('');
   $$('#lkNowGo').onclick = () => {
@@ -702,14 +704,14 @@ export function createLooks(S, root) {
     const n = prev.length === 1 ? '' : prev.length + ' ';
     hidden = updates ? [] : replacedBy(S.house.filter((x) => !x.ephemeral), prev, (t) => targetRanges(g, S.tree, t), new Set(Object.values(copies)));
     $$('#lkAdd').hidden = !hidden.length;
-    $$('#lkClear').textContent = clearLabel(prev.length);
+    $$('#lkClear').innerHTML = `${icon('close')}${clearLabel(prev.length)}`;
     // One 0% message on the screen: the lights' own, if they already have one.
     const landing = darkShown ? '' : applyWarning(lightOutcome(g, S.statusData?.brightness, prev.map((x) => targetRanges(g, S.tree, x.target))));
     const note = [landing, replaceNote(hidden.map((x) => layerName(S, x)))].filter(Boolean).join(' ');
     $$('#lkBarNote').textContent = note;
     $$('#lkBarNote').hidden = !note;
     $$('#lkBarNote').classList.toggle('warn', !!landing);
-    $$('#lkPushAll').textContent = updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`;
+    $$('#lkPushAll').innerHTML = `${icon('check')}${updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`}`;
     $$('#lkPushAll').title = updates ? 'Put your changes on the lights in place of the original'
       : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`
         : "Adds this to the lights; whatever is on them stays underneath";
@@ -802,7 +804,7 @@ export function createLooks(S, root) {
     const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
     darkToast = applyToast(S, what, outcome, !$$('#lkDark').hidden && !S.panel.collapsed());
-    if (outcome.dark && !S.panel.collapsed()) $$('#lkDark').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (outcome.dark && !S.panel.collapsed()) $$('#lkNow').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // the warning sits right under it
   }
   $$('#lkPushAll').onclick = () => apply([], hidden);
   $$('#lkAdd').onclick = () => apply([]);

@@ -12,6 +12,7 @@ import { calCount } from './calibrate.js';
 import { controllerName, modelPartLabel } from '../names.js';
 import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
+import { icon } from '../icons.js';
 
 const ADVANCED = 'glowstack.setup.advanced';
 const KEY_FOLDED = 'glowstack.legend.folded';
@@ -45,7 +46,7 @@ export function createSetup(S, root) {
     <h1 class="title">Set up the map</h1>
     <section class="setup-cal">
       <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
-      <div class="row"><button type="button" id="suCal" class="go grow">Calibrate</button></div>
+      <div class="row"><button type="button" id="suCal" class="go grow icon-btn"></button></div>
       <div class="muted small" id="suCalN"></div>
     </section>
     <h2 class="sub">Color the map by</h2>
@@ -75,7 +76,7 @@ export function createSetup(S, root) {
       <h3 class="sub">Camera <small id="suCamMode"></small></h3>
       <div class="row">
         <button type="button" id="suDefault" title="Forget this device's camera and go back to the site's view">Default</button>
-        <button type="button" id="suCopy" title="Copy this camera's position as text">Copy camera position</button>
+        <button type="button" id="suCopy" class="icon-btn" title="Copy this camera's position as text">${icon('copy')}Copy camera position</button>
       </div>
       <div class="muted small help">Default goes back to the site's view. Copying gives this camera's settings as text, for making it the view every device starts from.</div>
     </div>
@@ -111,7 +112,7 @@ export function createSetup(S, root) {
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
     $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b title="${esc(r.id)}">${esc(r.name || humanize(r.id))}</b><small>${plural(r.count, 'light')} on ${esc(controllerName(g, g.controllers[r.controller].id))}</small></span></li>`).join('') : '<li class="muted">None missing: every light shown is on the map.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
-    $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown, based on the condition of each strip`;
+    $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown (a run is one strip of lights), based on the condition of each strip`;
   }
   for (const b of $$('#suRuns').children) b.onclick = () => S.setAllRuns(b.dataset.all === 'true');
   S.on('runVisibility', renderRuns);
@@ -119,7 +120,7 @@ export function createSetup(S, root) {
 
   // ---------- calibration ----------
   $$('#suCal').onclick = () => S.calib.open();
-  const calLabel = (running) => { $$('#suCal').textContent = running ? 'Resume calibrating' : 'Calibrate'; };
+  const calLabel = (running) => { $$('#suCal').innerHTML = `${icon('target')}${running ? 'Resume calibrating' : 'Calibrate'}`; };
   S.on('calibration', calLabel);
   // The same count the calibration screen shows, from the same reading.
   const showCount = (st) => {
@@ -216,7 +217,7 @@ export function createSetup(S, root) {
   $$('#suCopy').onclick = async () => {
     const b = $$('#suCopy');
     const ok = await copyText(S.view.copyView());
-    if (ok) { b.textContent = 'Copied'; setTimeout(() => { b.textContent = 'Copy camera position'; }, 1500); }
+    if (ok) { b.lastChild.textContent = 'Copied'; setTimeout(() => { b.lastChild.textContent = 'Copy camera position'; }, 1500); }
   };
   S.on('camera', (st) => {
     $$('#suCamMode').textContent = { street: 'street view', overhead: 'overhead', free: 'where you left it', fit: 'fitted' }[st.mode] || '';
