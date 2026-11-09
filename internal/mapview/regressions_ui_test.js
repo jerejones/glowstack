@@ -2091,6 +2091,17 @@ test('one section-heading step, with a smaller h3 nested under Advanced', () => 
   assert.match(css, /\.calibrate h3 \{ font-size: var\(--t-h2\); \}/, 'Progress');
 });
 
+test('one word for taking a layer off, Pin matches the Presets tab, and the empty Preview toggle says why', async () => {
+  const looks = read('panel/looks.js'), icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
+  assert.doesNotMatch(looks, /Take this look off|Take everything off/);
+  assert.match(looks, /'Remove from the lights'/);
+  assert.equal(path('pin'), path('presets'));
+  const { showButton } = await import('./static/map-status.js');
+  const s = showButton('', { ready: true, failed: false, canPreview: false, word: 'Click' });
+  assert.equal(s.ariaDisabled, true);
+  assert.match(s.title, /^No preview yet/);
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 580px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);

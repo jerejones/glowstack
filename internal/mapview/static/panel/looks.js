@@ -246,7 +246,7 @@ export function createLooks(S, root) {
         <div class="seg" id="lkMode" role="group" aria-label="What happens to what's on the lights" hidden><button type="button" data-mode="replace">Replace</button><button type="button" data-mode="add">Add</button></div>
         <button type="button" class="go icon-btn" id="lkPushAll"></button>
       </div>
-      <div class="bar-line"><p class="bar-note" id="lkBarNote"></p><button type="button" id="lkClear" class="quiet icon-btn" title="Take everything off the preview; the lights don't change">${icon('close')}Clear preview</button></div>
+      <div class="bar-line"><p class="bar-note" id="lkBarNote"></p><button type="button" id="lkClear" class="quiet icon-btn" title="Remove everything from the preview; the lights don't change">${icon('close')}Clear preview</button></div>
     </div>`;
   const $$ = (sel) => root.querySelector(sel);
 
@@ -579,7 +579,7 @@ export function createLooks(S, root) {
     rm.querySelector('span').textContent = part ? 'Remove here' : 'Remove';
     rm.classList.toggle('worded', !!part);
     rm.setAttribute('aria-label', part ? 'Remove here' : 'Remove');
-    rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this look off the lights');
+    rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Remove from the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
     if (c.only) c.only.hidden = (S.preview?.layers.length || 0) < 2;
   }
