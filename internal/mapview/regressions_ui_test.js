@@ -1473,3 +1473,9 @@ test('B91: Details reads as sentences, and raw ids stay in the technical rows', 
   const rows = inspectTechnical(d, { is3d: true, fmt: (v) => String(v) }).map(([k]) => k);
   assert.ok(rows.includes('front-sweep') && rows.includes('Controller pixel'));
 });
+
+test('B92: editing a preview of the lights is said once, inline', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /note\.textContent = orig \? `Editing a preview of/);
+  assert.doesNotMatch(looks, /S\.toast\(`Editing a preview/);
+});

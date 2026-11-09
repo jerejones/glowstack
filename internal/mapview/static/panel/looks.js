@@ -673,7 +673,6 @@ export function createLooks(S, root) {
       const pc = cards.get('preview:' + id);
       if (pc && !pc.form) tweak(pc);
       else if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      S.toast(`Editing a preview of ${layerName(S, c.layer)}. Apply to update the lights.`);
       return;
     }
     const form = createForm({
