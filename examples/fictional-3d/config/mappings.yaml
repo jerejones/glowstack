@@ -1,0 +1,25 @@
+schema: 1
+default: front-sweep
+
+flows:
+  # From the shed's SE corner, outward along the eave and the fence. The
+  # tower is linked to the middle of the north eave; both its sides flow up
+  # into the top, so a wave arrives at the top from both sides at once.
+  - id: front-sweep
+    origin: shed-se
+    orient:
+      - { edge: [tower-l, tower-top], into: tower-top }
+      - { edge: [tower-r, tower-top], into: tower-top }
+    warp: linear
+    loops: stretch
+    unreached: local          # the porch isn't connected; it runs on its own
+
+  - id: from-gate
+    origin: gate-w
+    unreached: dark
+
+mappings:
+  - { id: porch-local, kind: local }
+  - { id: east-west, kind: axis, angle: 0 deg }
+  - { id: around-gate, kind: radial, center: gate-w }
+  - { id: wled-order, kind: index, order: [shed-eave, tower, fence-west, fence-east, porch] }

@@ -1,0 +1,39 @@
+schema: 1
+areas:
+  - id: shed
+    include: [shed-eave, tower]
+  - id: yard
+    include: [fence-west, fence-east]
+  - id: porch
+    include: [porch]
+  - id: shed-north
+    include: [{ run: shed-eave, from: shed-nw, to: shed-ne }]
+  - id: everything
+    include: [{ area: shed }, { area: yard }, { area: porch }]
+  # from/to include the pixel at their node; after/before leave it out, so
+  # neighboring areas can meet at a node without sharing its pixel. With
+  # shed-north these split the eave into three faces with no overlap.
+  - id: shed-south
+    include: [{ run: shed-eave, to: shed-sw }]
+  - id: shed-west
+    include: [{ run: shed-eave, after: shed-sw, before: shed-nw }]
+
+# Each zone with a device is a WLED device for Home Assistant, on port 80 of
+# its ip (add the addresses to the host), told apart by mac. To try them
+# without, run glowstack with --wled-bind 127.0.0.1:0.
+zones:
+  - id: front
+    area: everything
+    device: { name: "Glowstack Front", ip: 192.0.2.50, mac: "02:00:00:00:00:01" }
+    mapping: front-sweep
+    segments:
+      - { area: everything }
+      - { area: shed }
+      - { area: yard }
+  - id: porch
+    area: porch
+    device: { name: "Glowstack Porch", ip: 192.0.2.51, mac: "02:00:00:00:00:02" }
+    mapping: porch-local
+    segments:
+      - { area: porch }
+      - { area: shed-north, mapping: east-west }

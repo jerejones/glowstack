@@ -1,0 +1,10 @@
+# Fictional installation: a shed with an eave run, a tower, a fenced yard
+# with a gate, and a porch rail. Nothing here describes a real place.
+schema: 1
+fps: 40
+boot: restore            # restore | dark
+fade: { in: 300 ms, out: 500 ms }
+power:
+  group: global          # global | zone | controller | output: who shares a limit's scale
+  release: 2 s           # recovery time constant after a limit eases; limiting is instant
+dither: true             # temporal dithering to 8 bits

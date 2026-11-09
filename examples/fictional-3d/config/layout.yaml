@@ -1,0 +1,63 @@
+# The fictional installation with a small made-up 3-D scene, for checking the
+# live map's framing in a 3-D view. Nothing here describes a real place.
+schema: 1
+pitch: 1/30 m                  # 30 LEDs per meter
+
+scene: { glb: site.glb }
+
+nodes:
+  - { id: shed-ne, label: "shed NE corner" }
+  - { id: tower-top, sync: true }
+
+# A run names its LEDs by output: the whole output by default, or
+# `leds: [a, b]` counted from the output's first LED. Anchor offsets count
+# from the run's first LED in data order, so neither moves when another
+# output's count changes.
+runs:
+  # Starts at the shed's SE corner and wraps three sides of the eave.
+  - id: shed-eave
+    controller: shed
+    output: 1
+    leds: [0, 481]             # 482 and 483 are dead, below
+    path: [shed-se, shed-sw, shed-nw, shed-eave-mid, shed-ne]
+    anchors:
+      - { node: shed-sw }                                 # estimated from the drawing
+      - { node: shed-nw, offset: 305, source: measured }  # confirmed on site
+      - { node: shed-eave-mid }                           # estimated; the tower links here
+    model: { glb: "site.glb#shed-eave" }
+
+  # A small tower: up one side and down the other. Its path comes from the
+  # drawing's vertex labels, and tower-top's anchor is estimated.
+  - id: tower
+    controller: shed
+    output: 2
+    model: { glb: "site.glb#tower" }
+
+  - id: fence-west
+    controller: yard
+    output: 1
+    leds: [0, 239]
+    path: [shed-se, gate-w]
+    model: { glb: "site.glb#fence-west" }
+
+  - id: fence-east
+    controller: yard
+    output: 1
+    leds: [240, 389]
+    path: [gate-e, fence-end]
+    model: { glb: "site.glb#fence-east" }
+
+  # The porch rail isn't connected to anything else.
+  - id: porch
+    controller: yard
+    output: 2
+    reverse: true              # wired from the east end: the path starts at its last LED
+    path: [porch-e, porch-w]
+    model: { glb: "site.glb#porch" }
+
+edges:
+  - { kind: gap,  from: gate-w, to: gate-e, length: 1.2 m }   # the gate
+  - { kind: link, from: tower-top, to: shed-eave-mid }        # tower lines up with the eave
+
+dead:
+  - { controller: shed, output: 1, leds: [482, 483] }   # jumper behind the downpipe

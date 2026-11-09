@@ -1,0 +1,4 @@
+# Written by Glowstack's calibration mode. Overrides layout.yaml.
+schema: 1
+anchors:
+  - { run: shed-eave, node: shed-sw, offset: 186, pixels: 482, source: measured }
