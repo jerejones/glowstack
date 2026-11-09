@@ -2365,3 +2365,16 @@ test('B127: a run row keeps a gutter before Calibrate and one edge for its figur
   const css = read('ui.css');
   assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) max-content 6\.4em; column-gap: 12px; \}/);
 });
+
+test('B128: an area wholly covered by smaller ones leaves the key', async () => {
+  const { areaPaint } = await import('./static/overlay.js');
+  const area = (count, ...ranges) => ({ area: { count, ranges } });
+  // A whole-zone area, then two parts that cover it exactly.
+  const covered = [area(100, [0, 99]), area(60, [0, 59]), area(40, [60, 99])];
+  assert.deepEqual(areaPaint(covered).order, [0, 1, 2], 'biggest first');
+  assert.deepEqual([...areaPaint(covered).seen].sort(), [1, 2], 'the whole-zone area shows nowhere');
+  // One pixel left over is still a color on the map.
+  const partly = [area(100, [0, 99]), area(60, [0, 59]), area(39, [60, 98])];
+  assert.deepEqual([...areaPaint(partly).seen].sort(), [0, 1, 2]);
+  assert.deepEqual([...areaPaint([{ area: undefined }, area(5, [0, 4])]).seen], [1], 'a part with no area is skipped');
+});

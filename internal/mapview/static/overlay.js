@@ -142,6 +142,17 @@ export function nodeLocations(g, i, plan) {
 
 // createOverlay keeps the overlay state. S is the app state: geo, view,
 // plan, hover, pinned, cal (the calibration session, or null).
+// areaPaint is the order a zone's parts are painted in, bigger areas first so
+// smaller ones stay visible over them, and which parts still show afterward:
+// a part every pixel of which is painted over has no color on the map, so it
+// has no place in the key.
+export function areaPaint(parts) {
+  const order = parts.map((_, i) => i).filter((i) => parts[i].area).sort((a, b) => parts[b].area.count - parts[a].area.count);
+  const last = new Map();
+  for (const i of order) for (const [a, b] of parts[i].area.ranges) for (let p = a; p <= b; p++) last.set(p, i);
+  return { order, seen: new Set(last.values()) };
+}
+
 export function createOverlay(S) {
   const g = S.geo, px = g.pixels, n = px.count;
   const st = { mode: 'live', mapping: '', zone: '', nodes: false, labels: false, controllers: false, evenSpacing: false, legend: '' };
@@ -217,13 +228,13 @@ export function createOverlay(S) {
       // visible where they overlap.
       const z = g.zones.find((z) => z.id === st.zone);
       const parts = z ? z.segments.map((s, i) => ({ name: humanize(s.area), area: g.areas.find((a) => a.id === s.area) })) : [];
-      const order = parts.map((_, i) => i).filter((i) => parts[i].area).sort((a, b) => parts[b].area.count - parts[a].area.count);
+      const { order, seen } = areaPaint(parts);
       for (const i of order) {
         const c = PALETTE[i % PALETTE.length];
         for (const [a, b] of parts[i].area.ranges) for (let p = a; p <= b; p++) out.set(c, 3 * p);
       }
       legend = z ? `<div>Parts of <b>${esc(z.name || humanize(z.id))}</b></div>` +
-        parts.map((pt, i) => `<div><span class="sw" style="background:rgb(${PALETTE[i % PALETTE.length]})"></span>${esc(pt.name)}</div>`).join('')
+        parts.map((pt, i) => (seen.has(i) ? `<div><span class="sw" style="background:rgb(${PALETTE[i % PALETTE.length]})"></span>${esc(pt.name)}</div>` : '')).join('')
         : '<div class="muted">No zones.</div>';
       return { rgb: out, legend };
     }
