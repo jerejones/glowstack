@@ -193,6 +193,10 @@ export function applyPlan({ n, updates, house, hidden, mode }) {
   return { label: `Replace what's on the lights with ${looks}`, choice: true, replace: true, note: replaceNote(hidden) + (stay ? ` · ${stay} more ${stay === 1 ? 'stays' : 'stay'}` : '') };
 }
 
+// swapLabel is the phone bar's link to the other mode: the one the button
+// doesn't say.
+export const swapLabel = (mode) => (mode === 'add' ? 'Replace instead' : 'Add on top instead');
+
 // applyTitle is the Apply button's tooltip; a failed status read says so
 // there, and Apply still works.
 export function applyTitle(plan, unknown) {
@@ -308,6 +312,7 @@ export function createLooks(S, root) {
       <div class="bar-main">
         <div class="seg" id="lkMode" role="group" aria-label="What happens to what's on the lights" hidden><button type="button" data-mode="replace">Replace</button><button type="button" data-mode="add">Add</button></div>
         <button type="button" class="go icon-btn" id="lkPushAll"></button>
+        <button type="button" class="target-btn swap" id="lkSwap" hidden></button>
       </div>
       <div class="bar-line"><p class="bar-note" id="lkBarNote"></p><button type="button" id="lkClear" class="quiet icon-btn" title="Remove everything from the preview; the lights don't change">${icon('close')}Clear preview</button></div>
     </div>`;
@@ -811,6 +816,10 @@ export function createLooks(S, root) {
     plan = applyPlan({ n: prev.length, updates, house: house.length, hidden: hidden.map((x) => layerName(S, x)), mode });
     $$('#lkMode').hidden = !plan.choice;
     for (const b of $$('#lkMode').children) press(b, b.dataset.mode === mode);
+    // A phone's bar says the mode once, on the button; the link under it is
+    // the other way, so "Replace" is never on two controls at once.
+    $$('#lkSwap').hidden = !plan.choice;
+    $$('#lkSwap').textContent = swapLabel(mode);
     const go = $$('#lkPushAll'), html = `${icon('apply')}<span>${esc(plan.label)}</span>`;
     if (go.dataset.html !== html) { go.dataset.html = html; go.innerHTML = html; }
     go.title = applyTitle(plan, S.houseStatus === 'unavailable' || !!S.statusFailed);
@@ -827,6 +836,7 @@ export function createLooks(S, root) {
     if (note.scrollWidth > note.clientWidth + 1) bar.classList.add('note-below');
   }
   for (const b of $$('#lkMode').children) b.onclick = () => { mode = b.dataset.mode; renderStage(); };
+  $$('#lkSwap').onclick = () => { mode = mode === 'add' ? 'replace' : 'add'; renderStage(); };
   // placeClear keeps Clear in the bar beside the map, and in the stage's
   // header on a phone, whose bar is one row.
   const clearHome = $$('#lkClear').parentElement;

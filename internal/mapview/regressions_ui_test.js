@@ -2040,8 +2040,8 @@ test('B120: the action bar never truncates its note and clears the phone edge', 
   const looks = read('panel/looks.js');
   assert.match(looks, /note\.scrollWidth > note\.clientWidth \+ 1\) bar\.classList\.add\('note-below'\)/);
   assert.match(css, /\.look-bar\.note-below \.bar-note \{[^}]*flex: 0 0 100%; white-space: normal/);
-  assert.match(css, /\/\* One row: the action, then Replace or Add as a compact pair\. \*\/\s*\.look-bar \{ display: block;/);
-  assert.match(css, /\.bar-main \.go \{ order: 1; \}/);
+  assert.match(css, /\.look-bar \{ display: block; padding: 8px 12px; \}/);
+  assert.match(css, /\.bar-main \.go \{ flex: 1 1 100%; \}/, 'the action takes the row (Refinement 4: the mode link sits under it)');
   assert.match(css, /  \.bar-line \{ display: none; \}/, 'Clear moved to the stage header; the note to its line');
 });
 
@@ -2619,4 +2619,23 @@ test('Refinement 3: map labels readable', async () => {
   assert.match(setup, /row\.onpointerenter = \(\) => pick\(true\); row\.onpointerleave = \(\) => pick\(false\);/);
   assert.match(setup, /if \(S\.coarse\) row\.onclick = \(\) => pick\(ov\.st\.focus !== id\);/);
   assert.match(css, /\.key-row\.dim \{ opacity: 0\.45; \}/);
+});
+
+test('Refinement 4: the phone footer says Replace once', async () => {
+  const { swapLabel, applyPlan } = await import('./static/panel/looks.js');
+  const looks = read('panel/looks.js');
+  // One primary button whose label states the mode, and a text link to the other mode under it.
+  assert.equal(swapLabel('replace'), 'Add on top instead');
+  assert.equal(swapLabel('add'), 'Replace instead');
+  for (const mode of ['replace', 'add']) {
+    const plan = applyPlan({ n: 1, house: 1, hidden: ['Dusk'], mode });
+    assert.equal([plan.label, swapLabel(mode)].filter((t) => /Replace/.test(t)).length, 1, `${mode}: one control says Replace`);
+  }
+  assert.equal(applyPlan({ n: 1, house: 1, hidden: ['Dusk'], mode: 'add' }).label, 'Add 1 look on top');
+  assert.match(looks, /<button type="button" class="target-btn swap" id="lkSwap" hidden><\/button>/);
+  assert.match(looks, /\$\$\('#lkSwap'\)\.hidden = !plan\.choice;\s*\$\$\('#lkSwap'\)\.textContent = swapLabel\(mode\);/);
+  assert.match(looks, /\$\$\('#lkSwap'\)\.onclick = \(\) => \{ mode = mode === 'add' \? 'replace' : 'add'; renderStage\(\); \};/);
+  // The desktop keeps its Replace/Add pair and never shows the link; the phone the reverse.
+  assert.match(css, /^\.bar-main \.swap \{ display: none; \}/m);
+  assert.match(css, /  \.bar-main \.seg \{ display: none; \}\n  \.bar-main \.swap \{ display: inline-block; margin: -4px 0 -6px auto; min-height: 36px;/);
 });

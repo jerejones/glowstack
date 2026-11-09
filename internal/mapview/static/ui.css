@@ -596,6 +596,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 }
 .bar-main { display: flex; gap: 8px; align-items: center; }
 .bar-main .seg { flex: none; width: auto; }
+.bar-main .swap { display: none; } /* the phone's link to the other mode */
 .bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; }
 .group-head { margin: 10px 0 6px; }
 .bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -655,11 +656,13 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   .layer .tweak { grid-column: 2; grid-row: 2; }
   .layer [data-a=remove] { grid-column: 2; grid-row: 1; }
   .layer .bri { grid-column: 1; grid-row: 2; }
-  /* One row: the action, then Replace or Add as a compact pair. */
+  /* The phone's bar says the mode once: the button states it, and the link
+   * under it is the other way. The Replace/Add pair is the desktop's. */
   .look-bar { display: block; padding: 8px 12px; }
-  .bar-main .go { order: 1; }
-  .bar-main .seg { order: 2; }
-  .bar-main .seg > button { padding: 0 8px; }
+  .bar-main { flex-wrap: wrap; row-gap: 0; }
+  .bar-main .go { flex: 1 1 100%; }
+  .bar-main .seg { display: none; }
+  .bar-main .swap { display: inline-block; margin: -4px 0 -6px auto; min-height: 36px; font-size: var(--t-help); }
   .bar-line { display: none; }
 }
 
