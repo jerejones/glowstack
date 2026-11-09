@@ -24,10 +24,10 @@ import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll, lightOutcome } from './house-status.js';
 import { createLibrary } from './library.js';
-import { mapStatus, badgeHTML } from './map-status.js';
+import { mapStatus, badgeHTML, showButton } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure } from './states.js';
-import { frameInsets, toastBottom } from './map-frame.js';
+import { frameInsets, toastBottom, toastHome } from './map-frame.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
 import { showingLabel } from './form.js';
 
@@ -76,7 +76,7 @@ const S = {
 // toast shows a message in the one toast area. An Error shows its
 // server message and file:line details.
 function toast(msg, opts = {}) {
-  const box = $('toasts');
+  const box = $(toastHome(S.calibrating, !!$('caToasts')));
   const err = msg instanceof Error;
   const el = document.createElement('div');
   el.className = 'toast' + (err || opts.error ? ' error' : opts.warn ? ' warn' : opts.neutral ? ' neutral' : '');
@@ -93,8 +93,13 @@ S.toast = toast;
 function placeToasts() {
   if (!S.panel) return;
   const stage = $('stage').getBoundingClientRect();
-  $('toasts').style.bottom = toastBottom({ height: stage.height, layout: S.panel.layout(), calibrating: S.calibrating, calTop: $('calibrate').getBoundingClientRect().top - stage.top, floats: floatsBottom(stage) }) + 'px';
+  $('toasts').style.bottom = toastBottom({ floats: floatsBottom(stage) }) + 'px';
 }
+// moveToasts carries messages already showing to where they belong now.
+S.moveToasts = () => {
+  const home = $(toastHome(S.calibrating, !!$('caToasts'))), other = home.id === 'toasts' ? $('caToasts') : $('toasts');
+  if (other) home.append(...other.children);
+};
 // S.fail reports an action that failed, naming the action.
 S.fail = (doing, e) => toast(failure(doing, e), { error: true, details: (e && e.details) || [] });
 
@@ -603,10 +608,10 @@ function badge() {
   $('showSeg').hidden = m.showing === 'target' || m.showing === 'calibration';
   for (const t of $('showSeg').querySelectorAll('button')) {
     press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
-    if (t.dataset.show === '') {
-      t.setAttribute('aria-disabled', m.canPreview ? 'false' : 'true');
-      t.title = m.canPreview ? 'Your preview, on the map only' : `No preview yet. ${S.coarse ? 'Tap' : 'Click'} a preset to preview it.`;
-    }
+    const state = showButton(t.dataset.show, { ready: !!S.view, failed: !!S.mapFailed, canPreview: m.canPreview, word: S.coarse ? 'Tap' : 'Click' });
+    t.disabled = state.disabled;
+    t.title = state.title;
+    if (t.dataset.show === '') t.setAttribute('aria-disabled', state.ariaDisabled ? 'true' : 'false');
   }
 }
 

@@ -323,11 +323,10 @@ test('B29: calibration names wrap, undoing the single-line .nv rule', () => {
   assert.match(rule, /overflow: visible/);
 });
 
-test('B33: toasts sit above the map toggle and legend, and over the phone calibration sheet', async () => {
+test('B33: toasts sit above the map toggle and legend', async () => {
   const { toastBottom } = await import('./static/map-frame.js');
   assert.equal(toastBottom({ height: 900, layout: 'wide', calibrating: false, calTop: 0, floats: 120 }), 128);
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: false, calTop: 354, floats: 450 }), 458, 'above the sheet and its toggle');
-  assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 0 }), 498);
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 530 }), 538, 'above the key too');
   assert.match(read('app.js'), /\.filter\(\(\[r, keep\]\) => r\.height && keep\(r\)\)/, 'a legend hidden by CSS has no top');
 });
@@ -1786,4 +1785,39 @@ test('B101: a crowded map draws no two labels on each other or over the lights',
     placed.forEach((a, i) => placed.slice(i + 1).forEach((b) => assert.equal(boxesHit(a, b), false, `${a.text} / ${b.text}`)));
     for (const l of placed) if (l.rank < 2.5) assert.equal(solid(l), false, l.text);
   }
+});
+
+test('B99: while calibrating, messages go in the panel and never over the map target', async () => {
+  const { toastHome } = await import('./static/map-frame.js');
+  assert.equal(toastHome(true, true), 'caToasts');
+  assert.equal(toastHome(false, true), 'toasts');
+  assert.equal(toastHome(true, false), 'toasts'); // before the panel exists
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /id="caToasts"/);
+  assert.ok(cal.indexOf('caToasts') < cal.indexOf('id="caBody"'), 'above the scrolling body');
+});
+
+test('B100: the Goes on list is its own full sheet on a phone, with a way out', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /asSheet = on && S\.panel\.layout\(\) === 'sheet'/);
+  assert.match(looks, /getElementById\('panel'\)/);
+  assert.match(looks, /id="lkPickClose"/);
+  assert.match(css, /\.target-picker\.as-sheet \{[^}]*position: absolute; inset: 0/);
+  assert.match(css, /\.target-picker\.as-sheet \.target-list \{ flex: 1/);
+});
+
+test('B103: Preview and Lights are off until the map is ready, and say why', async () => {
+  const html = read('index.html');
+  assert.equal((html.match(/data-show="[^"]*" disabled title="Waiting for the map to load"/g) || []).length, 2);
+  const { showButton } = await import('./static/map-status.js');
+  const base = { canPreview: true, word: 'Tap' };
+  assert.deepEqual(showButton('', { ...base, ready: false, failed: false }), { disabled: true, ariaDisabled: false, title: 'Waiting for the map to load' });
+  assert.equal(showButton('house', { ...base, ready: true, failed: true }).disabled, true);
+  assert.match(showButton('house', { ...base, ready: true, failed: true }).title, /Retry/);
+  assert.equal(showButton('house', { ...base, ready: true, failed: false }).disabled, false);
+  assert.equal(showButton('', { ...base, ready: true, failed: false }).disabled, false);
+  // Ready with nothing in preview: still pressable, so it can say why not.
+  const empty = showButton('', { ...base, canPreview: false, ready: true, failed: false });
+  assert.equal(empty.disabled, false);
+  assert.equal(empty.ariaDisabled, true);
 });

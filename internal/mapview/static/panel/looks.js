@@ -182,6 +182,7 @@ export function createLooks(S, root) {
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Goes on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
       <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
+        <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
         ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
         <div class="muted small" id="lkPickHint">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
         <div class="target-list" id="lkTargetList"></div>
@@ -236,7 +237,7 @@ export function createLooks(S, root) {
     return target && targetRanges(g, S.tree, target) ? target : 'all';
   }
   let shownDark = '';
-  const picker = $$('#lkPicker'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch'), head = $$('#lkCatalogHead');
+  const picker = $$('#lkPicker'), pickList = $$('#lkTargetList'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch'), head = $$('#lkCatalogHead');
   // The one list of places serves the Goes on button, and, inside a preview
   // card, that layer's own place. pickFor is the card it is open for.
   let pickFor = null, opener = targetBtn;
@@ -248,7 +249,7 @@ export function createLooks(S, root) {
     if (picker.hidden) return;
     const value = pickFor ? pickFor.layer.target : t;
     const groups = targetGroups(S.tree, { query: search.value, visibleRuns: S.visibility.runs });
-    $$('#lkTargetList').replaceChildren(...groups.map((grp) => {
+    pickList.replaceChildren(...groups.map((grp) => {
       const group = document.createElement('section');
       group.className = 'target-group';
       const head = document.createElement('h3');
@@ -273,28 +274,36 @@ export function createLooks(S, root) {
       }
       return group;
     }));
-    if (!groups.length) showState($$('#lkTargetList'), { kind: 'empty', title: 'No place by that name' });
+    if (!groups.length) showState(pickList, { kind: 'empty', title: 'No place by that name' });
   }
   const outside = (e) => { if (!picker.contains(e.target) && !opener.contains(e.target)) openPicker(false); };
   // openPicker opens the list for the next look, or for card c's own place.
+  // On a phone it is its own full sheet, and the sheet goes back after.
+  let detentBefore = '';
   function openPicker(on, c = null) {
     opener.setAttribute('aria-expanded', 'false');
     picker.hidden = !on;
     pickFor = on ? c : null;
     opener = pickFor ? pickFor.el.querySelector('.place') : targetBtn;
     opener.setAttribute('aria-expanded', on ? 'true' : 'false');
-    (pickFor ? pickFor.el.querySelector('.place-row') : head).append(picker);
-    picker.setAttribute('aria-label', pickFor ? 'Where this look goes' : 'Where the next look goes');
-    $$('#lkPickHint').hidden = !!pickFor;
+    const asSheet = on && S.panel.layout() === 'sheet';
+    picker.classList.toggle('as-sheet', asSheet);
+    (asSheet ? document.getElementById('panel') : pickFor ? pickFor.el.querySelector('.place-row') : head).append(picker);
+    if (asSheet && S.panel.detent() !== 'full') { detentBefore = S.panel.detent(); S.panel.setDetent('full'); }
+    else if (!on && detentBefore) { S.panel.setDetent(detentBefore); detentBefore = ''; }
+    const title = pickFor ? 'Where this look goes' : 'Where the next look goes';
+    picker.setAttribute('aria-label', title);
+    picker.querySelector('#lkPickTitle').textContent = title;
+    picker.querySelector('#lkPickHint').hidden = !!pickFor;
     document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
     if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus(); }
   }
   // fitPicker keeps the floating list inside the panel, above the Apply bar;
   // a sheet with too little room rises first.
   function fitPicker() {
-    const list = $$('#lkTargetList'), content = root.parentElement, bar = $$('#lkBar');
+    const list = pickList, content = root.parentElement, bar = $$('#lkBar');
+    if (picker.classList.contains('as-sheet')) { list.style.maxHeight = ''; picker.classList.remove('up'); return; }
     const room = () => content.getBoundingClientRect().bottom - list.getBoundingClientRect().top - (bar.hidden ? 0 : bar.offsetHeight) - 12;
-    if (S.panel.layout() === 'sheet' && S.panel.detent() !== 'full' && room() < 220) S.panel.setDetent('full');
     // A card low in the list has its room above it: bring the card up first.
     picker.classList.remove('up');
     // Its least height first: the room is what's left with that much open.
@@ -331,6 +340,8 @@ export function createLooks(S, root) {
     else { fillTargets(); markPreviewed(); }
   }
   targetBtn.onclick = () => openPicker(picker.hidden);
+  picker.querySelector('#lkPickClose').onclick = () => { const back = opener; openPicker(false); back.focus({ preventScroll: true }); };
+  S.on('layout', () => { if (!picker.hidden) openPicker(false); });
   search.oninput = fillTargets;
   S.on('runVisibility', fillTargets);
   S.on('select', () => { fillTargets(); renderLanes(); });

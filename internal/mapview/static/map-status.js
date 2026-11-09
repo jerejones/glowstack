@@ -40,6 +40,17 @@ export function mapStatus({ connected, connecting = false, show, preview, target
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
 }
 
+// showButton is one Preview/Lights button's state: off, with the reason, until
+// the map is there to act on (failed: it never will be without a Retry).
+// choice is the button's data-show. A preview with nothing to show stays a
+// control that explains itself when pressed.
+export function showButton(choice, { ready, failed, canPreview, word }) {
+  if (failed) return { disabled: true, ariaDisabled: false, title: "The map didn't load. Use Retry on the map." };
+  if (!ready) return { disabled: true, ariaDisabled: false, title: 'Waiting for the map to load' };
+  if (choice !== '') return { disabled: false, ariaDisabled: false, title: 'What the lights show' };
+  return canPreview ? { disabled: false, ariaDisabled: false, title: 'Your preview, on the map only' } : { disabled: false, ariaDisabled: true, title: `No preview yet. ${word} a preset to preview it.` };
+}
+
 // badgeHTML is the chip's content. One element holds both parts: the chip
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.

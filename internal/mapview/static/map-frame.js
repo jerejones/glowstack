@@ -7,12 +7,13 @@
 // at the top of the map only while calibrating on a phone. Everywhere else
 // it is at the bottom, and counting it at the top leaves nothing to frame.
 
+// toastHome is where messages go: over the map, or while calibrating in the
+// calibration panel, since the map is then the target being lined up.
+export const toastHome = (calibrating, panelReady) => (calibrating && panelReady ? 'caToasts' : 'toasts');
+
 // toastBottom is how far above the stage's bottom toasts sit: over the
-// toggle, the legend and the sheet, or on a phone that's calibrating, over
-// the calibration sheet.
-export function toastBottom({ height, layout, calibrating, calTop, floats }) {
-  return (calibrating && layout === 'sheet' ? Math.max(height - calTop, floats ?? 0) : floats) + 8;
-}
+// toggle, the legend and the sheet.
+export const toastBottom = ({ floats }) => (floats ?? 0) + 8;
 
 // frameInsets takes the page's measurements, in px from the stage's top:
 // height (the stage's), chips and crumbs (their bottoms; crumbs is null

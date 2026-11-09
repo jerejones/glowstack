@@ -306,6 +306,7 @@ export function createCalibrate(S, root) {
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
       <button type="button" id="caStop" class="danger" title="End calibration and return the lights to normal">Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
+    <div class="cal-toasts" id="caToasts" aria-live="polite"></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
       <p class="cal-why" id="caWhy" hidden></p>
@@ -334,6 +335,7 @@ export function createCalibrate(S, root) {
     root.hidden = !on;
     document.body.classList.toggle('calibrating', on);
     S.calibrating = on;
+    S.moveToasts?.();
     S.subscribe?.();
     if (on) hold = S.view.hold();
     else { framed = ''; tapped = -1; shownStep = ''; }
