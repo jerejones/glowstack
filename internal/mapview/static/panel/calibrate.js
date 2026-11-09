@@ -53,7 +53,9 @@ export function createSession({ fetch, storage, onState }) {
       let j = null;
       try { j = JSON.parse(text); } catch (_) { /* reported below */ }
       if (!r.ok || j === null) {
-        C.error = j?.error || text || r.statusText; C.details = j?.errors || [];
+        // A poll's own error clears with the next good poll; an action's
+        // stays until the next action.
+        C.error = j?.error || text || r.statusText; C.details = j?.errors || []; C.lost = C.lost || polling;
       } else {
         if (polling && text === last && !C.lost) return;
         last = text; C.st = j;
@@ -106,6 +108,27 @@ export function referenceColors(g, cal) {
     out.set(color, (ctl.base + i) * 3);
   }
   return out;
+}
+
+// loadState is the screen's state before the first reading: loading, or
+// the failure with Retry. null once there is a session state to draw.
+export function loadState(C) {
+  if (C.st) return null;
+  if (C.error) return { kind: 'error', title: 'Could not load calibration', detail: C.error, retry: true };
+  return { kind: 'loading', title: 'Loading calibration…' };
+}
+
+// calCount is the one count on the calibration screen: the steps in the
+// progress list, which is what "Step 3 of 9" counts. It holds links and
+// gaps as well as the points the Setup tab counts, which the title says.
+export function calCount(st) {
+  const items = st.progress || [];
+  if (!items.length) return null;
+  const others = items.length - (st.anchors || 0);
+  return {
+    text: `${items.filter((i) => i.done).length} of ${plural(items.length, 'step')} done`,
+    title: `${st.measured || 0} of ${plural(st.anchors || 0, 'point')} measured` + (others ? `, plus ${plural(others, 'link or gap', 'links and gaps')}` : ''),
+  };
 }
 
 // stepTitle says what a target asks of the person, in words.
@@ -251,9 +274,12 @@ export function createCalibrate(S, root) {
     $$('#caClose').hidden = !!active;
     $$('#caDock').hidden = !active;
     $$('#caLabel').textContent = 'Calibrating';
-    $$('#caCount').textContent = st && st.anchors ? `${st.measured} of ${plural(st.anchors, 'point')} measured` : '';
+    const count = st ? calCount(st) : null;
+    $$('#caCount').textContent = count ? count.text : '';
+    $$('#caCount').title = count ? count.title : '';
 
-    if (!st) parts.push(stateHTML({ kind: 'loading', title: 'Loading calibration…' }));
+    const loading = loadState(C);
+    if (loading) parts.push(stateHTML(loading));
     else if (!active) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
@@ -291,7 +317,7 @@ export function createCalibrate(S, root) {
       $$('#caConfirm').disabled = !confirmable;
       $$('#caNext').checked = C.next;
     }
-    if (C.error) parts.push(`<div class="error">${esc(C.error)}${C.details.map((d) => `<div class="small">${esc(d)}</div>`).join('')}</div>`);
+    if (C.error && !loading) parts.push(`<div class="error">${esc(C.error)}${C.details.map((d) => `<div class="small">${esc(d)}</div>`).join('')}</div>`);
 
     // A tapped pixel: calibrate there.
     if (tapped >= 0) {
@@ -349,6 +375,7 @@ export function createCalibrate(S, root) {
     body.innerHTML = parts.join('');
     body.scrollTop = top;
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
+    for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => { C.error = ''; render(); session.poll(); };
     for (const f of body.querySelectorAll('form[data-form]')) {
       f.onsubmit = (e) => {
         e.preventDefault();

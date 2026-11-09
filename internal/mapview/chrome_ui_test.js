@@ -84,6 +84,39 @@ test('the palette passes AA, including the primary action in every state', () =>
   assert.ok(contrast(token('muted'), '#0f1115') >= 4.5, 'placeholder');
 });
 
+test('secondary text passes AA on every pressed and raised surface', () => {
+  const raised = token('muted-raised');
+  assert.match(css, /button\.on, \.toast, \.cal-prog li\.here, \.cal-prog li:hover \{ --muted: var\(--muted-raised\); \}/);
+  const surfaces = [...css.matchAll(/([^{}\n]*(?:\.on|\.here|li:hover)[^{}\n]*)\{[^}]*background: (#[0-9a-f]{6})/g)].filter((m) => !m[1].includes('.crumbs'));
+  assert.ok(surfaces.length >= 5, surfaces.length + ' surfaces');
+  for (const [, sel, bg] of [...surfaces, ['', '.toast', '#20242c']]) assert.ok(contrast(raised, bg) >= 4.5, `${sel.trim()} ${bg}`);
+  assert.ok(contrast(token('house'), '#262c36') >= 4.5, 'a done step while current');
+});
+
+test('the startup message is on the map, not in the collapsed sheet', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'static/index.html'), 'utf8');
+  assert.ok(html.indexOf('bootLoading') < html.indexOf('</main>'), 'inside the stage');
+  assert.match(css, /\.boot-loading \{ position: absolute;/);
+});
+
+test('calibrating on a phone keeps the chips and toggle above the map, whatever the sheet detent', () => {
+  const block = /body\.calibrating \{ --panel-space: 0px; \}[\s\S]*?\.calibrate \{/.exec(css)[0];
+  assert.match(block, /body\.calibrating \.chipbar \{[^}]*bottom: auto/);
+  assert.match(block, /body\.calibrating \.map-controls \{[^}]*bottom: auto/);
+  assert.match(css, /body\.calibrating \.panel, body\.calibrating \.crumbs \{ display: none/);
+});
+
+test('a label near the map edge stays on the map', async () => {
+  const { createOverlay } = await import('./static/overlay.js');
+  const nodes = [{ id: 'a-very-long-node-name', plan: 0, x: 95, y: 40, z: 0 }];
+  const S = { geo: { pixels: { count: 0 }, controllers: [], mappings: [], zones: [], edges: [], runs: [], nodes }, plan: 0, hover: -1, pinned: -1, view: { toScreen: (x, y) => [x, y], size: () => ({ w: 100, h: 100 }) } };
+  const overlay = createOverlay(S);
+  overlay.st.nodes = overlay.st.labels = true;
+  let x = null, width = 0;
+  overlay.draw({ beginPath() {}, arc() {}, fill() {}, stroke() {}, closePath() {}, moveTo() {}, lineTo() {}, setLineDash() {}, strokeText() {}, fillText(t, at) { x = at; }, measureText: (t) => { width = t.length * 3; return { width }; } });
+  assert.ok(x + width <= 100, `${x} + ${width}`);
+});
+
 test('a disabled primary action does not look like a faded primary', () => {
   assert.match(css, /button\.go:disabled \{[^}]*background: transparent/);
 });
@@ -124,6 +157,12 @@ test('status gives one verdict', async () => {
   assert.equal(verdict(['a', 'b'], { a: down, b: down }).text, '2 controllers need attention');
   assert.equal(verdict(['a'], {}).text, 'No controller health reported yet');
   assert.equal(verdict(['a'], { a: ok }).text, 'The controller is healthy');
+});
+
+test('Setup chips do not repeat their kind', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'static/panel/setup.js'), 'utf8');
+  assert.doesNotMatch(src, /<small[^>]*>\$\{esc\(l\.kind\)\}/);
+  assert.match(src, /b\.title = l\.kind/);
 });
 
 test('calibration leads with the step in words, not an internal id', async () => {

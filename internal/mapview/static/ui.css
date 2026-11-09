@@ -13,6 +13,7 @@
   --bg: #0d0e10;
   --fg: #e6e8eb;
   --muted: #8b93a1;
+  --muted-raised: #c7ced9; /* --muted on a pressed or raised surface */
   --line: #2a2f37;
   --card: #15181d;
   --card2: #1c2027;
@@ -86,6 +87,7 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .spinner { width: 16px; height: 16px; flex: none; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--fg); animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.boot-loading { position: absolute; z-index: 4; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, calc(100% - 32px)); margin: 0; }
 .boot-error { position: fixed; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--bg); }
 .boot-error .state { max-width: 460px; width: 100%; }
 .link-button { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card2); color: var(--fg); text-decoration: none; }
@@ -102,6 +104,8 @@ button:hover { border-color: #3b424d; }
 button:disabled { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button.on { background: #2b3340; border-color: #4b5563; }
+/* --muted misses AA on these surfaces; what's inside reads the lighter one. */
+button.on, .toast, .cal-prog li.here, .cal-prog li:hover { --muted: var(--muted-raised); }
 button.quiet { background: transparent; }
 button.go, .go { background: var(--go); border-color: var(--go); color: #fff; font-weight: 600; }
 button.go:hover { background: var(--go-hover); border-color: var(--go-hover); }
@@ -424,7 +428,7 @@ details[open] > summary::before { transform: rotate(90deg); }
   background: #101216; border-left: 1px solid var(--line); display: flex; flex-direction: column;
 }
 body.calibrating { --panel-space: var(--panel-w); }
-body.calibrating .panel { display: none; }
+body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
 .cal-top .what { flex: 1; min-width: 0; }
 .cal-top .what b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -460,6 +464,11 @@ body.calibrating .panel { display: none; }
 .cal-tap .row { margin-top: 6px; }
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
   body.calibrating { --panel-space: 0px; }
+  /* The sheet is gone, whatever its detent: the chip and the toggle share
+   * one row above the map, and framing keeps the target below that row. */
+  body.calibrating .chipbar { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; bottom: auto; }
+  body.calibrating .brand, body.calibrating .badge .detail { display: none; }
+  body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .calibrate { top: 35%; left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
 }
 

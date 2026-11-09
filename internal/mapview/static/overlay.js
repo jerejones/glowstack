@@ -169,8 +169,11 @@ export function createOverlay(S) {
     ctx.textBaseline = 'alphabetic';
     const placed = [];
     const H = 13;
+    const width = S.view.size ? S.view.size().w : Infinity;
     for (const l of queued) {
       const w = ctx.measureText ? ctx.measureText(l.text).width : l.text.length * 6;
+      // A label near the right edge slides in rather than being cut off.
+      l.x = Math.max(4, Math.min(l.x, width - w - 4));
       for (const dy of [0, H, -H, 2 * H, -2 * H]) {
         const box = { x0: l.x, x1: l.x + w, y0: l.y + dy - H + 2, y1: l.y + dy + 2 };
         if (placed.some((b) => box.x0 < b.x1 && b.x0 < box.x1 && box.y0 < b.y1 && b.y0 < box.y1)) continue;

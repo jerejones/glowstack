@@ -7,7 +7,7 @@
 // model's drawing layers, the plan, the camera (named views, Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
-import { $, api, esc, copyText, save, press, failure, plural } from '../util.js';
+import { $, api, esc, copyText, save, press, failure, plural, humanize } from '../util.js';
 import { MODES } from '../overlay.js';
 
 export function createSetup(S, root) {
@@ -125,7 +125,8 @@ export function createSetup(S, root) {
       const b = document.createElement('button');
       b.type = 'button';
       press(b, l.visible);
-      b.innerHTML = `${esc(l.name)} <small class="muted">${esc(l.kind)}</small>`;
+      b.textContent = humanize(l.name);
+      b.title = l.kind;
       b.onclick = () => { v.setVisible(l.name, !l.visible); press(b, l.visible); };
       return b;
     }));

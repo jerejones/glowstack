@@ -342,3 +342,39 @@ test('the calibration cursor ring is only drawn inside the mode', async () => {
   createOverlay(S).draw({ beginPath() {}, arc(x, y) { rings.push([x, y]); }, stroke() {}, strokeText() {}, fillText() {} });
   assert.deepEqual(rings, []);
 });
+
+test('a failed first load is a failure with Retry, not a spinner beside an error', async () => {
+  const { loadState } = await load();
+  assert.equal(loadState({ st: null, error: '' }).kind, 'loading');
+  const failed = loadState({ st: null, error: "Glowstack isn't responding." });
+  assert.equal(failed.kind, 'error');
+  assert.equal(failed.retry, true);
+  assert.equal(loadState({ st: state(), error: 'x' }), null);
+});
+
+test('an error from a poll clears when polling recovers', async () => {
+  const { createSession } = await load();
+  const st = state();
+  let fail = false;
+  const s = createSession({
+    storage: storage(), onState() {},
+    fetch: async () => (fail ? { ok: false, statusText: 'Bad Gateway', text: async () => 'upstream down' } : reply(st)),
+  });
+  await s.poll();
+  fail = true;
+  await s.poll();
+  assert.equal(s.C.error, 'upstream down');
+  fail = false;
+  await s.poll();
+  assert.equal(s.C.error, '', 'the same state as before must still clear the error');
+});
+
+test('the screen counts one thing: steps, the same as "Step n of m"', async () => {
+  const { calCount } = await load();
+  const anchor = (done) => ({ done, target: { kind: 'anchor' } });
+  const c = calCount({ measured: 1, anchors: 2, progress: [anchor(true), anchor(false), { done: true, target: { kind: 'gap' } }] });
+  assert.equal(c.text, '2 of 3 steps done');
+  assert.equal(c.title, '1 of 2 points measured, plus 1 link or gap');
+  assert.equal(calCount({ measured: 0, anchors: 1, progress: [anchor(false)] }).title, '0 of 1 point measured');
+  assert.equal(calCount({ progress: [] }), null);
+});

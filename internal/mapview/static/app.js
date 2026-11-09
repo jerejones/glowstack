@@ -150,17 +150,30 @@ function resize() {
 function setInsets() {
   if (!S.view) return;
   const stage = $('stage').getBoundingClientRect();
-  const full = S.panel.detent() === 'full';
+  const full = S.panel.detent() === 'full' && !S.calibrating;
   // At full the chip sits by the toggle, in the strip of map above the sheet.
   let top = full ? 0 : $('chips').getBoundingClientRect().bottom - stage.top;
   if (full && !$('crumbs').hidden) top = $('crumbs').getBoundingClientRect().bottom - stage.top;
   let bottom = S.panel.covered();
-  if (S.calibrating && S.panel.layout() === 'sheet') bottom = stage.height * 0.65;
+  // Calibration frames its target clear of whatever floats over the map.
+  if (S.calibrating) {
+    top = Math.max(top, $('mapControls').getBoundingClientRect().bottom - stage.top);
+    bottom = S.panel.layout() === 'sheet'
+      ? stage.bottom - $('calibrate').getBoundingClientRect().top
+      : floatsBottom(stage);
+  }
   // Leave the framing some room, whatever covers the map.
   top = Math.max(0, Math.min(top, stage.height - bottom - 52));
   S.view.setInsets(top + 6, bottom + 6);
 }
 S.setInsets = setInsets;
+
+// floatsBottom is how much of the map's bottom edge the side-layout toggle
+// and legend take up.
+function floatsBottom(stage) {
+  const tops = [$('mapControls'), $('legend')].filter((el) => !el.hidden).map((el) => el.getBoundingClientRect().top);
+  return Math.max(0, stage.bottom - Math.min(stage.bottom, ...tops));
+}
 S.resize = resize;
 
 // ---------- the view ----------
@@ -614,13 +627,13 @@ async function main() {
   S.presetLibrary = createPresets(S, $('tab-presets'));
   S.setup = createSetup(S, $('tab-setup'));
   S.status = createStatus(S, $('tab-status'));
-  $('bootLoading').remove();
   bindChrome();
   bindMap();
   bootStep = 'draw the map';
   let plan = +load(PLAN, 0);
   if (!(plan >= 0 && plan < S.geo.plans.length)) plan = 0;
   await openView(plan);
+  $('bootLoading').remove();
   // An active session reopens immediately after Confirm reloads the map.
   // Its camera hold/frame operations require the asynchronous 3-D view.
   S.calib = createCalibrate(S, $('calibrate'));
