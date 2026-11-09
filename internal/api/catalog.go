@@ -10,6 +10,7 @@ import (
 	"github.com/jerejones/glowstack/internal/app"
 	"github.com/jerejones/glowstack/internal/config"
 	"github.com/jerejones/glowstack/internal/layout"
+	"github.com/jerejones/glowstack/internal/names"
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/render"
 )
@@ -247,6 +248,7 @@ func (api *API) mappings(w http.ResponseWriter, r *http.Request) error {
 // Controller is a controller as the API lists it.
 type Controller struct {
 	ID        string  `json:"id"`
+	Name      string  `json:"name"` // what a person reads
 	Host      string  `json:"host"`
 	Port      int     `json:"port"`
 	Transport string  `json:"transport"`
@@ -265,7 +267,7 @@ func (api *API) controllers(w http.ResponseWriter, r *http.Request) error {
 	var list []Controller
 	for _, c := range v.Layout.Controllers {
 		cc := c.Config
-		list = append(list, Controller{ID: c.ID, Host: cc.Host, Port: cc.Port, Transport: cc.Transport,
+		list = append(list, Controller{ID: c.ID, Name: names.Run(c.ID), Host: cc.Host, Port: cc.Port, Transport: cc.Transport,
 			Pixels: c.Pixels, Channels: cc.Channels, MaxFPS: cc.MaxFPS, Outputs: len(cc.Outputs), Base: c.Base, Health: health.Controllers[c.ID]})
 	}
 	return writeJSON(w, http.StatusOK, map[string]any{"controllers": nonNil(list), "health": health})

@@ -72,6 +72,8 @@ function plainWhere(at) {
   return `${FILES[file.split('/').pop()] || 'The configuration'}, line ${line}`;
 }
 
+const RETRY = { label: 'Retry', retry: true };
+
 // warningSummary turns one layout warning into plain words. text is the
 // server's "file:line: message". summary is what to read, plain the disclosure
 // in words, detail the original behind it, fix is {label, tab} or {label, run}, or null.
@@ -81,14 +83,15 @@ export function warningSummary(g, text) {
   const run = /^run ([^\s:]+):/.exec(body)?.[1] || (/^(?:scene \S+: )?run "([^"]+)"/.exec(body)?.[1]) || null;
   const known = run && (g.runs || []).some((r) => r.id === run);
   const plain = `${m ? `${plainWhere(m[1])}: ` : ''}${humanText(g, body)}`;
-  const fix = known ? { label: 'Calibrate this run', run } : { label: 'Open Setup', tab: 'setup' };
+  // Without the map, Setup and calibration can't work: the way on is the map.
+  const fix = g.mapless ? RETRY : known ? { label: 'Calibrate this run', run } : { label: 'Open Setup', tab: 'setup' };
   let summary;
   const density = /^run \S+: (\S+)–(\S+) has (\d+) pixels where its drawn length implies about (\d+)/.exec(body);
   if (density) summary = `Between ${nodeDisplay(g, density[1])} and ${nodeDisplay(g, density[2])} on ${runName(g, run)}, the lights are spaced ${+density[3] > +density[4] ? 'tighter' : 'looser'} than drawn.`;
   else if (/^run \S+: drawing (starts|ends) at/.test(body)) summary = `The drawing of ${runName(g, run)} doesn't match where its lights ${/starts/.test(body) ? 'start' : 'end'}.`;
   else if (/measurements? in anchors\.yaml w/.test(body)) summary = `Some saved measurements ${known ? `on ${runName(g, run)} ` : ''}no longer match the layout and need measuring again.`;
   else if (/pixels .* are in no run/.test(body)) summary = `Some lights on ${controllerName(g, /^controller (\S+):/.exec(body)?.[1] || '')} aren't part of any run.`;
-  else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, plain, detail: text, fix: { label: 'Open Setup', tab: 'setup' } };
+  else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, plain, detail: text, fix: g.mapless ? RETRY : { label: 'Open Setup', tab: 'setup' } };
   else summary = humanText(g, body.replace(/^flow \S+: /, '')).replace(/^./, (c) => c.toUpperCase());
   return { summary, plain, detail: text, fix, kind: density ? 'spacing' : undefined };
 }

@@ -28,7 +28,9 @@ export function darkMessage(names) {
 // lightOutcome says whether looks on the given pixel ranges can be seen.
 // layers holds one list of ranges per look. dark is 'none' (nothing shows),
 // 'part' (some of it can't) or '' (all fine); zones names what's at 0%.
-export function lightOutcome(geo, brightness, layers) {
+// read says the lights' looks were read, so no layers means nothing is on them.
+export function lightOutcome(geo, brightness, layers, read = false) {
+  if (read && !layers.length) return { dark: 'none', zones: [], message: 'No looks are on the lights.', empty: true };
   if (!brightness || !layers.length) return { dark: '', zones: [], message: '' };
   if (brightness.master === 0) return { dark: 'none', zones: [], message: 'Brightness is at 0%, so nothing shows. Raise it in Home Assistant.' };
   const zones = [...new Set(layers.flatMap((r) => darkZones(geo, brightness, r || [])))];

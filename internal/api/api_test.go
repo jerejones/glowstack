@@ -497,6 +497,9 @@ func TestCatalog(t *testing.T) {
 	if len(cs) != 2 || cs[0].(map[string]any)["id"] != "shed" {
 		t.Errorf("controllers %v", cs)
 	}
+	if name := cs[0].(map[string]any)["name"]; name == "" || name == nil {
+		t.Errorf("controller name = %v, want the display name", name)
+	}
 	f.must(http.StatusOK, "GET", "/api/v1/", nil)
 }
 

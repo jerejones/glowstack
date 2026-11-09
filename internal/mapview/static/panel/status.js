@@ -205,7 +205,8 @@ export function createStatus(S, root) {
 
   async function poll() {
     let st;
-    try { st = await api('/api/v1/status'); } catch (e) {
+    try { st = await api('/api/v1/status'); S.setServerUp?.(true); } catch (e) {
+      if (e?.network) S.setServerUp?.(false);
       if (!last) {
         // A poll mustn't redraw the card out from under a tap on Retry.
         if (shownFailure) return;
@@ -258,7 +259,7 @@ export function createStatus(S, root) {
     for (const b of box.querySelectorAll('[data-fix]')) {
       const item = items[+b.dataset.fix];
       const { fix } = item.group ? item.group[+b.dataset.one] : item;
-      b.onclick = () => (fix.run ? S.calib.open({ run: fix.run }) : S.panel.openTab(fix.tab));
+      b.onclick = () => (fix.retry ? location.reload() : fix.run ? S.calib.open({ run: fix.run }) : S.panel.openTab(fix.tab));
     }
   }
 
@@ -310,7 +311,7 @@ export function createStatus(S, root) {
         if (faults.length) line += `${line ? '<br>' : ''}${faults.join(' · ')}`;
         if (h.error) line += `${line ? '<br>' : ''}<span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(c.id)}">${esc(c.name || c.id)}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span><span class="fact ${fact.cls}">${fact.text}</span></li>`;
+      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(c.id)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span><span class="fact ${fact.cls}">${fact.text}</span></li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));

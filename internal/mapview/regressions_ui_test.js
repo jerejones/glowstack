@@ -814,7 +814,7 @@ test('B64: Apply reports what really happened, and the chip says so too', async 
   assert.equal(r.warn, true);
   assert.match(r.text, /but they stay dark\. Yard is at 0% brightness/);
   const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
-  assert.equal(chip.text, 'Nothing is lit');
+  assert.equal(chip.text, 'Lights: nothing lit');
   assert.equal(chip.detail, ' · Yard at 0%');
   assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: false, lit: none }).text, 'Showing your preview', 'a preview on the map is still a preview');
   assert.doesNotMatch(read('panel/looks.js'), /S\.toast\(`Applied \$\{list/, 'no success toast before the brightness is known');
@@ -1272,4 +1272,56 @@ test('B82: Setup\'s map colors and labels stay on Setup, and come back there', a
     tab = 'setup';
     assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: false }, mode: ov.shown().mode }).text, 'Colored by Wiring');
   } finally { delete globalThis.localStorage; }
+});
+
+test('B83: the chip says nothing is lit the same way everywhere, quietly, and never green', async () => {
+  const { mapStatus, badgeHTML } = await import('./static/map-status.js');
+  const { lightOutcome } = await import('./static/house-status.js');
+  const geo = { areas: [{ id: 'a', ranges: [[0, 9]] }, { id: 'b', ranges: [[10, 19]] }], zones: [{ id: 'a', name: 'Yard', area: 'a' }, { id: 'b', name: 'Porch', area: 'b' }] };
+  const dark = { master: 1, zones: { a: 0, b: 0 } };
+  const base = { connected: true, show: '', target: false, preview: { previewing: false } };
+  // Apply at 0%: one layer in a zone at 0.
+  const atZero = mapStatus({ ...base, lit: lightOutcome(geo, dark, [[[0, 4]]], true) });
+  assert.equal(atZero.text, 'Lights: nothing lit');
+  assert.equal(atZero.cls, 'unlit', 'neutral: the panel has the warning');
+  assert.notEqual(atZero.cls, 'house');
+  assert.equal(atZero.detail, ' · Yard at 0%');
+  // Partly lit, and nothing on the lights at all.
+  assert.equal(mapStatus({ ...base, lit: lightOutcome(geo, dark, [[[0, 4]], [[20, 29]]], true) }).text, 'Lights: partly lit');
+  const empty = mapStatus({ ...base, lit: lightOutcome(geo, { master: 1, zones: { a: 1, b: 1 } }, [], true) });
+  assert.equal(empty.text, 'Lights: nothing lit');
+  assert.equal(empty.detail, ' · no looks on them');
+  // Before the first reading the chip doesn't claim either way.
+  assert.equal(mapStatus({ ...base, lit: lightOutcome(geo, dark, [], false) }).text, 'Showing the lights');
+  // The phone keeps the detail, as a second line.
+  assert.match(badgeHTML(atZero, true), /class="stack".*class="detail">Yard at 0%</);
+  const many = { ...lightOutcome(geo, dark, [[[0, 4]]], true), zones: ['A', 'B', 'C', 'D'] };
+  assert.match(badgeHTML(mapStatus({ ...base, lit: many }), true), />4 zones at 0%</, 'a long list is a count on a phone');
+  assert.equal(badgeHTML(atZero), '<span>Lights: nothing lit<span class="detail"> · Yard at 0%</span></span>', 'desktop reads it on one line');
+  assert.doesNotMatch(css, /\.brand, \.badge \.detail \{ display: none/, 'the detail isn\'t hidden on a phone');
+});
+
+test('B84: Map unavailable holds while the page answers; Offline is only a lost server', async () => {
+  const { mapStatus } = await import('./static/map-status.js');
+  const mapless = { show: '', preview: null, target: false, mapless: true };
+  assert.equal(mapStatus({ ...mapless, connected: true }).text, 'Map unavailable');
+  assert.equal(mapStatus({ ...mapless, connected: false }).text, 'Offline');
+  const app = read('app.js');
+  assert.match(app, /\(err\) => !err\.network/, 'a 500 answer is not being offline');
+  assert.match(app, /S\.setServerUp = /);
+  assert.match(read('panel/status.js'), /if \(e\?\.network\) S\.setServerUp\?\.\(false\)/, 'only a network failure counts');
+});
+
+test('B85: without the map a warning offers Retry, and controllers keep their names', async () => {
+  const { warningSummary, controllerName } = await import('./static/names.js');
+  const g = { mapless: true, runs: [], nodes: [], controllers: [{ id: 'shed-north', name: 'Shed north' }, { id: 'unnamed-box' }] };
+  const fix = warningSummary(g, 'layout.yaml:3: run shed-eave: a-b has 90 pixels where its drawn length implies about 60').fix;
+  assert.equal(fix.label, 'Retry');
+  assert.equal(fix.retry, true);
+  assert.equal(warningSummary(g, 'scene s: run "x" isn\'t used').fix.label, 'Retry');
+  assert.equal(controllerName(g, 'shed-north'), 'Shed north');
+  assert.equal(controllerName(g, 'unnamed-box'), 'Unnamed box', 'derived the same way when the API sends no name');
+  const status = read('panel/status.js');
+  assert.match(status, /<b title="\$\{esc\(c\.id\)\}">\$\{esc\(controllerName\(g, c\.id\)\)\}/);
+  assert.match(status, /fix\.retry \? location\.reload\(\)/);
 });

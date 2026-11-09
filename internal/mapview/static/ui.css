@@ -228,9 +228,12 @@ input[type=checkbox]:checked::after {
 .badge.preview { color: var(--preview); border-color: #4c3d80; }
 .badge.house { color: var(--house); border-color: #24543a; }
 .badge.off { color: #fca5a5; border-color: #7f1d1d; }
-.badge.dim { color: var(--warn); border-color: #6b4b16; }
+.badge.unlit { color: var(--fg); border-color: var(--line); }
 .badge.mode { color: var(--fg); border-color: var(--line-strong); }
 .badge .detail { color: var(--muted); }
+.badge .stack { display: grid; line-height: 1.15; min-width: 0; }
+.badge .stack > span { overflow: hidden; text-overflow: ellipsis; }
+.badge .stack .detail { font-size: var(--t-s); }
 @media (max-width: 699.98px) {
   .brand b { display: none; }
   .brand { padding: 0; width: var(--tap); justify-content: center; }
@@ -355,7 +358,8 @@ input[type=checkbox]:checked::after {
   .map-error { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
   /* Chip and toggle share one row at the top at every detent, so the toggle
    * never moves as the sheet does, and framing keeps the map below it. */
-  .brand, .badge .detail { display: none; }
+  .brand { display: none; }
+  .badge { max-width: calc(100% - 160px); }
   .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .crumbs::-webkit-scrollbar { display: none; }
