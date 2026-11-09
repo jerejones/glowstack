@@ -1041,7 +1041,7 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   const out = groupIssues([{ summary: 'dark', fix: null }, spacing('a'), { summary: 'other', fix: null }, spacing('b')]);
   assert.deepEqual(out.map((x) => x.summary), ['dark', 'The lights are spaced differently than drawn in 2 places.', 'other']);
   assert.equal(out[1].group.length, 2);
-  assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 6\.5em 6\.4em; \}/);
+  assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) max-content 6\.4em;/);
   assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-meta\)/, 'controller rows at 14px');
 });
 
@@ -2359,4 +2359,9 @@ test('wording: In front explains itself, and the apply toast points at the warni
 test('on a phone the worded Remove leaves the place name its room', () => {
   assert.match(css, /\.layer \.controls \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto; \}/);
   assert.match(css, /\.layer \.tweak \{ grid-column: 2; grid-row: 2; \}/);
+});
+
+test('B127: a run row keeps a gutter before Calibrate and one edge for its figures', () => {
+  const css = read('ui.css');
+  assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) max-content 6\.4em; column-gap: 12px; \}/);
 });

@@ -682,7 +682,9 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .list-rows li .fact.bad { color: #fca5a5; }
 .list-rows li .val { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 .list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-meta); }
-.run-rows li { display: grid; grid-template-columns: minmax(0, 1fr) 6.5em 6.4em; }
+/* The action column is one fixed width, empty or not, so every row's figures
+ * end on one edge; the figures take what they need and never reach the button. */
+.run-rows li { display: grid; grid-template-columns: minmax(0, 1fr) max-content 6.4em; column-gap: 12px; }
 .run-rows li > button { width: 100%; padding-left: 0; padding-right: 0; }
 .run-rows .len { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .run-rows .len small { display: block; color: var(--muted); font-size: var(--t-meta); }
