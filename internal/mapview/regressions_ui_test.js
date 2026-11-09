@@ -2087,7 +2087,7 @@ test('one word for taking a layer off, Pin matches the Presets tab, and the empt
   const looks = read('panel/looks.js'), icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
   assert.doesNotMatch(looks, /Take this look off|Take everything off/);
   assert.match(looks, /'Remove from the lights'/);
-  assert.equal(path('pin'), path('presets'));
+  assert.notEqual(path('pin'), path('presets'), 'Pinned is not "go to Presets"');
   const { showButton } = await import('./static/map-status.js');
   const s = showButton('', { ready: true, failed: false, canPreview: false, word: 'Click' });
   assert.equal(s.ariaDisabled, true);
@@ -2172,11 +2172,12 @@ test('B115: icon buttons in the Tweak form keep the icon beside the label', () =
   assert.match(css, /button\.icon-btn \{ display: inline-flex;/);
 });
 
-test('Tweak has its own icon, not the Setup tab\'s sliders', () => {
+test('Tweak is the sliders, and Setup a gear', () => {
   const icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
   assert.notEqual(path('tweak'), path('setup'));
   assert.doesNotMatch(path('tweak'), /M8 4\.5a4\.5/, 'not the stopwatch all three reviewers read');
-  assert.match(path('tweak'), /^M8 5\.2a4\.1 4\.1 0 1 0 0 8\.2/, 'a knob: a ring, its pointer and ticks, not sliders that read as Setup');
+  assert.match(path('tweak'), /^M2 4\.5h6\.5/, 'horizontal sliders');
+  assert.match(read('index.html'), new RegExp(path('setup').slice(0, 20).replace(/\./g, '\\.')), 'the tab bar paints the gear before the script runs');
   assert.notEqual(path('tweak'), path('edit'));
 });
 
