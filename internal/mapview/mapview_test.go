@@ -965,3 +965,30 @@ func TestMapDistinguishesWarmWhiteFromRGBWhite(t *testing.T) {
 		})
 	}
 }
+
+func TestSectionRoutes(t *testing.T) {
+	f := newFixture(t)
+	for _, path := range []string{"/map/", "/map/looks", "/map/setup", "/map/status", "/map/looks/", "/map/setup/", "/map/status/"} {
+		t.Run(path, func(t *testing.T) {
+			resp, err := http.Get(f.srv.URL + path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			body, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Type"), "text/html") || !bytes.Contains(body, []byte(`<base href="/map/">`)) {
+				t.Fatalf("route %s: status=%d type=%s missing shell or asset base", path, resp.StatusCode, resp.Header.Get("Content-Type"))
+			}
+		})
+	}
+	for _, path := range []string{"/map/unknown", "/map/looks/unknown"} {
+		resp, err := http.Get(f.srv.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("%s: got %d", path, resp.StatusCode)
+		}
+	}
+}

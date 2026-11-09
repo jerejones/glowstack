@@ -28,6 +28,17 @@ var staticFS embed.FS
 func (m *Map) Register(mux interface{ Handle(string, http.Handler) }) {
 	static, _ := fs.Sub(staticFS, "static")
 	h := func(fn http.HandlerFunc) http.Handler { return fn }
+	// Section URLs serve the same shell; navigation preserves the live map.
+	page, _ := fs.ReadFile(static, "index.html")
+	for _, section := range []string{"looks", "setup", "status"} {
+		servePage := h(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Write(page)
+		})
+		mux.Handle("GET /map/"+section+"/{$}", servePage)
+		mux.Handle("GET /map/"+section, servePage)
+	}
 	mux.Handle("GET /map/", http.StripPrefix("/map/", http.FileServerFS(static)))
 	mux.Handle("GET /api/map/geometry", h(m.handleGeometry))
 	mux.Handle("GET /api/map/plans/{n}", h(m.handlePlan))

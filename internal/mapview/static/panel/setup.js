@@ -86,6 +86,7 @@ export function createSetup(S, root) {
   }
   S.setOverlayMode = setMode;
   async function refreshLegend() {
+    ov.remember();
     let html = '';
     try { html = await ov.apply(); } catch (e) { S.toast(e); }
     for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = html; el.hidden = !html; }
@@ -93,6 +94,7 @@ export function createSetup(S, root) {
   }
   S.refreshLegend = refreshLegend;
   function renderOverlay() {
+    ov.remember();
     for (const b of $$('#suModes').children) press(b, b.dataset.mode === ov.st.mode);
     $$('#suMappingRow').hidden = !(ov.st.mode === 'flow' || ov.st.mode === 'stretch');
     $$('#suZoneRow').hidden = ov.st.mode !== 'areas';

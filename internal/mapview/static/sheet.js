@@ -11,6 +11,8 @@ import { $, load, save, clamp } from './util.js';
 
 const TAB = 'glowstack.tab';
 const RAIL = 'glowstack.rail';
+const DETENT = 'glowstack.sheet.detent';
+const routeTab = () => /^\/map\/(looks|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
 const PEEK = 56;   // handle and tab bar
 const STRIP = 120; // the map above a full sheet
 const HALF = 0.45; // of the window's height
@@ -24,8 +26,10 @@ export function createPanel(hooks) {
   const panel = $('panel');
   const tabs = [...panel.querySelectorAll('.tabs [data-tab]')];
   let layout = '';
-  let detent = 'peek';
-  let tab = load(TAB, 'looks');
+  let detent = load(DETENT, 'peek');
+  if (!['peek', 'half', 'full'].includes(detent)) detent = 'peek';
+  if (routeTab() && detent === 'peek') detent = 'half';
+  let tab = routeTab() || load(TAB, 'looks');
   if (!tabs.some((b) => b.dataset.tab === tab)) tab = 'looks';
   let rail = !!load(RAIL, false);
   let visible = PEEK;
@@ -40,8 +44,15 @@ export function createPanel(hooks) {
     root.style.setProperty('--sheet-visible', px + 'px');
   }
 
-  function showTab(name) {
+  function showTab(name, navigation = 'push') {
+    if (!tabs.some((b) => b.dataset.tab === name)) return;
     tab = name;
+    const url = new URL(location.href);
+    url.pathname = '/map/' + name;
+    if (navigation !== 'none' && url.pathname !== location.pathname) {
+      history[navigation === 'replace' ? 'replaceState' : 'pushState'](null, '', url);
+    }
+    document.title = `Glowstack · ${name[0].toUpperCase() + name.slice(1)}`;
     save(TAB, name);
     for (const b of tabs) {
       const on = b.dataset.tab === name;
@@ -55,6 +66,7 @@ export function createPanel(hooks) {
   function setDetent(d, quiet) {
     if (layout !== 'sheet') return;
     detent = d;
+    save(DETENT, d);
     document.body.dataset.detent = d;
     setVisible(heights()[d]);
     if (d === 'peek') $('content').scrollTop = 0;
@@ -152,7 +164,12 @@ export function createPanel(hooks) {
   });
 
   refresh(true);
-  showTab(tab);
+  showTab(tab, 'replace');
+  window.addEventListener('popstate', () => {
+    if (layout === 'side' && rail) setRail(false);
+    if (layout === 'sheet' && detent === 'peek') setDetent('half');
+    showTab(routeTab() || 'looks', 'none');
+  });
   return {
     layout: () => layout,
     detent: () => (layout === 'sheet' ? detent : null),

@@ -16,11 +16,12 @@ import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip } from 
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
+const TARGET = 'glowstack.looks.target';
 
 export function createLooks(S, root) {
   const g = S.geo;
   let copies = load(COPIES, {}) || {};
-  let target = '';      // chosen when nothing is selected
+  let target = load(TARGET, '');      // chosen when nothing is selected
   const cards = new Map(); // lane:id → card
   root.innerHTML = `
     <div class="target"><span class="muted">Looks go on</span><select id="lkTarget" aria-label="Where looks go"></select></div>
@@ -71,6 +72,7 @@ export function createLooks(S, root) {
   }
   targetSel.onchange = () => {
     target = targetSel.value;
+    save(TARGET, target);
     if (S.sel && targetSel.value !== nodeTarget(S.sel.node)) S.select(null);
   };
   S.on('select', () => { fillTargets(); renderLanes(); });

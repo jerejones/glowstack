@@ -8,7 +8,7 @@
 // nodes, links, anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
-import { api, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
+import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 
@@ -39,6 +39,15 @@ export function createOverlay(S) {
   const flows = g.mappings.filter((m) => m.kind === 'flow');
   st.mapping = (flows.find((m) => m.id === g.default_mapping) || flows[0] || g.mappings[0] || {}).id || '';
   st.zone = (g.zones[0] || {}).id || '';
+  const prefs = load('glowstack.overlays', {}) || {};
+  if (MODES.some(([mode]) => mode === prefs.mode)) st.mode = prefs.mode;
+  if (g.mappings.some((m) => m.id === prefs.mapping)) st.mapping = prefs.mapping;
+  if (g.zones.some((z) => z.id === prefs.zone)) st.zone = prefs.zone;
+  for (const key of ['nodes', 'labels', 'controllers']) {
+    if (typeof prefs[key] === 'boolean') st[key] = prefs[key];
+  }
+  const remember = () => save('glowstack.overlays', Object.fromEntries(
+    ['mode', 'mapping', 'zone', 'nodes', 'labels', 'controllers'].map((key) => [key, st[key]])));
   const mappings = new Map();
   let outs = null, edgeCache = null;
 
@@ -313,5 +322,5 @@ export function createOverlay(S) {
     }
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember };
 }
