@@ -2135,7 +2135,7 @@ test('camera: no Overhead code and no named-view text is left', () => {
 });
 
 test('the card picker opens under its own button, even with the Tweak form open', () => {
-  assert.match(read('panel/looks.js'), /picker\.style\.top = pickFor\.el\.querySelector\('\.place-row'\)\.getBoundingClientRect\(\)\.bottom/);
+  assert.match(read('panel/looks.js'), /picker\.style\.top = at\.up \? '' : place\.bottom - row\.getBoundingClientRect\(\)\.top \+ 4/);
 });
 
 test('B111: a row\'s name has its own line, above the controls', () => {
@@ -2212,4 +2212,29 @@ test('B124: Map updates sits in Advanced like its sibling groups', () => {
   const advanced = setup.slice(setup.indexOf('id="suAdvanced"'), setup.indexOf('</details>', setup.indexOf('id="suRate"')));
   assert.match(advanced, /<div id="suRateGroup"><h3 class="sub">Map updates<\/h3>\s*<div class="seg" id="suRate"/, 'in one wrapper, so .tab .seg fills the wrapper');
   assert.doesNotMatch(advanced, /\n {4}<div class="seg"/, 'no segmented control is a direct child of the indented block');
+});
+
+test('B125: a row\'s Goes on list never scrolls the row\'s name away', async () => {
+  const { pickerPlace } = await import('./static/panel/looks.js');
+  const base = { nameTop: 640, rowTop: 630, rowBottom: 700, viewTop: 108, viewBottom: 744, chrome: 110, natural: 400, maxScroll: 1000 };
+  const low = pickerPlace(base);
+  assert.equal(low.up, false);
+  assert.ok(base.nameTop - low.scroll >= base.viewTop, 'the name stays on screen');
+  assert.ok(base.rowBottom - low.scroll + 4 + 110 + low.list <= base.viewBottom, 'the list ends above the bar');
+  assert.equal(low.scroll, 220 - (744 - 700 - 4 - 110), 'it scrolls only as far as the list needs');
+  const huge = pickerPlace({ ...base, viewBottom: 300, nameTop: 240, rowTop: 230, rowBottom: 290 });
+  assert.equal(huge.scroll, 240 - 108, 'never further than the name reaching the top');
+  const end = pickerPlace({ ...base, maxScroll: 0 });
+  assert.equal(end.up, true, 'at the end of the list it opens upward');
+  assert.equal(end.scroll, 0);
+  assert.equal(end.list, 400, 'capped by the list, with the room above it');
+  assert.equal(pickerPlace({ ...base, nameTop: 60, rowTop: 50, rowBottom: 110 }).scroll, -48, 'a name above the view comes back');
+  const short = pickerPlace({ ...base, natural: 90, maxScroll: 0, nameTop: 500, rowTop: 490, rowBottom: 560 });
+  assert.equal(short.up, true, 'with too little room below, the roomier side takes it');
+  assert.equal(short.list, 90, 'and the list is no taller than it needs');
+  const cramped = pickerPlace({ ...base, viewBottom: 600, nameTop: 300, rowTop: 290, rowBottom: 360, viewTop: 280, maxScroll: 0 });
+  assert.equal(cramped.up, false, 'both sides cramped: below');
+  assert.equal(cramped.list, 126, 'the list is capped to the room and scrolls');
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks.slice(looks.indexOf('function fitRowPicker'), looks.indexOf('escapeCloses(el, () => !picker.hidden')), /scrollIntoView/, 'the place is worked out, not left to scrollIntoView');
 });

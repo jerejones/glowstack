@@ -186,6 +186,26 @@ export function revealDelta({ top, bottom }, viewTop, viewBottom) {
   return Math.min(Math.max(0, bottom - viewBottom), top - viewTop);
 }
 
+// pickerPlace is where a row's list of places opens, so the row's first line
+// stays in view. Positions are px down the viewport: nameTop is the row's
+// first line, rowTop and rowBottom the row and its place button's bottom,
+// viewTop and viewBottom what shows; chrome is the picker around its list,
+// natural the list's full height, maxScroll how far the panel can still go.
+// scroll is how far to scroll, list the list's height. It scrolls only as far
+// as the list needs and never past the name; with too little room below, the
+// side with more room takes it, and the list scrolls inside that height.
+export function pickerPlace({ nameTop, rowTop, rowBottom, viewTop, viewBottom, chrome, natural, maxScroll, want = 220, floor = 120 }) {
+  const gap = 4, need = Math.min(natural, want), min = Math.min(natural, floor);
+  const base = Math.min(0, nameTop - viewTop); // a name already above the view comes back first
+  const below = (by) => viewBottom - (rowBottom - by) - gap - chrome;
+  const most = Math.max(base, Math.min(maxScroll, nameTop - viewTop));
+  const scroll = Math.min(most, Math.max(base, need - below(0)));
+  if (below(scroll) >= min) return { up: false, scroll, list: Math.min(natural, Math.floor(below(scroll))) };
+  const above = rowTop - base - viewTop - gap - chrome;
+  if (above > below(scroll)) return { up: true, scroll: base, list: Math.min(natural, Math.max(80, Math.floor(above))) };
+  return { up: false, scroll, list: Math.min(natural, Math.max(80, Math.floor(below(scroll)))) };
+}
+
 // laneAim is what revealing a card has to show. A lane's first card brings
 // the lane's heading with it, so the heading is never left clipped at the top.
 export function laneAim(card, headTop, first) { return first ? { top: headTop, bottom: card.bottom } : card; }
@@ -317,7 +337,7 @@ export function createLooks(S, root) {
     picker.querySelector('#lkPickTitle').textContent = title;
     picker.querySelector('#lkPickHint').hidden = !!pickFor;
     document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
-    if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus(); }
+    if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus({ preventScroll: true }); }
   }
   // fitPicker keeps the floating list inside the panel, above the Apply bar;
   // a sheet with too little room rises first.
@@ -325,22 +345,33 @@ export function createLooks(S, root) {
     const list = pickList, content = root.parentElement, bar = $$('#lkBar');
     picker.style.top = '';
     if (picker.classList.contains('as-sheet')) { list.style.maxHeight = ''; picker.classList.remove('up'); return; }
-    const room = () => content.getBoundingClientRect().bottom - list.getBoundingClientRect().top - (bar.hidden ? 0 : bar.offsetHeight) - 12;
-    // A card low in the list has its room above it: bring the card up first.
     picker.classList.remove('up');
-    // Right under its own button, not under a Tweak form that is open below it.
-    if (pickFor) picker.style.top = pickFor.el.querySelector('.place-row').getBoundingClientRect().bottom - pickFor.el.getBoundingClientRect().top + 4 + 'px';
-    // Its least height first: the room is what's left with that much open.
-    list.style.maxHeight = '220px';
-    if (pickFor) pickFor.el.querySelector('.place-row').scrollIntoView({ block: 'start' });
-    // At the end of the list there's no scrolling further: it opens upward.
-    if (pickFor && room() < 220) {
-      const row = pickFor.el.querySelector('.place-row').getBoundingClientRect().top - content.getBoundingClientRect().top;
-      picker.classList.add('up');
-      picker.style.top = '';
-      list.style.maxHeight = Math.max(120, row - (picker.offsetHeight - list.offsetHeight) - 16) + 'px';
-    } else list.style.maxHeight = Math.max(120, room()) + 'px';
+    if (pickFor) { fitRowPicker(); return; }
+    const room = () => content.getBoundingClientRect().bottom - list.getBoundingClientRect().top - (bar.hidden ? 0 : bar.offsetHeight) - 12;
+    list.style.maxHeight = '220px'; // its least height first: the room is what's left with that much open
+    list.style.maxHeight = Math.max(120, room()) + 'px';
     picker.scrollIntoView({ block: 'nearest' });
+  }
+  // fitRowPicker opens the list right under a row's place button, not under a
+  // Tweak form open below it, with the row's name left in view.
+  function fitRowPicker() {
+    const list = pickList, content = root.parentElement, bar = $$('#lkBar'), row = pickFor.el, place = row.querySelector('.place-row').getBoundingClientRect();
+    list.style.maxHeight = '0px'; // the list's own height can't count as room to scroll into
+    const view = content.getBoundingClientRect();
+    const at = pickerPlace({
+      nameTop: row.querySelector('.name-line').getBoundingClientRect().top,
+      rowTop: row.getBoundingClientRect().top,
+      rowBottom: place.bottom,
+      viewTop: view.top + 8,
+      viewBottom: (bar.hidden ? view.bottom : bar.getBoundingClientRect().top) - 8,
+      chrome: picker.offsetHeight,
+      natural: list.scrollHeight,
+      maxScroll: content.scrollHeight - content.clientHeight - content.scrollTop,
+    });
+    picker.classList.toggle('up', at.up);
+    picker.style.top = at.up ? '' : place.bottom - row.getBoundingClientRect().top + 4 + 'px';
+    list.style.maxHeight = at.list + 'px';
+    content.scrollTop += at.scroll;
   }
   for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { const back = opener; openPicker(false); back.focus(); });
   // moveLayer gives one preview layer a new place. Where the next look goes
