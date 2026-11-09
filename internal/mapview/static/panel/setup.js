@@ -13,6 +13,7 @@ import { controllerName, modelPartLabel } from '../names.js';
 import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
 import { icon } from '../icons.js';
+import { statesShown, stateKeyHTML } from '../map-control.js';
 
 const ADVANCED = 'glowstack.setup.advanced';
 const KEY_FOLDED = 'glowstack.legend.folded';
@@ -138,9 +139,14 @@ export function createSetup(S, root) {
     const n = ov.hiddenLabels();
     const note = n ? `<div class="muted label-note">${plural(n, 'label')} hidden: no room. ${S.coarse ? 'Pinch to zoom in' : 'Hover or zoom in'} to see ${n === 1 ? 'it' : 'them'}.</div>` : '';
     // The key's rows scroll on their own, so its button is never over them.
+    // The runs' states that are on screen now are the key's last line; with
+    // nothing else to explain they are the whole key, one line and no button.
+    const states = stateKeyHTML(statesShown(S.runStates ? S.runStates() : {}));
+    shownStates = states;
     const key = $('legend'), scrolled = key.querySelector('.legend-rows')?.scrollTop || 0;
-    key.innerHTML = `<div class="legend-rows">${legendHTML + note}</div>`;
-    key.hidden = !(legendHTML + note);
+    key.innerHTML = `<div class="legend-rows">${legendHTML + states + note}</div>`;
+    key.hidden = !(legendHTML + states + note);
+    key.classList.toggle('states-only', !!states && !(legendHTML + note));
     key.firstChild.scrollTop = scrolled;
     $$('#suLegend').innerHTML = legendHTML + note;
     $$('#suLegend').hidden = key.hidden;
@@ -148,13 +154,21 @@ export function createSetup(S, root) {
     // The key on the map can be folded down, so that it leaves the map free.
     const phoneCalibrating = S.calibrating && S.panel.layout() === 'sheet';
     const pref = phoneCalibrating ? KEY_FOLDED_CAL : KEY_FOLDED, folded = keyFolded(load(pref, null), phoneCalibrating);
-    key.classList.toggle('folded', folded);
-    if (key.hidden) return;
+    key.classList.toggle('folded', folded && !key.classList.contains('states-only'));
+    if (key.hidden || key.classList.contains('states-only')) return;
     const toggle = Object.assign(document.createElement('button'), { type: 'button', className: 'legend-toggle', textContent: folded ? 'Show key' : 'Hide key' });
     toggle.onclick = () => { save(pref, !folded); paintLegend(); S.setInsets(); S.markDirty(); };
     key.append(toggle);
   }
   S.refreshLabelNote = paintLegend;
+  // refreshStateKey repaints the key when the states on screen change.
+  let shownStates = '';
+  S.refreshStateKey = () => {
+    if (stateKeyHTML(statesShown(S.runStates ? S.runStates() : {})) === shownStates) return;
+    paintLegend();
+    S.setInsets();
+    S.markDirty();
+  };
   // wireKey makes the Wiring key's controller rows pick a controller out on
   // the map: pointed at with a mouse, tapped (again to let go) on a phone.
   // Every copy of the key shows the pick the same way.

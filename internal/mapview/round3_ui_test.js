@@ -156,7 +156,8 @@ test('B3: a swatch shows the look as a motion trail, wherever a look is a card o
 
 test('C: one target control, a button with a border and a chevron, labeled for what it changes', async () => {
   const { targetControl, placeControl } = await import('./static/panel/looks.js');
-  assert.deepEqual(targetControl('Everything', true), { label: 'Preview on', text: 'Everything', aria: 'Preview on Everything. Change where the next look goes', clear: false });
+  // (Round 4's C2 put "next" in its accessible name and gave it the tooltip "Where the next look goes".)
+  assert.deepEqual(targetControl('Everything', true), { label: 'Preview on', text: 'Everything', aria: 'Preview the next look on Everything. Change where the next look goes', title: 'Where the next look goes', clear: false });
   const sel = targetControl('Porch rail', false);
   assert.equal(sel.text, 'Porch rail', 'a selection on the map is what the control shows');
   assert.equal(sel.clear, true, 'with a clear (x) back to Everything');
@@ -177,8 +178,9 @@ test('C: one target control, a button with a border and a chevron, labeled for w
 
 test('C: the tap is taught once per device, in one line', async () => {
   const { tapHint, showTapHint } = await import('./static/map-control.js');
-  assert.equal(tapHint('Tap'), 'Tap a run on the map to light just that part.');
-  assert.equal(tapHint('Click'), 'Click a run on the map to light just that part.');
+  // (Round 4's C2 reworded it: tapping chooses a target, it lights nothing.)
+  assert.equal(tapHint('Tap'), 'Tap a run on the map to choose where the next look goes.');
+  assert.equal(tapHint('Click'), 'Click a run on the map to choose where the next look goes.');
   assert.equal(showTapHint({ seen: false, selected: false }), true, 'first load on this device');
   assert.equal(showTapHint({ seen: false, selected: true }), false, 'gone with the first selection');
   assert.equal(showTapHint({ seen: true, selected: false }), false, 'then never again');
@@ -187,11 +189,9 @@ test('C: the tap is taught once per device, in one line', async () => {
   const app = read('app.js');
   assert.match(app, /if \(node\) markHintSeen\(\);/, 'the first selection is remembered');
   assert.match(read('map-control.js'), /const HINT_SEEN = 'glowstack\.hint\.tap';/, 'per device: localStorage');
-  // The same line in the menu and the empty state; no tour, no modal.
+  // Said once, on the map (round 4's C2 took it out of the menu and the empty state); no tour, no modal.
   const looks = read('panel/looks.js');
-  assert.match(looks, /id="lkPickHint">\$\{tapHint\(word\)\}/);
-  assert.match(looks, /id="lkTip" hidden>\$\{tapHint\(word\)\}<\/p>/);
-  assert.match(looks, /\$\$\('#lkTip'\)\.hidden = !!\(prev\.length \+ house\.length\) \|\| !!S\.sel \|\| !S\.houseRead;/);
+  assert.doesNotMatch(looks, /tapHint|lkTip/);
   assert.match(read('index.html'), /<p id="mapHint" class="map-hint" hidden><\/p>/);
   assert.doesNotMatch(app + looks, /tour|showModal\(\)[^;]*hint/i);
   assert.match(css, /\.map-hint \{[^}]*pointer-events: none;/, 'a caption: it never takes a tap from the map');
@@ -233,15 +233,14 @@ test('C: hovering a run names it and its zone, beside the pointer and never over
 });
 
 test('C: the panel points at the map with the soft halo', async () => {
-  const { controllerRanges, restPoint } = await import('./static/map-control.js');
+  const control = await import('./static/map-control.js');
+  const { controllerRanges } = control;
   const geo = { controllers: [{ id: 'shed', base: 0, pixels: 600 }, { id: 'yard', base: 600, pixels: 480 }, { id: 'spare' }] };
   assert.deepEqual(controllerRanges(geo, 'yard'), [[600, 1079]], 'that controller\'s pixels and no others');
   assert.deepEqual(controllerRanges(geo, 'spare'), []);
   assert.deepEqual(controllerRanges(geo, 'nope'), []);
-  // Touch has no hover: the half Looks sheet with nothing previewing shows the target.
-  const rest = { coarse: true, layout: 'sheet', detent: 'half', tab: 'looks', previewing: false };
-  assert.equal(restPoint(rest), true);
-  for (const off of [{ coarse: false }, { detent: 'full' }, { detent: 'peek' }, { tab: 'status' }, { previewing: true }, { calibrating: true }]) assert.equal(restPoint({ ...rest, ...off }), false, JSON.stringify(off));
+  // Touch has no hover, and no resting halo either: round 4's C2 removed the one round 3 added.
+  assert.equal(control.restPoint, undefined);
   // pointOn: one listener per list; hover and focus point, leaving clears.
   const { pointOn } = await import('./static/panel/looks.js');
   const calls = [], handlers = {};
@@ -260,7 +259,7 @@ test('C: the panel points at the map with the soft halo', async () => {
   assert.match(read('panel/presets.js'), /pointOn\(\$\('#prList'\), '\.preset-entry',/);
   const status = read('panel/status.js');
   assert.match(status, /pointOn\(\$\$\('#stCtl'\), 'li\[data-ctl\]', \(el\) => controllerRanges\(g, el\.dataset\.ctl\), S\);/);
-  assert.match(status, /pointOn\(box, 'li\[data-run-row\]',/);
+  assert.match(status, /pointOn\(box, 'li\[data-run-row\]:not\(\.warn\)',/); // a warning's row outlines its run in amber instead (round 4)
   assert.match(status, /if \(S\.coarse\) \$\$\('#stCtl'\)\.addEventListener\('click'/, 'a tap on a phone');
   // The halo: a fade unless motion is reduced, cleared at once; never doubled over the selection.
   const app = read('app.js'), scene = read('scene.js');
@@ -552,7 +551,7 @@ test('C follow-up: the caption has its line of the map, and a focused controller
   const app = read('app.js'), status = read('panel/status.js');
   // The tap hint is framed around like the breadcrumb whose place it holds: no light is drawn under it.
   assert.match(app, /crumbs: !\$\('crumbs'\)\.hidden \? below\('crumbs'\) : !\$\('mapHint'\)\.hidden \? below\('mapHint'\) : null,/);
-  assert.match(app, /box\.textContent = tapHint\(S\.coarse \? 'Tap' : 'Click'\);\s*setInsets\(\);/);
+  assert.match(app, /box\.textContent = box\.hidden \? '' : tapHint\(S\.coarse \? 'Tap' : 'Click'\);[^\n]*\s*setInsets\(\);/);
   // A controller row that points at the map is focusable; a poll redraws the list and gives the focus back.
   assert.match(status, /const focusedCtl = document\.activeElement\?\.closest\?\.\('#stCtl li\[data-ctl\]'\)\?\.dataset\.ctl;/);
   assert.match(status, /if \(focusedCtl\) \[\.\.\.\$\$\('#stCtl'\)\.children\]\.find\(\(li\) => li\.dataset\.ctl === focusedCtl\)\?\.focus\(\{ preventScroll: true \}\);/);

@@ -17,7 +17,7 @@ import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
 import { cardCorner, createAim, rectGap, labelSpot } from './card-place.js';
-import { tapHint, showTapHint, hintSeen, markHintSeen, runAt, runTitle, restPoint } from './map-control.js';
+import { tapHint, showTapHint, hintSeen, markHintSeen, runAt, runTitle } from './map-control.js';
 import { inspectSentences, inspectTechnical } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
@@ -231,7 +231,8 @@ function floatsBottom(stage) {
   const low = (r) => r.top - stage.top > stage.height / 2;
   const sheet = S.panel.layout() === 'sheet' && !S.calibrating;
   // A folded key on a calibrating phone's strip is a corner chip: the target can use that row.
-  const foldedCorner = S.calibrating && S.panel.layout() === 'sheet' && $('legend').classList.contains('folded');
+  // So is the key while it lists only the runs' states: one line, a chip's size.
+  const foldedCorner = (S.calibrating && S.panel.layout() === 'sheet' && $('legend').classList.contains('folded')) || $('legend').classList.contains('states-only');
   const tops = [[$('mapControls'), low], [$('legend'), () => !foldedCorner]].map(([el, keep]) => [el.getBoundingClientRect(), keep]).filter(([r, keep]) => r.height && keep(r)).map(([r]) => r.top);
   return Math.max(sheet ? S.panel.covered() : 0, stage.bottom - Math.min(stage.bottom, ...tops));
 }
@@ -308,11 +309,12 @@ function placeCrumbs() {
 }
 
 // renderHint shows the one line that teaches the tap, as a quiet caption
-// where the breadcrumb will be, until this device's first selection.
+// where the breadcrumb will be, on the Looks tab, until this device's first
+// selection. It is the only place the line is said.
 function renderHint() {
   const box = $('mapHint');
-  box.hidden = !showTapHint({ seen: hintSeen(), selected: !!S.sel, calibrating: S.calibrating, failed: !!S.mapFailed || !S.view });
-  if (!box.hidden) box.textContent = tapHint(S.coarse ? 'Tap' : 'Click');
+  box.hidden = !showTapHint({ seen: hintSeen(), selected: !!S.sel, tab: S.panel.tab(), calibrating: S.calibrating, failed: !!S.mapFailed || !S.view });
+  box.textContent = box.hidden ? '' : tapHint(S.coarse ? 'Tap' : 'Click'); // in the page only while it shows
   setInsets(); // the caption takes, or gives back, a line of the map's top
 }
 S.renderHint = renderHint;
@@ -329,16 +331,33 @@ function pointAt(ranges) {
   applyPoint();
 }
 S.pointAt = pointAt;
-// applyPoint shows what is pointed at; with nothing pointed at, a phone's
-// half Looks sheet shows where the next look goes (restPoint).
+// applyPoint shows what is pointed at. With nothing selected and nothing
+// pointed at there is no halo, at any detent: a halo is for an explicit
+// selection, a hover or focus from the panel, or a tapped controller row.
 function applyPoint() {
   if (!S.view || !S.view.setHighlight) return;
   let show = pointed;
-  if (!show && S.looks?.targetRanges && restPoint({ coarse: S.coarse, layout: S.panel.layout(), detent: S.panel.detent(), tab: S.panel.tab(), previewing: !!S.preview?.layers?.length, calibrating: S.calibrating })) show = S.looks.targetRanges();
   if (show && S.sel && JSON.stringify(show) === JSON.stringify(S.sel.node.ranges)) show = null;
   S.view.setHighlight(show, !reducedMotion.matches);
 }
 S.applyPoint = applyPoint;
+
+// warnRun outlines a run in amber while its Status warning is pointed at
+// ('' clears it).
+S.warnedRun = -1;
+S.warnRun = (id) => {
+  const ri = id ? S.geo.runs.findIndex((r) => r.id === id) : -1;
+  if (ri === S.warnedRun) return;
+  S.warnedRun = ri;
+  markDirty();
+};
+// runStates is which of the map's run states are on screen now, for the key.
+S.runStates = () => ({
+  ...(S.overlay ? S.overlay.lineStates() : {}),
+  selected: !!S.sel && !S.calibrating,
+  previewed: !S.calibrating && S.show !== 'house' && !!S.preview?.layers?.length,
+  target: S.calibrating && !!S.cal?.active && !!S.cal.cursors?.length,
+});
 
 // applySelection draws the halo along the selected pixels.
 function applySelection() {
@@ -454,11 +473,22 @@ function bindMap() {
 
 let hoverTimer = 0, armedFor;
 const aim = createAim();
+// hoverRun tells the panel which run the pointer is on ('' for none), so a
+// row for it that is on screen can show it: the map points at the panel too.
+let hoveredRun = -1;
+function hoverRun(p) {
+  const ri = p >= 0 ? S.geo.pixels.run[p] : -1;
+  if (ri === hoveredRun) return;
+  hoveredRun = ri;
+  S.hoveredRun = ri >= 0 && S.geo.runs[ri] ? S.geo.runs[ri].id : '';
+  S.emit('hoverRun', S.hoveredRun);
+}
 function endHover() {
   clearTimeout(hoverTimer);
   armedFor = undefined;
   aim.reset();
   S.hover = -1;
+  hoverRun(-1);
   $('hoverLabel').hidden = true;
   if (S.pinned < 0 && inspected) inspect(-1);
   markDirty();
@@ -491,6 +521,7 @@ function aiming(x, y) {
 function hoverAt(x, y) {
   const p = S.view.pickPixel(x, y, 12);
   if (p !== S.hover) { S.hover = p; markDirty(); }
+  hoverRun(p);
   hoverLabel(p, x, y);
   if (S.pinned >= 0) return;
   if (aiming(x, y)) { clearTimeout(hoverTimer); armedFor = undefined; return; }
@@ -892,6 +923,8 @@ async function main() {
   S.status = createStatus(S, $('tab-status'));
   S.on('preview', refitPreview);
   for (const ev of ['preview', 'select', 'tab', 'detent', 'layout', 'view', 'runVisibility']) S.on(ev, applyPoint);
+  S.on('tab', renderHint); // the caption is the Looks tab's
+  for (const ev of ['preview', 'select', 'show', 'tab', 'calprogress']) S.on(ev, () => S.refreshStateKey?.());
   for (const ev of ['tab', 'detent', 'layout', 'preview']) S.on(ev, () => S.moveToasts());
   bindChrome();
   bindMap();

@@ -1301,11 +1301,15 @@ desk.
     it returns to Everything. A preview row's own place uses the same
     control style and the same word, **On:** ("On: Everything"), so each is
     labeled for what it changes: the next look, or that layer.
-  - *The tap is taught once.* "Tap a run on the map to light just that
-    part." is in the control's list and in the empty Looks state while
-    nothing is selected, and on first load it is a quiet caption on the map
-    where the breadcrumb will be, until this device's first selection and
-    never again. No tour, no modal.
+  - *The tap is taught once.* "Tap a run on the map to choose where the
+    next look goes." ("Click" with a mouse) is a quiet caption on the map
+    where the breadcrumb will be, on the Looks tab only, until this device's
+    first selection and never again. It is said in that one place: not in
+    the empty Looks card, not in the control's list, not on another tab and
+    not while calibrating. Tapping a run chooses a target and changes no
+    light, so the words are "choose" and "Preview on"; "light" and "put on
+    the lights" are kept for the action that changes the lights. No tour, no
+    modal.
   - *Hover and tap name things.* With a mouse, a run's name and zone show
     in a small label beside the pointer as soon as it is over any drawn
     run, lit or not; the label is placed where it covers none of that run.
@@ -1317,9 +1321,30 @@ desk.
     controller's runs, and a run's row there on that run. (Setup lists only
     the runs the map does not draw, so its rows have nothing to point at.)
     The halo fades in over 120 ms, at once under reduced motion, and goes
-    when the pointer or focus leaves. Touch has no hover: the halo shows
-    the current target while the Looks sheet is at its half detent with
-    nothing previewing, and a controller's row points on a tap.
+    when the pointer or focus leaves. A controller's row points on a tap on
+    touch. With nothing selected and nothing pointed at, the map shows no
+    halo at any detent: a halo is for an explicit selection, a hover or
+    focus from the panel, or a tapped controller row, and nothing else.
+  - *The map points at the panel.* Hovering a run on the map shows the row
+    for it where one is on screen (Status's Runs list, a Calibrate progress
+    row) in that row's hover style, and no other row. A Status warning that
+    names a run ("Calibrate this run") outlines that run in amber on the map
+    while the warning is hovered or focused.
+  - *Next look, or this layer.* **Preview on** sits beside the Library
+    heading, and its tooltip and accessible name say "next" ("Where the next
+    look goes"). A layer's **On:** is inside that layer's row.
+- **Run states on the map.** A run is drawn one way per state, and the key
+  lists a state only while it is on screen (one line on a phone, a chip
+  that takes no room from the framing):
+
+  | State | Drawn as |
+  |---|---|
+  | Installed, not lit | A thin (2 px) neutral gray line along every drawn run: no hue a light could be showing, at least 3:1 against the map's background, and another weight and color than the model's lines. A run with any pixel lit shows its look and no line (the line stays away for 2 s after the last lit frame, so a look that breathes to black does not flash it in). Not drawn over a diagnostic coloring or during a calibration step. |
+  | Hovered (mouse) | The run's line brightens to near white at 3 px, and its name shows beside the pointer. |
+  | Selected | The soft white halo, wider than any line, and the name in the breadcrumb. |
+  | Previewed | The look's own colors. |
+  | Calibration target | Cyan, the one color reserved for "current": see "Calibration mode". |
+  | Warned | A 4 px amber outline, only while a Status warning for that run is pointed at. |
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
   - *Looks*: where looks go (**Preview on**), presets first and then effects, the preview

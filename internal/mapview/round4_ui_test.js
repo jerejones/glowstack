@@ -115,3 +115,118 @@ test('B146: the sheet\'s grabber and tabs are an opaque header; the first card i
   // The first card starts with a gap under the tab strip, so its border and both corners show.
   assert.match(css, /body\[data-detent=half\] \.stage \{ padding: 6px 8px; margin: 4px 0 6px; \}/);
 });
+
+test('C2: the tap hint is said once, on the Looks map, and says what the tap does', async () => {
+  const { tapHint, showTapHint } = await import('./static/map-control.js');
+  assert.equal(tapHint('Tap'), 'Tap a run on the map to choose where the next look goes.');
+  assert.equal(tapHint('Click'), 'Click a run on the map to choose where the next look goes.');
+  // On Looks only, until the first selection, never while calibrating.
+  assert.equal(showTapHint({ seen: false, selected: false, tab: 'looks' }), true);
+  for (const tab of ['presets', 'setup', 'status']) assert.equal(showTapHint({ seen: false, selected: false, tab }), false, tab);
+  assert.equal(showTapHint({ seen: false, selected: false, tab: 'looks', calibrating: true }), false);
+  assert.equal(showTapHint({ seen: true, selected: false, tab: 'looks' }), false, 'after one selection, never again');
+  assert.equal(showTapHint({ seen: false, selected: true, tab: 'looks' }), false);
+  // One caller: the map's caption. Its text is in the page only while it shows, and the tab change redraws it.
+  const sources = ['app.js', 'panel/looks.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js', 'panel/calibrate.js', 'states.js', 'index.html'].map(read);
+  assert.equal(sources.join('').match(/tapHint\(/g).length, 1, 'tapHint is called in one place');
+  const app = read('app.js');
+  assert.match(app, /showTapHint\(\{ seen: hintSeen\(\), selected: !!S\.sel, tab: S\.panel\.tab\(\),/);
+  assert.match(app, /box\.textContent = box\.hidden \? '' : tapHint\(/);
+  assert.match(app, /S\.on\('tab', renderHint\);/);
+  // No string describes selecting as lighting.
+  for (const src of sources) assert.doesNotMatch(src, /to light just|light just that part|run on the map to light/i);
+  assert.doesNotMatch(read('panel/looks.js'), /lkTip/);
+  assert.match(design, /choose where the\s+next look goes/);
+});
+
+test('C2: no halo at rest; the halo is for a selection or for what the panel points at', async () => {
+  const control = await import('./static/map-control.js');
+  assert.equal(control.restPoint, undefined);
+  const app = read('app.js');
+  assert.doesNotMatch(app, /restPoint/);
+  const point = app.slice(app.indexOf('function applyPoint()'), app.indexOf('S.applyPoint = applyPoint;'));
+  assert.match(point, /let show = pointed;/);
+  assert.doesNotMatch(point, /targetRanges|detent/, 'nothing but what is pointed at is ever shown');
+});
+
+test('C2: one state language for runs on the map', async () => {
+  const { RUN_LINE, TARGET_COLOR, runLit, unlitRuns, LINGER, statesShown, stateKeyHTML, STATE_KEY } = await import('./static/map-control.js');
+  // The installed line: neutral (no hue), thin, at least 3:1 on the map's background, and not the selection's width.
+  const rgb = /rgb\((\d+), (\d+), (\d+)\)/.exec(RUN_LINE.installed.color).slice(1).map(Number);
+  assert.ok(rgb[0] === rgb[1] && rgb[1] === rgb[2], 'neutral gray');
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  assert.ok(ratio(rgb, [13, 14, 16]) >= 3, `contrast ${ratio(rgb, [13, 14, 16])}`);
+  assert.ok(RUN_LINE.installed.width <= 2 && RUN_LINE.installed.width < 15, 'thin: the halo is 15 px or more');
+  // Hovered is brighter and wider; warned is amber and wider still; the target has the one reserved color.
+  assert.ok(RUN_LINE.hovered.width > RUN_LINE.installed.width && RUN_LINE.warned.width > RUN_LINE.hovered.width);
+  assert.notEqual(RUN_LINE.hovered.color, RUN_LINE.installed.color);
+  assert.equal(RUN_LINE.warned.color, 'rgb(245, 158, 11)');
+  assert.equal(TARGET_COLOR, '#22d3ee');
+  for (const style of Object.values(RUN_LINE)) assert.notEqual(style.color, TARGET_COLOR);
+  // A run is lit when any of its pixels is; a lit run has no line, and keeps none for LINGER after going dark.
+  const frame = new Uint8Array(30);
+  assert.equal(runLit(frame, [[0, 9]]), false);
+  frame[3 * 7 + 1] = 40;
+  assert.equal(runLit(frame, [[0, 4]]), false);
+  assert.equal(runLit(frame, [[0, 4], [6, 9]]), true);
+  const seen = [];
+  assert.deepEqual(unlitRuns([false, true, false], seen, 1000), [0, 2]);
+  assert.deepEqual(unlitRuns([false, false, false], seen, 1000 + LINGER - 1), [0, 2], 'just dark: still no line');
+  assert.deepEqual(unlitRuns([false, false, false], seen, 1000 + LINGER), [0, 1, 2]);
+  // The key lists a state only while it is on screen, in one order, on one line.
+  assert.deepEqual(statesShown({}), []);
+  assert.equal(stateKeyHTML([]), '');
+  assert.deepEqual(statesShown({ previewed: true, installed: true, hovered: false }), ['installed', 'previewed']);
+  assert.deepEqual(statesShown({ target: true, selected: true, installed: true, hovered: true, warned: true, previewed: true }), STATE_KEY.map(([id]) => id));
+  const key = stateKeyHTML(['installed', 'selected']);
+  assert.match(key, /^<div class="key states"><span data-state="installed"><i class="sw rs line"><\/i>Not lit<\/span><span data-state="selected"><i class="sw rs halo"><\/i>Selected<\/span><\/div>$/);
+  assert.match(css, /\.legend\.states-only \.key\.states \{ flex-wrap: nowrap; \}/, 'one line');
+  assert.match(css, /\.sw\.rs\.line \{ background: rgb\(122, 122, 122\); \}/, 'the key shows the line as it is drawn');
+  // The overlay draws the lines under everything else, only over the live colors, never in a calibration step.
+  const overlay = read('overlay.js');
+  assert.match(overlay, /if \(o\.mode === 'live' && S\.rgb && S\.tree && !\(S\.calibrating && S\.cal\?\.active\)\)/);
+  assert.match(overlay, /runLines\(o\);\s*if \(o\.mode === 'flow'/);
+  assert.match(overlay, /if \(unlit\.has\(hovered\)\) \{ strokeRun\(all\[hovered\], RUN_LINE\.hovered\);/);
+  // The key is repainted when the states change, and a states-only key takes nothing from the framing.
+  assert.match(read('panel/setup.js'), /key\.classList\.toggle\('states-only', !!states && !\(legendHTML \+ note\)\);/);
+  assert.match(read('app.js'), /\|\| \$\('legend'\)\.classList\.contains\('states-only'\);/);
+  for (const word of ['Installed, not lit', 'Hovered', 'Selected', 'Previewed', 'Calibration target']) assert.ok(design.includes(`| ${word}`), word);
+});
+
+test('C2: the map points at the panel, and a warning outlines its run in amber', async () => {
+  const { markRunRows } = await import('./static/panel/status.js');
+  const rows = ['shed-eave', 'fence-west', 'porch'].map((id) => { const cls = new Set(); return { dataset: { runRow: id }, cls, classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } }; });
+  const root = { querySelectorAll: () => rows };
+  for (const id of ['fence-west', 'porch', 'shed-eave']) {
+    markRunRows(root, id);
+    assert.deepEqual(rows.filter((r) => r.cls.has('map-hover')).map((r) => r.dataset.runRow), [id], 'that row and no other');
+  }
+  markRunRows(root, '');
+  assert.equal(rows.filter((r) => r.cls.has('map-hover')).length, 0);
+  const app = read('app.js'), status = read('panel/status.js');
+  assert.match(app, /S\.emit\('hoverRun', S\.hoveredRun\);/);
+  assert.match(app, /hoverRun\(-1\);/, 'leaving the map clears it');
+  assert.match(status, /S\.on\('hoverRun', markHoverRun\);/);
+  assert.match(status, /markRunRows\(root, S\.hoveredRun \|\| ''\); \/\/ rows redrawn by a poll keep the map's hover/);
+  assert.match(css, /\.list-rows li\[data-run-row\]\.map-hover[^{]*\{ background: var\(--card\);/, 'the row\'s own hover background');
+  // The warning: its row carries the run, and pointing at it sets the amber outline and nothing else.
+  assert.match(status, /data-warn-run="\$\{esc\(it\.fix\.run\)\}"/);
+  assert.match(status, /S\.warnRun\?\.\(el\.dataset\.warnRun \|\| el\.dataset\.runRow\)/);
+  assert.match(app, /S\.warnRun = \(id\) => \{/);
+  assert.match(read('overlay.js'), /if \(all\[warned\]\) \{ strokeRun\(all\[warned\], RUN_LINE\.warned\);/);
+});
+
+test('C2: the next look\'s target is told from a layer\'s without reading the label', async () => {
+  const { targetControl, placeControl } = await import('./static/panel/looks.js');
+  const next = targetControl('Everything', true);
+  assert.match(next.aria, /next/);
+  assert.equal(next.title, 'Where the next look goes');
+  assert.doesNotMatch(placeControl('Everything').title, /next/);
+  const looks = read('panel/looks.js');
+  assert.match(looks, /id="lkTarget"[^>]*title="Where the next look goes"/);
+  assert.match(looks, /<h2 class="group-head">Library<\/h2>\s*<div class="target-ctl">/, 'beside the Library heading');
+  assert.match(css, /\.catalog-head \{[^}]*justify-content: flex-start;/);
+  assert.match(looks, /className: 'place target-select'/, 'the row\'s control is made inside its row');
+});

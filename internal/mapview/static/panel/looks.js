@@ -19,7 +19,6 @@ import { icon } from '../icons.js';
 import { textField, wireClear, fitPlaceholder } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
-import { tapHint } from '../map-control.js';
 import { createUndo, mark, undoResult, TOAST_MS } from '../undo.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
@@ -183,7 +182,7 @@ export function liveFold({ compact, preview, live, open }) {
 // it carries a clear (x) back to Everything. where is the current place's
 // name; everything says the place is every light.
 export function targetControl(where, everything) {
-  return { label: 'Preview on', text: where, aria: `Preview on ${where}. Change where the next look goes`, clear: !everything };
+  return { label: 'Preview on', text: where, aria: `Preview the next look on ${where}. Change where the next look goes`, title: 'Where the next look goes', clear: !everything };
 }
 
 // placeControl is a preview row's own place in the same style and the same
@@ -385,7 +384,6 @@ export function createLooks(S, root) {
     <div class="looks-head"><h1 class="title">Looks</h1></div>
     <section class="stage" id="lkStage" aria-labelledby="lkStageTitle">
       <div class="stage-head"><h2 id="lkStageTitle"></h2><small id="lkStageSub"></small></div>
-      <p class="muted small stage-tip" id="lkTip" hidden>${tapHint(word)}</p>
       <p class="muted small stage-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
       <div class="stage-warn" id="lkDark" data-dark hidden></div>
       <div class="list" id="lkRows"><button type="button" class="live-sum prev-sum" id="lkPrevSum" aria-expanded="false" hidden><small class="kind">Preview</small><span class="text"></span>${icon('chevronDown')}</button><button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live</small><span class="text"></span>${icon('chevronDown')}</button></div>
@@ -395,11 +393,11 @@ export function createLooks(S, root) {
     <section class="library" aria-label="Presets and effects">
       <div class="catalog-head" id="lkCatalogHead">
         <h2 class="group-head">Library</h2>
-        <div class="target-ctl"><span class="muted" id="lkTargetLabel">Preview on</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their rows." aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Preview on Everything again" title="Back to Everything" hidden>${icon('close')}</button></div>
+        <div class="target-ctl"><span class="muted" id="lkTargetLabel">Preview on</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next look goes" aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Preview on Everything again" title="Back to Everything" hidden>${icon('close')}</button></div>
         <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
           <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
           ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
-          <div class="muted small" id="lkPickHint">${tapHint(word)} ${word} it again for the area around it.</div>
+          <div class="muted small" id="lkPickHint">Or choose on the map: a second ${word.toLowerCase()} on a run takes the area around it.</div>
           <div class="target-list" id="lkTargetList"></div>
         </div>
       </div>
@@ -441,6 +439,7 @@ export function createLooks(S, root) {
     const ctl = targetControl(where, t === 'all');
     $$('#lkTargetName').textContent = ctl.text;
     targetBtn.setAttribute('aria-label', ctl.aria);
+    targetBtn.title = ctl.title;
     $$('#lkTargetClear').hidden = !ctl.clear;
     if (picker.hidden) return;
     const value = pickFor ? pickFor.layer.target : t;
@@ -955,8 +954,6 @@ export function createLooks(S, root) {
     $$('#lkStageTitle').textContent = head.title;
     $$('#lkStageSub').textContent = head.sub;
     $$('#lkStage').classList.toggle('stale', stale);
-    // The empty state carries the one line that teaches the tap, until something is selected.
-    $$('#lkTip').hidden = !!(prev.length + house.length) || !!S.sel || !S.houseRead;
     const notRead = S.houseStatus === 'available' || S.houseRead ? null : houseState(S.houseStatus, S.house.length);
     stageState(previewState(S.preview, S.previewStatus) || notRead);
     // The toggle can be on Lights with a preview open: the stage says so.

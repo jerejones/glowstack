@@ -10,6 +10,7 @@
 // (scene.js or plan.js).
 import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges, readableLabel } from './util.js';
 import { controllerName, controllerLabel, nodeDisplay, runName } from './names.js';
+import { RUN_LINE, runLit, unlitRuns } from './map-control.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -631,6 +632,64 @@ export function createOverlay(S) {
     });
   }
 
+  // ----- run lines: the state language (map-control.js) -----
+  // Every drawn run that is not lit has a thin neutral line along it; the run
+  // under the pointer brightens; a run whose Status warning is pointed at
+  // gets an amber outline. A lit run shows its look and no line. Paths are
+  // screen polylines, rebuilt only when the view or the runs shown change.
+  let pathsKey = '', paths = [], lineStates = { installed: false, hovered: false, warned: false }, statesKey = '';
+  const seenLit = [];
+  function runPaths() {
+    const key = [S.plan, S.view.version, S.view.size?.().w, S.view.size?.().h, pixelAt(0), pixelAt(n - 1)].join();
+    if (key === pathsKey && paths.for === S.visibility) return paths;
+    paths = g.runs.map((r, ri) => {
+      if (r.plan !== S.plan || !S.tree) return null;
+      const parts = [];
+      for (const [a, b] of S.tree.runSets[ri]) {
+        const stride = Math.max(1, Math.floor((b - a) / 300));
+        let part = [];
+        for (let p = a; ; p = Math.min(b, p + stride)) {
+          const q = pixelAt(p);
+          if (q) part.push(q); else if (part.length) { parts.push(part); part = []; }
+          if (p >= b) break;
+        }
+        if (part.length) parts.push(part);
+      }
+      return parts.length ? parts : null;
+    });
+    paths.for = S.visibility; pathsKey = key;
+    return paths;
+  }
+  function strokeRun(parts, style) {
+    ctx.strokeStyle = style.color; ctx.lineWidth = style.width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const part of parts) {
+      ctx.moveTo(part[0][0], part[0][1]);
+      // One pixel on screen still draws: a dot of the line's width.
+      if (part.length === 1) ctx.lineTo(part[0][0] + 0.01, part[0][1]);
+      for (let i = 1; i < part.length; i++) ctx.lineTo(part[i][0], part[i][1]);
+    }
+    ctx.stroke();
+  }
+  function runLines(o) {
+    const next = { installed: false, hovered: false, warned: false };
+    // Only over the live colors: a diagnostic coloring or a calibration step
+    // paints every pixel, and their own marks lead.
+    if (o.mode === 'live' && S.rgb && S.tree && !(S.calibrating && S.cal?.active)) {
+      const all = runPaths();
+      const lit = g.runs.map((r, ri) => !all[ri] || runLit(S.rgb, S.tree.runSets[ri]));
+      const unlit = new Set(unlitRuns(lit, seenLit, performance.now()).filter((ri) => all[ri]));
+      const hovered = S.hover >= 0 ? px.run[S.hover] : -1;
+      for (const ri of unlit) if (ri !== hovered) { strokeRun(all[ri], RUN_LINE.installed); next.installed = true; }
+      if (unlit.has(hovered)) { strokeRun(all[hovered], RUN_LINE.hovered); next.hovered = true; }
+      const warned = S.warnedRun ?? -1;
+      if (all[warned]) { strokeRun(all[warned], RUN_LINE.warned); next.warned = true; }
+    }
+    lineStates = next;
+    const key = JSON.stringify(next);
+    if (key !== statesKey) { statesKey = key; S.refreshStateKey?.(); }
+  }
+
   // calCursors rings the physical target, not the moving test pixel.
   // The white pixel follows nudges; the target stays on the model corner.
   function cursorPoints() {
@@ -681,6 +740,7 @@ export function createOverlay(S) {
   function draw(c) {
     ctx = c;
     const m = mappings.get(st.mapping), o = shown();
+    runLines(o);
     if (o.mode === 'flow' && m) { arrows(m); flowLabels(m); }
     if (o.mode === 'stretch' && m) spacingLabels(m);
     if (o.mode === 'outputs') outputStarts();
@@ -700,5 +760,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: () => lineStates, runPaths, live: () => shown().mode === 'live' };
 }

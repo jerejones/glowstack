@@ -335,6 +335,19 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 /* The key draws each mark the way the map does. */
 .sw.ring { background: none; border: 2px solid currentColor; border-radius: 50%; }
+/* The runs' states, as the map draws them (map-control.js): the key's last line. */
+.key.states { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: center; }
+.key.states > span { display: inline-flex; align-items: center; white-space: nowrap; }
+.sw.rs { width: 16px; height: 2px; border-radius: 1px; margin-right: 6px; vertical-align: middle; }
+.sw.rs.line { background: rgb(122, 122, 122); }
+.sw.rs.line.bright { height: 3px; background: rgb(241, 245, 249); }
+.sw.rs.line.amber { height: 4px; border-radius: 2px; background: rgb(245, 158, 11); }
+.sw.rs.halo { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.5); }
+.sw.rs.look { height: 5px; border-radius: 2px; background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7); }
+.sw.rs.ring { width: 10px; height: 10px; background: none; border: 2px solid #22d3ee; border-radius: 50%; }
+/* Only the states to explain: one line, no button, the size of a chip. */
+.legend.states-only { padding: 3px 9px; max-width: none; right: auto; }
+.legend.states-only .key.states { flex-wrap: nowrap; }
 .sw.ring.dash { border-style: dashed; }
 .sw.dot { border-radius: 50%; }
 .sw.diamond { transform: rotate(45deg) scale(0.85); border-radius: 1px; }
@@ -517,7 +530,6 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   body[data-detent=half] .catalog-head .target-select::after, body[data-detent=half] .catalog-head .target-clear::after { content: ''; position: absolute; inset: -8px 0; }
   /* The swatch is 18 px taller than the strip it replaced: the card gives the room back from its own gaps, so three rows of effects still fit the half sheet. */
   body[data-detent=half] .preset { gap: 3px; padding: 5px 6px 4px; }
-  body[data-detent=half] .stage-tip { margin: 0; }
   body[data-detent=half] .lib-filters { flex-wrap: nowrap; margin-bottom: 4px; }
   body[data-detent=half] .lib-filters .field { flex: 1 1 auto; }
   /* The label's words fold out of sight, not out of the input's name. */
@@ -566,7 +578,8 @@ details[open] > summary::before { transform: rotate(90deg); }
 .looks-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: var(--title-row); margin: 10px 0 8px; }
 .looks-head h1.title, .library-heading h1.title { margin: 0; flex: none; }
 .looks-head { position: relative; }
-.catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 4px 0 4px; }
+/* "Preview on" sits beside the Library heading it belongs to: it is where the next look goes, and a layer's own place is inside its row (move C2). */
+.catalog-head { position: relative; display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 4px; }
 .catalog-head .group-head { margin: 0; }
 .place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
 .place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
@@ -589,7 +602,6 @@ button.target-select[aria-expanded=true] { border-color: var(--accent); backgrou
 /* A link-styled button: the phone bar's "Add on top instead". */
 button.target-btn { min-width: 0; padding: 0 1px; border: 0; background: transparent; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
 button.target-btn:hover { text-decoration-thickness: 2px; }
-.stage-tip { margin: 2px 4px 0; }
 .target-picker { position: absolute; z-index: 4; top: calc(100% + 4px); left: 0; right: 0; display: grid; gap: 6px; padding: 8px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
 .target-picker.up { top: auto; bottom: calc(100% + 4px); }
 .target-list { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
@@ -969,6 +981,8 @@ button.stat:hover { border-color: #8b95a3; background: var(--card2); }
 .list-rows li[data-ctl], .list-rows li[data-run-row] { border-radius: 6px; }
 .list-rows li[data-ctl].pointing { background: var(--card); box-shadow: inset 3px 0 0 var(--accent); }
 @media (hover: hover) { .list-rows li[data-ctl]:hover, .list-rows li[data-run-row]:hover { background: var(--card); } }
+/* The run under the pointer on the map shows on its row: the row's own hover style (move C2). */
+.list-rows li[data-run-row].map-hover, .cal-prog [data-run-row].map-hover > summary, .cal-prog li[data-run-row].map-hover { background: var(--card); box-shadow: inset 3px 0 0 var(--line-strong); }
 .list-rows li .what { flex: 1; min-width: 0; }
 .list-rows li .what b { display: block; overflow-wrap: anywhere; }
 .list-rows li .fact { font-weight: 600; white-space: nowrap; }

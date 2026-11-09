@@ -312,6 +312,13 @@ const ago = (t) => {
   return Math.round(s / 3600) + ' h ago';
 };
 
+// markRunRows shows which run the pointer is on, on the map, on the rows for
+// it under root: any element with data-run-row gets .map-hover while its run
+// is the hovered one, and no other row does.
+export function markRunRows(root, id) {
+  for (const el of root.querySelectorAll('[data-run-row]')) el.classList.toggle('map-hover', !!id && el.dataset.runRow === id);
+}
+
 export function createStatus(S, root) {
   const g = S.geo;
   root.innerHTML = `
@@ -390,8 +397,8 @@ export function createStatus(S, root) {
     if (key === shownIssues) return;
     shownIssues = key;
     const row = (it, i) => it.group
-      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(one.detail)}">${esc(one.plain)}</p></details></li>`).join('')}</ul></li>`
-      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.darkZones && zeroIds.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="stTurnOn">${icon('check')}${esc(turnOnLabel(zeroNames))}</button></div>` : ''}${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
+      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li${one.fix.run ? ` data-warn-run="${esc(one.fix.run)}"` : ''}><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(one.detail)}">${esc(one.plain)}</p></details></li>`).join('')}</ul></li>`
+      : `<li class="issue"${it.fix?.run ? ` data-warn-run="${esc(it.fix.run)}"` : ''}><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.darkZones && zeroIds.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="stTurnOn">${icon('check')}${esc(turnOnLabel(zeroNames))}</button></div>` : ''}${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
     if (box.querySelector('#stTurnOn')) $$('#stTurnOn').onclick = () => turnOnZones(S, api, zeroIds, zeroNames);
@@ -545,6 +552,7 @@ export function createStatus(S, root) {
     $$('#stRunsMore').hidden = !rest.length;
     $$('#stRunsMore summary').textContent = problems.length ? `${plural(rest.length, 'other run')}` : `All ${plural(rest.length, 'run')}`;
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
+    markRunRows(root, S.hoveredRun || ''); // rows redrawn by a poll keep the map's hover
     markOffline();
 
     renderIssues(issues, zero.map((z) => z.id), zeroNames);
@@ -602,10 +610,24 @@ export function createStatus(S, root) {
   // soft halo, a run's row that run. Hover and focus with a mouse or keys; a
   // tap on a phone, where a second tap (or leaving the tab) lets go.
   let pointedCtl = '';
+  const markHoverRun = () => markRunRows(root, S.hoveredRun || '');
   const runRanges = (id) => { const ri = g.runs.findIndex((r) => r.id === id); return ri >= 0 && S.tree ? S.tree.runSets[ri] : null; };
   if (!g.mapless) {
     pointOn($$('#stCtl'), 'li[data-ctl]', (el) => controllerRanges(g, el.dataset.ctl), S);
-    for (const box of [$$('#stRuns'), $$('#stRunsRest')]) pointOn(box, 'li[data-run-row]', (el) => runRanges(el.dataset.runRow), S);
+    // A run's row points at that run with the halo; a row that carries a
+    // warning outlines its run in amber instead, so the map shows which run
+    // "Calibrate this run" means.
+    for (const box of [$$('#stRuns'), $$('#stRunsRest'), $$('#stIssues')]) {
+      if (box.id !== 'stIssues') pointOn(box, 'li[data-run-row]:not(.warn)', (el) => runRanges(el.dataset.runRow), S);
+      const row = (e) => e.target.closest?.('li.warn[data-run-row], li[data-warn-run]');
+      const on = (e) => { const el = row(e); if (el) S.warnRun?.(el.dataset.warnRun || el.dataset.runRow); };
+      const off = (e) => { const el = row(e); if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) S.warnRun?.(''); };
+      if (!S.coarse) { box.addEventListener('pointerover', on); box.addEventListener('pointerout', off); }
+      box.addEventListener('focusin', on);
+      box.addEventListener('focusout', off);
+    }
+    // The map points back: the run under the pointer shows on its row here.
+    S.on('hoverRun', markHoverRun);
     if (S.coarse) $$('#stCtl').addEventListener('click', (e) => {
       const li = e.target.closest('li[data-ctl]');
       if (!li) return;
@@ -613,7 +635,7 @@ export function createStatus(S, root) {
       for (const row of $$('#stCtl').children) row.classList.toggle('pointing', row.dataset.ctl === pointedCtl);
       S.pointAt?.(pointedCtl ? controllerRanges(g, pointedCtl) : null);
     });
-    S.on('tab', (t) => { if (t !== 'status') { pointedCtl = ''; S.pointAt?.(null); } });
+    S.on('tab', (t) => { if (t !== 'status') { pointedCtl = ''; S.pointAt?.(null); S.warnRun?.(''); } });
   }
   S.on('tab', (t) => { if (t === 'status') { if (last) render(last); poll(); } });
   S.on('house', () => { if (visible() && last) render(last); });
