@@ -58,6 +58,7 @@ const S = {
   previewStatus: 'loading',
   house: [],           // /api/v1/layers
   houseStatus: 'loading',
+  houseRead: false,    // the lights have been read at least once
   catalog: null,       // /api/v1/effects
   presets: [],
   sel: null,           // { node, chain }

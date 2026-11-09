@@ -168,3 +168,23 @@ test('B119: an empty search names what did not match and only the lists not sele
   assert.equal(noMatch('presets', 'zz').detail, 'Try Pinned or Effects.');
   assert.equal(noMatch('pinned', 'zz').title, 'No pinned presets match “zz”');
 });
+
+test('B121: the stage never claims the lights are empty when they could not be read', async () => {
+  const { stageTitle, stageSub } = await import('./static/panel/looks.js');
+  const failed = { live: 0, preview: 0, read: false, status: 'unavailable' };
+  assert.equal(stageTitle(failed), "Couldn't read the lights");
+  const sub = stageSub({ rows: 0, stale: false, word: 'Click', read: false, status: 'unavailable' });
+  assert.match(sub, /didn't answer/);
+  assert.doesNotMatch(sub, /Click a look/);
+  // A good read, then a failed refresh: the last state, called the last state.
+  assert.equal(stageTitle({ live: 0, preview: 0, read: true, status: 'unavailable' }), 'Nothing on the lights');
+  assert.match(stageSub({ rows: 0, stale: true, word: 'Click', read: true, status: 'unavailable' }), /last known/);
+});
+
+test('B121: the page passes a real read flag, so unread is never taken for read', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const src = (f) => fs.readFileSync(path.join(__dirname, 'static', f), 'utf8');
+  assert.match(src('app.js'), /houseRead: false,/, 'undefined would hit the "read" default');
+  assert.match(src('panel/looks.js'), /stageTitle\(\{[^}]*read: !!S\.houseRead/);
+  assert.match(src('panel/looks.js'), /stageSub\(\{[^}]*read: !!S\.houseRead/);
+});

@@ -86,8 +86,9 @@ export function stageTitle({ live, preview, read = true, status = 'available' })
 
 // stageSub is the stage's one line under its title. A failed refresh keeps
 // the last state and says so.
-export function stageSub({ rows, stale, word }) {
+export function stageSub({ rows, stale, word, read = true, status = 'available' }) {
   if (stale) return "Couldn't refresh. This is the last known state.";
+  if (!read && !rows && status === 'unavailable') return "Glowstack didn't answer, so what's on the lights isn't known.";
   return rows ? '' : `${word} a look below to preview it on the map; the lights don't change.`;
 }
 
@@ -628,8 +629,8 @@ export function createLooks(S, root) {
     const house = S.house.filter((l) => !l.ephemeral);
     renderRows(prev, house);
     const stale = S.houseStatus !== 'available' && S.houseRead;
-    $$('#lkStageTitle').textContent = stageTitle({ live: house.length, preview: prev.length, read: S.houseRead, status: S.houseStatus });
-    $$('#lkStageSub').textContent = stageSub({ rows: prev.length + house.length, stale, word });
+    $$('#lkStageTitle').textContent = stageTitle({ live: house.length, preview: prev.length, read: !!S.houseRead, status: S.houseStatus });
+    $$('#lkStageSub').textContent = stageSub({ rows: prev.length + house.length, stale, word, read: !!S.houseRead, status: S.houseStatus });
     $$('#lkStage').classList.toggle('stale', stale);
     const notRead = S.houseStatus === 'available' || S.houseRead ? null : houseState(S.houseStatus, S.house.length);
     stageState(previewState(S.preview, S.previewStatus) || notRead);
