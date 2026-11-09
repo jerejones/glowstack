@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"github.com/jerejones/glowstack/internal/color"
 	"github.com/jerejones/glowstack/internal/httpserver"
 	"github.com/jerejones/glowstack/internal/render"
+	"github.com/jerejones/glowstack/internal/wled"
 )
 
 const exampleDir = "../../examples/fictional"
@@ -673,4 +675,26 @@ func TestAllTarget(t *testing.T) {
 	f.push("all", "#ff0000", nil)
 	f.render(time.Second)
 	f.expect(f.porch, "100", "porch under all")
+}
+
+func TestZonesReportTheLevelTheyTurnOnAt(t *testing.T) {
+	f := newFixture(t, nil)
+	levels := func() map[string]float64 {
+		out := map[string]float64{}
+		for _, z := range f.must(http.StatusOK, "GET", "/api/v1/zones", nil)["zones"].([]any) {
+			m := z.(map[string]any)
+			out[m["id"].(string)] = m["on_level"].(float64)
+		}
+		return out
+	}
+	if got := levels(); got["porch"] != 1 || got["front"] != 1 {
+		t.Errorf("with nothing remembered, want 1: %v", got)
+	}
+	saved := `{"schema":1,"presets":{},"zones":{"porch":{"bri":51}}}`
+	if err := f.app.Store.Write(wled.SavedFile, []byte(saved)); err != nil {
+		t.Fatal(err)
+	}
+	if got := levels(); math.Abs(got["porch"]-0.2) > 1e-9 || got["front"] != 1 {
+		t.Errorf("remembered level: %v", got)
+	}
 }

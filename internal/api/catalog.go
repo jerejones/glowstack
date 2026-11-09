@@ -13,6 +13,7 @@ import (
 	"github.com/jerejones/glowstack/internal/names"
 	"github.com/jerejones/glowstack/internal/output"
 	"github.com/jerejones/glowstack/internal/render"
+	"github.com/jerejones/glowstack/internal/wled"
 )
 
 // Param is a parameter declaration as the API lists it.
@@ -196,6 +197,9 @@ type Zone struct {
 	Mapping    string    `json:"mapping,omitempty"`
 	Segments   []Segment `json:"segments"`
 	Brightness float64   `json:"brightness"`
+	// OnLevel is the brightness turning the zone on goes to: what its WLED
+	// device remembers, else 1. It is never 0.
+	OnLevel float64 `json:"on_level"`
 }
 
 // Segment is a zone's WLED segment.
@@ -207,10 +211,15 @@ type Segment struct {
 func (api *API) zones(w http.ResponseWriter, r *http.Request) error {
 	cfg := api.app.Current().Config
 	bri := api.app.Brightness()
+	onLevels := wled.OnLevels(api.app.Store)
 	var list []Zone
 	for _, z := range cfg.Zones {
+		on, ok := onLevels[z.ID]
+		if !ok {
+			on = 1
+		}
 		out := Zone{ID: z.ID, Area: z.Area, Name: z.Device.Name, IP: z.Device.IP, MAC: z.Device.MAC,
-			Mapping: z.Mapping, Segments: []Segment{}, Brightness: bri.Zones[z.ID]}
+			Mapping: z.Mapping, Segments: []Segment{}, Brightness: bri.Zones[z.ID], OnLevel: on}
 		for _, s := range z.Segments {
 			out.Segments = append(out.Segments, Segment{Area: s.Area, Mapping: s.Mapping})
 		}

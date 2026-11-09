@@ -84,6 +84,26 @@ func (d *Devices) setLastBri(zone string, zm *zoneMem, bri int) {
 	}
 }
 
+// OnLevels returns the level each device remembers turning on at, 0 to 1,
+// from the devices' file. A zone that has none isn't listed.
+func OnLevels(store storage.Store) map[string]float64 {
+	levels := map[string]float64{}
+	data, err := store.Read(SavedFile)
+	if err != nil {
+		return levels
+	}
+	var f savedFile
+	if json.Unmarshal(data, &f) != nil || f.Schema != 1 {
+		return levels
+	}
+	for z, b := range f.Zones {
+		if b.Bri >= 1 && b.Bri <= 255 {
+			levels[z] = float64(b.Bri) / 255
+		}
+	}
+	return levels
+}
+
 // presets returns the effective presets and makes sure each has a WLED id:
 // new ones get the lowest free id, in list order. Ids of presets that are
 // gone are kept for when they come back, unless every id is taken.
