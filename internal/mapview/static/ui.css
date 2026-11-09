@@ -57,7 +57,6 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --layout: wide;
   --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3.2L13 5'/%3E%3C/svg%3E");
-  --check-on: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%232c4a6e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 8.5l3.2 3.2L13 5'/%3E%3C/svg%3E");
   --picker-rows: 8;
   color-scheme: dark;
 }
@@ -141,20 +140,20 @@ button, .chip {
   padding: 0 10px; cursor: pointer; touch-action: manipulation;
 }
 button:hover { border-color: #8b95a3; }
-button:disabled, button[aria-disabled=true] { color: var(--disabled); background: transparent; border-style: dashed; cursor: not-allowed; }
+button:disabled, button[aria-disabled=true] { color: var(--disabled); background: transparent; cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 /* --muted misses AA on these surfaces; what's inside reads the lighter one. */
 button.on, .toast, .cal-prog li.here, .cal-prog li:hover { --muted: var(--muted-raised); }
 button.quiet { background: transparent; }
+/* One primary height per viewport: the tap size, wherever the button is. */
 button.go, .go { background: var(--go); border-color: var(--go); color: #fff; font-weight: 600; }
-.setup-cal button.go, .calibrate button.go { min-height: max(40px, var(--tap)); }
 button.go:hover { background: var(--go-hover); border-color: var(--go-hover); }
 button.go:active { background: var(--go-active); border-color: var(--go-active); }
 button.go:disabled { background: transparent; border-color: var(--line); color: var(--disabled); font-weight: 400; }
 button.danger { color: #fecaca; border-color: #7f1d1d; }
-/* Offline the controls are inert, and look it: the banner says so. */
-[inert] button, [inert] .picker-btn, [inert] .chip { color: var(--disabled); background: transparent; border-style: dashed; cursor: not-allowed; font-weight: 400; }
+/* Offline the controls are inert, and look it: faded, the banner says why. */
+[inert] button, [inert] .picker-btn, [inert] .chip { opacity: 0.55; cursor: not-allowed; }
 [inert] input, [inert] .preset .strip, [inert] .layer .strip { opacity: 0.45; }
 input[type=text], input[type=number], input[type=search], input:not([type]), textarea {
   min-height: var(--tap); background: var(--field); border: 1px solid var(--field-line); border-radius: 8px; padding: 0 8px;
@@ -200,16 +199,15 @@ input[type=checkbox]:checked::after {
 .chips > button { border-radius: 999px; }
 #suLayers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #suLayers > button { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* A toggle chip is one box in one slot: empty off, filled and checked on, so
- * its label never moves. Picking a place doesn't need a box at all. */
-.chips.toggles > button::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; border: 1px solid currentColor; border-radius: 3px; }
+/* One toggle vocabulary: an exclusive choice is a segmented bar (.seg); an
+ * independent on/off is a pill that fills when it is on, with no box or
+ * check inside it. A picked place keeps its one check. */
 .chips > button.on { background: var(--on); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #fff; }
 /* The one check, as a mask: generated text would be read out by screen readers. */
 .chips:not(.toggles) > button.on::before {
   content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; background: currentColor;
   -webkit-mask: var(--check) center / contain no-repeat; mask: var(--check) center / contain no-repeat;
 }
-.chips.toggles > button.on::before { background: currentColor var(--check-on) center / 100% no-repeat; }
 
 /* ---------- the map ---------- */
 #stage { position: absolute; top: 0; left: 0; bottom: 0; right: var(--panel-space); overflow: hidden; }
@@ -452,7 +450,7 @@ input[type=checkbox]:checked::after {
  * the section step, --t-h2/600; More settings, inside a form or layer card,
  * takes the form step, --t-h3/600; an inline one (What these words mean,
  * Preview clock, Details and the rest) stays at the body size, --t-m. */
-details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; font-size: var(--t-m); }
+details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; font-size: var(--t-m); font-weight: 600; }
 details > summary::-webkit-details-marker { display: none; }
 details > summary::before {
   content: ''; width: 12px; height: 12px; flex: none; background: var(--muted);

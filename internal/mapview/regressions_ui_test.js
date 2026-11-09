@@ -976,7 +976,8 @@ test('Setup uses one segmented style and one toggle chip style', () => {
   assert.doesNotMatch(setup, /seg grid/);
   assert.equal((setup.match(/class="chips toggles"/g) || []).length, 2);
   assert.doesNotMatch(css, /\.seg\.grid/);
-  assert.match(css, /\.chips\.toggles > button::before/);
+  // Refinement 1: a toggle is a plain pill that fills when on; no glyph of its own.
+  assert.doesNotMatch(css, /\.chips\.toggles > button::before/);
 });
 
 test('a control boundary is at least 3:1 where it identifies the control', () => {
@@ -1086,13 +1087,10 @@ test('B76: controller labels drop repeated detail and keep whole words', async (
 });
 
 test('B77: a toggle chip is the same box on and off', () => {
-  const off = /\.chips\.toggles > button::before \{ ([^}]*) \}/.exec(css)[1];
-  const on = /\.chips\.toggles > button\.on::before \{ ([^}]*) \}/.exec(css)[1];
-  assert.match(off, /width: 12px; height: 12px/);
-  assert.match(off, /border: 1px solid currentColor/);
-  // The on state only fills the box: no size, border or mask of its own.
-  assert.doesNotMatch(on, /width|height|border|mask/);
-  assert.match(css, /\.chips:not\(\.toggles\) > button\.on::before/, 'only non-toggle chips use a bare check');
+  // The pill itself is the box: on only changes its fill and edge, never its size.
+  const on = /\.chips > button\.on \{ ([^}]*) \}/.exec(css)[1];
+  assert.doesNotMatch(on, /width|height|padding|min-height/);
+  assert.match(css, /\.chips:not\(\.toggles\) > button\.on::before/, 'only a picked place uses a bare check');
 });
 
 test('B78: a per-unit has no stray space, and other units keep theirs', async () => {
@@ -1512,7 +1510,7 @@ test('every secondary action on a card or row has its icon and word, and categor
 });
 
 test('the polish round: tall primaries, ringed thumbs, a real glyph, even segments, empty actions and the bar says what it does', async () => {
-  assert.match(css, /\.setup-cal button\.go, \.calibrate button\.go \{ min-height: max\(40px, var\(--tap\)\)/);
+  assert.doesNotMatch(css, /\.setup-cal button\.go, \.calibrate button\.go \{ min-height/, 'one primary height per viewport: the tap size (Refinement 1)');
   assert.match(css, /input\[type=range\]::-webkit-slider-thumb \{[^}]*border: 2px solid #0d0e10/);
   assert.match(css, /input\[type=range\]::-moz-range-thumb \{[^}]*border: 2px solid #0d0e10/);
   assert.doesNotMatch(read('form.js'), /repeating-linear-gradient\(135deg, #4a5361/, 'no hatch');
@@ -2560,4 +2558,19 @@ test('Move B: library tiles show the effect moving, from the renderer\'s own spr
   S.preview = { layers: [{}] }; handlers.preview(); // stops the timer so the test can end
   assert.match(read('panel/presets.js'), /spriteStyle\(spriteURL\('preset', p\.id, p\.params\), lookStrip\(S, p\.effect, p\.params\)\)/, 'preset rows use the preset\'s own sprite');
   assert.match(read('app.js'), /S\.tiles = createTiles\(S\)/);
+});
+
+test('Refinement 1: one toggle vocabulary', () => {
+  // An independent on/off is a pill that fills when on, with no box or check drawn inside it.
+  assert.doesNotMatch(css, /\.chips\.toggles > button(\.on)?::before/, 'no checkbox glyph inside a toggle pill');
+  assert.doesNotMatch(css, /--check-on/);
+  assert.match(css, /\.chips > button\.on \{ background: var\(--on\); border-color: var\(--accent\);/, 'a pill fills when on');
+  // Nothing disabled or inert is dashed: inert fades instead.
+  for (const m of css.matchAll(/([^{}]+)\{[^}]*border-style: dashed[^}]*\}/g)) assert.doesNotMatch(m[1], /button|\.go|\.chip/, 'no dashed border on any button');
+  assert.match(css, /\[inert\] button, \[inert\] \.picker-btn, \[inert\] \.chip \{ opacity: 0\.55; cursor: not-allowed; \}/);
+  // One primary height per viewport: no primary asks for more than the tap size.
+  assert.doesNotMatch(css, /button\.go[^{]*\{[^}]*min-height/);
+  // The disclosure tiers keep their sizes, with one chevron and one weight.
+  assert.match(css, /details > summary \{[^}]*font-weight: 600; \}/);
+  assert.equal((css.match(/details > summary::before \{/g) || []).length, 1, 'one chevron for every tier');
 });
