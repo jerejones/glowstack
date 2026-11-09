@@ -1707,12 +1707,11 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
   assert.doesNotMatch(status, /kit\.push\(nb\('version/, 'the version moved to the name tooltip');
 });
 
-test('the half sheet is one fixed height per tab, taller on the list tabs', () => {
+test('the half sheet is one fixed height on every tab', () => {
   const sheet = read('sheet.js');
   assert.match(sheet, /const HALF = 0\.5;/);
-  assert.match(sheet, /const TALL_TABS = new Set\(\['presets', 'status'\]\);/);
-  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* \(TALL_TABS\.has\(tab\) \? TALL_HALF : HALF\)\)\)/);
-  assert.match(sheet, /detent === 'half'\) setVisible\(heights\(\)\.half\);/, 'switching tabs moves to that tab\'s half');
+  assert.doesNotMatch(sheet, /TALL_/);
+  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\), full: h - STRIP/);
   assert.doesNotMatch(sheet, /READING|fitHalf/);
 });
 
@@ -2194,10 +2193,10 @@ test('Setup: Advanced is nested under Advanced, a size below the top-level secti
   assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
 });
 
-test('a phone: the stage is the first content, and the sheet rises for a preview or Tweak', () => {
+test('a phone: the stage is the first content, and the sheet rises for Tweak only', () => {
   const looks = read('panel/looks.js');
   assert.match(css, /\.tab \.looks-head \{ display: none; \}/);
-  assert.match(looks, /S\.panel\.setDetent\('full'\);\n\s+if \(cards\.has\('preview:' \+ added\.id\)\)/);
+  assert.doesNotMatch(looks, /S\.panel\.setDetent\('full'\);\n\s+if \(cards\.has\('preview:' \+ added\.id\)\)/, 'adding a look leaves the sheet where it is');
   assert.match(looks, /S\.panel\.layout\(\) === 'sheet' && S\.panel\.detent\(\) !== 'full'/);
   assert.match(css, /body:not\(\[data-detent\]\) \.panel \{ visibility: hidden; \}/, 'the sheet is not drawn before its height');
   assert.match(read('sheet.js'), /panel\.classList\.add\('dragging'\);\n\s+refresh\(true\)/, 'no rise from the peek on load');
@@ -2264,21 +2263,11 @@ test('the library scope is a quiet line; a row\'s Goes on is the only button-sty
   assert.match(looks, /Goes on<\/span>/);
 });
 
-test('phone previewing: a full sheet leaves a readable band of map, and the library in reach', async () => {
-  const { fullStrip } = await import('./static/sheet.js');
-  assert.equal(fullStrip(0, 844), 200, 'the usual strip when nothing asks for more');
-  assert.equal(fullStrip(260, 844), 260, 'previewing keeps 260 px of map');
-  assert.equal(fullStrip(260, 568), 224, 'a short phone keeps a full sheet at least the half detent');
-  assert.equal(fullStrip(260, 400), 200, 'never below the strip');
-  const looks = read('panel/looks.js'), app = read('app.js');
-  assert.match(looks, /S\.panel\.keepBand\(prev\.length && S\.panel\.tab\(\) === 'looks' \? PREVIEW_BAND : 0\)/);
-  assert.match(looks, /S\.panel\.detent\(\) === 'half' && S\.preview\?\.layers\.length\) S\.panel\.setDetent\('full'\)/, 'a preview opens at full; only a half sheet rises');
+test('phone previewing: one map band on every tab, and only the person moves the sheet', () => {
+  const looks = read('panel/looks.js'), app = read('app.js'), sheet = read('sheet.js');
+  assert.doesNotMatch(looks + sheet, /keepBand|PREVIEW_BAND|fullStrip|risePreview/);
   assert.match(app, /else if \(previewRanges\(\)\.length\) S\.view\.frameTight\(rangeIds\(previewRanges\(\)\)\)/, 'the camera frames the lit runs in the band');
   assert.match(read('scene.js'), /frameTight\(ids\) \{/);
-  assert.match(read('plan.js'), /frameTight\(ids\) \{/, 'the flat map answers the same call');
-  assert.match(app, /fullHold = S\.view\.hold\(\);\n\s+setInsets\(\);\n\s+frameFull\(\);/, 'the device camera is held first');
-  assert.match(app, /S\.view\.release\(h\);/, 'and comes back when the band grows');
-  assert.match(css, /scroll-padding-bottom: calc\(var\(--look-bar, 0px\) \+ 8px\)/, 'the last library row clears the bar');
 });
 
 test('Preview, Pin and More share one button style; Pinned keeps its state', () => {
