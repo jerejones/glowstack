@@ -43,7 +43,8 @@
   --cal-map: 42%;        /* the map above calibration on a phone */
   --rail-w: 52px;
   --panel-space: var(--panel-w);
-  --peek: 56px;
+  --peek: 68px;
+  --handle: 24px;
   --strip: 200px;        /* the map above a full sheet: STRIP in sheet.js */
   --sheet-visible: var(--peek);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -307,7 +308,15 @@ input[type=checkbox]:checked::after {
 
 /* bottom sheet */
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  .tabs .rail-toggle { display: inline-flex; flex: none; }
+  /* Expand lives on the handle, leaving the tab bar to the tabs. The ::after
+   * reaches up over the map so the target is a full tap tall. */
+  .tabs .rail-toggle {
+    display: inline-flex; flex-direction: row; gap: 2px; position: absolute; top: 0; right: 8px;
+    height: var(--handle); min-height: 0; padding: 0 6px; border: 0; background: transparent;
+    color: var(--muted); font-size: var(--t-s);
+  }
+  .tabs .rail-toggle::after { content: ''; position: absolute; inset: calc(var(--handle) - var(--tap)) -8px 0; }
+  .tabs button:not(.rail-toggle) .ico svg { width: 20px; height: 20px; }
   .panel {
     position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: auto;
     height: calc(100% - var(--strip)); border-left: 0; border-top: 1px solid var(--line);
@@ -319,22 +328,21 @@ input[type=checkbox]:checked::after {
   }
   .panel.dragging { transition: none; }
   body.sheet-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
-  .handle { display: flex; justify-content: center; align-items: center; height: 12px; flex: none; touch-action: none; cursor: grab; }
+  .handle { display: flex; justify-content: center; align-items: center; height: var(--handle); flex: none; touch-action: none; cursor: grab; }
   .handle i { width: 40px; height: 5px; border-radius: 3px; background: #4b5563; }
-  .tabs { padding: 0 10px; border-bottom: 1px solid var(--line); touch-action: none; height: calc(var(--peek) - 12px); align-items: center; }
+  .tabs { padding: 0 10px; border-bottom: 1px solid var(--line); touch-action: none; height: calc(var(--peek) - var(--handle)); align-items: center; }
   .tabs button { height: var(--tap); }
   .content { flex: none; height: calc(var(--sheet-visible) - var(--peek) - var(--safe-b)); overflow-y: hidden; --content-bottom: 16px; }
   body[data-detent=half] .content, body[data-detent=full] .content { overflow-y: auto; }
   /* Under the chip bar, so it can't sit on the Preview/Lights toggle. */
   .boot-loading { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
-  /* A full sheet leaves a strip of map: chip and toggle share one row at its
-   * top, as they do while calibrating, and framing keeps the map below it. */
-  body[data-detent=full] .brand, body[data-detent=full] .badge .detail { display: none; }
-  body[data-detent=full] .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
+  /* Chip and toggle share one row at the top at every detent, so the toggle
+   * never moves as the sheet does, and framing keeps the map below it. */
+  .brand, .badge .detail { display: none; }
+  .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .crumbs::-webkit-scrollbar { display: none; }
   .crumbs > * { flex: none; }
-  .map-controls { bottom: calc(var(--sheet-visible) + 8px); }
   .legend { display: none; }
   /* The sheet's half detent is short: the looks come first. */
   .tab h1.title, .tab .looks-head, .tab .library-heading { margin-top: 16px; }
@@ -393,7 +401,7 @@ details[open] > summary::before { transform: rotate(90deg); }
 .preset.in-preview .in-badge, .preset.elsewhere .in-badge { display: inline-flex; }
 .preset.in-preview .sub, .preset.elsewhere .sub { display: none; }
 .preset .strip { height: 12px; border-radius: 4px; border: 1px solid var(--rim); }
-.preset .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preset .name { font-weight: 600; overflow-wrap: anywhere; }
 .preset .sub { color: var(--muted); font-size: var(--t-s); }
 .lane { margin: 14px 0; }
 .lane > .row:first-child { justify-content: space-between; }

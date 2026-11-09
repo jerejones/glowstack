@@ -22,7 +22,7 @@ import { escapeCloses } from '../picker.js';
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
 const TARGET = 'glowstack.looks.target';
-const PEEK_CHROME = 56; // the sheet's handle and tabs, above .content
+const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
 
 // effectKind says what an effect takes its colors from, for its card.
 export function effectKind(e) {

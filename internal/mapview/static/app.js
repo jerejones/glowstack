@@ -169,7 +169,6 @@ function setInsets() {
     crumbs: $('crumbs').hidden ? null : below('crumbs'),
     controls: below('mapControls'),
     layout: S.panel.layout(),
-    full: S.panel.detent() === 'full',
     covered: S.panel.covered(),
     calibrating: S.calibrating,
     calTop: $('calibrate').getBoundingClientRect().top - stage.top,

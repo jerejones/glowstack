@@ -16,21 +16,21 @@ const css = read('ui.css');
 test('desktop calibration frames most of the stage: the toggle at the bottom is no top inset', async () => {
   const { frameInsets } = await import('./static/map-frame.js');
   // The side layout's toggle sits at the stage's bottom, at 860 of 900.
-  const side = frameInsets({ height: 900, chips: 44, crumbs: null, controls: 892, layout: 'wide', full: false, covered: 0, calibrating: true, calTop: 0, floats: 40 });
+  const side = frameInsets({ height: 900, chips: 44, crumbs: null, controls: 892, layout: 'wide', covered: 0, calibrating: true, calTop: 0, floats: 40 });
   assert.ok(900 - side.top - side.bottom > 700, `framed height ${900 - side.top - side.bottom}`);
   assert.equal(side.top, 50);
 });
 
 test('phone calibration still frames below the toggle, which is at the top there', async () => {
   const { frameInsets } = await import('./static/map-frame.js');
-  const sheet = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 60, layout: 'sheet', full: true, covered: 700, calibrating: true, calTop: 354, floats: 0 });
+  const sheet = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 60, layout: 'sheet', covered: 700, calibrating: true, calTop: 354, floats: 0 });
   assert.equal(sheet.top, 66);
   assert.equal(sheet.bottom, 844 - 354 + 6);
 });
 
 test('outside calibration the sheet is what covers the map', async () => {
   const { frameInsets } = await import('./static/map-frame.js');
-  assert.deepEqual(frameInsets({ height: 844, chips: 52, crumbs: null, controls: 400, layout: 'sheet', full: false, covered: 380, calibrating: false, calTop: 0, floats: 0 }), { top: 58, bottom: 386 });
+  assert.deepEqual(frameInsets({ height: 844, chips: 52, crumbs: null, controls: 52, layout: 'sheet', covered: 380, calibrating: false, calTop: 0, floats: 0 }), { top: 58, bottom: 386 });
 });
 
 test('a zone at 0 brightness is named where a look was applied, and only that zone', async () => {
@@ -587,10 +587,10 @@ test('B49: a full sheet leaves the map room, with chip and toggle above it', asy
   const { frameInsets } = await import('./static/map-frame.js');
   assert.match(css, /--strip: 200px/);
   assert.match(read('sheet.js'), /const STRIP = 200/);
-  assert.match(css, /body\[data-detent=full\] \.map-controls \{ top:/);
-  const f = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 52, layout: 'sheet', full: true, covered: 644, calibrating: false, calTop: 0, floats: 0 });
+  assert.match(css, /Chip and toggle share one row[^]*?\.map-controls \{ top:/, 'in one place at every detent');
+  const f = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 52, layout: 'sheet', covered: 644, calibrating: false, calTop: 0, floats: 0 });
   assert.equal(f.top, 58, 'framing starts below the row');
-  const c = frameInsets({ height: 844, chips: 52, crumbs: 96, controls: 52, layout: 'sheet', full: true, covered: 644, calibrating: false, calTop: 0, floats: 0 });
+  const c = frameInsets({ height: 844, chips: 52, crumbs: 96, controls: 52, layout: 'sheet', covered: 644, calibrating: false, calTop: 0, floats: 0 });
   assert.equal(c.top, 102, 'and below the crumbs when they are up');
 });
 
@@ -874,4 +874,18 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   assert.equal(out[1].group.length, 2);
   assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto auto; \}/);
   assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-help\)/, 'controller rows at 13px');
+});
+
+test('the phone sheet keeps Expand on the handle and tabs to themselves', () => {
+  const sheet = /\/\* bottom sheet \*\/[\s\S]*?\.panel \{/.exec(css)[0];
+  assert.match(sheet, /\.rail-toggle \{[^}]*position: absolute; top: 0/);
+  assert.match(sheet, /\.rail-toggle::after \{[^}]*calc\(var\(--handle\) - var\(--tap\)\)/, 'a full tap tall');
+  assert.match(sheet, /\.ico svg \{ width: 20px; height: 20px; \}/);
+  assert.match(css, /--peek: 68px/);
+  assert.match(read('sheet.js'), /const PEEK = 68;/);
+  assert.match(read('panel/looks.js'), /const PEEK_CHROME = 68;/);
+});
+
+test('a long look name wraps instead of being cut off', () => {
+  assert.doesNotMatch(/^\.preset \.name \{[^}]*\}/m.exec(css)[0], /ellipsis/);
 });

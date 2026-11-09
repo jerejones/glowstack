@@ -14,7 +14,7 @@ const TAB = 'glowstack.tab';
 const RAIL = 'glowstack.rail';
 const DETENT = 'glowstack.sheet.detent';
 const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
-const PEEK = 56;   // handle and tab bar
+const PEEK = 68;   // handle (with Expand) and tab bar
 const STRIP = 200; // the map above a full sheet: --strip in ui.css
 const HALF = 0.45; // of the window's height
 const HALF_READING = 0.62; // the same, for tabs that are lists to read
