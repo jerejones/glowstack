@@ -152,9 +152,15 @@ export function createSetup(S, root) {
   function paintLegend() {
     const n = ov.hiddenLabels();
     const note = n ? `<div class="muted label-note">${plural(n, 'label')} hidden: no room. ${S.coarse ? 'Pinch to zoom in' : 'Hover or zoom in'} to see ${n === 1 ? 'it' : 'them'}.</div>` : '';
-    for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = legendHTML + note; el.hidden = !(legendHTML + note); }
+    // The key's rows scroll on their own, so its button is never over them.
+    const key = $('legend'), scrolled = key.querySelector('.legend-rows')?.scrollTop || 0;
+    key.innerHTML = `<div class="legend-rows">${legendHTML + note}</div>`;
+    key.hidden = !(legendHTML + note);
+    key.firstChild.scrollTop = scrolled;
+    $$('#suLegend').innerHTML = legendHTML + note;
+    $$('#suLegend').hidden = key.hidden;
     // The key on the map can be folded down, so that it leaves the map free.
-    const key = $('legend'), phoneCalibrating = S.calibrating && S.panel.layout() === 'sheet';
+    const phoneCalibrating = S.calibrating && S.panel.layout() === 'sheet';
     const pref = phoneCalibrating ? KEY_FOLDED_CAL : KEY_FOLDED, folded = keyFolded(load(pref, null), phoneCalibrating);
     key.classList.toggle('folded', folded);
     if (key.hidden) return;

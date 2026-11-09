@@ -1474,7 +1474,6 @@ test('B88: the phone key starts folded while calibrating, stays clear of the she
   assert.equal(keyFolded(false, true), false, 'a person who opened it keeps it open');
   assert.equal(keyFolded(true, false), true);
   assert.match(css, /body\.calibrating \.legend \{ display: flex; bottom: calc\(100% - var\(--cal-map\) \+ var\(--cal-shift, 0px\) \+ 8px\); max-height: calc\(/, 'above the calibration sheet, shorter than the strip');
-  assert.match(css, /\.legend-toggle \{ position: sticky; bottom: 0;/, 'the button is never cut by the key\'s scroll');
   assert.match(read('app.js'), /foldedCorner/, 'a folded key costs the target no framing');
 });
 
@@ -1617,4 +1616,14 @@ test('B98: the row above the catalog says what its button does, and pressing it 
   assert.match(looks, /lkNowGo'\)\.hidden = !house\.length/, 'with nothing on the lights there is nothing to go to');
   assert.match(looks, /for \(const el of list\.querySelectorAll\('\.layer'\)\) flash\(el\)/, 'visible when the cards are already on screen');
   assert.match(/<div class="now" id="lkNow"[^\n]*/.exec(looks)[0], /div/, 'the row itself is no longer a dead button');
+});
+
+test('B94: the key\'s rows scroll on their own, with Hide key outside them', () => {
+  const setup = read('panel/setup.js');
+  assert.match(setup, /<div class="legend-rows">/);
+  assert.match(/\.legend-rows \{[^}]*\}/.exec(css)[0], /overflow-y: auto/);
+  const toggle = /\.legend-toggle \{[^}]*\}/g;
+  assert.doesNotMatch(css.match(toggle).join(), /sticky/, 'a sticky button sat on top of the last rows');
+  assert.match(/^\.legend \{[^}]*\}/m.exec(css)[0], /max-height: 45%/, 'its height is capped');
+  assert.match(css, /max-height: 124px/, 'and on a phone');
 });
