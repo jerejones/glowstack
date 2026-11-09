@@ -22,6 +22,34 @@ export function textField({ label = '', ariaLabel = '', id, type = 'text', place
 // query. A field in use takes the whole row on a phone's half sheet.
 export const searching = (focused, value) => focused || !!value.trim();
 
+// placeholderFor is the placeholder a field shows: the first candidate whose
+// width fits the room the input has for text, else the last (the shortest:
+// "Search"). A placeholder is never shown cut. width(text) measures a
+// candidate in the input's font; room is the input's width for text, in px.
+export function placeholderFor(candidates, room, width) {
+  return candidates.find((c) => width(c) <= room) ?? candidates[candidates.length - 1];
+}
+
+// fitPlaceholder sets input's placeholder to the longest of candidates that
+// fits it now, and keeps it fitted as the field changes width (it grows on
+// focus on a phone's sheet). Without a canvas to measure with, the shortest.
+export function fitPlaceholder(input, candidates, doc = globalThis.document) {
+  let ctx = null;
+  try { ctx = doc.createElement('canvas').getContext('2d'); } catch { /* no canvas: the shortest is safe */ }
+  const fit = () => {
+    if (!ctx || !input.clientWidth) { input.placeholder = candidates[candidates.length - 1]; return; }
+    const cs = getComputedStyle(input);
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const room = input.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    input.placeholder = placeholderFor(candidates, room - 1, (t) => ctx.measureText(t).width);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(input);
+  input.addEventListener('focus', fit);
+  input.addEventListener('blur', fit);
+  fit();
+  return fit;
+}
+
 // wireClear runs a clearable field: the × shows while there is a query, and
 // clearing puts the panel's scroll back where it was before the query began,
 // so the list the person left is the list they come back to. onChange runs

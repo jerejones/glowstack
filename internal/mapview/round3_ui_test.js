@@ -462,3 +462,42 @@ test('Refinement 4: one apply bar: Clear beside the primary, at the panel\'s foo
   assert.match(looks, /S\.fail\('put the look on the lights', e\)/);
   assert.match(looks, /It goes on the lights when you update them\./);
 });
+
+test('Refinement 5: search stays put: a placeholder that fits, one inline field on Looks and Presets', async () => {
+  const { placeholderFor, fitPlaceholder, textField } = await import('./static/field.js');
+  const width = (t) => t.length * 7.4; // about 14 px text
+  // The longest candidate that fits; the shortest when none does. Never a cut word.
+  assert.equal(placeholderFor(['Search looks', 'Search'], 237, width), 'Search looks');
+  assert.equal(placeholderFor(['Search looks', 'Search'], 60, width), 'Search');
+  assert.equal(placeholderFor(['Search looks', 'Search'], 10, width), 'Search', 'the shortest is the floor');
+  for (const room of [30, 45, 60, 90, 120, 240]) {
+    const p = placeholderFor(['Search presets', 'Search'], room, width);
+    assert.ok(width(p) <= room || p === 'Search', `${room} px: "${p}"`);
+  }
+  // Without a canvas (or before layout) it is the shortest, which always fits.
+  const input = { clientWidth: 0, placeholder: 'Search looks', addEventListener() {} };
+  fitPlaceholder(input, ['Search looks', 'Search'], { createElement() { throw new Error('no canvas'); } });
+  assert.equal(input.placeholder, 'Search');
+  // Both tabs: the same component, wrapper and wiring.
+  const looks = read('panel/looks.js'), presets = read('panel/presets.js');
+  assert.match(looks, /<div class="lib-filters">[\s\S]*?textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks', clearable: true \}\)/);
+  assert.match(presets, /<div class="lib-filters">\$\{textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets', clearable: true \}\)\}<\/div>/);
+  assert.match(looks, /fitPlaceholder\(\$\$\('#lkFind'\), \['Search looks', 'Search'\]\);/);
+  assert.match(presets, /fitPlaceholder\(\$\('#prSearch'\), \['Search presets', 'Search'\]\);/);
+  assert.match(presets, /wireClear\(\$\('#prSearch'\), renderList, root\.parentElement\);/);
+  // One placement rule: inline, the label's words folded away (still the input's name), never stacked.
+  assert.match(css, /^\.lib-filters \{ display: flex; flex-wrap: nowrap;/m);
+  assert.match(css, /^\.lib-filters \.field \{ flex: 1 1 auto; margin: 0; min-width: 0; \}/m);
+  assert.match(css, /^\.lib-filters \.field > \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\); white-space: nowrap; \}/m);
+  assert.match(textField({ label: 'Find a preset', id: 'x', clearable: true }), /<label class="field clearable"><span class="lbl">Find a preset<\/span><input/);
+  // The resting field keeps its whole width for its words: the x's room is the query's.
+  assert.match(css, /\.field\.clearable:has\(\.field-clear:not\(\[hidden\]\)\) input \{ padding-right: 36px; \}/);
+  assert.doesNotMatch(css, /^\.field\.clearable input \{ padding-right/m);
+  // The row is one line whether the field is resting, focused or holding a query, so the results below never move.
+  assert.doesNotMatch(css, /\.lib-filters[^{]*\{[^}]*flex-wrap: wrap/);
+  // The empty-search sentence is one string per tab, whatever the detent.
+  const { noMatch } = await import('./static/panel/looks.js');
+  assert.deepEqual(noMatch('presets', 'zz'), { kind: 'empty', title: 'No presets match “zz”', detail: 'Try Pinned or Effects.' });
+  assert.match(presets, /title: S\.presets\.length \? `No presets match “\$\{\$\('#prSearch'\)\.value\.trim\(\)\}”` : 'No presets yet'/);
+  assert.doesNotMatch(css, /data-detent[^{]*\.state-text/);
+});

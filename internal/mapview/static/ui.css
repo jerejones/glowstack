@@ -520,10 +520,10 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   body[data-detent=half] .live-sum { display: grid; }
   /* The search takes the row while in use: the other segments slide out of it and the chosen one stays,
    * with its icon and word, so what is being searched is always in view. */
-  body[data-detent=half] .lib-filters .field.searching { flex: 1 1 100%; }
-  body[data-detent=half] .lib-filters:has(.field.searching) .seg > button:not(.on) { display: none; }
-  body[data-detent=half] .lib-filters:has(.field.searching) .seg > button.on > .icon { display: block; }
-  body[data-detent=half] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 10px; gap: 4px; }
+  body[data-detent] .lib-filters .field.searching { flex: 1 1 100%; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg > button:not(.on) { display: none; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on > .icon { display: block; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 10px; gap: 4px; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }
@@ -604,9 +604,14 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; } /* one line, fitted by looks.js (fitDark): never cut, never wrapped */
 .stage-warn button { flex: none; white-space: nowrap; }
 .library { margin-top: 4px; }
-.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 4px; }
+.lib-filters { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 8px; margin: 0 0 4px; }
 .lib-filters .seg { flex: none; width: auto; }
-.lib-filters .field { flex: 1 1 100%; margin: 0; min-width: 0; } /* one search field on Looks and Presets: its own row, full width */
+/* One search field on Looks and Presets, inline on every layout (round 3):
+ * beside the segments where there are any, the row's width where there are
+ * none; its label's words are folded away, never stacked above it (the
+ * placeholder says them, and fits: field.js fitPlaceholder). */
+.lib-filters .field { flex: 1 1 auto; margin: 0; min-width: 0; }
+.lib-filters .field > .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .lib-filters .field input { width: 100%; }
 .lib-filters .seg > button { display: inline-flex; align-items: center; gap: 6px; }
 .lib-filters .seg > button > .icon { display: none; } /* the icons are for the phone's half sheet while searching */
@@ -620,7 +625,8 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 }
 /* A clearable field: the × sits at the input's end while there is a query. */
 .field.clearable { position: relative; }
-.field.clearable input { padding-right: 36px; }
+/* The room for the × is the query's, not the placeholder's: a resting field keeps its whole width for its words. */
+.field.clearable:has(.field-clear:not([hidden])) input { padding-right: 36px; }
 .field-clear { position: absolute; right: 2px; bottom: 0; width: 36px; height: var(--tap, 36px); padding: 0; border: 0; background: transparent; color: var(--muted); font-size: var(--t-l); line-height: 1; border-radius: 6px; }
 .field-clear:hover { color: var(--text); }
 /* The folded live rows' summary line: one tap row, the Live badge, the names, a chevron. */

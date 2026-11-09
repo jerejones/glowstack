@@ -16,7 +16,7 @@ import { houseStatusMessage, lightOutcome, joined, turnOnLabel, turnOnZones, zon
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState, stateHTML } from '../states.js';
 import { icon } from '../icons.js';
-import { textField, wireClear } from '../field.js';
+import { textField, wireClear, fitPlaceholder } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 import { tapHint } from '../map-control.js';
@@ -626,6 +626,8 @@ export function createLooks(S, root) {
   // The search grows to the row while in use on the half sheet (field.js
   // marks it); clearing puts the library back where it was scrolled to.
   wireClear($$('#lkFind'), renderCatalog, document.getElementById('content'));
+  // The resting field on a phone is narrow: its placeholder is the longest that fits, never a cut word.
+  fitPlaceholder($$('#lkFind'), ['Search looks', 'Search']);
 
   // markPreviewed shows which cards are in the preview on the current
   // target: the same look on somewhere else isn't this one.

@@ -1361,6 +1361,14 @@ desk.
   (one, or all in order) onto the house stack with the same look and seed.
   Applying is always a separate, green button; nothing on the map applies
   by itself.
+- **Search.** Looks and Presets have the same search field: inline on
+  every layout (beside the segments on Looks, the row's width on Presets),
+  with its label's words folded away, never stacked above it, and a clear
+  (x) while it holds a query. Its placeholder is the longest that fits the
+  field as it is now ("Search looks", else "Search") and is never shown
+  cut. On a phone's sheet the field grows to the row while in use, with the
+  active segment still labeled beside it; the row is one line in every
+  state, so the results below it do not move.
 - **Toggles.** One idiom per kind of choice. An independent on/off choice
   (Points, Names, Controllers, the parts of the model, Pin to Looks, Go to
   next after) is a box with a check when it is on: a real checkbox, or the

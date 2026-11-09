@@ -2267,8 +2267,8 @@ test('Preview, Pin and More share one button style; Pinned keeps its state', () 
 
 test('search fields are one pattern on Looks and Presets', () => {
   assert.match(read('panel/looks.js'), /textField\(\{ label: 'Find a look', id: 'lkFind', type: 'search', placeholder: 'Search looks', clearable: true \}\)/);
-  assert.match(read('panel/presets.js'), /textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' \}\)/);
-  assert.match(css, /\.lib-filters \.field \{ flex: 1 1 100%;/, 'its own row by default (the phone\'s full sheet)');
+  assert.match(read('panel/presets.js'), /<div class="lib-filters">\$\{textField\(\{ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets', clearable: true \}\)\}<\/div>/);
+  assert.match(css, /\.lib-filters \.field \{ flex: 1 1 auto;/, 'inline on every layout (round 3)');
   const wide = css.slice(css.indexOf('@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape)'));
   assert.match(wide, /\.lib-filters \{ flex-wrap: nowrap; \}\s*\.lib-filters \.field \{ flex: 1 1 auto; \}/, 'one row with the segments on the wide panel (D: the room is the Library\'s)');
   assert.match(wide, /\.lib-filters \.field > \.lbl \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect\(0 0 0 0\);/, 'folded, still the input\'s name');
@@ -2947,9 +2947,10 @@ test('A2: the half sheet keeps the Library in reach while previewing; the search
   assert.match(looks, /wireClear\(\$\$\('#lkFind'\), renderCatalog, document\.getElementById\('content'\)\)/, 'clearing restores the panel\'s scroll');
   assert.match(looks, /<button type="button" data-filter="pinned">\$\{icon\('pin'\)\}<span>Pinned<\/span><\/button><button type="button" data-filter="presets">\$\{icon\('presets'\)\}<span>All presets<\/span><\/button><button type="button" data-filter="effects">\$\{icon\('looks'\)\}<span>Effects<\/span><\/button>/);
   assert.match(css, /\.lib-filters \.seg > button > \.icon \{ display: none; \}/, 'icons only while searching on the half sheet');
-  assert.match(phone, /body\[data-detent=half\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
-  assert.match(phone, /body\[data-detent=half\] \.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
-  assert.match(phone, /body\[data-detent=half\] \.lib-filters:has\(\.field\.searching\) \.seg > button\.on > \.icon \{ display: block; \}/);
+  // Round 3: the same growth at every detent of the sheet, not only the half.
+  assert.match(phone, /body\[data-detent\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
+  assert.match(phone, /body\[data-detent\] \.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
+  assert.match(phone, /body\[data-detent\] \.lib-filters:has\(\.field\.searching\) \.seg > button\.on > \.icon \{ display: block; \}/);
   assert.match(css, /\.field-clear \{ position: absolute; right: 2px;/);
   assert.match(css, /input\[type=search\]::-webkit-search-cancel-button \{ display: none;/, 'not two clear buttons: the browser\'s is off');
   const field = read('field.js');

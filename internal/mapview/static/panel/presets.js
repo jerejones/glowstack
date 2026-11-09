@@ -10,7 +10,7 @@ import { effectSummary, pointOn } from './looks.js';
 import { showState, stateHTML } from '../states.js';
 import { confirmDialog } from '../dialog.js';
 import { icon } from '../icons.js';
-import { textField, setFieldError } from '../field.js';
+import { textField, setFieldError, wireClear, fitPlaceholder } from '../field.js';
 
 export function presetSlug(name, presets) {
   const base = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'preset';
@@ -32,7 +32,7 @@ export function createPresets(S, root) {
     <p class="muted small tab-intro-compact">Saved looks. Pin one to show it on Looks.</p>
     <div id="prMessage" role="status" class="small"></div>
     <div id="prEditor" class="preset-editor" hidden></div>
-    ${textField({ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets' })}
+    <div class="lib-filters">${textField({ label: 'Find a preset', id: 'prSearch', type: 'search', placeholder: 'Search presets', clearable: true })}</div>
     <div id="prList" class="preset-library"></div>`;
   const $ = (s) => root.querySelector(s);
   const say = (s) => { $('#prMessage').textContent = s; };
@@ -144,7 +144,7 @@ export function createPresets(S, root) {
       };
       box.append(row);
     }
-    if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? 'No matching presets' : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.', action: S.presets.length ? null : { id: 'prEmptyNew', label: 'Create a preset' } });
+    if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? `No presets match “${$('#prSearch').value.trim()}”` : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.', action: S.presets.length ? null : { id: 'prEmptyNew', label: 'Create a preset' } });
     box.querySelector('#prEmptyNew')?.addEventListener('click', () => openEditor());
     markTry();
     if (busy) setBusy(true);
@@ -229,7 +229,10 @@ export function createPresets(S, root) {
   }
   escapeCloses($('#prEditor'), () => !!draft && !busy, cancelEditor);
   $('#prNew').onclick = () => openEditor();
-  $('#prSearch').oninput = renderList;
+  // The same inline search as Looks: one row, the label's words folded
+  // away, a clear (x) while there is a query, and a placeholder that fits.
+  wireClear($('#prSearch'), renderList, root.parentElement);
+  fitPlaceholder($('#prSearch'), ['Search presets', 'Search']);
   // A row points at the map the way a Looks card does: where it would go.
   pointOn($('#prList'), '.preset-entry', () => S.looks?.targetRanges?.() || null, S);
   // markTry shows which presets are in the preview, as on Looks.
