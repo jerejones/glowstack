@@ -2021,6 +2021,28 @@ test('B117: leaving Calibrate lands at the top of the panel, its heading in view
   assert.match(body, /openTab\(to\);\s+\/\/[^\n]*\n\s+S\.panel\?\.toTop\?\.\(\);/);
 });
 
+test('B118: pressing Calibrate while the page starts up does nothing wrong, and says it is loading', async () => {
+  const { calibrateButton } = await import('./static/panel/setup.js');
+  const b = {}, S = {};
+  const show = calibrateButton(b, S);
+  assert.equal(b.disabled, true, 'off until calibrate exists');
+  assert.match(b.innerHTML, /Loading/);
+  assert.doesNotThrow(() => b.onclick());
+  let opened = 0;
+  S.calib = { open: () => { opened++; } };
+  show();
+  assert.equal(b.disabled, false);
+  assert.match(b.innerHTML, /Calibrate$/);
+  b.onclick();
+  assert.equal(opened, 1);
+  show(true);
+  assert.match(b.innerHTML, /Resume calibrating/);
+  S.offline = true;
+  show();
+  assert.equal(b.disabled, true, 'offline keeps it off');
+  assert.match(b.innerHTML, /Resume calibrating/, 'the words remember the session');
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 500px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);

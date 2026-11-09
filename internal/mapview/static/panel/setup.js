@@ -22,6 +22,21 @@ const KEY_FOLDED_CAL = 'glowstack.legend.folded.calibrating';
 // null. Calibrating on a phone it starts folded: its map is a short strip.
 export const keyFolded = (stored, phoneCalibrating) => (stored === null ? phoneCalibrating : !!stored);
 
+// calibrateButton runs Calibrate's button. Until the calibrate panel exists it
+// is off and says it is loading, so an early press does nothing wrong. It
+// returns the redraw: show(running) changes the words, show() rereads the rest.
+export function calibrateButton(b, S) {
+  let running = false;
+  const show = (now = running) => {
+    running = !!now;
+    b.disabled = !S.calib || !!S.offline;
+    b.innerHTML = S.calib ? `${icon('target')}${running ? 'Resume calibrating' : 'Calibrate'}` : 'Loading calibration…';
+  };
+  b.onclick = () => S.calib?.open();
+  show();
+  return show;
+}
+
 export function createSetup(S, root) {
   const g = S.geo;
   const ov = S.overlay;
@@ -88,8 +103,7 @@ export function createSetup(S, root) {
   renderRuns();
 
   // ---------- calibration ----------
-  $$('#suCal').onclick = () => S.calib.open();
-  const calLabel = (running) => { $$('#suCal').innerHTML = `${icon('target')}${running ? 'Resume calibrating' : 'Calibrate'}`; };
+  const calLabel = calibrateButton($$('#suCal'), S);
   S.on('calibration', calLabel);
   // The same count the calibration screen shows, from the same reading.
   const showCount = (st) => {
@@ -199,12 +213,11 @@ export function createSetup(S, root) {
   for (const b of $$('#suRate').children) b.onclick = () => { S.setRate(+b.dataset.fps); renderRate(); };
   S.on('stream', renderRate);
 
-  S.on('offline', () => { $$('#suCal').disabled = S.offline; });
+  S.on('offline', () => calLabel());
   S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); refreshLegend(); });
   // Setup's colors and labels are Setup's: the other tabs show the plain map.
   S.on('tab', (t) => { if (t === 'setup') renderRate(); refreshLegend(); });
   renderOverlay();
   renderRate();
-  calLabel(false);
-  return { setMode };
+  return { setMode, calibrateReady: () => calLabel() };
 }

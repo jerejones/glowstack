@@ -785,6 +785,7 @@ async function main() {
   // An active session reopens immediately after Confirm reloads the map.
   // Its camera hold/frame operations require the asynchronous 3-D view.
   S.calib = createCalibrate(S, $('calibrate'));
+  S.setup.calibrateReady();
   setShow(S.show);
   connect();
   S.on('status', badge);
