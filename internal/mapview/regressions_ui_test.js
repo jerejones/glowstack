@@ -2103,7 +2103,7 @@ test('one word for taking a layer off, Pin matches the Presets tab, and the empt
 });
 
 test('More settings keeps controls in one right column with help on one line of the row', () => {
-  assert.match(css, /\.form details > \.f, \.form details > \.f\.stack \{ grid-template-columns: minmax\(0, 8\.5em\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.form details > \.f, \.form details > \.f\.stack \{ grid-template-columns: minmax\(0, var\(--label-w\)\) minmax\(0, 1fr\)/);
   assert.match(css, /\.form \.f \.doc \{ grid-column: 1 \/ -1;/);
 });
 
@@ -2377,4 +2377,11 @@ test('B128: an area wholly covered by smaller ones leaves the key', async () => 
   const partly = [area(100, [0, 99]), area(60, [0, 59]), area(39, [60, 98])];
   assert.deepEqual([...areaPaint(partly).seen].sort(), [0, 1, 2]);
   assert.deepEqual([...areaPaint([{ area: undefined }, area(5, [0, 4])]).seen], [1], 'a part with no area is skipped');
+});
+
+test('B129: the Tweak form has one wider label column, stacked on the narrow panel', () => {
+  const css = read('ui.css');
+  assert.match(css, /--label-w: 11em;/);
+  assert.doesNotMatch(css, /8\.5em/);
+  assert.match(css, /\(max-width: 1099\.98px\) and \(min-width: 700px\)[^{]*\{\s*\.form \.f, \.form details > \.f, \.form details > \.f\.stack \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });

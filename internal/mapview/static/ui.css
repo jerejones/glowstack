@@ -46,6 +46,7 @@
   --t-h2: 17px;          /* section headings, one step on every tab */
   --t-xl: 24px;          /* the one headline on a screen */
   --panel-w: 400px;
+  --label-w: 11em;       /* the Tweak form's label column */
   --cal-map: 42%;        /* the map above calibration on a phone */
   --rail-w: 52px;
   --panel-space: var(--panel-w);
@@ -583,11 +584,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .form { background: var(--card2); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; }
 .form > details { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 2px; }
 .form details details { margin-top: 8px; }
-.form .f { display: grid; grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); gap: 4px 8px; align-items: center; margin: 6px 0; }
+.form .f { display: grid; grid-template-columns: minmax(0, var(--label-w)) minmax(0, 1fr); gap: 4px 8px; align-items: center; margin: 6px 0; }
 .form .f.stack { grid-template-columns: minmax(0, 1fr); }
 /* More settings: one label column, one right column of controls, a long label
  * wraps in its column, and the help has the row's one full-width line below. */
-.form details > .f, .form details > .f.stack { grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); align-items: start; }
+.form details > .f, .form details > .f.stack { grid-template-columns: minmax(0, var(--label-w)) minmax(0, 1fr); align-items: start; }
 .form details > .f > label { min-height: var(--tap); display: flex; align-items: center; gap: 2px; overflow: visible; overflow-wrap: anywhere; }
 /* More's groups, collapsed to their headings; a row's help waits to be wanted. */
 .form details.more-group { margin-top: 2px; }
@@ -608,7 +609,12 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .color-swatch { display: inline-block; width: 32px; height: 28px; border: 1px solid #64748b; border-radius: 7px; }
 .form .f:has(.picker.open) > .ctl { grid-column: 1 / -1; }
 /* Open, the mixer reaches under the label; the row itself stays side by side. */
-.form .f .color-picker[open] > .color-mixer { margin-left: calc(-8.5em - 8px); }
+.form .f .color-picker[open] > .color-mixer { margin-left: calc(-1 * var(--label-w) - 8px); }
+/* The 300 px side panel has no room for both columns: a label goes on top. */
+@media (max-width: 1099.98px) and (min-width: 700px), (max-width: 699.98px) and (max-height: 499.98px) and (orientation: landscape) {
+  .form .f, .form details > .f, .form details > .f.stack { grid-template-columns: minmax(0, 1fr); }
+  .form .f .color-picker[open] > .color-mixer { margin-left: 0; }
+}
 .form .f:has(.color-picker[open]) { align-items: start; }
 .form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 1px solid var(--line); border-radius: 10px; }
 .form .channel-row { display: grid; grid-template-columns: 84px minmax(40px, 1fr) 48px; align-items: center; gap: 8px; margin: 10px 0; }
