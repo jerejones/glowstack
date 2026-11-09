@@ -515,9 +515,8 @@ export function createForm(ctx) {
         for (const c of unusedColors) c.row.hidden = c.ignored();
         const names = unusedColors.filter((c) => c.ignored()).map((c) => c.label);
         line.hidden = !names.length;
-        // A name is never split across lines; the whole note fits one on a phone.
-        line.textContent = `Not used: ${names.map((n) => n.replace(/ /g, '\u00a0')).join(', ')}`;
-        line.title = 'This palette does not use these colors';
+        line.textContent = 'This effect takes its colors from the palette.';
+        line.title = `Not used: ${names.join(', ')}`;
       };
       sync();
       noted.push(sync);

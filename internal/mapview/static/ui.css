@@ -727,7 +727,10 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .run-rows .len small { display: block; color: var(--muted); font-size: var(--t-meta); }
 #stDiag { margin-top: 12px; }
 .issue-list { list-style: none; margin: 6px 0 0 24px; padding: 0; display: grid; gap: 6px; color: #fcd9a5; }
-.issue-list li { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.issue-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+.issue-list li > span { flex: 1 1 12em; min-width: 0; }
+.issue-list li details[open] { flex-basis: 100%; }
+.issue-list .plain { overflow-wrap: anywhere; color: var(--muted); font-size: var(--t-meta); margin: 4px 0 0; }
 .nb { white-space: nowrap; }
 .dev { color: var(--fg); font-size: var(--t-m); }
 .list-rows li.warn .dev { color: var(--warn); }

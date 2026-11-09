@@ -162,7 +162,8 @@ export function powerSummary(pw, name = (id) => id) {
 // problem doesn't read as a wall of amber.
 export function groupIssues(items) {
   const seen = new Set();
-  const out = items.filter((it) => !seen.has(it.summary) && seen.add(it.summary));
+  // Two stretches of one run read alike and are still two: a repeat is the same detail.
+  const out = items.filter((it) => { const key = it.detail || it.summary; return !seen.has(key) && seen.add(key); });
   const spacing = out.filter((it) => it.kind === 'spacing' && it.fix);
   if (spacing.length < 2) return out;
   const at = out.indexOf(spacing[0]);
@@ -296,7 +297,7 @@ export function createStatus(S, root) {
     if (key === shownIssues) return;
     shownIssues = key;
     const row = (it, i) => it.group
-      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
+      ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(one.detail)}">${esc(one.plain)}</p></details></li>`).join('')}</ul></li>`
       : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.darkZones && zeroIds.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="stTurnOn">${icon('check')}${esc(turnOnLabel(zeroNames))}</button></div>` : ''}${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
@@ -404,7 +405,7 @@ export function createStatus(S, root) {
     $$('#stRunsRest').innerHTML = rest.map((r) => r.html).join('');
     $$('#stRunsFine').hidden = problems.length > 0;
     // Counted as the warnings above are: a repeat is one stretch.
-    $$('#stRunsFine').textContent = runsFine(new Set((st.solve.warnings || []).map((w) => warningSummary(g, w)).filter((w) => w.kind === 'spacing').map((w) => w.summary)).size);
+    $$('#stRunsFine').textContent = runsFine(new Set((st.solve.warnings || []).map((w) => warningSummary(g, w)).filter((w) => w.kind === 'spacing').map((w) => w.detail)).size);
     $$('#stRunsMore').hidden = !rest.length;
     $$('#stRunsMore summary').textContent = problems.length ? `${plural(rest.length, 'other run')}` : `All ${plural(rest.length, 'run')}`;
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });

@@ -88,9 +88,9 @@ export function warningSummary(g, text) {
   const fix = g.mapless ? RETRY : known ? { label: 'Calibrate this run', run } : { label: 'Open Setup', tab: 'setup' };
   let summary;
   const density = /^run \S+: (\S+)–(\S+) has (\d+) pixels where its drawn length implies about (\d+)/.exec(body);
-  if (density) summary = `Between ${nodeDisplay(g, density[1])} and ${nodeDisplay(g, density[2])} on ${runName(g, run)}, the lights are spaced ${+density[3] > +density[4] ? 'tighter' : 'looser'} than drawn.`;
-  else if (/^run \S+: drawing (starts|ends) at/.test(body)) summary = `The drawing of ${runName(g, run)} doesn't match where its lights ${/starts/.test(body) ? 'start' : 'end'}.`;
-  else if (/measurements? in anchors\.yaml w/.test(body)) summary = `Some saved measurements ${known ? `on ${runName(g, run)} ` : ''}no longer match the layout and need measuring again.`;
+  if (density) summary = `${runName(g, run)}: the lights are spaced ${+density[3] > +density[4] ? 'tighter' : 'looser'} than drawn.`; // the points are in Details
+  else if (/^run \S+: drawing (starts|ends) at/.test(body)) summary = `${runName(g, run)}: the drawing doesn't match where its lights ${/starts/.test(body) ? 'start' : 'end'}.`;
+  else if (/measurements? in anchors\.yaml w/.test(body)) summary = known ? `${runName(g, run)}: some saved measurements no longer match the layout and need measuring again.` : 'Some saved measurements no longer match the layout and need measuring again.';
   else if (/pixels .* are in no run/.test(body)) summary = `Some lights on ${controllerName(g, /^controller (\S+):/.exec(body)?.[1] || '')} aren't part of any run.`;
   else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, plain, detail: text, fix: g.mapless ? RETRY : { label: 'Open Setup', tab: 'setup' } };
   else summary = humanText(g, body.replace(/^flow \S+: /, '').replace(/^run (\S+): /, (_, id) => `${runName(g, id)}: `)).replace(/^./, (c) => c.toUpperCase());

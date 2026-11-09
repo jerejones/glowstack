@@ -129,11 +129,11 @@ test('a layout warning has plain words, a fix and the raw text behind it', async
   const { warningSummary } = await import('./static/names.js');
   const raw = 'anchors.yaml:22: run shed-eave: 2 measurements in anchors.yaml were taken when it had 300 LEDs; it now has 200. If LEDs were added';
   const w = warningSummary(G, raw);
-  assert.match(w.summary, /measurements on Shed eave no longer match/);
+  assert.match(w.summary, /^Shed eave: some saved measurements no longer match/);
   assert.doesNotMatch(w.summary, /anchors\.yaml|:22/);
   assert.deepEqual(w.fix, { label: 'Calibrate this run', run: 'shed-eave' });
   assert.equal(w.detail, raw);
-  assert.match(warningSummary(G, 'layout.yaml:3: run shed-eave: shed-sw–shed-sw-2 has 90 pixels where its drawn length implies about 60 (1.50× the run\'s density); check').summary, /Between Shed SW and Shed SW 2 on Shed eave, the lights are spaced tighter than drawn/);
+  assert.match(warningSummary(G, 'layout.yaml:3: run shed-eave: shed-sw–shed-sw-2 has 90 pixels where its drawn length implies about 60 (1.50× the run\'s density); check').summary, /^Shed eave: the lights are spaced tighter than drawn\.$/);
   assert.equal(warningSummary(G, 'x.yaml:1: something else').fix.tab, 'setup');
 });
 
@@ -2116,8 +2116,8 @@ test('polish: apply and stop have their own icons, Calibrate no longer looks lik
 
 test('unused palette colors fold into one line', () => {
   const form = read('form.js');
-  assert.match(form, /`Not used: \$\{names\.map/, 'one line on a phone');
-  assert.match(form, /replace\(\/ \/g, '\\u00a0'\)/, 'a color name never splits across lines');
+  assert.match(form, /'This effect takes its colors from the palette\.'/, 'says why');
+  assert.match(form, /line\.title = `Not used: \$\{names\.join/, 'the colors it means stay in the tooltip');
   assert.match(form, /c\.row\.hidden = c\.ignored\(\)/);
 });
 
@@ -2394,4 +2394,13 @@ test('opening the Preview clock leaves an open Tweak form where it is', async ()
 test('Turn on shares no glyph with the brightness slider, and is never a power symbol', () => {
   for (const f of ['panel/looks.js', 'panel/status.js']) assert.doesNotMatch(read(f), /icon\('sun'\)\}\$\{esc\(turnOnLabel/, f);
   assert.doesNotMatch(read('icons.js'), /\bpower:/);
+});
+
+test('two stretches of a run read alike and still count as two, with the points in Details', async () => {
+  const { groupIssues } = await import('./static/panel/status.js');
+  const one = (detail) => ({ summary: 'Run: spaced tighter than drawn.', kind: 'spacing', detail, plain: detail, fix: { label: 'Calibrate this run', run: 'r' } });
+  const out = groupIssues([one('a–b'), one('c–d'), one('a–b')]);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].group.length, 2, 'a repeat is the same detail, not the same words');
+  assert.match(read('panel/status.js'), /data-one="\$\{j\}">[\s\S]*?<details><summary>Details<\/summary><p class="plain" title="\$\{esc\(one\.detail\)\}"/);
 });
