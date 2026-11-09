@@ -2051,6 +2051,12 @@ test('B120: the action bar never truncates its note and clears the phone edge', 
   assert.match(css, /\.bar-main \.go \{ flex: 0 0 100%; order: 1; \}/);
 });
 
+test('B122: every Tweak slider takes its name from its row, and color channels keep theirs', () => {
+  const form = read('form.js');
+  assert.match(form, /querySelectorAll\('input\[type=range\]:not\(\[aria-label\]\)'\)\) r\.setAttribute\('aria-label', label\)/);
+  assert.match(form, /slider\.setAttribute\('aria-label', name\)/);
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 500px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);

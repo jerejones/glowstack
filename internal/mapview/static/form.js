@@ -366,6 +366,8 @@ export function createForm(ctx) {
     const c = document.createElement('div');
     c.className = 'ctl';
     c.append(...[].concat(body));
+    // A slider has no <label> tied to it: its row's label is its name.
+    for (const r of c.querySelectorAll('input[type=range]:not([aria-label])')) r.setAttribute('aria-label', label);
     f.append(lab, c);
     if (doc) { const d = document.createElement('div'); d.className = 'doc'; d.textContent = doc; f.append(d); }
     f.append(Object.assign(document.createElement('span'), { className: 'field-err', role: 'alert' }));
