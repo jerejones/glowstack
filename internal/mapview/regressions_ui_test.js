@@ -2339,10 +2339,10 @@ test('More settings group by what they affect, and help waits to be wanted', asy
 });
 
 test('disclosures come in two documented tiers', () => {
-  assert.match(css, /Disclosures come in two tiers/);
+  assert.match(css, /Disclosures come in three tiers/);
   assert.match(css, /details > summary \{[^}]*font-size: var\(--t-m\);/);
   assert.match(css, /\.section-disclosure > summary, #suAdvanced > summary \{ font-size: var\(--t-h2\); font-weight: 600;/);
-  assert.match(read('form.js'), /more\.className = 'section-disclosure'/);
+  assert.match(read('form.js'), /more\.className = 'form-disclosure'/);
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });
 
@@ -2384,4 +2384,12 @@ test('B129: the Tweak form has one wider label column, stacked on the narrow pan
   assert.match(css, /--label-w: 11em;/);
   assert.doesNotMatch(css, /8\.5em/);
   assert.match(css, /\(max-width: 1099\.98px\) and \(min-width: 700px\)[^{]*\{\s*\.form \.f, \.form details > \.f, \.form details > \.f\.stack \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+});
+
+test('B130: a disclosure is never larger than its container heading', () => {
+  const css = read('ui.css');
+  assert.match(css, /Disclosures come in three tiers/);
+  assert.match(css, /\.form-disclosure > summary \{ font-size: var\(--t-h3\); font-weight: 600;/);
+  assert.match(css, /\.layer \.name-line b \{[^}]*font-size: var\(--t-h3\)/, "a layer card's title is at least its More settings");
+  assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });
