@@ -64,6 +64,6 @@ export function showButton(choice, { ready, failed, canPreview, word }) {
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.
 export function badgeHTML(m, stacked = false) {
-  if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span></span>`;
+  if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, '').replace(' shown dim', ' dim'))}</span></span>`;
   return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }

@@ -56,9 +56,10 @@ test('I70: zones at 0% draw dim in the preview, once per frame', async () => {
   assert.deepEqual([...rgb.slice(0, 3)], [200, 100, 0]);
   assert.deepEqual([...rgb.slice(3, 6)], [Math.trunc(200 * PREVIEW_DIM), Math.trunc(100 * PREVIEW_DIM), 0], 'same hue, about 35%');
   assert.deepEqual([...rgb.slice(6, 9)], [200, 100, 0], 'a lit zone stays full');
-  const { mapStatus } = await import('./static/map-status.js');
+  const { mapStatus, badgeHTML } = await import('./static/map-status.js');
   const m = (dimZones) => mapStatus({ connected: true, show: '', preview: { previewing: true }, dimZones });
   assert.equal(m(4).text + m(4).detail, 'Showing your preview · 4 zones at 0% shown dim');
   assert.equal(m(1).detail, ' · 1 zone at 0% shown dim');
   assert.equal(m(0).detail, '');
+  assert.match(badgeHTML(m(4), true), />4 zones at 0% dim</, 'short enough for the phone pill');
 });
