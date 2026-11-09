@@ -2416,3 +2416,7 @@ test('a layer row gives the slider the width the place does not use', () => {
 test('a phone row gives its name the room the place does not use', () => {
   assert.match(read('ui.css'), /\.layer \.line-place \{ flex: 0 1 auto; max-width: 30%;/);
 });
+
+test('B129: a long slider value never overruns the shared right edge', () => {
+  assert.match(read('ui.css'), /\.form \.f \.ctl output \{ flex: none; min-width: 4\.8em; \}/);
+});

@@ -629,6 +629,8 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .f > label { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; }
 .form .f .ctl { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .form .f .ctl input[type=text], .form .f .ctl input:not([type]) { flex: 1; min-width: 0; }
+/* As wide as its value, so a long unit can't run past the shared right edge. */
+.form .f .ctl output { flex: none; min-width: 4.8em; }
 .form .f .doc { grid-column: 1 / -1; color: var(--muted); font-size: var(--t-help); margin-top: -2px; text-wrap: pretty; }
 .form .f.bad input { border-color: var(--bad); }
 .form .colors { display: flex; width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; align-items: center; }
