@@ -501,3 +501,17 @@ test('Refinement 5: search stays put: a placeholder that fits, one inline field 
   assert.match(presets, /title: S\.presets\.length \? `No presets match “\$\{\$\('#prSearch'\)\.value\.trim\(\)\}”` : 'No presets yet'/);
   assert.doesNotMatch(css, /data-detent[^{]*\.state-text/);
 });
+
+test('Refinement 6: level card rows: a sub line sits under its name, and a row\'s cards are one height', () => {
+  // Top-aligned content: nothing pushes the type line (or Previewing, or Live) to the card's foot.
+  assert.match(css, /^\.preset \{ justify-content: flex-start; \}/m);
+  for (const rule of css.match(/^\.preset \.(sub|in-badge|live-badge)[^{]*\{[^}]*\}/gm)) assert.doesNotMatch(rule, /margin-top: auto/, rule.slice(0, 50));
+  assert.doesNotMatch(css, /\.preset \.sub, \.preset \.in-badge \{ margin-top: auto; \}/);
+  // Equal heights come from the grid: its rows stretch their cards, and no card sets its own height.
+  const grid = /^\.cards \{[^}]*\}/m.exec(css)[0];
+  assert.match(grid, /display: grid;/);
+  assert.doesNotMatch(grid, /align-items: (start|flex-start|center)/);
+  assert.doesNotMatch(/^\.preset \{\n[^}]*\}/m.exec(css)[0], /(^|[\s;])height:/, 'a least height, never a fixed one');
+  // The name still wraps to two lines rather than being cut.
+  assert.match(css, /\.preset \.name \{\s*display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;/);
+});

@@ -2285,7 +2285,9 @@ test('library card rows reserve no second line for names that fit one', () => {
   const name = /^\.preset \.name \{ font-size[^}]*\}/m.exec(css)[0];
   assert.doesNotMatch(name, /(^|\s|;)height:/, 'no fixed two-line height');
   assert.match(css, /-webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere/, 'a long name still clamps to two lines');
-  assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ margin-top: auto; \}/, 'even bottoms within a row');
+  // Round 3 (level card rows): the type line sits under the name; the grid keeps a row's cards one height.
+  assert.doesNotMatch(css, /\.preset \.sub, \.preset \.in-badge \{ margin-top: auto; \}/);
+  assert.match(css, /^\.preset \{ justify-content: flex-start; \}/m);
   assert.match(/^\.cards \{[^}]*\}/m.exec(css)[0], /display: grid/, 'a grid row takes its tallest card');
 });
 

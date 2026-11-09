@@ -672,10 +672,13 @@ html:not(.coarse) { --swatch-h: 36px; }
 .swatch { display: block; flex: none; height: var(--swatch-h); border-radius: 5px; background-color: #000; box-shadow: inset 0 0 0 1px var(--rim); image-rendering: pixelated; }
 .preset .swatch { margin-bottom: 1px; }
 /* A row of cards is as tall as its tallest name, up to two lines, with even
- * bottoms: no line is reserved for a name that fits one. The type line and
- * "Previewing" share one fixed row at the card's foot. */
+ * bottoms: no line is reserved for a name that fits one. Level rows (round
+ * 3): a card's content is top-aligned, so its type line (or "Previewing",
+ * or "Live") sits directly under its name whether the name takes one line
+ * or two; beside a two-line name, the spare line is at the card's foot,
+ * not a hole between a name and its line. */
+.preset { justify-content: flex-start; }
 .preset .name { font-size: var(--t-h3); font-weight: 600; line-height: 1.3; }
-.preset .sub, .preset .in-badge { margin-top: auto; }
 .preset .name, .preset .sub, .preset .in-badge { min-width: 0; }
 /* What someone chooses by wraps, up to two lines, rather than being cut. */
 .preset .name {
@@ -684,7 +687,7 @@ html:not(.coarse) { --swatch-h: 36px; }
 /* A row is as tall as its name needs: it is never cut for the controls. */
 .layer .name-line b { overflow-wrap: anywhere; }
 .preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.preset .live-badge { margin-top: auto; min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preset .live-badge { min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .in-badge > span, .preset .live-badge > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
 .layer {
