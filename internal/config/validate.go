@@ -37,7 +37,7 @@ func (c *Config) Validate() error {
 	v.palettes(c.Palettes)
 	v.presets(c.Presets)
 	v.composites(c.Composites)
-	v.shows(c.Shows)
+	v.shows(c)
 	runs := map[string]*Run{}
 	for i := range c.Layout.Runs {
 		runs[c.Layout.Runs[i].ID] = &c.Layout.Runs[i]
@@ -678,7 +678,25 @@ func (v *validator) composites(cs []Composite) {
 	}
 }
 
-func (v *validator) shows(ss []Show) {
+// targetIDs is every id an effect can target: the named areas and the
+// implicit all, run:<id> and controller:<id> areas.
+func targetIDs(c *Config) map[string]bool {
+	ids := map[string]bool{"all": true}
+	for i := range c.Areas {
+		ids[c.Areas[i].ID] = true
+	}
+	for i := range c.Layout.Runs {
+		ids["run:"+c.Layout.Runs[i].ID] = true
+	}
+	for i := range c.Controllers {
+		ids["controller:"+c.Controllers[i].ID] = true
+	}
+	return ids
+}
+
+func (v *validator) shows(c *Config) {
+	ss := c.Shows
+	targets := targetIDs(c)
 	unique(v, "show", ss, func(s *Show) (string, Pos) { return s.ID, s.Pos })
 	for i := range ss {
 		s := &ss[i]
@@ -693,6 +711,9 @@ func (v *validator) shows(ss []Show) {
 		for j := range s.Cues {
 			c := &s.Cues[j]
 			v.required(c.Pos, "effect", c.Effect)
+			if c.Target != "" && !targets[c.Target] {
+				v.errorf(c.Pos, "show %q: unknown area %q", s.ID, c.Target)
+			}
 			for _, f := range []struct{ name, val string }{{"at", c.At}, {"for", c.For}, {"fade_in", c.FadeIn}, {"fade_out", c.FadeOut}} {
 				if f.val == "" {
 					continue

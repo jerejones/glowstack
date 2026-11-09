@@ -144,7 +144,7 @@ shows:
       - name: comets
         effect: chase
         mapping: front-sweep
-        target: front
+        target: shed
         at: 3 s
         for: 20 s
         fade_in: 1 s

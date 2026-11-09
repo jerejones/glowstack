@@ -143,6 +143,8 @@ func TestLoadErrorsNameFileAndLine(t *testing.T) {
 			`presets.yaml:3: show "s" has no cues`},
 		{"show bad time", map[string]string{PresetsFileName: "schema: 1\nshows:\n  - id: s\n    cues:\n      - { effect: solid, at: soon }\n"},
 			`presets.yaml:5: show "s": at: want a duration like "12 s"`},
+		{"show cue unknown area", map[string]string{PresetsFileName: "schema: 1\nshows:\n  - id: s\n    cues:\n      - { effect: solid, target: nowhere }\n"},
+			`presets.yaml:5: show "s": unknown area "nowhere"`},
 		{"show bad mapping", map[string]string{PresetsFileName: "schema: 1\nshows:\n  - id: s\n    cues:\n      - { effect: solid, mapping: { kind: nowhere } }\n"},
 			`presets.yaml:5: show "s": inline mapping`},
 	}
