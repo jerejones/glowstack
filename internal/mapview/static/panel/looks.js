@@ -67,6 +67,9 @@ export function houseState(status, count) {
   return { kind: status === 'available' ? 'empty' : 'loading', title };
 }
 
+// previewFirst says the preview's cards go ahead of the preset chooser.
+export function previewFirst(layout, layers) { return layout === 'sheet' && layers > 0; }
+
 // nowLine is the current-state line above the catalog, as words. house is
 // the lights' layers, nameOf reads them, read says a reading ever came back;
 // status is the latest. A failed refresh keeps the last state and says so.
@@ -549,12 +552,21 @@ export function createLooks(S, root) {
     showState(el, opts.kind === 'error' ? { ...opts, retry: () => { el.dataset.key = ''; return S.refresh(); } } : opts);
   }
 
+  // On a phone the preview being worked on comes before the chooser; with
+  // none, or beside the map on a desktop, presets stay first.
+  function orderPreview() {
+    const lane = $$('#lkPreview');
+    const next = previewFirst(S.panel.layout?.(), S.preview?.layers?.length ?? 0) ? head : $$('#lkHouse');
+    if (lane.nextElementSibling !== next) next.before(lane);
+  }
+
   function renderLanes() {
     const prev = S.preview ? S.preview.layers : [];
     const pbox = $$('#lkPreview .list');
     renderLane(pbox, 'preview', prev);
     const previewNote = previewState(S.preview, S.previewStatus, word);
     laneState(pbox, previewNote);
+    orderPreview();
     // An empty lane says nothing the current-state line doesn't.
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     $$('#lkStack').hidden = prev.length < 2;
@@ -833,6 +845,7 @@ export function createLooks(S, root) {
   S.on('detent', clearBar);
   S.on('tab', () => { syncBarInset(); });
   S.on('status', renderLanes); // a zone's brightness changed the notes
+  addEventListener('resize', orderPreview);
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();

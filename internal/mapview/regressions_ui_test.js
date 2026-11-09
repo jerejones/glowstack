@@ -1530,3 +1530,11 @@ test('essential metadata is 14px and a phone heading qualifier gets its own line
   }
   assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block; margin-left: 0;/);
 });
+
+test('a phone puts the preview ahead of the chooser, only while there is one', async () => {
+  const { previewFirst } = await import('./static/panel/looks.js');
+  assert.equal(previewFirst('sheet', 1), true);
+  assert.equal(previewFirst('sheet', 0), false, 'presets first with no preview');
+  assert.equal(previewFirst('wide', 2), false);
+  assert.equal(previewFirst('side', 2), false);
+});
