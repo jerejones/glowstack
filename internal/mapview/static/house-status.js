@@ -15,7 +15,7 @@ export function darkZones(geo, brightness, ranges) {
 }
 
 // joined reads a list of names as a sentence: "A, B and C".
-const joined = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+export const joined = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
 
 // darkMessage says why applied looks aren't showing: a brightness of 0 is
 // valid data (Home Assistant sets zone brightness), so it needs naming, not

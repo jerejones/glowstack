@@ -137,6 +137,12 @@ type Power struct {
 	LedMA LedMA   `yaml:"led_ma"`
 }
 
+// KnowsCurrent reports whether the controller's LEDs have a current set,
+// without which its draw can't be estimated.
+func (p *Power) KnowsCurrent() bool {
+	return p != nil && p.LedMA.R+p.LedMA.G+p.LedMA.B+p.LedMA.W > 0
+}
+
 // LedMA is per-pixel current at full drive per channel, plus idle draw.
 type LedMA struct {
 	Pos

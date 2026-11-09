@@ -34,7 +34,7 @@ func FromStage(r output.PowerReport) *PowerReport {
 		var ps []OutputPower
 		for _, m := range ms {
 			ps = append(ps, OutputPower{Controller: m.Controller, Output: m.Output, MA: m.DrawnMA, MaxMA: m.MaxMA,
-				RequestedMA: m.RequestedMA, Need: m.Need, Applied: m.Applied, Known: true})
+				RequestedMA: m.RequestedMA, Need: m.Need, Applied: m.Applied, Known: m.Known})
 		}
 		return ps
 	}
@@ -56,8 +56,8 @@ type OutputPower struct {
 	RequestedMA float64 `json:"requested_ma,omitempty"`
 	Need        float64 `json:"need,omitempty"`
 	Applied     float64 `json:"applied,omitempty"`
-	// Known is false when the controller has no `power.led_ma`, so the
-	// estimate is meaningless.
+	// Known is false when the controller has no LED current
+	// (`power.led_ma`), so MA means nothing.
 	Known bool `json:"known"`
 }
 
@@ -73,7 +73,7 @@ func estimatePower(l *layout.Layout, buf *render.Buffer) []OutputPower {
 		cfg := c.Config
 		rgbw := cfg.Channels == "rgbw"
 		var r, g, b, w, idle float64
-		known := cfg.Power != nil
+		known := cfg.Power.KnowsCurrent()
 		if known {
 			ma := cfg.Power.LedMA
 			r, g, b, w, idle = ma.R, ma.G, ma.B, ma.W, ma.Idle
@@ -127,6 +127,26 @@ type ctrlPower struct {
 	Controller string  `json:"controller"`
 	MA         float64 `json:"ma"`
 	MaxMA      float64 `json:"max_ma,omitempty"`
+	// Known is false when no LED current is set, so MA means nothing.
+	Known bool `json:"known"`
+}
+
+// controllerTotals sums the outputs' estimates for each controller.
+func controllerTotals(controllers []layout.Controller, power []OutputPower) []ctrlPower {
+	totals := []ctrlPower{}
+	for _, c := range controllers {
+		t := ctrlPower{Controller: c.ID, Known: c.Config.Power.KnowsCurrent()}
+		if c.Config.Power != nil {
+			t.MaxMA = c.Config.Power.MaxMA
+		}
+		for _, o := range power {
+			if o.Controller == c.ID {
+				t.MA += o.MA
+			}
+		}
+		totals = append(totals, t)
+	}
+	return totals
 }
 
 func (m *Map) handlePower(w http.ResponseWriter, r *http.Request) {
@@ -139,18 +159,7 @@ func (m *Map) handlePower(w http.ResponseWriter, r *http.Request) {
 	out := powerJSON{Estimate: []OutputPower{}, Totals: []ctrlPower{}}
 	if s != nil {
 		out.Frame, out.Preview, out.Estimate = s.Seq, s.Preview, s.Power
-		for _, c := range m.state().Layout.Controllers {
-			t := ctrlPower{Controller: c.ID}
-			if c.Config.Power != nil {
-				t.MaxMA = c.Config.Power.MaxMA
-			}
-			for _, o := range s.Power {
-				if o.Controller == c.ID {
-					t.MA += o.MA
-				}
-			}
-			out.Totals = append(out.Totals, t)
-		}
+		out.Totals = controllerTotals(m.state().Layout.Controllers, s.Power)
 	}
 	if m.opts.Power != nil {
 		out.Stage = m.opts.Power()

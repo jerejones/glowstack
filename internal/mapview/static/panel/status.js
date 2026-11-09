@@ -9,9 +9,10 @@
 // /api/v1/status: health.controllers[id] when the server reports it,
 // else the older map keyed by controller id. A controller known to be
 // unreachable is drawn gray while the map shows the lights.
-import { api, esc, fmt, plural, humanize } from '../util.js';
+import { api, esc, fmt, plural, humanize, covers, normRanges } from '../util.js';
 import { showState, stateHTML } from '../states.js';
-import { darkZones, darkMessage } from '../house-status.js';
+import { darkZones, darkMessage, joined } from '../house-status.js';
+import { targetRanges } from '../select.js';
 import { runName, controllerName, warningSummary } from '../names.js';
 import { icon } from '../icons.js';
 
@@ -47,6 +48,51 @@ export function verdict(ids, health) {
   return { cls: 'ok', text: ids.length === 1 ? 'The controller is healthy' : `All ${ids.length} controllers healthy` };
 }
 
+// lightsVerdict answers the first question on this tab: is anything lit?
+// st is the status reading; layers is each lights layer's pixel ranges, or
+// null when the layers haven't been read. A layer whose every pixel is in a
+// zone at 0 brightness shows nothing, however healthy the controllers are.
+export function lightsVerdict(g, st, layers) {
+  const b = st.brightness || {};
+  if (b.master === 0) return { cls: 'warn', text: 'Nothing is lit: brightness is at 0%' };
+  if (!st.layers) return { cls: '', text: 'Nothing is lit: no looks are on the lights' };
+  const zones = g.zones.filter((z) => b.zones?.[z.id] === 0);
+  const dark = normRanges(zones.flatMap((z) => g.areas.find((a) => a.id === z.area)?.ranges || []));
+  const look = plural(st.layers, 'look');
+  if (!zones.length) return { cls: 'ok', text: `Lit: ${look} on the lights` };
+  if (!layers) return zones.length === g.zones.length ? { cls: 'warn', text: 'Nothing is lit: every zone is at 0%' } : { cls: 'warn', text: `Partly lit: ${joined(zones.map((z) => z.name || z.id))} at 0%` };
+  const shown = layers.filter((r) => !r || !covers(dark, normRanges(r)));
+  if (!shown.length) return { cls: 'warn', text: 'Nothing is lit: the zones in use are at 0%' };
+  const hit = darkZones(g, b, layers.flatMap((r) => r || []));
+  return hit.length ? { cls: 'warn', text: `Partly lit: ${joined(hit)} at 0%` } : { cls: 'ok', text: `Lit: ${look} on the lights` };
+}
+
+// powerSummary is the power estimate in words: name(id) reads a
+// controller. An output with no LED current is unknown, never zero, and
+// that carries through the totals and the limiting line.
+export function powerSummary(pw, name = (id) => id) {
+  const unknown = pw.estimate.filter((o) => !o.known);
+  const anyKnown = pw.estimate.some((o) => o.known);
+  const byCtl = new Map();
+  for (const o of unknown) byCtl.set(o.controller, [...(byCtl.get(o.controller) || []), o.output]);
+  const groups = [...byCtl].map(([c, outs]) => `${name(c)} ${outs.length === 1 ? 'output' : 'outputs'} ${joined(outs.map(String))}`);
+  const stg = pw.stage;
+  const dimmed = stg && stg.scale < 0.9995;
+  const limiting = !stg ? 'Not reporting'
+    : dimmed ? `Dimmed to ${(stg.scale * 100).toFixed(1)}%${stg.group ? ` (group ${stg.group})` : ''}`
+    : !anyKnown ? 'Unknown'
+    : unknown.length ? 'None needed on the outputs with a current set'
+    : 'None needed';
+  const knownMA = pw.controllers.filter((c) => c.known !== false).reduce((sum, c) => sum + c.ma, 0);
+  const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
+  return {
+    limiting,
+    overall: !anyKnown ? 'Unknown' : unknown.length ? `At least ${amps(knownMA)}` : amps(knownMA),
+    partial: anyKnown && unknown.length > 0,
+    notSet: groups.length ? `No LED current is set for ${joined(groups)}, so ${unknown.length === 1 ? 'its' : 'their'} draw and any power limiting can't be estimated.` : '',
+  };
+}
+
 // loadFailure is the failure state for a status read that never worked.
 // Whatever the server's error text was, the person gets words and Retry.
 export function loadFailure(e) {
@@ -79,12 +125,16 @@ export function createStatus(S, root) {
   root.innerHTML = `
     <h1 class="title">Status</h1>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
+    <div id="stHealth" class="health" hidden></div>
     <div id="stDark" class="dark-note" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
     <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
-    <h2>Runs <small>drawn vs measured length</small></h2><ul class="list-rows" id="stRuns"></ul>
+    <h2>Runs <small>drawn vs measured length</small></h2>
+    <p class="muted" id="stRunsFine" hidden>Every run matches its drawing.</p>
+    <ul class="list-rows run-rows" id="stRuns"></ul>
+    <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     </div>`;
   const $$ = (s) => root.querySelector(s);
@@ -147,10 +197,15 @@ export function createStatus(S, root) {
 
   function render(st) {
     const perf = S.perf();
-    const v = verdict(g.controllers.map((c) => c.id), st.health);
+    const health = verdict(g.controllers.map((c) => c.id), st.health);
+    const lit = lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
     $$('#stBody').hidden = false;
-    $$('#stVerdict').className = `verdict ${v.cls}`;
-    $$('#stVerdict').textContent = v.text;
+    $$('#stVerdict').className = `verdict ${lit.cls}`;
+    $$('#stVerdict').textContent = lit.text;
+    // Health is the second line, in plain text unless something is wrong.
+    $$('#stHealth').hidden = false;
+    $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
+    $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
     $$('#stDark').hidden = !dark;
     $$('#stDark').textContent = dark;
@@ -160,7 +215,7 @@ export function createStatus(S, root) {
       stat(st.preview_layers, 'in preview', 'Layers in preview'),
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
       stat(`${fmt(st.frame_ms, 2)} ms`, `frame, max ${fmt(st.max_frame_ms, 1)}`),
-      stat(st.late_frames, st.late_frames === 1 ? 'late frame' : 'late frames'),
+      stat(st.late_frames, 'frames late', 'Frames that took longer than the frame rate allows'),
       stat(esc(st.uptime), 'uptime'),
       stat(st.solve.pixels, 'pixels'),
       // The median: the first draws compile shaders and would swamp a mean.
@@ -170,7 +225,7 @@ export function createStatus(S, root) {
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
       const h = healthOf(st.health, c.id);
       let dot = 'idle', line = 'no health report';
-      const kit = [nb(`${c.pixels} px`), nb(plural(c.outputs.length, 'output'))];
+      const kit = [nb(plural(c.pixels, 'light')), nb(plural(c.outputs.length, 'output'))];
       if (h) {
         dot = h.reachable === true ? 'ok' : h.reachable === false ? 'bad' : 'idle';
         const state = [h.reachable === true ? 'reachable' : h.reachable === false ? 'unreachable' : 'not checked'];
@@ -189,7 +244,7 @@ export function createStatus(S, root) {
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));
-    $$('#stRuns').innerHTML = g.runs.map((r) => {
+    const rows = g.runs.map((r) => {
       const s = runs.get(r.id) || {};
       // Signed: a run can be shorter than drawn as well as longer.
       const mis = Math.abs(s.mismatch || r.length_mismatch || 0);
@@ -198,11 +253,19 @@ export function createStatus(S, root) {
       const a = s.anchors || { measured: 0, estimated: 0 };
       const drawn = s.drawn_m || r.drawn_m;
       const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
-      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(`${r.count} px`)} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
-        <span class="val" title="Points on this run that have been measured">${a.measured} of ${a.measured + a.estimated} points</span>
-        <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button></li>`;
-    }).join('');
-    for (const b of $$('#stRuns').querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
+      const points = a.measured + a.estimated;
+      return { warn, html: `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(plural(r.count, 'light'))} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
+        ${points ? `<span class="val" title="Points on this run that have been measured">${a.measured} of ${plural(points, 'point')}</span>
+        <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button>` : ''}</li>` };
+    });
+    // The runs with a problem, then the rest behind a disclosure.
+    const problems = rows.filter((r) => r.warn), rest = rows.filter((r) => !r.warn);
+    $$('#stRuns').innerHTML = problems.map((r) => r.html).join('');
+    $$('#stRunsRest').innerHTML = rest.map((r) => r.html).join('');
+    $$('#stRunsFine').hidden = problems.length > 0;
+    $$('#stRunsMore').hidden = !rest.length;
+    $$('#stRunsMore summary').textContent = problems.length ? `${plural(rest.length, 'other run')}` : `All ${plural(rest.length, 'run')}`;
+    for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
     markOffline();
 
     renderIssues(st.solve.warnings || []);
@@ -220,23 +283,27 @@ export function createStatus(S, root) {
     if (!pw.frame) { showState(box, { kind: 'loading', title: 'Waiting for the first frame…' }); return; }
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
     const limit = (ma) => (ma ? (ma / 1000).toFixed(1) + ' A' : '—');
-    const rows = pw.estimate.map((o) => {
-      if (!o.known) return `<tr><td>${esc(controllerName(g, o.controller))} output ${o.output}</td><td class="muted" title="Set led_ma for this output in controllers.yaml to estimate its current">Not set</td><td>${limit(o.max_ma)}</td></tr>`;
+    const known = pw.estimate.filter((o) => o.known);
+    const rows = known.map((o) => {
       const pct = o.max_ma ? Math.min(100, 100 * o.ma / o.max_ma) : 0;
       return `<tr><td>${esc(controllerName(g, o.controller))} output ${o.output}${o.max_ma ? `<div class="bar"><span class="${o.ma > o.max_ma ? 'hot' : ''}" style="width:${pct}%"></span></div>` : ''}</td><td>${amps(o.ma)}</td><td>${limit(o.max_ma)}</td></tr>`;
     }).join('');
-    const totals = pw.controllers.map((c) => `<tr><td>${esc(controllerName(g, c.controller))} total</td><td>${amps(c.ma)}</td><td>${limit(c.max_ma)}</td></tr>`).join('');
-    const unknown = pw.estimate.some((o) => !o.known);
+    const sum = powerSummary(pw, (id) => controllerName(g, id));
+    const ctlRow = (c) => `<tr class="total"><td>${esc(controllerName(g, c.controller))}</td><td>${c.known === false ? '<span class="muted">Unknown</span>' : amps(c.ma)}</td><td>${limit(c.max_ma)}</td></tr>`;
+    const overall = pw.controllers.length > 1 ? `<tr class="total"><td>All controllers</td><td>${sum.overall}</td><td></td></tr>` : '';
     const stg = pw.stage;
-    const scale = stg ? (stg.scale >= 0.9995 ? 'None needed' : `Dimmed to ${(stg.scale * 100).toFixed(1)}%${stg.group ? ` (group ${esc(stg.group)})` : ''}`) : 'Not reporting';
-    const stageRow = (o) => `<tr><td>${esc(controllerName(g, o.controller))}${o.output ? ' output ' + o.output : ' total'}</td><td>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}</td><td>${limit(o.max_ma)}${o.need < 0.9995 ? ` · ×${o.need.toFixed(3)}` : ''}</td></tr>`;
+    const stageRow = (o) => o.known === false ? '' : `<tr><td>${esc(controllerName(g, o.controller))}${o.output ? ' output ' + o.output : ' total'}</td><td>${amps(o.ma)}${o.requested_ma > o.ma + 0.5 ? ` <span class="muted">(asked ${amps(o.requested_ma)})</span>` : ''}</td><td>${limit(o.max_ma)}${o.need < 0.9995 ? ` · ×${o.need.toFixed(3)}` : ''}</td></tr>`;
     const stage = stg ? `<details><summary>After limiting</summary><table class="power"><tbody>${(stg.outputs || []).map(stageRow).join('')}${(stg.controllers || []).map(stageRow).join('')}</tbody></table></details>` : '';
-    box.innerHTML = `<table class="power"><thead><tr><th>Output</th><th>Draw</th><th>Limit</th></tr></thead><tbody>${rows}</tbody><tfoot>${totals}</tfoot></table>
-      ${unknown ? '<p class="muted small">“Not set” means the output has no LED current in its settings, so its draw can\'t be estimated.</p>' : ''}
-      <div class="nv"><span class="name muted">Power limiting</span><span class="value">${scale}</span></div>${stage}`;
+    // Polling redraws this: an open disclosure stays open.
+    const wasOpen = box.querySelector('details')?.open;
+    box.innerHTML = `<div class="nv"><span class="name muted">Power limiting</span><span class="value">${esc(sum.limiting)}</span></div>
+      <table class="power"><thead><tr><th>Output</th><th>Draw</th><th>Limit</th></tr></thead><tbody>${overall}${pw.controllers.map(ctlRow).join('')}${rows}</tbody></table>
+      ${sum.notSet ? `<p class="muted small">${esc(sum.notSet)}</p>` : ''}${stage}`;
+    if (wasOpen && box.querySelector('details')) box.querySelector('details').open = true;
   }
 
   S.on('tab', (t) => { if (t === 'status') { if (last) render(last); poll(); } });
+  S.on('house', () => { if (visible() && last) render(last); });
   S.on('show', gray);
   S.on('offline', markOffline);
   S.on('layout', () => { if (visible() && last) render(last); });

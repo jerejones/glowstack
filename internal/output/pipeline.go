@@ -115,6 +115,9 @@ type MeterReport struct {
 	// when another limit in the same group is tighter.
 	Need    float64
 	Applied float64
+	// Known is false when the controller has no LED current set, so the
+	// figures above are meaningless.
+	Known bool
 }
 
 // PowerReporter is implemented by stages that power-limit.
@@ -183,7 +186,8 @@ func NewPipeline(l *layout.Layout, cfg *config.Config) (*Pipeline, error) {
 	p.classK = make([]float32, len(p.classes))
 	p.report = PowerReport{Group: p.group}
 	for _, m := range p.meters {
-		r := MeterReport{Controller: l.Controllers[m.ctl].ID, Output: m.output, MaxMA: m.maxMA}
+		c := l.Controllers[m.ctl]
+		r := MeterReport{Controller: c.ID, Output: m.output, MaxMA: m.maxMA, Known: c.Config.Power.KnowsCurrent()}
 		if m.output == 0 {
 			p.report.Controllers = append(p.report.Controllers, r)
 		} else {

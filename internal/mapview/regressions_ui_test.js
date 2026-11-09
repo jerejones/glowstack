@@ -388,3 +388,53 @@ test('B40: an opened Tweak form scrolls into view', () => {
 test('Escape on a confirm dialog leaves the sheet where it is', () => {
   assert.match(read('app.js'), /t\.closest\?\.\('dialog'\)\) return;[\s\S]{0,300}e\.key === 'Escape'/);
 });
+
+const LIGHTS = { zones: [{ id: 'yard', name: 'Yard', area: 'yard' }, { id: 'porch', name: 'Porch', area: 'porch' }], areas: [{ id: 'yard', ranges: [[0, 9]] }, { id: 'porch', ranges: [[10, 19]] }] };
+
+test('B31: the Status headline says whether anything is lit, before controller health', async () => {
+  const { lightsVerdict } = await import('./static/panel/status.js');
+  const zones = (yard, porch) => ({ master: 1, zones: { yard, porch } });
+  const v = (b, layers, ranges) => lightsVerdict(LIGHTS, { brightness: b, layers }, ranges);
+  assert.deepEqual(v(zones(1, 1), 0, []), { cls: '', text: 'Nothing is lit: no looks are on the lights' });
+  assert.deepEqual(v(zones(1, 1), 2, [[[0, 4]], [[10, 12]]]), { cls: 'ok', text: 'Lit: 2 looks on the lights' });
+  assert.equal(v(zones(0, 0), 1, [[[0, 19]]]).cls, 'warn');
+  assert.match(v(zones(0, 0), 1, [[[0, 19]]]).text, /^Nothing is lit/);
+  assert.match(v(zones(0, 1), 1, [[[0, 4]]]).text, /^Nothing is lit/, 'its only layer is in the dark zone');
+  assert.equal(v(zones(0, 1), 1, [[[0, 19]]]).text, 'Partly lit: Yard at 0%');
+  assert.equal(v(zones(0, 1), 1, [[[10, 12]]]).cls, 'ok', 'a dark zone with nothing on it costs nothing');
+  assert.equal(v({ master: 0, zones: { yard: 1 } }, 1, [[[0, 4]]]).text, 'Nothing is lit: brightness is at 0%');
+  assert.match(v(zones(0, 0), 1, null).text, /every zone/, 'layers not read yet');
+  const status = read('panel/status.js');
+  assert.ok(status.indexOf('id="stVerdict"') < status.indexOf('id="stHealth"'), 'lit first, health second');
+});
+
+test('B30: unknown outputs read as unknown or partial, by name', async () => {
+  const { powerSummary } = await import('./static/panel/status.js');
+  const name = (id) => id.toUpperCase();
+  const known = { controller: 'a', output: 1, known: true }, bare = (output) => ({ controller: 'b', output, known: false });
+  const partial = powerSummary({ estimate: [known, bare(1), bare(2)], controllers: [{ ma: 1500, known: true }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
+  assert.equal(partial.limiting, 'None needed on the outputs with a current set');
+  assert.equal(partial.overall, 'At least 1.50 A');
+  assert.match(partial.notSet, /B outputs 1 and 2/);
+  const none = powerSummary({ estimate: [bare(1)], controllers: [{ ma: 0, known: false }], stage: { scale: 1 } }, name);
+  assert.equal(none.limiting, 'Unknown');
+  assert.equal(none.overall, 'Unknown');
+  assert.match(none.notSet, /its draw/);
+  const all = powerSummary({ estimate: [known], controllers: [{ ma: 2000, known: true }], stage: { scale: 1 } }, name);
+  assert.equal(all.limiting, 'None needed');
+  assert.equal(all.overall, '2.00 A');
+  assert.equal(all.notSet, '');
+  assert.equal(powerSummary({ estimate: [known], controllers: [], stage: { scale: 0.5, group: 'g' } }).limiting, 'Dimmed to 50.0% (group g)');
+  assert.doesNotMatch(read('panel/status.js'), /Not set</, 'no per-output Not set rows');
+});
+
+test('the status run list leads with problems and never offers Calibrate on a run with no points', () => {
+  const status = read('panel/status.js');
+  assert.match(status, /id="stRunsMore"/);
+  assert.match(status, /\$\{points \? `<span class="val"/);
+  assert.doesNotMatch(status, /<tfoot>/, 'totals come first');
+});
+
+test('an open After limiting disclosure survives the poll', () => {
+  assert.match(read('panel/status.js'), /wasOpen = box\.querySelector\('details'\)\?\.open/);
+});

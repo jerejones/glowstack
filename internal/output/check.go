@@ -65,7 +65,7 @@ func Check(l *layout.Layout, fps float64) []string {
 			limited = limited || o.MaxMA > 0
 		}
 		if limited {
-			if p := cc.Power; p == nil || p.LedMA.R+p.LedMA.G+p.LedMA.B+p.LedMA.W == 0 {
+			if !cc.Power.KnowsCurrent() {
 				out = append(out, fmt.Sprintf("controller %s: max_ma is set but power.led_ma isn't, so power limiting is off", c.ID))
 			}
 		}
