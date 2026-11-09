@@ -220,6 +220,19 @@ export function dockReason(target, cursor) {
   return '';
 }
 
+// sheetShift is how far to raise the phone's calibration sheet so no row
+// is cut at the scroller's resting edge: the smallest move, up or down, that
+// leaves the edge between rows. rows are {top, bottom} from the top of the
+// content, edge the scroller's height. The nested progress list scrolls for
+// itself and isn't passed in, nor is anything too tall to fit anyway.
+export function sheetShift(rows, edge, max = 64) {
+  const short = rows.filter((r) => r.bottom - r.top < 120);
+  const cuts = (e) => short.some((r) => r.top < e && r.bottom > e);
+  if (!cuts(edge)) return 0;
+  const moves = short.flatMap((r) => [Math.ceil(r.bottom + 4 - edge), Math.floor(r.top - 4 - edge)]);
+  return moves.filter((m) => Math.abs(m) <= max && !cuts(edge + m)).sort((a, b) => Math.abs(a) - Math.abs(b))[0] ?? 0;
+}
+
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
@@ -405,7 +418,7 @@ export function createCalibrate(S, root) {
           <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
           <tr><th>Target</th><td>${esc(st.label || '—')}</td></tr>
           <tr><th>Layout position</th><td>${c.estimate}</td></tr><tr><th>Source</th><td>${esc(c.source)}</td></tr></table>
-          ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
+          ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" class="cal-pixel"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
       }
       if (st.target && st.target.kind === 'gap') {
         parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9" placeholder="2.5 m"></label><button type="submit">Confirm length</button></form>`);
@@ -513,10 +526,35 @@ export function createCalibrate(S, root) {
         }
       };
     }
+    fitSheet();
     frameCursor();
     keepAwake();
     S.markDirty();
   }
+
+  // fitSheet settles the phone's sheet so its edge doesn't cut a row in
+  // half, the way a half-height bottom sheet settles on a whole card.
+  let shift = 0;
+  function fitSheet() {
+    const body = $$('#caBody');
+    let next = 0;
+    if (S.panel?.layout?.() === 'sheet') {
+      root.style.removeProperty('top');
+      const at = body.getBoundingClientRect().top - body.scrollTop;
+      const rows = [...body.children].filter((el) => !el.classList.contains('cal-prog')).map((el) => { const r = el.getBoundingClientRect(); return { top: r.top - at, bottom: r.bottom - at }; });
+      next = sheetShift(rows, body.clientHeight);
+    }
+    root.style.top = next ? `calc(var(--cal-map) - ${next}px)` : '';
+    if (next !== shift) { shift = next; S.resize(); }
+  }
+
+  // A disclosure opened by hand comes into view above the dock.
+  let opening = null;
+  $$('#caBody').addEventListener('click', (e) => { opening = e.target.closest?.('summary')?.parentElement || null; }, true);
+  $$('#caBody').addEventListener('toggle', (e) => {
+    if (e.target === opening && e.target.open) e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    opening = null;
+  }, true);
 
   // Poll faster while the mode is open; otherwise only to notice a
   // session started elsewhere. Don't redraw over what's being typed.

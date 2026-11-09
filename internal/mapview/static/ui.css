@@ -561,6 +561,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-warn { background: #3b2a12; border: 1px solid #6b4b16; color: #fcd9a5; border-radius: 8px; padding: 6px 8px; margin: 6px 0; }
 .cal-sides { display: flex; gap: 6px; margin: 6px 0; }
 .cal-sides button { flex: 1; }
+.cal-pixel { flex: 1 1 10em; min-width: 9em; }
 .cal-why { margin: 0 0 8px; color: var(--muted); font-size: var(--t-help); }
 .cal-dock { flex: none; padding: 8px 12px calc(10px + var(--safe-b)); border-top: 1px solid var(--line); background: #0d0f12; }
 .nudges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -597,6 +598,13 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .cal-prog { max-height: 220px; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
+}
+
+/* Beside the map the progress list takes whatever the panel has left. */
+@media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
+  .cal-body { display: flex; flex-direction: column; }
+  .cal-body > * { flex: none; }
+  .cal-body > .cal-prog { flex: 1 1 0; min-height: 180px; max-height: none; }
 }
 
 /* Preset library and local draft editor. */

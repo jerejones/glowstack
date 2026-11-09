@@ -755,6 +755,28 @@ test('B62: test bands keeps its heading and instructions, says how to leave, and
   assert.ok(cal.indexOf('class="cal-step"') < cal.indexOf('const moved = c.index - c.estimate'));
 });
 
+test('B66: the phone calibration sheet never rests with a row cut in half', async () => {
+  const { sheetShift } = await import('./static/panel/calibrate.js');
+  const rows = [{ top: 0, bottom: 100 }, { top: 100, bottom: 144 }, { top: 150, bottom: 190 }];
+  assert.equal(sheetShift(rows, 120), 26, 'the smallest move that lands between rows');
+  assert.equal(sheetShift(rows, 146), 0, 'an edge between rows moves nothing');
+  assert.equal(sheetShift([{ top: 0, bottom: 100 }, { top: 110, bottom: 150 }], 112), -6, 'upward when that is nearer');
+  // Two rows that overlap: the edge has to clear both.
+  assert.equal(sheetShift([{ top: 0, bottom: 44 }, { top: 40, bottom: 84 }], 60, 64), 28);
+  assert.equal(sheetShift([{ top: 0, bottom: 400 }], 200), 0, 'a tall block is left to scroll');
+  assert.match(read('panel/calibrate.js'), /!el\.classList\.contains\('cal-prog'\)/, 'the nested list scrolls for itself');
+  assert.match(css, /\.cal-dock \{ flex: none;/, 'the dock is a flex sibling, so it cannot cover the scroller');
+});
+
+test('B67: the pixel field has room for its whole placeholder', () => {
+  assert.doesNotMatch(read('panel/calibrate.js'), /placeholder="Pixel number"[^>]*width:8em/);
+  assert.match(css, /\.cal-pixel \{[^}]*min-width: 9em/);
+});
+
+test('B69: beside the map the progress list fills the panel', () => {
+  assert.match(css, /\.cal-body > \.cal-prog \{ flex: 1 1 0;[^}]*max-height: none; \}/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));

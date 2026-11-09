@@ -239,9 +239,9 @@ test('run visibility defaults to operating strips and restores all runs', async 
 
 // mountCalibrate runs the mode's screen against a stub page and server.
 function mountCalibrate(serverState, overlayStub) {
-  const stub = () => ({ hidden: true, disabled: false, checked: false, textContent: '', innerHTML: '', scrollTop: 0, open: false, querySelector: () => null, querySelectorAll: () => [], classList: { toggle() {} } });
+  const stub = () => ({ hidden: true, disabled: false, checked: false, textContent: '', innerHTML: '', scrollTop: 0, open: false, querySelector: () => null, querySelectorAll: () => [], classList: { toggle() {} }, style: {}, addEventListener() {} });
   const els = new Map();
-  const root = { hidden: true, innerHTML: '', querySelector: (s) => { if (!els.has(s)) els.set(s, stub()); return els.get(s); }, querySelectorAll: () => [], contains: () => false };
+  const root = { hidden: true, innerHTML: '', style: { removeProperty() {} }, querySelector: (s) => { if (!els.has(s)) els.set(s, stub()); return els.get(s); }, querySelectorAll: () => [], contains: () => false };
   const saved = new Map();
   Object.assign(globalThis, {
     document: { body: { classList: { toggle() {} } }, addEventListener() {}, activeElement: null, hidden: false },
