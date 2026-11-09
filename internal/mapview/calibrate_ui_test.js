@@ -113,7 +113,7 @@ test('calibration target ring stays on the model node while the pixel is nudged'
     view: { toScreen: (x, y, z) => [x * 10, (y + z) * 10] },
   };
   const rings = [], labels = [];
-  const ctx = { beginPath() {}, arc(x, y, r) { if (r === 13) rings.push([x, y]); }, stroke() {}, fill() {}, setLineDash() {},
+  const ctx = { beginPath() {}, arc(x, y, r) { if (r === 14) rings.push([x, y]); }, stroke() {}, fill() {}, setLineDash() {},
     fillRect() {}, strokeRect() {}, strokeText() {}, fillText(t) { labels.push(t); } };
   const overlay = createOverlay(S);
   overlay.draw(ctx);

@@ -894,10 +894,22 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 /* ---------- Setup and Status ---------- */
 .setup-cal { margin: 0 0 16px; padding: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .setup-cal p { margin-top: 0; }
-/* Nothing measured yet: Calibrate takes the row, its count under it. Once a
- * point is, the button is its own width and the count sits beside it. */
 .setup-cal .row { gap: 6px 12px; }
-.setup-cal:not(.started) #suCalN { flex: 1 1 100%; } /* at 0 measured the count takes its own line */
+/* Calibration leads Setup while there is something left to measure (move F):
+ * a raised surface with a green accent at its left, the sentence, the
+ * progress bar with its count, and Calibrate at content width, the tab's one
+ * green button. Done, it is one line and leads nothing. */
+.setup-cal.lead { background: var(--card2); border-left: 4px solid var(--house); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+.setup-cal.complete { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 12px; background: transparent; border-color: var(--line); }
+.setup-cal.complete .cal-progress { margin: 0; }
+.setup-cal.complete button.go { background: var(--card); border-color: var(--control-line); color: var(--fg); font-weight: 400; } /* nothing left to do: Calibrate is a plain button */
+.cal-progress { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.cal-progress > span:first-child { flex: 1; min-width: 0; }
+.cal-progress > span:first-child:empty { display: none; }
+.cal-progress > .muted { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* The progress bar, the same on Setup and in Calibrate's header: the fill is done / total. */
+.cal-bar { height: 6px; border-radius: 3px; background: #2a3038; overflow: hidden; }
+.cal-bar > i { display: block; height: 100%; border-radius: 3px; background: var(--house); }
 .help { margin-top: 6px; }
 #suAdvanced { margin-top: 16px; }
 /* One disclosure style per level, by class: a section's disclosure
@@ -1028,6 +1040,20 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-top .what { flex: 1; min-width: 0; }
 .cal-top .what b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-top .what small { color: var(--muted); font-size: var(--t-meta); }
+.cal-top #caBar { display: block; margin-top: 5px; max-width: 320px; }
+.cal-top #caBar:empty { display: none; }
+/* Keys, on the buttons they press: shown where there is a keyboard. */
+.calibrate kbd { font: inherit; font-size: var(--t-s); font-weight: 400; color: inherit; opacity: 0.7; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
+.nudges button { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.nudges kbd { margin: 0; border: 0; padding: 0; line-height: 1.1; }
+html.coarse .calibrate kbd { display: none; }
+@media (pointer: coarse) { .calibrate kbd { display: none; } }
+/* What comes next, in one line. */
+.cal-next { margin: 4px 0 6px; font-size: var(--t-help); color: var(--muted); }
+.cal-next b { color: var(--fg); font-weight: 600; }
+.cal-back { margin-top: 6px; }
+.cal-back button { width: 100%; justify-content: center; }
+.cal-back button[hidden] { display: none; }
 .cal-toasts { flex: none; display: grid; gap: 6px; padding: 8px 12px 0; }
 .cal-toasts:empty { display: none; }
 .cal-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; scroll-padding-bottom: 16px; }
@@ -1057,7 +1083,24 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-prog { position: relative; }
 .cal-prog .group { margin: 2px 0; }
 .here-tag { margin-right: 8px; color: var(--accent); font-weight: 600; }
-.cal-prog .group > summary { font-weight: 600; }
+.cal-prog .group > summary { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.cal-prog .group > summary .g-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* Each run's share done, as a small bar beside n/n. */
+.cal-prog .g-bar { flex: none; width: 48px; height: 4px; border-radius: 2px; background: #2a3038; overflow: hidden; }
+.cal-prog .g-bar > i { display: block; height: 100%; background: var(--house); }
+.cal-prog .group > summary small { flex: none; min-width: 2.6em; text-align: right; font-weight: 400; font-variant-numeric: tabular-nums; }
+.cal-part { margin: 6px 0 2px; font-size: var(--t-m); font-weight: 600; }
+.cal-part small, .cal-done > summary small { font-weight: 400; font-size: var(--t-meta); margin-left: 6px; }
+.cal-done { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 4px; }
+.cal-done > summary { font-weight: 600; }
+.cal-done > .group { margin-left: 8px; }
+.cal-prog li.nv { grid-template-columns: minmax(0, 1fr) auto auto; }
+.cal-prog li .redo { min-height: 28px; padding: 0 8px; font-size: var(--t-meta); }
+html.coarse .cal-prog li .redo { min-height: var(--tap); }
+/* A cluster's points, to choose from. */
+.cal-cluster .cluster-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cal-cluster .cluster-list { display: grid; gap: 6px; margin-top: 6px; }
+.cal-cluster .cluster-list button { justify-content: flex-start; text-align: left; }
 .cal-prog ul { list-style: none; margin: 0; padding: 0; }
 .cal-prog li { min-height: var(--tap); padding: 4px 8px; border-radius: 6px; cursor: pointer; }
 /* A name wraps; the row's name and value top-align so a long one reads as a unit. */

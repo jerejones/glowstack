@@ -11,6 +11,7 @@
 import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges, readableLabel } from './util.js';
 import { controllerName, controllerLabel, nodeDisplay, runName } from './names.js';
 import { RUN_LINE, runLit, unlitRuns } from './map-control.js';
+import { clusterPoints, runPoints, CLUSTER, MARKER, TARGET as TARGET_RING, OTHERS } from './cal-points.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -169,6 +170,15 @@ export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, 
         break;
       }
       if (done) break;
+    }
+    // The point being measured always has its name: with no free spot it
+    // goes beside the point, held inside the free map, over whatever is there.
+    if (!done && target) {
+      const x = Math.max(4, Math.min(l.x, width - w - 4)), y = Math.max(top + H + 4, Math.min(l.y, free - 8));
+      const box = { x0: x - 3, x1: x + w + 3, y0: y - H + 3, y1: y + 3 };
+      placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank, alpha: 1, leader: null });
+      targetBox = box;
+      done = true;
     }
     if (!done && inView(raw)) hidden++;
   }
@@ -530,6 +540,7 @@ export function createOverlay(S) {
       const q = at(c.x, c.y, c.z);
       if (!q || inZones(q, targetZones)) continue;
       const cfg = c.controller >= 0 ? g.controllers[c.controller] : null;
+      const inStep = S.calibrating && !!S.cal?.active && !!S.cal.target; // a step shows only its own run's names
       const fade = o.mode === 'outputs' && dimmed(cfg ? cfg.id : c.id);
       const was = ctx.globalAlpha;
       ctx.globalAlpha = was * (fade ? FADE : 1);
@@ -551,7 +562,7 @@ export function createOverlay(S) {
       const name = o.labels ? controllerLabel(display, c.label) : display;
       // On the small map these are names like any other: only those with room.
       labelAlpha = fade ? FADE : 1;
-      label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR, S.panel?.layout?.() === 'sheet');
+      if (!inStep) label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR, S.panel?.layout?.() === 'sheet');
       labelAlpha = 1;
       ctx.globalAlpha = was;
     }
@@ -563,6 +574,10 @@ export function createOverlay(S) {
     const o = shown();
     // The phone's overview before starting: small enough not to run together.
     const k = S.calibrating && !S.cal?.active && S.panel?.layout() === 'sheet' ? 0.6 : 1;
+    // In a step only the run being measured keeps its names: the others' hide.
+    const step = S.calibrating && S.cal?.active ? S.cal.target : null;
+    const stepRun = step ? step.run || S.cal.cursors?.[S.cal.side]?.run || '' : null;
+    const named = (runs) => stepRun === null || !runs.length || runs.includes(stepRun);
     ctx.lineWidth = 1.5;
     for (const e of g.edges) {
       if (e.kind === 'strip') continue;
@@ -571,7 +586,7 @@ export function createOverlay(S) {
       ctx.setLineDash(e.kind === 'link' ? [6, 4] : [2, 3]);
       ctx.strokeStyle = e.kind === 'link' ? '#c4b5fd' : '#7dd3fc';
       ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      if (o.labels) label(e.kind === 'link' ? 'link' : `gap ${e.length.toFixed(2)} m`, (a[0] + b[0]) / 2 - 20, (a[1] + b[1]) / 2 + 16, ctx.strokeStyle, MINOR, true);
+      if (o.labels && stepRun === null) label(e.kind === 'link' ? 'link' : `gap ${e.length.toFixed(2)} m`, (a[0] + b[0]) / 2 - 20, (a[1] + b[1]) / 2 + 16, ctx.strokeStyle, MINOR, true);
     }
     ctx.setLineDash([]);
     // What a name is for right now: the point under the pointer, or the selected run.
@@ -586,15 +601,17 @@ export function createOverlay(S) {
       if (chosen.has(r.id) || !runCrowded(pts)) continue;
       crowded.add(r.id);
       const q = pts[pts.length >> 1];
-      if (!inZones(q, targetZones) && !inZones(q, nameZones)) label(runName(g, r.id), q[0] + 8, q[1] - 6, '#e5e7eb', 1.1, true);
+      if (named([r.id]) && !inZones(q, targetZones) && !inZones(q, nameZones)) label(runName(g, r.id), q[0] + 8, q[1] - 6, '#e5e7eb', 1.1, true);
     }
-    for (const r of g.runs) {
+    calClusters = [];
+    if (S.calibrating) calMarkers(step);
+    else for (const r of g.runs) {
       for (const an of r.anchors) {
         if (an.source === 'end') continue;
         const q = pixelAt(an.pixel);
         if (!q) continue;
         const measured = an.source === 'measured';
-        ring(q, 8 * k, measured ? '#5ddc8a' : '#ffb347', 2, measured ? null : [3, 3]);
+        ring(q, MARKER.radius * k, measured ? '#5ddc8a' : '#ffb347', MARKER.width, measured ? null : [3, 3]);
       }
     }
     g.nodes.forEach((nd, i) => {
@@ -613,13 +630,14 @@ export function createOverlay(S) {
       for (const p of projected) {
         const [x, y] = p.q;
         if (inZones(p.q, targetZones) || inZones(p.q, nameZones)) continue;
+        if (calClusters.some((c) => c.points.length > 1 && Math.hypot(c.x - x, c.y - y) < CLUSTER_R + 2)) continue; // under a cluster's marker
         ctx.fillStyle = sync ? '#f472b6' : '#e5e7eb';
         ctx.beginPath();
         const d = 6 * k;
         if (sync) { ctx.moveTo(x, y - d); ctx.lineTo(x + d, y); ctx.lineTo(x, y + d); ctx.lineTo(x - d, y); ctx.closePath(); } else ctx.arc(x, y, 3.5 * k, 0, 2 * Math.PI);
         ctx.fill();
         mark(p.q, 5);
-        if (!o.labels) continue;
+        if (!o.labels || !named(p.runs)) continue;
         const display = nodeDisplay(g, nd.id);
         const whole = shared && p.runs.length ? `${display} · ${p.runs.map((id) => runName(g, id)).join(' / ')}` : display;
         const focused = (near && Math.hypot(near[0] - x, near[1] - y) < 40) || p.runs.some((id) => chosen.has(id));
@@ -709,11 +727,49 @@ export function createOverlay(S) {
     });
   }
 
+  // The current target is the one cyan ring: half again the radius of any
+  // other marker and more than 2 px thicker, on a dark halo so it reads over
+  // the lights, with its name always shown. Every other marker has stepped
+  // back to OTHERS of its opacity (draw()).
   function calCursors(cursors) {
     for (const { q, on, name } of cursors) {
-      if (on) ring(q, 14, 'rgba(13, 14, 16, 0.8)', 6);
-      ring(q, on ? 13 : 10, on ? '#22d3ee' : 'rgba(34,211,238,.5)', on ? 3 : 2);
-      if (on) label(name, q[0] + 18, q[1] - 12, '#a5f3fc', TARGET);
+      if (on) ring(q, TARGET_RING.radius + 1, TARGET_RING.halo, TARGET_RING.width + 4);
+      ring(q, on ? TARGET_RING.radius : 10, on ? TARGET_RING.color : 'rgba(34,211,238,.5)', on ? TARGET_RING.width : 2);
+      if (on) label(name, q[0] + TARGET_RING.radius + 8, q[1] - 12, '#a5f3fc', TARGET);
+    }
+  }
+
+  // calMarkers draws calibration's points while the mode is open. Markers
+  // closer than a finger (or a pointer) can tell apart draw as one, with how
+  // many it stands for; a tap on it lists them (calibrate.js). The point
+  // being measured is never in a cluster: it has its own ring.
+  const CLUSTER_R = 11;
+  let calClusters = [], clustered = [], clustersKey = '';
+  function calMarkers(step) {
+    const pts = [];
+    g.runs.forEach((r) => {
+      for (const rp of runPoints(r, g.nodes)) {
+        if (step && step.kind === 'anchor' && step.run === rp.run && step.node === rp.node) continue;
+        const q = pixelAt(rp.pixel);
+        if (q) pts.push({ x: q[0], y: q[1], ...rp });
+      }
+    });
+    // Worked out again only when the view or the points change.
+    const key = JSON.stringify([S.view.version, step && [step.run, step.node], pts.length, pts[0], pts.map((p) => p.measured).join('')]);
+    if (key !== clustersKey) { clustersKey = key; clustered = clusterPoints(pts, S.coarse ? CLUSTER.coarse : CLUSTER.fine); }
+    // Nothing overlaps the point being measured: a marker that would sit
+    // under its ring is left out for that step (its row in Progress still
+    // reaches it).
+    const at = cursorPoints().filter((c) => c.on).map((c) => c.q);
+    calClusters = clustered.filter((c) => !at.some((q) => Math.hypot(c.x - q[0], c.y - q[1]) < TARGET_RING.radius + TARGET_RING.width + CLUSTER_R + 2));
+    for (const c of calClusters) {
+      const all = c.points.every((p) => p.measured), q = [c.x, c.y];
+      const color = all ? '#5ddc8a' : '#ffb347';
+      if (c.points.length === 1) { ring(q, MARKER.radius, color, MARKER.width, all ? null : [3, 3]); continue; }
+      ring(q, CLUSTER_R, color, MARKER.width, all ? null : [3, 3], 'rgba(13, 14, 16, 0.92)');
+      ctx.fillStyle = '#fff'; ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(c.points.length), q[0], q[1] + 0.5);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     }
   }
 
@@ -747,7 +803,7 @@ export function createOverlay(S) {
     const cursors = cursorPoints();
     reserveZones(cursors, o.controllers);
     // Measuring one point: every other point steps back.
-    ctx.globalAlpha = S.calibrating && S.cal?.active && S.cal.target ? 0.4 : 1;
+    ctx.globalAlpha = S.calibrating && S.cal?.active && S.cal.target ? OTHERS : 1;
     if (o.nodes) nodes();
     if (o.controllers) controllers();
     ctx.globalAlpha = 1;
@@ -760,5 +816,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: () => lineStates, runPaths, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: () => lineStates, runPaths, calClusters: () => calClusters, live: () => shown().mode === 'live' };
 }

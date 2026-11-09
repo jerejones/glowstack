@@ -272,11 +272,13 @@ export function openPlan(canvas, plan, planIndex, opts) {
       if (auto) fit(); else { Object.assign(v, h.v); changed(); }
       emit();
     },
-    frameIds(ids) {
+    dragging: () => false,
+    fitAll() { auto = true; fit(); },
+    frameIds(ids, opts = {}) {
       const b = bbox(ids);
       if (!b) return;
       auto = false;
-      const pad = 0.5;
+      const pad = Math.max(0.5, Math.hypot(b[2] - b[0], b[3] - b[1]) * (opts.pad ?? 0));
       fitBox(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad);
     },
     frameTight(ids) {

@@ -73,7 +73,10 @@ type Manager struct {
 	seq     int
 	view    app.View // config generation the plan was resolved against
 	message string   // what the last action did
-	checks  []string // density warnings the last change brought in
+	// previous is the target the last Confirm recorded, so a point that was
+	// just confirmed in the wrong place can be reopened and corrected.
+	previous *Target
+	checks   []string // density warnings the last change brought in
 
 	reloaded atomic.Bool
 }
@@ -106,6 +109,10 @@ type State struct {
 	// Checks are warnings the last confirm brought in, e.g. an anchor
 	// that makes a stretch twice as dense as the rest of its run.
 	Checks []string `json:"checks,omitempty"`
+	// Previous is the target the last confirm in this session recorded (an
+	// anchor, a run end or a link). Selecting it again reopens it at its
+	// measured value; confirming it again replaces that value.
+	Previous *Target `json:"previous,omitempty"`
 	// Progress lists every anchor, link and gap, with counts.
 	Progress []Item `json:"progress"`
 	Measured int    `json:"measured"` // anchors measured
@@ -156,6 +163,10 @@ func (m *Manager) state() State {
 		if len(off) > 0 {
 			st.Warning = fmt.Sprintf("not sending to %v (--output), so the lights there won't show calibration; the map still does", off)
 		}
+	}
+	if m.previous != nil {
+		p := *m.previous
+		st.Previous = &p
 	}
 	st.Progress = progress(v.Layout, v.Config)
 	for _, it := range st.Progress {
@@ -431,6 +442,9 @@ func (m *Manager) Confirm(opts ConfirmOptions) (State, error) {
 		return State{}, err
 	}
 	m.message = what
+	if t.Kind == KindAnchor || t.Kind == KindEnd || t.Kind == KindLink {
+		m.previous = &t
+	}
 	m.reselect()
 	if opts.Next {
 		if next, ok := m.nextAnchor(1); ok {
@@ -500,6 +514,9 @@ func (m *Manager) Forget(t *Target) (State, error) {
 		return State{}, err
 	}
 	m.checks = nil
+	if m.previous != nil && reflect.DeepEqual(*m.previous, tt) {
+		m.previous = nil
+	}
 	m.message = "forgot " + tt.String()
 	m.reselect()
 	return m.synced()
@@ -512,6 +529,7 @@ func (m *Manager) End() State {
 	defer m.mu.Unlock()
 	m.removeLayers()
 	m.active, m.target, m.plan, m.side = false, nil, nil, 0
+	m.previous = nil
 	m.message = "calibration ended"
 	return m.state()
 }

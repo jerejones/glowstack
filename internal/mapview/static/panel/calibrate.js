@@ -16,6 +16,8 @@ import { icon } from '../icons.js';
 import { upgradeSelects } from '../picker.js';
 import { stateHTML, warningHTML } from '../states.js';
 import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
+import { runPoints, pointWords, nextTarget, calKey, NUDGE_KEYS, progressBar, progressGroups, clusterAt, CLUSTER } from '../cal-points.js';
+import { confirmDialog } from '../dialog.js';
 
 const BASE = '/api/v1/calibration';
 const BETWEEN = 'Between runs'; // the progress group for links and gaps
@@ -258,6 +260,12 @@ export function dockReason(target, cursor) {
   return '';
 }
 
+// STEP_EASE is how long the camera takes to reach a new step, in ms;
+// STEP_PAD is the room framed around the step's run, as a share of its size,
+// so that the runs beside it are in view.
+export const STEP_EASE = 200;
+export const STEP_PAD = 0.15;
+
 // OWN_RELOAD marks a page load Glowstack caused itself.
 export const OWN_RELOAD = 'glowstack.ownReload';
 
@@ -279,6 +287,26 @@ export function createCalibrate(S, root) {
   const nodeLabel = (id) => nodeDisplay(g, id);
   const runLabel = (id) => runName(g, id);
   let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false, shownStep = '';
+  // picked is the point chosen on the map before starting: Start begins
+  // there. clusterList is the points under a tapped cluster, to choose from.
+  let picked = null, clusterList = null, listOpened = false, openDone = false;
+  // words names a target in one line: "Shed eave, point 2 of 3".
+  const words = (t) => {
+    if (!t) return '';
+    if (t.kind === 'anchor') {
+      const r = g.runs.find((x) => x.id === t.run), pt = r && runPoints(r, g.nodes).find((x) => x.node === t.node);
+      return pt ? pointWords(runLabel(t.run), pt.n, pt.of) : `${runLabel(t.run)}: ${nodeLabel(t.node)}`;
+    }
+    return progressRow({ target: t, label: '' }, nodeLabel, runLabel).name;
+  };
+  // pick goes to a point chosen on the map: in a session it becomes the
+  // step; before one it is where Start begins, and no light changes yet.
+  function pick(pt) {
+    clusterList = null; tapped = -1;
+    if (C.st?.active) { session.target({ kind: 'anchor', run: pt.run, node: pt.node }); return; }
+    picked = pt;
+    render();
+  }
   const session = createSession({ fetch: (...a) => fetch(...a), storage: sessionStorage, onState: render });
   const C = session.C;
   // Set when the mode was left with a session still running: it doesn't
@@ -313,25 +341,55 @@ export function createCalibrate(S, root) {
   };
 
   root.innerHTML = `
-    <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
-      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal">${icon('stop')}Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
+    <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small><span id="caBar"></span></span>
+      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal (Esc asks first)">${icon('stop')}Stop<kbd>Esc</kbd></button><button type="button" id="caClose" title="Back to the map">Close</button></div>
     <div class="cal-toasts" id="caToasts" aria-live="polite"></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
       <p class="cal-why" id="caWhy" hidden></p>
       <p class="cal-nudge-how" id="caHow">Use −/+ until it matches the circled point: + moves it away from the strip's start, − back toward it.</p>
-      <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}">${n > 0 ? '+' : '−'}${Math.abs(n)}</button>`).join('')}</div>
-      <div class="cal-confirm"><button type="button" class="go icon-btn" id="caConfirm" title="Save this pixel as the measured position">${icon('check')}Confirm</button>
+      <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}" title="Move the lit pixel ${Math.abs(n)} ${n > 0 ? 'toward the run\'s end' : 'toward the run\'s start'} (${NUDGE_KEYS[n]})"><span>${n > 0 ? '+' : '−'}${Math.abs(n)}</span><kbd>${NUDGE_KEYS[n]}</kbd></button>`).join('')}</div>
+      <div class="cal-confirm"><button type="button" class="go icon-btn" id="caConfirm" title="Save this pixel as the measured position (Enter)">${icon('check')}Confirm<kbd>Enter</kbd></button>
         <label class="check small"><input type="checkbox" id="caNext"> Go to next after</label></div>
+      <div class="cal-back"><button type="button" class="quiet icon-btn" id="caBack" title="Reopen the point you confirmed last, at the pixel you measured, to correct it" hidden>${icon('chevronLeft')}Back to the previous point</button></div>
     </div>`;
   const $$ = (s) => root.querySelector(s);
   for (const b of root.querySelectorAll('[data-by]')) b.onclick = () => session.nudge(+b.dataset.by);
   // Stop ends the session and leaves the mode together: the overlays
   // only ever exist inside it.
-  $$('#caStop').onclick = async () => {
+  const stop = async () => {
     await session.end();
     if (!C.error) { close(); S.toast('Calibration stopped. The lights are back to normal.'); }
   };
+  $$('#caStop').onclick = stop;
+  // Back reopens the point confirmed last, at the pixel it was measured at.
+  $$('#caBack').onclick = () => { if (C.st?.previous) session.target(C.st.previous); };
+
+  // ---------- keys ----------
+  // While a step is on: − and + move the test pixel (Shift: by ten), Enter
+  // confirms, Escape asks before stopping. Typing in a field is left alone,
+  // and Enter on any other button presses that button.
+  let asking = false;
+  async function askStop() {
+    if (asking) return;
+    asking = true;
+    const yes = await confirmDialog({ title: 'Stop calibrating?', body: 'The lights go back to what they were showing. What you have confirmed is kept.', confirm: 'Stop', cancel: 'Keep calibrating', danger: true });
+    asking = false;
+    if (yes) stop();
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!open || !C.st?.active || e.defaultPrevented || e.repeat && e.key === 'Enter') return;
+    const t = e.target, tag = t?.tagName;
+    if (t?.closest?.('dialog')) return; // a dialog's keys are its own
+    const field = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t?.isContentEditable || !!root.querySelector('.picker.open');
+    const button = (tag === 'BUTTON' && !t.dataset.by && t.id !== 'caConfirm') || tag === 'SUMMARY' || tag === 'A';
+    const k = calKey(e, { field, button });
+    if (!k) return;
+    e.preventDefault();
+    if (k.nudge) { if (!root.querySelector('[data-by]').disabled) session.nudge(k.nudge); }
+    else if (k.confirm) { if (!$$('#caConfirm').disabled) session.confirm(); }
+    else if (k.stop) askStop();
+  });
   $$('#caClose').onclick = () => close();
   $$('#caConfirm').onclick = () => session.confirm();
   $$('#caNext').onchange = (e) => session.setNext(e.target.checked);
@@ -347,9 +405,13 @@ export function createCalibrate(S, root) {
     S.moveToasts?.();
     S.subscribe?.();
     if (on) hold = S.view.hold();
-    else { framed = ''; tapped = -1; shownStep = ''; }
+    else { framed = ''; tapped = -1; shownStep = ''; picked = null; clusterList = null; }
     S.refreshLegend?.();
     S.resize();
+    // The mode opens framed: every run, with the map's own margins. Leaving
+    // puts the camera back where it was. This is the mode's framing, not a
+    // camera control.
+    if (on) S.view.fitAll?.();
     if (!on && hold) { S.view.release(hold); hold = null; }
     keepAwake();
     S.inspect(S.pinned);
@@ -390,8 +452,12 @@ export function createCalibrate(S, root) {
   }
   document.addEventListener('visibilitychange', keepAwake);
 
-  // frameCursor frames the cursor's neighborhood in the map strip when
-  // the target changes.
+  // frameCursor frames the step when the target changes: the whole run the
+  // point is on, with room around it so the runs beside it show. It eases
+  // there in under 300 ms (at once under reduced motion), never moves while
+  // the map is being dragged, and then leaves the camera alone: what the
+  // person moves during a step is kept until the next step.
+  const calm = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
   function frameCursor() {
     const st = C.st;
     if (!open || !st || !st.active) return;
@@ -399,13 +465,18 @@ export function createCalibrate(S, root) {
     if (!c || c.index < 0) return;
     const key = st.label + '|' + st.side;
     if (key === framed) return;
+    if (S.view.dragging?.()) { setTimeout(frameCursor, 300); return; } // once the drag ends
     framed = key;
     const ctl = g.controllers.find((x) => x.id === c.controller);
     if (!ctl) return;
     const ids = [];
-    const center = c.node ? c.estimate : c.index;
-    for (let i = Math.max(c.min, center - 40); i <= Math.min(c.max, center + 40); i++) ids.push(ctl.base + i);
-    S.view.frameIds(ids);
+    const ri = c.run ? g.runs.findIndex((r) => r.id === c.run) : -1;
+    if (ri >= 0 && S.tree) for (const [a, b] of S.tree.runSets[ri]) for (let p = a; p <= b; p++) ids.push(p);
+    else {
+      const center = c.node ? c.estimate : c.index;
+      for (let i = Math.max(c.min, center - 40); i <= Math.min(c.max, center + 40); i++) ids.push(ctl.base + i);
+    }
+    S.view.frameIds(ids, { ease: calm.matches ? 0 : STEP_EASE, pad: STEP_PAD });
   }
 
   // ---------- rendering ----------
@@ -453,6 +524,11 @@ export function createCalibrate(S, root) {
     const count = st ? calCount(st) : null;
     $$('#caCount').textContent = count ? count.text : '';
     $$('#caCount').title = count ? count.title : '';
+    // The same bar Setup shows, from the same reading.
+    $$('#caBar').innerHTML = count ? progressBar(st.progress.filter((i) => i.done).length, st.progress.length).html : '';
+    const back = active && st.previous && JSON.stringify(st.previous) !== JSON.stringify(st.target) ? st.previous : null;
+    $$('#caBack').hidden = !back;
+    $$('#caBack').title = back ? `Reopen ${words(back)} at the pixel you measured, to correct it` : '';
 
     const loading = loadState(C);
     if (loading) parts.push(stateHTML(loading));
@@ -460,7 +536,11 @@ export function createCalibrate(S, root) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
       parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point. ${MOVE_HOW} Then confirm.</p>${warningHTML('This changes the real lights until you stop.')}`);
-      parts.push(`<div class="row">${btn(`${icon('target')}${r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating'}`, () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go icon-btn')}</div>`);
+      // Start begins at the point picked on the map, else on the run this was opened for, else at the next point not done.
+      const at = picked ? { kind: 'anchor', run: picked.run, node: picked.node } : r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null;
+      const upNext = at && at.kind === 'anchor' ? at : at ? null : nextTarget(st.progress, null);
+      parts.push(`<div class="row">${btn(`${icon('target')}${picked ? 'Start at this point' : r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating'}`, () => session.start(at), 'go icon-btn')}</div>`);
+      if (upNext) parts.push(`<p class="cal-next" id="caNextLine"><b>Next:</b> ${esc(words(upNext))}</p>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
       if (st.warning) parts.push(warningHTML(humanText(g, st.warning)));
@@ -474,6 +554,8 @@ export function createCalibrate(S, root) {
       const step = stepTitle(st, nodeLabel, runLabel);
       const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
       parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
+      const upNext = nextTarget(st.progress, st.target);
+      parts.push(`<p class="cal-next" id="caNextLine"><b>Next:</b> ${upNext ? esc(words(upNext)) : 'nothing after this: every other point is measured'}</p>`);
       if (c) {
         const moved = c.index - c.estimate;
         const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
@@ -515,6 +597,11 @@ export function createCalibrate(S, root) {
     // At the top, where a failure is seen from the nudge dock too.
     if (C.error && !loading) parts.unshift(stateHTML({ kind: 'error', title: C.error, detail: C.details.join(' '), retry: true }));
 
+    // A tapped cluster: its points, to choose from (never one picked silently).
+    if (clusterList) {
+      parts.unshift(`<div class="cal-tap cal-cluster" id="caCluster"><div class="cluster-head"><span><b>${plural(clusterList.length, 'point')} here.</b> Choose one:</span>${btn(icon('close'), () => { clusterList = null; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div><div class="cluster-list">${clusterList.map((pt) => btn(`${pt.measured ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(pointWords(runLabel(pt.run), pt.n, pt.of))}</span>`, () => pick(pt), 'icon-btn')).join('')}</div></div>`);
+    }
+
     // A tapped pixel: calibrate there.
     if (tapped >= 0) {
       const p = tapped, px = g.pixels;
@@ -533,25 +620,28 @@ export function createCalibrate(S, root) {
       parts.push(`<div class="cal-tap"><div>Tapped <b>pixel ${px.index[p]}</b>${r ? ' on ' + esc(runLabel(r.id)) : ' on ' + esc(controllerName(g, ctl.id))}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
     }
 
-    // Progress, grouped by run. Tap one to calibrate it.
+    // Progress at a glance: the runs with something left first ("To do",
+    // open), then the finished ones folded to one line ("Done"). Each run has
+    // a small bar and n/n. Tap a row to calibrate it; a finished row offers Redo.
     if (st && st.progress && st.progress.length) {
-      const cur = st.target ? JSON.stringify(st.target) : '';
-      const hereGroup = st.target ? st.target.run || BETWEEN : '';
-      const groups = new Map();
-      for (const it of st.progress) {
-        const k = (it.target && it.target.run) || BETWEEN;
-        if (!groups.has(k)) groups.set(k, []);
-        groups.get(k).push(it);
-      }
-      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<details class="group" data-group="${esc(k)}"${k === hereGroup || openGroups.has(k) ? ' open' : ''}><summary>${esc(k === BETWEEN ? k : runLabel(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></summary><ul>${items.map((it) => {
+      const cur = st.target ? JSON.stringify(st.target) : picked ? JSON.stringify({ kind: 'anchor', run: picked.run, node: picked.node }) : '';
+      const hereGroup = st.target ? st.target.run || BETWEEN : picked ? picked.run : '';
+      const sorted = progressGroups(st.progress, BETWEEN);
+      const group = ({ key: k, items, done, total }) => `<details class="group" data-group="${esc(k)}" data-run-row="${esc(k)}"${k === hereGroup || openGroups.has(k) ? ' open' : ''}><summary><span class="g-name">${esc(k === BETWEEN ? k : runLabel(k))}</span><span class="g-bar" aria-hidden="true"><i style="width:${Math.round(done / total * 100)}%"></i></span><small class="muted">${done}/${total}</small></summary><ul>${items.map((it) => {
         const row = progressRow(it, nodeLabel, runLabel);
         const raw = it.target?.node ? g.nodes.find((n) => n.id === it.target.node)?.label : '';
         if (raw) row.title += ` (${raw})`;
         const isHere = JSON.stringify(it.target) === cur, here = isHere ? ' here' : '';
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
-        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? '<span class="here-tag">Now</span>' : ''}${esc(row.value)}</span></li>`;
-      }).join('')}</ul></details>`).join('')}</div>`);
+        const redo = it.done && !(isHere && active) ? `<button type="button" class="quiet redo" data-a="${acts.length - 1}" title="Measure this again, starting from the pixel it was measured at">Redo</button>` : '';
+        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? `<span class="here-tag">${active ? 'Now' : 'Start here'}</span>` : ''}${esc(row.value)}</span>${redo}</li>`;
+      }).join('')}</ul></details>`;
+      const doneOpen = openDone || sorted.done.some((gr) => gr.key === hereGroup);
+      parts.push(`<h3 id="caProgress">Progress</h3><div class="cal-prog">
+        <h4 class="cal-part">To do <small class="muted">${sorted.todo.length ? esc(sorted.todoWords) : 'nothing left'}</small></h4>
+        ${sorted.todo.map(group).join('') || '<p class="muted small">Every step is done.</p>'}
+        ${sorted.done.length ? `<details class="cal-done" id="caDone"${doneOpen ? ' open' : ''}><summary>Done <small class="muted">${esc(sorted.doneWords)}</small></summary>${sorted.done.map(group).join('')}</details>` : ''}</div>`);
     }
 
     // Other targets: run ends, bands over a controller, dead ranges.
@@ -581,14 +671,16 @@ export function createCalibrate(S, root) {
     // its own row when there's room. Only then: a poll mustn't take the
     // panel away from a thumb.
     const stepKey = active && st.target ? JSON.stringify(st.target) : '';
-    body.scrollTop = top;
+    body.scrollTop = listOpened ? 0 : top; // a cluster's list is at the top: show it
+    listOpened = false;
+    markHover();
     if (stepKey && stepKey !== shownStep && body.getBoundingClientRect) {
       const at = body.getBoundingClientRect().top - body.scrollTop;
       const here = body.querySelector('li.here')?.getBoundingClientRect(), head = body.querySelector('.cal-step')?.getBoundingClientRect();
       body.scrollTop = stepScroll(here ? { bottom: here.bottom - at } : null, body.clientHeight, head ? head.top - at : 0);
     }
     shownStep = stepKey;
-    for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
+    for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); acts[+el.dataset.a](); };
     for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => session.retry();
     for (const f of body.querySelectorAll('form[data-form]')) {
       f.onsubmit = (e) => {
@@ -607,6 +699,13 @@ export function createCalibrate(S, root) {
     keepAwake();
     S.markDirty();
   }
+
+  // The run under the pointer on the map shows on its row in Progress.
+  function markHover() {
+    const id = S.hoveredRun || '';
+    for (const el of root.querySelectorAll('[data-run-row]')) el.classList.toggle('map-hover', !!id && el.dataset.runRow === id);
+  }
+  S.on('hoverRun', markHover);
 
   // fitSheet settles the phone's sheet so its edge doesn't cut a row in
   // half, the way a half-height bottom sheet settles on a whole card.
@@ -632,6 +731,7 @@ export function createCalibrate(S, root) {
     if (e.target === opening && e.target.matches('details.group')) {
       if (e.target.open) openGroups.add(e.target.dataset.group); else openGroups.delete(e.target.dataset.group);
     }
+    if (e.target === opening && e.target.matches('details.cal-done')) openDone = e.target.open;
     if (e.target === opening && e.target.open) e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     opening = null;
   }, true);
@@ -666,7 +766,19 @@ export function createCalibrate(S, root) {
       }
       render();
     },
-    tapped(p) { tapped = p; render(); },
+    tapped(p) { tapped = p; clusterList = null; render(); },
+    // tapAt is a tap on the map at (x, y), p the pixel nearest it (or -1): a
+    // marker standing alone goes to its point; a cluster opens the list of
+    // its points; anywhere else offers what can be done at that pixel.
+    tapAt(x, y, p) {
+      const hit = clusterAt(S.overlay.calClusters(), x, y, S.coarse ? CLUSTER.coarse : CLUSTER.fine);
+      if (hit && hit.points.length === 1) { pick(hit.points[0]); return; }
+      clusterList = hit ? hit.points : null;
+      listOpened = !!hit;
+      tapped = hit ? -1 : p;
+      render();
+    },
+    picked: () => picked,
     session,
   };
 }

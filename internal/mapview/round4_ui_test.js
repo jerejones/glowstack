@@ -230,3 +230,234 @@ test('C2: the next look\'s target is told from a layer\'s without reading the la
   assert.match(css, /\.catalog-head \{[^}]*justify-content: flex-start;/);
   assert.match(looks, /className: 'place target-select'/, 'the row\'s control is made inside its row');
 });
+
+test('F: Setup leads with calibration: a raised card, a bar that is done / total, one green button', async () => {
+  const { progressBar } = await import('./static/cal-points.js');
+  // The bar's fill is the count's fraction, to a tenth of a percent, and the words are the count.
+  for (const [done, total] of [[40, 109], [0, 84], [33, 84], [84, 84], [1, 3]]) {
+    const bar = progressBar(done, total);
+    assert.ok(Math.abs(bar.share - done / total) < 1e-9);
+    const width = +/width:([\d.]+)%/.exec(bar.html)[1];
+    assert.ok(Math.abs(width / 100 - done / total) < 0.01, `${done}/${total}: ${width}%`);
+    assert.equal(bar.words, `${done} of ${total} steps`);
+    assert.match(bar.html, new RegExp(`role="progressbar"[^>]*aria-valuemax="${total}" aria-valuenow="${done}"`));
+  }
+  assert.equal(progressBar(0, 0).share, 0, 'nothing to count is an empty bar, not a division by zero');
+  const setup = read('panel/setup.js');
+  // The card is the first thing under the heading.
+  assert.match(setup, /<h1 class="title">Set up the map<\/h1>\s*<section class="setup-cal lead" id="suCalCard"/);
+  assert.match(setup, /id="suCalProgress" hidden><span id="suCalBar"><\/span><span class="muted small" id="suCalN"><\/span><\/div>\s*<div class="row"><button type="button" id="suCal" class="go icon-btn"><\/button><\/div>/, 'the bar and its count, then Calibrate at content width');
+  assert.equal(setup.match(/class="go\b/g).length, 1, 'the one green control on Setup');
+  // Complete: one line, and it stops leading.
+  assert.match(setup, /complete \? `Calibrated: \$\{done\} of \$\{total\}` : bar\.words/);
+  assert.match(setup, /card\.classList\.toggle\('lead', !complete\);/);
+  assert.match(css, /\.setup-cal\.lead \{ background: var\(--card2\); border-left: 4px solid var\(--house\); box-shadow:/, 'a raised surface with a left accent');
+  assert.match(css, /\.setup-cal\.complete \{ display: flex;[^}]*padding: 6px 12px;/);
+  assert.match(css, /\.setup-cal\.complete button\.go \{ background: var\(--card\);/, 'no green once there is nothing left');
+  assert.doesNotMatch(css, /\.setup-cal[^{]*\.go \{[^}]*width: 100%/, 'not the old full-width bar');
+  // Calibrate's header shows the same bar.
+  assert.match(read('panel/calibrate.js'), /\$\$\('#caBar'\)\.innerHTML = count \? progressBar\(st\.progress\.filter\(\(i\) => i\.done\)\.length, st\.progress\.length\)\.html : '';/);
+});
+
+test('F: markers too close to tell apart draw as one, and every point is reached in at most two taps', async () => {
+  const { clusterPoints, clusterAt, tapsToReach, overlapShare, CLUSTER, MARKER } = await import('./static/cal-points.js');
+  assert.deepEqual(CLUSTER, { coarse: 24, fine: 16 });
+  const pt = (x, y, id) => ({ x, y, id });
+  // Two points a finger cannot tell apart are one marker on a phone and two with a mouse.
+  const pair = [pt(100, 100, 'a'), pt(118, 100, 'b'), pt(300, 100, 'c')];
+  const coarse = clusterPoints(pair, CLUSTER.coarse);
+  assert.deepEqual(coarse.map((c) => c.points.map((p) => p.id)), [['a', 'b'], ['c']]);
+  assert.deepEqual([coarse[0].x, coarse[0].y], [109, 100], 'drawn at the middle of its points');
+  assert.equal(clusterPoints(pair, CLUSTER.fine).length, 3);
+  // Coincident points (a corner two runs share) are always one marker.
+  assert.equal(clusterPoints([pt(50, 50, 'a'), pt(50, 50, 'b')], CLUSTER.fine).length, 1);
+  // A row of evenly spaced points pairs up; it does not run together into one marker.
+  const row = Array.from({ length: 12 }, (_, i) => pt(20 * i, 0, 'p' + i));
+  const rowed = clusterPoints(row, CLUSTER.coarse);
+  assert.ok(rowed.length >= 4 && Math.max(...rowed.map((c) => c.points.length)) <= 3, JSON.stringify(rowed.map((c) => c.points.length)));
+  // Whatever goes in, every point comes out once, and no two markers are closer than the radius.
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (const radius of [CLUSTER.coarse, CLUSTER.fine]) {
+    const pts = Array.from({ length: 109 }, (_, i) => pt(rnd() * 390, rnd() * 300, 'n' + i));
+    const cs = clusterPoints(pts, radius);
+    assert.equal(cs.reduce((a, c) => a + c.points.length, 0), pts.length);
+    assert.equal(new Set(cs.flatMap((c) => c.points.map((p) => p.id))).size, pts.length);
+    for (let i = 0; i < cs.length; i++) for (let j = i + 1; j < cs.length; j++) {
+      const d = Math.hypot(cs[i].x - cs[j].x, cs[i].y - cs[j].y);
+      assert.ok(d >= radius, `markers ${d} px apart`);
+      // A cluster's disc is 11 px and its stroke 2: no two markers overlap by more than a quarter.
+      assert.ok(overlapShare(d, 12) <= 0.25, `overlap ${overlapShare(d, 12)}`);
+    }
+    // One tap for a marker that stands alone, two through a cluster's list; a tap on a marker finds it.
+    for (const c of cs) {
+      assert.equal(tapsToReach(c), c.points.length > 1 ? 2 : 1);
+      assert.equal(clusterAt(cs, c.x + 3, c.y - 2, radius), c);
+    }
+  }
+  assert.equal(clusterAt(coarse, 200, 200, 24), null, 'a tap on nothing is not a marker');
+  assert.equal(overlapShare(18, 9), 0);
+  assert.equal(overlapShare(0, 9), 1);
+  assert.ok(MARKER.radius * 2 + MARKER.width < CLUSTER.coarse, 'on a phone two resting markers never touch');
+  // The overlay draws clusters with a count while calibrating; a tap on one opens a list instead of picking silently.
+  const overlay = read('overlay.js'), cal = read('panel/calibrate.js'), app = read('app.js');
+  assert.match(overlay, /clustered = clusterPoints\(pts, S\.coarse \? CLUSTER\.coarse : CLUSTER\.fine\);/);
+  assert.match(overlay, /ctx\.fillText\(String\(c\.points\.length\), q\[0\], q\[1\] \+ 0\.5\);/);
+  assert.match(app, /S\.calib\.tapAt\(x, y, p\);/);
+  assert.match(cal, /if \(hit && hit\.points\.length === 1\) \{ pick\(hit\.points\[0\]\); return; \}\s*clusterList = hit \? hit\.points : null;/);
+  assert.match(cal, /pointWords\(runLabel\(pt\.run\), pt\.n, pt\.of\)/, 'the list names the run and the point number');
+  // Before a session a pick only says where Start begins: no light changes.
+  assert.match(cal, /if \(C\.st\?\.active\) \{ session\.target\(\{ kind: 'anchor', run: pt\.run, node: pt\.node \}\); return; \}\s*picked = pt;/);
+});
+
+test('F: the current target is unmistakable', async () => {
+  const { TARGET, MARKER, OTHERS, runPoints, pointWords } = await import('./static/cal-points.js');
+  const { TARGET_COLOR, RUN_LINE } = await import('./static/map-control.js');
+  assert.ok(TARGET.radius >= 1.5 * MARKER.radius, 'half again the radius of any other marker');
+  assert.ok(TARGET.radius >= 1.5 * 11 - 3 && TARGET.width >= MARKER.width + 2, 'and at least 2 px thicker');
+  assert.equal(TARGET.color, TARGET_COLOR, 'the one color kept for "current"');
+  for (const style of Object.values(RUN_LINE)) assert.notEqual(style.color, TARGET.color);
+  assert.equal(OTHERS, 0.4, 'every other marker drops to 40%');
+  const overlay = read('overlay.js');
+  assert.match(overlay, /ctx\.globalAlpha = S\.calibrating && S\.cal\?\.active && S\.cal\.target \? OTHERS : 1;/);
+  assert.match(overlay, /ring\(q, on \? TARGET_RING\.radius : 10, on \? TARGET_RING\.color :/);
+  assert.match(overlay, /if \(step && step\.kind === 'anchor' && step\.run === rp\.run && step\.node === rp\.node\) continue;/, 'the target is never inside a cluster');
+  assert.match(overlay, /calClusters = clustered\.filter\(\(c\) => !at\.some\(/, 'and no marker is drawn under its ring');
+  // Its label is always placed, inside the free map, whatever is in the way.
+  const { placeLabels } = await import('./static/overlay.js');
+  const measure = (l) => l.text.length * 7;
+  const everywhere = () => true;
+  const sheet = [{ x0: 0, x1: 390, y0: 0, y1: 56 }, { x0: 0, x1: 390, y0: 380, y1: 844 }];
+  for (const [x, y] of [[200, 200], [380, 60], [5, 375], [200, 30], [200, 400]]) {
+    const placed = placeLabels([{ text: 'Shed corner', x, y, color: '#fff', rank: 3 }, { text: 'Other', x: x + 4, y, color: '#fff', rank: 1 }], { avoid: sheet, width: 390, height: 844, measure, solid: everywhere, marks: [{ x0: 0, x1: 390, y0: 0, y1: 844 }] });
+    const t = placed.find((p) => p.rank === 3);
+    assert.ok(t, `the target's label at ${x},${y} is placed`);
+    assert.ok(t.x0 >= 0 && t.x1 <= 390 && t.y0 >= 56 && t.y1 <= 380, `inside the free map: ${JSON.stringify([t.x0, t.y0, t.x1, t.y1])}`);
+  }
+  // In a step the other runs' names hide.
+  assert.match(overlay, /const named = \(runs\) => stepRun === null \|\| !runs\.length \|\| runs\.includes\(stepRun\);/);
+  assert.match(overlay, /if \(!o\.labels \|\| !named\(p\.runs\)\) continue;/);
+  // Points are named by run and number.
+  const run = { id: 'shed-eave', anchors: [{ node: 0, pixel: 0, source: 'end' }, { node: 1, pixel: 186, source: 'measured' }, { node: 2, pixel: 305, source: 'estimated' }, { node: 3, pixel: 481, source: 'end' }] };
+  const nodes = [{ id: 'shed-se' }, { id: 'shed-sw' }, { id: 'shed-nw' }, { id: 'shed-ne' }];
+  assert.deepEqual(runPoints(run, nodes), [{ run: 'shed-eave', node: 'shed-sw', pixel: 186, measured: true, n: 1, of: 2 }, { run: 'shed-eave', node: 'shed-nw', pixel: 305, measured: false, n: 2, of: 2 }]);
+  assert.equal(pointWords('Shed eave', 2, 2), 'Shed eave, point 2 of 2');
+});
+
+test('F: Calibrate opens framed, and a step frames its run without taking the camera from a drag', async () => {
+  const cal = read('panel/calibrate.js'), scene = read('scene.js');
+  const { STEP_EASE, STEP_PAD } = await import('./static/panel/calibrate.js');
+  assert.ok(STEP_EASE > 0 && STEP_EASE < 300, 'eases there in under 300 ms');
+  assert.ok(STEP_PAD > 0.05, 'more room than a plain frame, so the runs beside it show');
+  assert.match(cal, /if \(on\) S\.view\.fitAll\?\.\(\);/, 'entering the mode fits every run');
+  assert.match(cal, /S\.view\.frameIds\(ids, \{ ease: calm\.matches \? 0 : STEP_EASE, pad: STEP_PAD \}\);/, 'no ease under reduced motion');
+  assert.match(cal, /if \(ri >= 0 && S\.tree\) for \(const \[a, b\] of S\.tree\.runSets\[ri\]\)/, 'the whole run the point is on');
+  assert.match(cal, /if \(S\.view\.dragging\?\.\(\)\) \{ setTimeout\(frameCursor, 300\); return; \}/, 'never while the map is being dragged');
+  assert.match(cal, /if \(key === framed\) return;/, 'once per step: what the person moves is kept until the next step');
+  // The view: a glide a drag cancels, a fit that is not remembered, and a drag flag that holds for the whole gesture.
+  assert.match(scene, /controls\.addEventListener\('start', \(\) => \{\s*held = true;\s*cancelAnimationFrame\(gliding\);/);
+  assert.match(scene, /controls\.addEventListener\('end', \(\) => \{ grab = null; held = false; \}\);/);
+  assert.match(scene, /dragging: \(\) => held,/);
+  const fit = scene.slice(scene.indexOf('fitAll() {'), scene.indexOf('// frameIds frames the given pixels'));
+  assert.match(fit, /cam\.auto = true;\s*frame\(\);/);
+  assert.doesNotMatch(fit, /remember\(\)/, 'the mode\'s framing is not saved as this device\'s camera');
+  assert.match(read('plan.js'), /fitAll\(\) \{ auto = true; fit\(\); \},/);
+  assert.doesNotMatch(read('index.html') + cal, /Reset view|Fit lights|data-view=/, 'framing by the mode, not a camera button');
+});
+
+test('F: the keys: minus and plus nudge, Shift is ten, Enter confirms, Escape asks to stop', async () => {
+  const { calKey, NUDGE_KEYS } = await import('./static/cal-points.js');
+  const key = (o) => ({ code: '', key: '', shiftKey: false, ctrlKey: false, metaKey: false, altKey: false, ...o });
+  assert.deepEqual(calKey(key({ code: 'Minus', key: '-' })), { nudge: -1 });
+  assert.deepEqual(calKey(key({ code: 'Equal', key: '=' })), { nudge: 1 }, 'the + key without Shift');
+  assert.deepEqual(calKey(key({ code: 'Equal', key: '+', shiftKey: true })), { nudge: 10 });
+  assert.deepEqual(calKey(key({ code: 'Minus', key: '_', shiftKey: true })), { nudge: -10 });
+  assert.deepEqual(calKey(key({ code: 'NumpadAdd', key: '+' })), { nudge: 1 });
+  assert.deepEqual(calKey(key({ code: 'NumpadSubtract', key: '-', shiftKey: true })), { nudge: -10 });
+  assert.deepEqual(calKey(key({ code: 'Enter', key: 'Enter' })), { confirm: true });
+  assert.deepEqual(calKey(key({ code: 'Escape', key: 'Escape' })), { stop: true });
+  // Typing in a field is never taken; Enter on another button presses that button; shortcuts with a modifier are the browser's.
+  for (const k of [{ code: 'Minus', key: '-' }, { code: 'Equal', key: '=' }, { code: 'Enter', key: 'Enter' }, { code: 'Escape', key: 'Escape' }]) assert.equal(calKey(key(k), { field: true }), null, k.key);
+  assert.equal(calKey(key({ code: 'Enter', key: 'Enter' }), { button: true }), null);
+  assert.deepEqual(calKey(key({ code: 'Minus', key: '-' }), { button: true }), { nudge: -1 });
+  assert.equal(calKey(key({ code: 'Equal', key: '=', ctrlKey: true })), null, 'Ctrl + is the browser\'s zoom');
+  assert.equal(calKey(key({ code: 'KeyA', key: 'a' })), null);
+  // The pad shows its keys, on a fine pointer only; the dock keeps one primary.
+  assert.deepEqual(NUDGE_KEYS, { '-10': 'Shift −', '-1': '−', 1: '+', 10: 'Shift +' });
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /<kbd>\$\{NUDGE_KEYS\[n\]\}<\/kbd>/);
+  assert.match(cal, /id="caConfirm"[^>]*>\$\{icon\('check'\)\}Confirm<kbd>Enter<\/kbd>/);
+  assert.match(css, /html\.coarse \.calibrate kbd \{ display: none; \}/);
+  const dock = cal.slice(cal.indexOf('<div class="cal-dock"'), cal.indexOf('const $$ = (s) => root.querySelector(s);'));
+  assert.equal(dock.match(/class="go\b/g).length, 1, 'Confirm is the dock\'s single primary');
+  // Escape asks first, and stopping is the same Stop as the button's; the map's own Escape stands down.
+  assert.match(cal, /else if \(k\.stop\) askStop\(\);/);
+  assert.match(cal, /confirmDialog\(\{ title: 'Stop calibrating\?'[^}]*confirm: 'Stop', cancel: 'Keep calibrating', danger: true \}\);\s*asking = false;\s*if \(yes\) stop\(\);/);
+  assert.match(cal, /if \(!open \|\| !C\.st\?\.active \|\| e\.defaultPrevented/, 'only while a step is on');
+  assert.match(read('app.js'), /if \(S\.calibrating\) return; \/\/ calibration has its own keys/);
+  // The warning and Stop are still there, as prominent as before.
+  assert.match(cal, /warningHTML\('This changes the real lights until you stop\.'\)/);
+  assert.match(cal, /<button type="button" id="caStop" class="danger icon-btn"/);
+});
+
+test('F: what is next is one line, and the last point can be fixed', async () => {
+  const { nextTarget } = await import('./static/cal-points.js');
+  const a = (run, node, done) => ({ target: { kind: 'anchor', run, node }, done });
+  const progress = [a('eave', 'sw', true), a('eave', 'nw', false), a('tower', 'top', false), { target: { kind: 'link', from: 'top', to: 'mid' }, done: false }];
+  assert.deepEqual(nextTarget(progress, null), { kind: 'anchor', run: 'eave', node: 'nw' }, 'before a session: the first point not done');
+  assert.deepEqual(nextTarget(progress, { kind: 'anchor', run: 'eave', node: 'nw' }), { kind: 'anchor', run: 'tower', node: 'top' });
+  assert.deepEqual(nextTarget(progress, { kind: 'anchor', run: 'tower', node: 'top' }), { kind: 'anchor', run: 'eave', node: 'nw' }, 'it wraps, as the server does');
+  assert.equal(nextTarget([a('eave', 'sw', true), a('eave', 'nw', false)], { kind: 'anchor', run: 'eave', node: 'nw' }), null, 'the only one left is this one');
+  assert.equal(nextTarget([a('eave', 'sw', true)], null), null);
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /<p class="cal-next" id="caNextLine"><b>Next:<\/b> \$\{upNext \? esc\(words\(upNext\)\) :/);
+  // Back: the session reports the last confirmed target; the dock's Back reopens it.
+  const { createSession } = await import('./static/panel/calibrate.js');
+  const calls = [];
+  const prev = { kind: 'anchor', run: 'eave', node: 'sw' };
+  let state = { active: true, target: { kind: 'anchor', run: 'eave', node: 'nw' }, previous: prev, cursors: [{ index: 300 }], progress };
+  const fetch = async (url, init = {}) => {
+    calls.push([url.replace('/api/v1/calibration', ''), init.body ? JSON.parse(init.body) : null]);
+    if (url.endsWith('/target')) state = { ...state, target: JSON.parse(init.body), cursors: [{ index: 186, estimate: 186, source: 'measured' }] };
+    if (url.endsWith('/nudge')) state = { ...state, cursors: [{ ...state.cursors[0], index: state.cursors[0].index + JSON.parse(init.body).by }] };
+    if (url.endsWith('/confirm')) state = { ...state, previous: state.target, stored: state.cursors[0].index };
+    return { ok: true, status: 200, text: async () => JSON.stringify(state) };
+  };
+  const session = createSession({ fetch, storage: { getItem: () => null, setItem() {} }, onState() {} });
+  await session.poll();
+  await session.target(session.C.st.previous); // what Back does
+  assert.deepEqual(session.C.st.target, prev);
+  assert.equal(session.C.st.cursors[0].index, 186, 'reopened at its measured value');
+  await session.nudge(-10); await session.nudge(-1);
+  await session.confirm({ next: false });
+  assert.equal(session.C.st.stored, 175, 'the second value is the one confirmed');
+  assert.deepEqual(calls.map((c) => c[0]), ['', '/target', '/nudge', '/nudge', '/confirm']);
+  assert.match(cal, /\$\$\('#caBack'\)\.onclick = \(\) => \{ if \(C\.st\?\.previous\) session\.target\(C\.st\.previous\); \};/);
+  assert.match(cal, /id="caBack"[^>]*hidden>\$\{icon\('chevronLeft'\)\}Back to the previous point<\/button>/);
+  assert.match(cal, /const back = active && st\.previous && JSON\.stringify\(st\.previous\) !== JSON\.stringify\(st\.target\) \? st\.previous : null;/);
+  // Redo: every finished row offers it, and it reopens that row's target.
+  assert.match(cal, /const redo = it\.done && !\(isHere && active\) \? `<button type="button" class="quiet redo" data-a="\$\{acts\.length - 1\}"[^>]*>Redo<\/button>` : '';/);
+  assert.match(cal, /const go = \(\) => \(active \? session\.target\(it\.target\) : session\.start\(it\.target\)\);/);
+  assert.match(cal, /e\.preventDefault\(\); e\.stopPropagation\(\); acts\[\+el\.dataset\.a\]\(\);/, 'a press on Redo is one request, not the row\'s as well');
+});
+
+test('F: progress reads at a glance: To do first and open, Done folded to a count', async () => {
+  const { progressGroups } = await import('./static/cal-points.js');
+  const a = (run, node, done) => ({ target: { kind: 'anchor', run, node }, done });
+  const progress = [a('eave', 'sw', true), a('eave', 'nw', true), a('tower', 'top', false), a('fence', 'a', true), a('fence', 'b', false), a('porch', 'e', true), { target: { kind: 'gap', from: 'x', to: 'y' }, done: false }];
+  const g = progressGroups(progress);
+  assert.deepEqual(g.todo.map((x) => [x.key, x.done, x.total]), [['tower', 0, 1], ['fence', 1, 2], ['Between runs', 0, 1]], 'a run with anything left is To do, in the list\'s order');
+  assert.deepEqual(g.done.map((x) => [x.key, x.done, x.total]), [['eave', 2, 2], ['porch', 1, 1]]);
+  assert.equal(g.todoWords, '3 steps left in 3 runs');
+  assert.equal(g.doneWords, '3 steps in 2 runs');
+  assert.equal(g.todo.reduce((n, x) => n + x.items.length, 0) + g.done.reduce((n, x) => n + x.items.length, 0), progress.length, 'no step is dropped');
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /<h4 class="cal-part">To do <small class="muted">/);
+  assert.match(cal, /<details class="cal-done" id="caDone"\$\{doneOpen \? ' open' : ''\}><summary>Done <small class="muted">\$\{esc\(sorted\.doneWords\)\}<\/small><\/summary>/, 'one line until opened');
+  assert.ok(cal.indexOf('class="cal-part">To do') < cal.indexOf('class="cal-done"'), 'To do comes first');
+  assert.match(cal, /<span class="g-bar" aria-hidden="true"><i style="width:\$\{Math\.round\(done \/ total \* 100\)\}%"><\/i><\/span><small class="muted">\$\{done\}\/\$\{total\}<\/small>/, 'each run has a small bar and n/n');
+  assert.match(cal, /const doneOpen = openDone \|\| sorted\.done\.some\(\(gr\) => gr\.key === hereGroup\);/, 'Done opens by hand, or when the step is in it');
+  // The map's hover shows on a run's row here too.
+  assert.match(cal, /data-group="\$\{esc\(k\)\}" data-run-row="\$\{esc\(k\)\}"/);
+  assert.match(cal, /S\.on\('hoverRun', markHover\);/);
+  assert.match(design, /\*\*To do\*\*/);
+});

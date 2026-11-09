@@ -63,7 +63,9 @@ func Mount(a *app.App, s *httpserver.Server) error {
 //	POST   /api/v1/calibration/confirm    record it in anchors.yaml and re-solve ({"length": "1.2 m"} for gaps, "next": true)
 //	POST   /api/v1/calibration/forget     drop a measurement ({"target": {...}}, default the current one)
 //
-// Every reply is the session's state. Errors are {"error": "...",
+// Every reply is the session's state. Its "previous" is the target the last
+// confirm recorded: POST it to /target to reopen that point at its measured
+// value, and confirm again to replace the value. Errors are {"error": "...",
 // "errors": ["anchors.yaml:3: ..."]}: 400 bad input, 404 unknown run,
 // node or controller, 409 nothing to do (no session, nothing measured), 422
 // a measurement that doesn't fit the layout (nothing is written).

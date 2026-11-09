@@ -440,6 +440,52 @@ How it works:
   overall from warning everywhere.
 - **Output.** Calibration never widens `--output`. If a controller it lights
   isn't selected, the session says so; the live map still shows the pattern.
+- **Fixing the last one.** The session's state carries `previous`: the
+  target the last confirm recorded (an anchor, a run end or a link).
+  Selecting a measured target reopens it at its measured value, and
+  confirming again replaces that value; the count of measured points does
+  not change. Forgetting that target, or ending the session, clears it.
+
+The Calibrate panel (on the live map) is built to lead and to guide:
+
+- **Setup leads with it.** While any step is left, the calibration card is
+  the first thing on Setup: a raised surface with a green accent at its
+  left, the sentence, a progress bar whose fill is steps done over steps in
+  all with the count beside it ("40 of 109 steps"), and **Calibrate** at
+  content width, the tab's one green button. When every step is done the
+  card is one line ("Calibrated: 109 of 109") and stops leading.
+- **It opens framed.** Entering the mode fits every run with the map's own
+  margins. Entering a step frames the run the point is on, with room around
+  it so the runs beside it show; the camera eases there in under 300 ms
+  (at once under reduced motion), never moves while the map is being
+  dragged, and is then left alone: what the person moves during a step is
+  kept until the next step. This is framing by the mode. There is no camera
+  button, and leaving the mode puts the camera back.
+- **The current target is unmistakable.** It is the one cyan ring (cyan is
+  kept for "current" on the map): half again the radius of any other marker
+  and more than 2 px thicker, on a dark halo, with its name always shown
+  inside the free map. Every other marker drops to 40% opacity, the other
+  runs' names hide, and no marker is drawn under the target's ring.
+- **Markers that can be told apart.** While the mode is open, markers closer
+  than 24 px on a touch screen (16 px with a mouse) draw as one marker with
+  a count. A tap on a marker that stands alone goes to its point; a tap on a
+  cluster opens a list of its points, each named by run and number ("Shed
+  eave, point 2 of 3"), instead of picking one silently. So every point is
+  reached in at most two taps. Before a session, a pick only sets where
+  Start begins; no light changes until Start.
+- **One next action.** In a step the dock's one primary is **Confirm**. The
+  nudge pad (−10, −1, +1, +10) shows its keys where there is a keyboard: −
+  and + move by one, with Shift by ten, Enter confirms, and Escape asks
+  before stopping. Typing in a field is never taken. One line says what
+  comes next ("Next: Shed eave, point 3 of 5"), before a session and during
+  a step.
+- **Back and Redo.** **Back to the previous point**, in the dock, reopens
+  the point confirmed last at the pixel it was measured at. Every finished
+  row in Progress offers **Redo**.
+- **Progress at a glance.** The runs with something left come first under
+  **To do**, open; the finished runs fold to one line under **Done** ("32
+  steps in 12 runs"), which opens on a tap. Each run has a small bar and
+  n/n. The header shows the same bar as Setup.
 
 `anchors.yaml` holds four lists, each optional, one flow-style line per
 entry, sorted in layout order. Positions are run offsets, like
@@ -483,7 +529,8 @@ anchor for each side that sits inside its run (a run end is already fixed).
 The API lives under `/api/v1/calibration/` (`GET` for the state; `POST`
 `start`, `target`, `next`, `nudge`, `set`, `side`, `confirm`, `forget`,
 `end`), the CLI under `glowstack ctl cal`, and the live map has a
-Calibrate panel.
+Calibrate panel. To correct the last point, `POST` the state's `previous`
+to `target`.
 
 ### Areas and zones
 
@@ -1352,7 +1399,8 @@ desk.
     that puts the preview on the lights, and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy
     replaces the original.
-  - *Setup*: calibration, the overlays and their legend, the model's layers
+  - *Setup*: calibration first (a card with its progress bar while anything
+    is left to measure), the overlays and their legend, the model's layers
     or the plan, the camera, the stream rate, and the runs the
     plan or model doesn't draw.
   - *Status*: render rate and frame time, controllers (reachability, errors
@@ -1434,8 +1482,8 @@ desk.
   the same row as the primary, tops level; a phone has the same pair in
   its sticky bar, Clear as a compact button beside the green one. The
   action has one verb in every string: looks are **put on the lights**. Everywhere else a primary is inline and content
-  width: Setup's Calibrate, Calibrate's Start, an empty state's action, a
-  dialog's confirm. Heights are one value per pointer type (28 px on a fine
+  width: Setup's Calibrate (the tab's one green control), Calibrate's Start,
+  an empty state's action, a dialog's confirm. Heights are one value per pointer type (28 px on a fine
   pointer, 44 px on a coarse one); the calibration dock's buttons are the
   one exception, 56 px, because they are pressed while standing outside
   and looking at the lights. Labels are a verb first in sentence case
@@ -1481,7 +1529,10 @@ desk.
 - **Calibration mode.** On a phone, calibration (see "Calibration mode"
   above) takes the screen below a strip of map that keeps the cursor in
   view: what is being measured and Stop at the top, nudges and Confirm in
-  the thumb zone. Wider screens show it in place of the panel.
+  the thumb zone. Wider screens show it in place of the panel. The map
+  draws close markers as one with a count, the current target in cyan, and
+  frames each step; a double tap there fits the mode's view without
+  remembering it as the device's camera.
 - **Light on the device.** The map draws only when a frame arrives or the
   camera moves, and the stream drops to 10 fps while the page is hidden or
   the device runs on battery. Messages share one toast area. Escape unpins

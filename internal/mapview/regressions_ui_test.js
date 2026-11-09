@@ -903,7 +903,7 @@ test('B56: Previous and Next are placed before the instructions', () => {
 test('B57: the list marks the current step and scrolls to it only when it changes', async () => {
   const src = read('panel/calibrate.js');
   assert.match(src, /aria-current="step"/);
-  assert.match(src, /here-tag">Now</);
+  assert.match(src, /here-tag">\$\{active \? 'Now' : 'Start here'\}</);
   assert.match(src, /stepKey !== shownStep/);
 });
 
@@ -1179,7 +1179,7 @@ test('calibrate key: each entry is drawn as the map draws it', () => {
   assert.match(src, /sw ring dash" style="color:#ffb347"/);
   assert.match(src, /sw dot/);
   assert.match(src, /sw diamond/);
-  assert.match(src, /ring\(q, 8 \* k, measured \? '#5ddc8a' : '#ffb347', 2, measured \? null : \[3, 3\]\)/);
+  assert.match(src, /ring\(q, MARKER\.radius \* k, measured \? '#5ddc8a' : '#ffb347', MARKER\.width, measured \? null : \[3, 3\]\)/);
 });
 
 test('Setup leads with Calibrate and the color mode, and tucks the model behind Advanced', () => {
@@ -2647,9 +2647,9 @@ test('Refinement 5: a section status has its own slot', () => {
 
 test("Refinement 6: Calibrate's weight on Setup", () => {
   const setup = read('panel/setup.js');
-  assert.match(setup, /<div class="row"><button type="button" id="suCal" class="go icon-btn"><\/button><div class="muted small" id="suCalN"><\/div><\/div>/, 'the count shares the row; the button is content width (round 2, refinement 3)');
+  // (Series 2 round 4, move F: the count sits beside a progress bar above the button, which stays content width.)
+  assert.match(setup, /<div class="row"><button type="button" id="suCal" class="go icon-btn"><\/button><\/div>/, 'the button is content width (round 2, refinement 3)');
   assert.match(setup, /classList\.toggle\('started', \(st\?\.measured \|\| 0\) >= 1\)/, 'from the first measured point');
-  assert.match(css, /\.setup-cal:not\(\.started\) #suCalN \{ flex: 1 1 100%; \}/, 'at 0 measured the count takes its own line');
   assert.doesNotMatch(css, /#suCal \{ flex: none; \}/, 'no rule needed to shrink it: it was never stretched');
 });
 

@@ -9,6 +9,7 @@
 // model doesn't draw.
 import { $, esc, copyText, save, load, press, failure, plural, count, humanize } from '../util.js';
 import { calCount } from './calibrate.js';
+import { progressBar } from '../cal-points.js';
 import { controllerName, modelPartLabel } from '../names.js';
 import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
@@ -45,9 +46,10 @@ export function createSetup(S, root) {
   const undrawn = g.runs.filter((r) => r.plan < 0);
   root.innerHTML = `
     <h1 class="title">Set up the map</h1>
-    <section class="setup-cal">
-      <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
-      <div class="row"><button type="button" id="suCal" class="go icon-btn"></button><div class="muted small" id="suCalN"></div></div>
+    <section class="setup-cal lead" id="suCalCard" aria-label="Calibration">
+      <p class="muted" id="suCalWhat">Calibrating lines the map up with the real lights, one point at a time.</p>
+      <div class="cal-progress" id="suCalProgress" hidden><span id="suCalBar"></span><span class="muted small" id="suCalN"></span></div>
+      <div class="row"><button type="button" id="suCal" class="go icon-btn"></button></div>
     </section>
     <h2 class="sub">Color the map by</h2>
     <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
@@ -108,11 +110,24 @@ export function createSetup(S, root) {
   // The same count the calibration screen shows, from the same reading.
   // Once a point is measured, Calibrate is a button like the others, with
   // the count beside it; before that it is the panel's one big call.
+  // The card leads Setup while there is something left to measure: a raised
+  // surface with an accent, the sentence, a bar whose fill is done / total
+  // with the count beside it, and Calibrate as the tab's one green button.
+  // Once every step is done it is one line and stops leading.
   const showCount = (st) => {
     const count = st ? calCount(st) : null;
-    $$('#suCalN').textContent = count ? count.text : '';
+    const done = count ? st.progress.filter((i) => i.done).length : 0, total = count ? st.progress.length : 0;
+    const bar = progressBar(done, total);
+    const complete = total > 0 && done === total;
+    $$('#suCalBar').innerHTML = count && !complete ? bar.html : '';
+    $$('#suCalN').textContent = !count ? '' : complete ? `Calibrated: ${done} of ${total}` : bar.words;
     $$('#suCalN').title = count ? count.title : '';
-    $$('.setup-cal').classList.toggle('started', (st?.measured || 0) >= 1);
+    $$('#suCalProgress').hidden = !count;
+    $$('#suCalWhat').hidden = complete;
+    const card = $$('#suCalCard');
+    card.classList.toggle('lead', !complete);
+    card.classList.toggle('complete', complete);
+    card.classList.toggle('started', (st?.measured || 0) >= 1);
   };
   S.on('calprogress', showCount);
 

@@ -388,7 +388,7 @@ function tapAt(x, y) {
   const radius = S.coarse ? 24 : 12;
   if (S.calibrating) {
     const p = S.view.pickPixel(x, y, radius);
-    S.calib.tapped(p);
+    S.calib.tapAt(x, y, p);
     return;
   }
   const ri = S.view.pickRun(x, y, radius, S.pickRuns);
@@ -451,7 +451,9 @@ function bindMap() {
     const now = e.timeStamp;
     if (lastTap && now - lastTap.t < 320 && Math.hypot(t.x - lastTap.x, t.y - lastTap.y) < 24) {
       lastTap = null;
-      S.view.setView('fit');
+      // A double tap fits. While calibrating that is the mode's own framing:
+      // it is not remembered as this device's camera.
+      if (S.calibrating && S.view.fitAll) S.view.fitAll(); else S.view.setView('fit');
       return;
     }
     lastTap = { x: t.x, y: t.y, t: now };
@@ -800,6 +802,7 @@ function bindChrome() {
   addEventListener('keydown', (e) => {
     const t = e.target;
     if (t && t.closest?.('dialog')) return; // Escape there is the dialog's
+    if (S.calibrating) return; // calibration has its own keys: Escape asks to stop
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.key === 'Escape') {
       if (S.presetLibrary.closeEditor()) return;

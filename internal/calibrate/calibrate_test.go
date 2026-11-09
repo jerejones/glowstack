@@ -727,3 +727,62 @@ func TestConfirmAdvancesAndResumesOnNextAnchor(t *testing.T) {
 		t.Fatalf("second confirm did not advance: %+v", st)
 	}
 }
+
+// A point confirmed in the wrong place can be reopened and corrected: the
+// session remembers the last confirmed target, selecting it again starts
+// from its measured value, and confirming again replaces that value without
+// changing how many points are measured.
+func TestReopenTheLastConfirmedPointAndCorrectIt(t *testing.T) {
+	f := newFixture(t, "", unmeasureNW)
+	nw := Target{Kind: KindAnchor, Run: "shed-eave", Node: "shed-nw"}
+	st := f.ok(f.m.Select(nw))
+	if st.Previous != nil {
+		t.Fatalf("previous before any confirm = %+v", st.Previous)
+	}
+	f.ok(f.m.Set(-1, 320))
+	st = f.ok(f.m.Confirm(ConfirmOptions{Next: true}))
+	if st.Previous == nil || st.Previous.Kind != KindAnchor || st.Previous.Run != "shed-eave" || st.Previous.Node != "shed-nw" {
+		t.Fatalf("previous after confirm = %+v", st.Previous)
+	}
+	if st.Target.Node == "shed-nw" {
+		t.Fatalf("confirm with next stayed on %v", st.Target)
+	}
+	measured := st.Measured
+	if measured != 1 {
+		t.Fatalf("measured after the first confirm = %d", measured)
+	}
+
+	// Back to the previous point: it opens at the value just measured.
+	st = f.ok(f.m.Select(*st.Previous))
+	c := st.Cursors[0]
+	if st.Target.Node != "shed-nw" || c.Index != 320 || c.Estimate != 320 || c.Source != layout.SourceMeasured || c.Moved {
+		t.Fatalf("reopened cursor = %+v (target %v)", c, st.Target)
+	}
+	// Change it and confirm again: the second value is the stored one.
+	f.ok(f.m.Nudge(-1, -10))
+	f.ok(f.m.Nudge(-1, -1))
+	st = f.ok(f.m.Confirm(ConfirmOptions{}))
+	if !strings.Contains(f.file(), "  - { run: shed-eave, node: shed-nw, offset: 309, pixels: 482, source: measured }\n") || strings.Contains(f.file(), "offset: 320") {
+		t.Errorf("anchors.yaml after the correction:\n%s", f.file())
+	}
+	if a := f.anchor("shed-eave", "shed-nw"); a.Index != 309 || a.Source != layout.SourceMeasured {
+		t.Errorf("shed-nw after the correction = %+v", a)
+	}
+	if st.Measured != measured || st.Anchors != 4 {
+		t.Errorf("done count changed: %d of %d, was %d", st.Measured, st.Anchors, measured)
+	}
+	if st.Previous == nil || st.Previous.Node != "shed-nw" {
+		t.Errorf("previous after the correction = %+v", st.Previous)
+	}
+
+	// Forgetting that point leaves nothing to go back to, and so does ending.
+	st = f.ok(f.m.Forget(&nw))
+	if st.Previous != nil {
+		t.Errorf("previous after forgetting it = %+v", st.Previous)
+	}
+	f.ok(f.m.Select(nw))
+	f.ok(f.m.Confirm(ConfirmOptions{}))
+	if st = f.m.End(); st.Previous != nil {
+		t.Errorf("previous after the session ended = %+v", st.Previous)
+	}
+}

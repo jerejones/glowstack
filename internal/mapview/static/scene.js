@@ -433,6 +433,25 @@ export async function open(glCanvas, input, opts) {
     return { dir: toThree(THREE_QUARTER).normalize(), target: null };
   }
 
+  // glide moves the camera to (dir, target, dist): at once, or eased over ms.
+  // A drag takes the camera from it at any moment.
+  let gliding = 0;
+  function glide(dir, target, dist, ms = 0) {
+    cancelAnimationFrame(gliding);
+    if (!(ms > 0)) { place(dir, target, dist); return; }
+    const p0 = camera.position.clone(), t0 = controls.target.clone(), p1 = target.clone().addScaledVector(dir, dist), t1 = target.clone(), start = performance.now();
+    const step = () => {
+      const k = Math.min(1, (performance.now() - start) / ms), e = 1 - (1 - k) ** 3;
+      controls.target.lerpVectors(t0, t1, e);
+      camera.position.lerpVectors(p0, p1, e);
+      camera.lookAt(controls.target);
+      controls.update();
+      changed();
+      if (k < 1) gliding = requestAnimationFrame(step);
+    };
+    gliding = requestAnimationFrame(step);
+  }
+
   let restoring = false;
   const emit = () => { if (opts.onCamera) opts.onCamera(api.cameraState()); };
   const remember = () => {
@@ -474,11 +493,14 @@ export async function open(glCanvas, input, opts) {
       settle = setTimeout(() => { remember(); emit(); }, 400);
     }
   });
+  let held = false; // a gesture has hold of the camera, moved yet or not
   controls.addEventListener('start', () => {
+    held = true;
+    cancelAnimationFrame(gliding); // the camera is the user's from here
     controls.autoRotate = false;
     grab = { pos: camera.position.clone(), target: controls.target.clone() };
   });
-  controls.addEventListener('end', () => { grab = null; });
+  controls.addEventListener('end', () => { grab = null; held = false; });
 
   function setView(name) {
     if (name === 'fit') {
@@ -738,13 +760,25 @@ export async function open(glCanvas, input, opts) {
       else { project(); place(h.pos.clone().sub(h.target).normalize(), h.target, h.pos.distanceTo(h.target)); }
       emit();
     },
+    // dragging says a gesture has hold of the camera.
+    dragging: () => held,
+    // fitAll frames every drawn light from the current direction with the
+    // fit's own margins, without remembering it (calibration opens on this;
+    // hold and release put the user's camera back).
+    fitAll() {
+      cancelAnimationFrame(gliding);
+      cam.dir = camera.position.clone().sub(controls.target).normalize();
+      cam.target = null; cam.auto = true;
+      frame();
+    },
     // frameIds frames the given pixels from the current direction,
-    // without remembering it.
-    frameIds(ids) {
+    // without remembering it. opts.pad is the room around them as a share of
+    // their size (5% by default); opts.ease glides there over that many ms.
+    frameIds(ids, opts = {}) {
       const b = new THREE.Box3();
       for (const p of ids) if (flags[p] < 4) b.expandByPoint(new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]));
       if (b.isEmpty()) return;
-      const pad = Math.max(0.4, b.getSize(new THREE.Vector3()).length() * 0.05);
+      const pad = Math.max(0.4, b.getSize(new THREE.Vector3()).length() * (opts.pad ?? 0.05));
       b.expandByScalar(pad);
       const pts = [];
       for (let i = 0; i < 8; i++) pts.push(new THREE.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z));
@@ -752,7 +786,7 @@ export async function open(glCanvas, input, opts) {
       const t = b.getCenter(new THREE.Vector3());
       project();
       cam.auto = false;
-      place(dir, t, fitDistance(dir, t, pts));
+      glide(dir, t, fitDistance(dir, t, pts), opts.ease || 0);
     },
     // frameTight frames the given pixels from the current direction as closely
     // as the opening view frames the lights: to the pixels themselves.
