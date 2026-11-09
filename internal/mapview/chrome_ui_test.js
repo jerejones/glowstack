@@ -17,7 +17,7 @@ test('map status never disagrees with its toggle', async () => {
   const none = mapStatus({ ...live, show: '', preview: { previewing: false } });
   assert.equal(none.showing, 'lights', 'Preview must not be pressed with nothing previewing');
   assert.equal(none.canPreview, false);
-  assert.equal(none.text + none.detail, 'Showing the lights · nothing in preview');
+  assert.equal(none.text + none.detail, 'Showing the lights · no preview');
   const on = mapStatus({ ...live, show: '', preview: { previewing: true } });
   assert.equal(on.showing, 'preview');
   assert.equal(on.text, 'Showing your preview');

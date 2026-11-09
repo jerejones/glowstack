@@ -554,7 +554,7 @@ function badge() {
     press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
     if (t.dataset.show === '') {
       t.disabled = !m.canPreview;
-      t.title = m.canPreview ? 'Your preview layers, on the map only' : `Nothing in preview. ${S.coarse ? 'Tap' : 'Click'} a look to try one.`;
+      t.title = m.canPreview ? 'Your preview layers, on the map only' : `No preview yet. ${S.coarse ? 'Tap' : 'Click'} a look to preview it.`;
     }
   }
 }

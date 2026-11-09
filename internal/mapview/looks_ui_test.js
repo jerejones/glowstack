@@ -110,7 +110,7 @@ test('the lanes use the shared states, including a failed load', async () => {
   const { previewState, houseState } = await import('./static/panel/looks.js');
   assert.equal(previewState(null, 'loading').kind, 'loading');
   assert.equal(previewState(null, 'failed').kind, 'error');
-  assert.equal(previewState({ layers: [] }, 'ready', 'Click').detail, "Click a look to try it on the map; the lights don't change.");
+  assert.equal(previewState({ layers: [] }, 'ready', 'Click').detail, "Click a look to preview it on the map; the lights don't change.");
   assert.equal(previewState({ layers: [{}] }, 'ready'), null);
   assert.equal(houseState('loading', 0).kind, 'loading');
   assert.equal(houseState('unavailable', 0).kind, 'error');

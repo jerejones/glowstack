@@ -23,7 +23,7 @@ export function mapStatus({ connected, show, preview, target, mode = 'live' }) {
   if (showing === 'preview') {
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }
-  return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · nothing in preview', cls: 'house', title: 'The map shows what the lights show' };
+  return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
 }
 
 // badgeHTML is the chip's content. One element holds both parts: the chip

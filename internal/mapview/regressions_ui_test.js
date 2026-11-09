@@ -79,7 +79,7 @@ test('Pin and Pinned take the same width', () => {
 test('the map chip keeps its space before the dot', async () => {
   const { badgeHTML, mapStatus } = await import('./static/map-status.js');
   const m = mapStatus({ connected: true, target: false, show: '', preview: { previewing: false } });
-  assert.equal(badgeHTML(m), '<span>Showing the lights<span class="detail"> · nothing in preview</span></span>');
+  assert.equal(badgeHTML(m), '<span>Showing the lights<span class="detail"> · no preview</span></span>');
   assert.match(css, /\.badge \{[\s\S]*?display: inline-flex/, 'the chip is flex, which is why it needs the wrapper');
 });
 
@@ -273,7 +273,7 @@ test('Remove looks the same in both lanes, and layer bars follow the lane', () =
 });
 
 test('a look in preview somewhere else stays marked', () => {
-  assert.match(read('panel/looks.js'), /In preview elsewhere/);
+  assert.match(read('panel/looks.js'), /Previewing elsewhere/);
   assert.match(css, /\.preset\.elsewhere \{/);
 });
 
@@ -350,7 +350,7 @@ test('B36: Apply closes Show on', () => {
 test('B37: the inspect card reads like the panel', async () => {
   const { showingLabel } = await import('./static/form.js');
   const S = { presets: [{ id: 'lantern-glow', name: 'Lantern glow', effect: 'bands', params: {} }], catalog: { effects: [{ id: 'chase', name: 'Chase', params: [] }] } };
-  assert.equal(showingLabel(S, { layer: 'p1', preview: true, preset: 'lantern-glow', effect: 'bands' }, 'everything'), 'Lantern glow (in preview) on everything');
+  assert.equal(showingLabel(S, { layer: 'p1', preview: true, preset: 'lantern-glow', effect: 'bands' }, 'everything'), 'Lantern glow (preview) on everything');
   assert.equal(showingLabel(S, { layer: 'x', effect: 'chase' }, 'Porch'), 'Chase on Porch');
   assert.doesNotMatch(read('app.js'), /sh\.layer|preset ' \+ esc/);
 });
@@ -596,12 +596,10 @@ test('B49: a full sheet leaves the map room, with chip and toggle above it', asy
 
 test('B50: a phone preset row is one action, Pin and a More holding the rest; Delete is one style', () => {
   const src = read('panel/presets.js');
-  assert.match(src, /data-act="more" class="preset-more"/);
-  assert.match(src, /<span class="preset-overflow">.*data-act="edit".*data-act="copy".*data-act="delete" class="danger"/s);
-  assert.match(css, /\.preset-overflow \{ display: none; flex-basis: 100%/);
-  assert.match(css, /\.preset-more \{ display: none; \}/, 'desktop has no More');
-  assert.match(css, /\.preset-overflow \{ display: contents; \}/);
-  assert.match(css, /\.preset-actions button\.danger \{ color: #fca5a5; \}/);
+  assert.match(src, /data-act="more"[^>]*aria-haspopup="menu"/);
+  assert.match(src, /role="menu" hidden>.*role="menuitem" data-act="edit".*role="menuitem" data-act="copy".*role="menuitem" data-act="delete" class="danger"/s);
+  assert.match(css, /\.preset-menu \{ position: absolute/);
+  assert.match(css, /\.preset-menu button\.danger \{ color: #fca5a5/);
 });
 
 test('B51: a field error is directly under its field, in one layout', () => {
@@ -846,4 +844,20 @@ test('one spinner at boot, and error bodies are all regular weight', () => {
   assert.doesNotMatch(read('app.js'), /title: 'Loading…'/);
   assert.match(css, /\.state-text span \{[^}]*font-weight: 400/);
   assert.match(css, /\.verdict \.state \{[^}]*font-weight: 400/);
+});
+
+test('preset row actions sit on the card edge, and More is a real menu', () => {
+  assert.doesNotMatch(/^\.preset-actions \{[^}]*\}/m.exec(css)[0], /margin-left: -/);
+  const src = read('panel/presets.js');
+  for (const piece of ["icon('more')", "icon('edit')", "icon('copy')", "icon('trash')", 'ArrowDown', "escapeCloses(row.querySelector('.menu-wrap')"]) assert.ok(src.includes(piece), piece);
+});
+
+test('one word for previewing, in purple, and stacking is said out loud', () => {
+  const looks = read('panel/looks.js'), presets = read('panel/presets.js');
+  assert.doesNotMatch(looks, /In preview|>Try</);
+  assert.match(presets, /'Previewing' : 'Preview'/);
+  assert.doesNotMatch(presets, /Trying/);
+  assert.match(css, /\[data-act=try\]\[aria-pressed=true\] \{ color: var\(--preview\)/);
+  assert.match(looks, /Looks stack\. The top one in this list is in front wherever they overlap\./);
+  assert.match(looks, /layers\.length > 1 && l === layers\[0\]/);
 });

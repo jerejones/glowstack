@@ -20,7 +20,7 @@ export function presetSlug(name, presets) {
 
 export function createPresets(S, root) {
   let draft = null, dirty = false, busy = false, form;
-  const openMore = new Set(); // presets whose More row is open on a phone
+  let closeMenu = null; // closes the row menu that's open
   root.innerHTML = `
     <div class="row library-heading"><h1 class="title">Presets</h1><button type="button" id="prNew">New preset</button></div>
     <p class="muted small">Save looks for later. Pin favorites to keep them visible on Looks.</p>
@@ -48,7 +48,40 @@ export function createPresets(S, root) {
   };
   const endpoint = (id) => '/api/v1/presets/' + encodeURIComponent(id);
 
+  // wireMenu makes a row's More a real menu: one open at a time, closed by
+  // Escape, a tap elsewhere or a choice, with the arrow keys moving through it.
+  function wireMenu(row) {
+    const more = row.querySelector('[data-act=more]'), menu = row.querySelector('.preset-menu');
+    const items = [...menu.children];
+    const outside = (e) => { if (!menu.contains(e.target) && !more.contains(e.target)) close(); };
+    function close() {
+      menu.hidden = true;
+      more.setAttribute('aria-expanded', 'false');
+      document.removeEventListener('pointerdown', outside, true);
+      if (closeMenu === close) closeMenu = null;
+    }
+    more.onclick = () => {
+      if (!menu.hidden) { close(); return; }
+      closeMenu?.();
+      menu.hidden = false;
+      more.setAttribute('aria-expanded', 'true');
+      closeMenu = close;
+      document.addEventListener('pointerdown', outside, true);
+      menu.scrollIntoView({ block: 'nearest' });
+      items[0].focus({ preventScroll: true });
+    };
+    menu.addEventListener('click', close);
+    menu.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const i = items.indexOf(document.activeElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    });
+    escapeCloses(row.querySelector('.menu-wrap'), () => !menu.hidden, () => { close(); more.focus(); });
+  }
+
   function renderList() {
+    closeMenu?.();
     if (S.library.presets === 'failed') {
       $('#prNew').disabled = true;
       showState($('#prList'), { kind: 'error', title: 'Could not load your presets', detail: 'They are safe; Glowstack just could not read them.', retry: S.retryLibrary });
@@ -64,15 +97,10 @@ export function createPresets(S, root) {
       row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div><div class="preset-actions">
         <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
         <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'presetsFilled' : 'presets')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
-        <button type="button" data-act="more" class="preset-more" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}">More</button>
-        <span class="preset-overflow"><button type="button" data-act="edit">Edit</button><button type="button" data-act="copy">Duplicate</button><button type="button" data-act="delete" class="danger">Delete</button></span></div>`;
+        <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}">${icon('more')}More</button>
+          <div class="preset-menu" role="menu" hidden><button type="button" role="menuitem" data-act="edit">${icon('edit')}Edit</button><button type="button" role="menuitem" data-act="copy">${icon('copy')}Duplicate</button><button type="button" role="menuitem" data-act="delete" class="danger">${icon('trash')}Delete</button></div></div></div>`;
       row.querySelector('.strip').style.background = lookStrip(S, p.effect, p.params);
-      // On a phone, the row is the one action and Pin; More holds the rest.
-      const acts = row.querySelector('.preset-actions'), more = row.querySelector('[data-act=more]');
-      const setMore = (on) => { acts.classList.toggle('more-open', on); more.setAttribute('aria-expanded', on); };
-      setMore(openMore.has(p.id));
-      more.onclick = () => { if (openMore.has(p.id)) openMore.delete(p.id); else openMore.add(p.id); setMore(openMore.has(p.id)); };
-      escapeCloses(acts, () => openMore.has(p.id), () => { openMore.delete(p.id); setMore(false); more.focus(); });
+      wireMenu(row);
       row.querySelector('[data-act=try]').dataset.preset = p.id;
       row.querySelector('[data-act=try]').onclick = () => S.looks.push({ preset: p.id });
       row.querySelector('[data-act=edit]').onclick = () => openEditor(p);
@@ -189,7 +217,7 @@ export function createPresets(S, root) {
   function markTry() {
     for (const b of root.querySelectorAll('[data-act=try]')) {
       const on = !!S.looks?.inPreview(b.dataset.preset);
-      b.textContent = on ? 'Trying' : 'Try';
+      b.textContent = on ? 'Previewing' : 'Preview';
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }

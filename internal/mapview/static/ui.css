@@ -350,8 +350,6 @@ input[type=checkbox]:checked::after {
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }
-  .preset-more { display: none; }
-  .preset-overflow { display: contents; }
 }
 
 .tab > h2:first-child, .tab > .row:first-child { margin-top: 10px; }
@@ -602,19 +600,19 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .editor-actions { position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; margin: 10px -12px -12px; padding: 8px 12px; background: var(--surface, #16191e); border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
 .preset-editor, .preset-entry { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 12px 0; background: var(--surface, #16191e); }
 .preset-title { display: grid; gap: 4px; margin: 8px 0; overflow-wrap: anywhere; }
-.preset-actions { display: flex; gap: 2px; flex-wrap: wrap; margin-left: -8px; }
-.preset-actions button { background: transparent; border-color: transparent; color: var(--muted); padding: 0 8px; }
-.preset-overflow { display: none; flex-basis: 100%; gap: 2px; }
-.preset-actions.more-open .preset-overflow { display: flex; }
-.preset-actions button:hover, .preset-actions button:focus-visible { color: var(--fg); border-color: var(--line); }
-.preset-actions button.danger { color: #fca5a5; }
-.preset-actions button.danger:hover, .preset-actions button.danger:focus-visible { color: #fecaca; border-color: #7f1d1d; }
-.preset-actions button { display: inline-flex; align-items: center; justify-content: center; }
-.preset-actions [data-act=try] { min-width: 4.6em; color: var(--fg); border-color: var(--line-strong); }
+.preset-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.preset-actions button { display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--fg); padding: 0 8px; }
+.preset-actions [data-act=try] { min-width: 6em; }
 .preset-actions .pin { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
 /* Wide enough for Pinned, so the row lines up whichever a card says. */
 .preset-actions [data-act=pin] { width: 6.6em; padding: 0; }
-.preset-actions [aria-pressed=true] { color: var(--accent); border-color: var(--accent); }
+.preset-actions [data-act=pin][aria-pressed=true] { color: var(--accent); border-color: var(--accent); }
+.preset-actions [data-act=try][aria-pressed=true] { color: var(--preview); border-color: var(--preview); }
+.menu-wrap { position: relative; }
+.preset-menu { position: absolute; z-index: 4; top: calc(100% + 4px); right: 0; min-width: 160px; display: grid; gap: 2px; padding: 4px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+.preset-menu button { justify-content: flex-start; gap: 8px; border-color: transparent; }
+.preset-menu button.danger { color: #fca5a5; border-color: transparent; }
+.preset-menu button:hover, .preset-menu button:focus-visible { background: var(--card); border-color: var(--line); }
 .preset-entry > .strip { display: block; height: 10px; border-radius: 3px; border: 1px solid var(--rim); }
 .preset-editor h3 { margin-top: 0; }
 .preset-editor .row { flex-wrap: wrap; }

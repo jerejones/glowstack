@@ -38,7 +38,7 @@ export function layerName(S, layer) {
 // showingLabel is what the inspect card says a pixel shows, in the panel's
 // words: where is the place as the layer's card reads it.
 export function showingLabel(S, sh, where) {
-  return `${layerName(S, sh)}${sh.preview ? ' (in preview)' : ''}${where ? ' on ' + where : ''}`;
+  return `${layerName(S, sh)}${sh.preview ? ' (preview)' : ''}${where ? ' on ' + where : ''}`;
 }
 
 // palette finds a palette as the server does: by id, then by name in

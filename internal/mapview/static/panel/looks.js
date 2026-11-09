@@ -55,7 +55,7 @@ export function clockText(st, scrubbing = false) {
 
 // previewState is the Preview lane's state when it has no layers to list.
 export function previewState(preview, status, word = 'Tap') {
-  if (preview) return preview.layers.length ? null : { kind: 'empty', title: 'Nothing in preview', detail: `${word} a look to try it on the map; the lights don't change.` };
+  if (preview) return preview.layers.length ? null : { kind: 'empty', title: 'No preview yet', detail: `${word} a look to preview it on the map; the lights don't change.` };
   return status === 'failed' ? { kind: 'error', title: 'Could not load the preview', detail: "Glowstack didn't answer. The lights are not affected." } : { kind: 'loading', title: 'Loading the preview…' };
 }
 
@@ -74,7 +74,7 @@ export function nowLine({ house, previewing, status, read, word, nameOf }) {
   if (status !== 'available' && !read) return null;
   const stale = status !== 'available';
   const main = house.length ? `On the lights: ${nameOf(house)}` : 'Nothing on the lights';
-  const sub = stale ? "Couldn't refresh. This is the last known state." : previewing || house.length ? '' : `${word} a look to try it on the map; the lights don't change.`;
+  const sub = stale ? "Couldn't refresh. This is the last known state." : previewing || house.length ? '' : `${word} a look to preview it on the map; the lights don't change.`;
   return { main, sub, stale };
 }
 
@@ -136,6 +136,7 @@ export function createLooks(S, root) {
     <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
     <div class="lane" id="lkPreview">
       <div class="row"><h2>Preview <small>on the map only</small></h2></div>
+      <p class="muted small stack-note" id="lkStack" hidden>Looks stack. The top one in this list is in front wherever they overlap.</p>
       <div class="list"></div>
     </div>
     <div class="lane" id="lkHouse">
@@ -236,7 +237,7 @@ export function createLooks(S, root) {
     b.type = 'button';
     b.className = 'preset';
     b.title = title || '';
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}In preview</span>`;
+    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}Previewing</span>`;
     b.dataset.look = look;
     b.onclick = onclick;
     return b;
@@ -284,7 +285,7 @@ export function createLooks(S, root) {
       const inPreview = on.has(b.dataset.look), other = !inPreview && elsewhere.has(b.dataset.look);
       b.classList.toggle('in-preview', inPreview);
       b.classList.toggle('elsewhere', other);
-      b.querySelector('.in-badge').lastChild.textContent = other ? 'In preview elsewhere' : 'In preview';
+      b.querySelector('.in-badge').lastChild.textContent = other ? 'Previewing elsewhere' : 'Previewing';
       b.setAttribute('aria-pressed', inPreview ? 'true' : 'false');
     }
   }
@@ -381,7 +382,7 @@ export function createLooks(S, root) {
     return c;
   }
 
-  function updateCard(c, l) {
+  function updateCard(c, l, onTop = false) {
     c.layer = l;
     const el = c.el;
     el.style.setProperty('--acc', c.lane === 'preview' ? 'var(--preview)' : 'var(--house)');
@@ -389,6 +390,7 @@ export function createLooks(S, root) {
     const bits = ['on ' + (l.target === 'all' ? 'everything' : targetName(g, l.target))];
     if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
     if (l.expires) bits.push('until ' + new Date(l.expires).toLocaleTimeString());
+    if (onTop) bits.push('on top');
     el.querySelector('.what span').textContent = bits.join(' · ');
     const eff = effectFor(S, l);
     el.querySelector('.strip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
@@ -412,10 +414,11 @@ export function createLooks(S, root) {
     let prev = null;
     for (const l of layers) {
       const key = lane + ':' + l.id;
+      const onTop = layers.length > 1 && l === layers[0]; // the server lists them top first
       keep.add(key);
       let c = cards.get(key);
       if (!c) { c = makeCard(lane, l); cards.set(key, c); }
-      updateCard(c, l);
+      updateCard(c, l, onTop);
       const next = prev ? prev.nextSibling : box.firstChild;
       if (c.el !== next) box.insertBefore(c.el, next);
       prev = c.el;
@@ -445,6 +448,7 @@ export function createLooks(S, root) {
     laneState(pbox, previewNote);
     // An empty lane says nothing the current-state line doesn't.
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
+    $$('#lkStack').hidden = prev.length < 2;
     for (const c of cards.values()) {
       if (c.lane === 'preview') c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
     }
@@ -517,7 +521,7 @@ export function createLooks(S, root) {
     const l = prev[0];
     const eff = effectFor(S, l);
     $$('#lkBarStrip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
-    $$('#lkBarName').textContent = prev.length === 1 ? layerName(S, l) : `${prev.length} looks in preview`;
+    $$('#lkBarName').textContent = prev.length === 1 ? layerName(S, l) : `Previewing ${prev.length} looks`;
     $$('#lkBarSub').textContent = prev.length === 1 ? `on ${l.target === 'all' ? 'everything' : targetName(g, l.target)}` : prev.map((x) => layerName(S, x)).join(', ');
     const updates = prev.some((x) => copies[x.id]);
     const n = prev.length === 1 ? '' : prev.length + ' ';
