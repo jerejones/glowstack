@@ -2150,6 +2150,8 @@ test('B115: icon buttons in the Tweak form keep the icon beside the label', () =
 test('Tweak has its own icon, not the Setup tab\'s sliders', () => {
   const icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
   assert.notEqual(path('tweak'), path('setup'));
+  assert.doesNotMatch(path('tweak'), /M8 4\.5a4\.5/, 'not the stopwatch all three reviewers read');
+  assert.equal(path('tweak').match(/M[\d.]+ [\d.]+[aA]1\.75/g).length, 3, 'three upright sliders; Setup has two lying flat');
   assert.notEqual(path('tweak'), path('edit'));
 });
 
