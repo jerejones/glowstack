@@ -290,6 +290,15 @@ export function normRanges(rs) {
   return out;
 }
 export const countRanges = (rs) => rs.reduce((n, r) => n + r[1] - r[0] + 1, 0);
+// minusCount is how many pixels of set a are not in set b.
+export function minusCount(a, b) {
+  let n = countRanges(a), i = 0;
+  for (const [lo, hi] of a) {
+    while (i < b.length && b[i][1] < lo) i++;
+    for (let j = i; j < b.length && b[j][0] <= hi; j++) n -= Math.min(hi, b[j][1]) - Math.max(lo, b[j][0]) + 1;
+  }
+  return n;
+}
 // covers reports whether set a holds every pixel of set b.
 export function covers(a, b) {
   let i = 0;

@@ -2746,7 +2746,7 @@ test('Refinement 4 (round 2): the chip names what is on the lights, with weight'
 test('Refinement 5 (round 2): a denser desktop library and compact preset rows', () => {
   // Looks: three columns at the 580 px pane (no four), spacing of 6 and 4 so a fourth row fits at 1440x900.
   assert.match(css, /@media \(min-width: 1280px\) \{ \.cards \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \} \}/);
-  assert.doesNotMatch(css, /repeat\(4, minmax/, 'no four-column grid');
+  assert.doesNotMatch(css, /\.cards[^{]*\{[^}]*repeat\(4, minmax/, 'no four-column library grid (Status\'s tile row is four across by design)');
   assert.match(css, /\.cards \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(132px, 1fr\)\); gap: 6px; \}/);
   assert.match(css, /\.stage \{ margin: 0 0 6px;/);
   assert.match(css, /\.catalog-head \{[^}]*margin: 4px 0 4px; \}/);
@@ -2763,6 +2763,42 @@ test('Refinement 5 (round 2): a denser desktop library and compact preset rows',
   assert.match(src, /data-act="more"[^>]*aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="Edit, duplicate or delete">\$\{icon\('more'\)\}<span class="lbl">More<\/span>/);
   assert.match(src, /b\.innerHTML = `\$\{icon\('eye'\)\}<span class="lbl">\$\{on \? 'Previewing' : 'Preview'\}<\/span>`;\s*b\.setAttribute\('aria-label', on \? 'Previewing' : 'Preview'\);/);
   assert.match(src, /row\.querySelector\('\[data-act=try\]'\)\.onclick = row\.querySelector\('\.preset-body'\)\.onclick/, 'the row body previews');
+});
+
+test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay beneath in amber', async () => {
+  const { litCount, tileFacts } = await import('./static/panel/status.js');
+  const { minusCount } = await import('./static/util.js');
+  assert.equal(minusCount([[0, 9], [20, 29]], [[5, 24]]), 10, 'pixels of a not in b');
+  assert.equal(minusCount([[0, 9]], []), 10);
+  assert.equal(minusCount([[0, 9]], [[0, 9]]), 0);
+  const g = { areas: [{ id: 'a', ranges: [[0, 9]] }, { id: 'b', ranges: [[10, 19]] }], zones: [{ id: 'a', area: 'a' }, { id: 'b', area: 'b' }] };
+  assert.equal(litCount(g, { brightness: { master: 1, zones: { a: 1, b: 0 } } }, [[[0, 19]]]), 10, 'the dark zone is not lit');
+  assert.equal(litCount(g, { brightness: { master: 1, zones: { a: 1, b: 1 } } }, [[[0, 4]], [[2, 7]]]), 8, 'overlaps count once');
+  assert.equal(litCount(g, { brightness: { master: 0, zones: {} } }, [[[0, 19]]]), 0);
+  assert.equal(litCount(g, {}, null), null, 'layers not read yet');
+  const health = { up: 1, n: 2, cls: 'bad', text: "Controllers: 1 isn't reachable" };
+  const facts = tileFacts({ lit: 10, total: 20, health, late: 0, fps: { measured: 40.02, target: 40 }, power: { overall: '1.08 A', limiting: 'None needed', partial: false, anyKnown: true } });
+  assert.deepEqual(facts.map((f) => [f.v, f.label, f.cls]), [['10', 'lights lit', 'warn'], ['1 of 2', 'controllers reachable', 'bad'], ['0', 'late frames', 'ok'], ['1.08 A', 'power estimate', 'ok']]);
+  assert.equal(facts[3].power, true, 'the power tile links to the Power section');
+  const full = tileFacts({ lit: 20, total: 20, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 3, fps: { measured: 39, target: 40 }, power: null });
+  assert.deepEqual(full.map((f) => [f.v, f.cls]), [['20', 'ok'], ['2 of 2', 'ok'], ['3', 'warn'], ['—', '']]);
+  const notSet = tileFacts({ lit: 0, total: 0, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 0, fps: { measured: 40, target: 40 }, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
+  assert.equal(notSet[0].cls, '', 'nothing on the lights is not a warning');
+  assert.deepEqual([notSet[3].v, notSet[3].cls], ['Not set', '']);
+  assert.match(notSet[3].title, /Opens the Power note/);
+  assert.equal(tileFacts({ lit: null, total: 0, health: { up: 0, n: 2, cls: '', text: '' }, late: 0, fps: { measured: 0, target: 40 }, power: null })[0].v, '—');
+  // Markup and wiring: tiles first, the verdict (with its warning count) and the warnings beneath.
+  const status = read('panel/status.js');
+  assert.ok(status.indexOf('id="stTiles"') < status.indexOf('id="stVerdict"') && status.indexOf('id="stVerdict"') < status.indexOf('id="stIssues"'), 'tiles, verdict, warnings');
+  assert.match(status, /lastPower = pw;\s*if \(last\) renderTiles\(last\);/, 'the power reading redraws the tiles');
+  assert.match(status, /<button type="button" class="stat \$\{f\.cls\}" id="stPowerTile"/);
+  assert.match(status, /\$\$\('#stHealth'\)\.hidden = !readAt;/, 'the plain health line only when the reading is stale: the tile says it otherwise');
+  assert.match(status, /const byFault = \[\.\.\.g\.controllers\]\.sort\(\(a, b\) => \(healthOf\(st\.health, a\.id\)\?\.reachable === false \? 0 : 1\) - \(healthOf\(st\.health, b\.id\)\?\.reachable === false \? 0 : 1\)\);/, 'an unreachable controller sorts first');
+  assert.match(css, /\.tiles \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-auto-rows: 1fr; gap: 6px; margin: 0 0 10px; \}/);
+  assert.match(css, /\.tiles \.stat\.bad b \{ color: #fca5a5; \}\s*\.tiles \.stat\.warn b \{ color: var\(--warn\); \}/, 'state colors on the figure');
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px)'));
+  assert.match(phone, /\.tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/, 'two by two on a phone');
+  assert.match(css, /\.verdict\.warn \{ color: var\(--warn\); \}/, 'the warning beneath stays amber');
 });
 
 test('B138: the compact state card never cuts its own words', async () => {

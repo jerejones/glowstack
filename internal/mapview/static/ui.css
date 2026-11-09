@@ -849,6 +849,15 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .power .total + tr:not(.total) td { border-top: 1px solid var(--line); }
 .power .bar { min-width: 60px; }
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 6px; margin-top: 8px; }
+/* Status's headline tiles: four across on the panel, two by two on a phone; the figure takes the
+ * state's color, the words stay muted. The power tile is a button to the Power section. */
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 6px; margin: 0 0 10px; }
+.tiles .stat.ok b { color: var(--house); }
+.tiles .stat.bad b { color: #fca5a5; }
+.tiles .stat.warn b { color: var(--warn); }
+button.stat { display: block; width: 100%; min-height: 0; min-width: 0; text-align: left; font: inherit; color: var(--fg); border-color: var(--line); }
+button.stat:hover { border-color: #8b95a3; background: var(--card2); }
+@media (max-width: 699.98px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } } /* after the base rule, which would otherwise win on order */
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .stat b { display: block; font-size: var(--t-stat); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .stat span { display: block; color: var(--muted); font-size: var(--t-meta); }

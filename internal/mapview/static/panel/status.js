@@ -9,7 +9,7 @@
 // /api/v1/status: health.controllers[id] when the server reports it,
 // else the older map keyed by controller id. A controller known to be
 // unreachable is drawn gray while the map shows the lights.
-import { api, esc, fmt, plural, count, humanize, covers, normRanges } from '../util.js';
+import { api, esc, fmt, plural, count, humanize, covers, normRanges, minusCount } from '../util.js';
 import { showState, stateHTML } from '../states.js';
 import { darkZones, darkMessage, joined, lightOutcome, turnOnLabel, turnOnZones } from '../house-status.js';
 import { targetRanges } from '../select.js';
@@ -99,6 +99,38 @@ export function lightsVerdict(g, st, layers) {
   if (!shown.length) return { cls: 'warn', none: true, text: darkLine(darkZones(g, b, layers.flatMap((r) => r || [])).length) };
   const hit = darkZones(g, b, layers.flatMap((r) => r || []));
   return hit.length ? { cls: 'warn', text: `Partly lit: ${joined(hit)} at 0%` } : { cls: 'ok', text: `Lit: ${look} on the lights` };
+}
+
+// litCount is how many lights are lit: the pixels the looks on the lights
+// cover, less those in zones at 0% (or all of them with the master at 0).
+// null until the layers have been read.
+export function litCount(g, st, layers) {
+  if (!layers) return null;
+  const b = st.brightness || {};
+  if (b.master === 0) return 0;
+  const on = normRanges(layers.flatMap((r) => r || []));
+  const dark = normRanges(g.zones.filter((z) => b.zones?.[z.id] === 0).flatMap((z) => g.areas.find((a) => a.id === z.area)?.ranges || []));
+  return minusCount(on, dark);
+}
+
+// tileFacts is the four headline tiles, each a figure, its words and a state:
+// lights lit, controllers reachable, late frames and the power estimate (or
+// "Not set", which goes to the Power note). power is the /api/map/power
+// reading or null before it; its words come from powerSummary.
+export function tileFacts({ lit, total, health, known, late, fps, power }) {
+  const lights = lit === null ? { v: '—', cls: '', title: 'Reading the lights' }
+    : { v: count(lit), cls: lit === 0 ? (total ? 'warn' : '') : lit < total ? 'warn' : 'ok', title: total ? `${count(total)} covered by the looks on the lights` : 'No looks are on the lights' };
+  const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls, title: health.text };
+  const frames = { v: count(late), cls: late ? 'warn' : 'ok', title: `${fmt(fps.measured, 1)} fps of ${fps.target}` };
+  const pw = !power ? { v: '—', cls: '', title: 'Reading the power estimate' }
+    : !power.anyKnown ? { v: 'Not set', cls: '', title: 'No LED current is set, so there is no estimate. Opens the Power note.' }
+    : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : power.partial ? '' : 'ok', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
+  return [
+    { ...lights, label: 'lights lit' },
+    { ...ctl, label: 'controllers reachable' },
+    { ...frames, label: 'late frames' },
+    { ...pw, label: 'power estimate', power: true },
+  ];
 }
 
 // maplessVerdict is the verdict without the map: which zones the looks are
@@ -237,6 +269,7 @@ export function createStatus(S, root) {
   const g = S.geo;
   root.innerHTML = `
     <h1 class="title">Status</h1>
+    <div class="tiles" id="stTiles" hidden></div>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
     <div id="stFix" class="status-fix" hidden></div>
     <div id="stStale" class="stale-note" role="status" hidden></div>
@@ -253,7 +286,7 @@ export function createStatus(S, root) {
     <details id="stDiag" class="section-disclosure"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
     </div>`;
   const $$ = (s) => root.querySelector(s);
-  let last = null, lastAt = 0, shownFailure = false, staleSince = false;
+  let last = null, lastAt = 0, shownFailure = false, staleSince = false, lastPower = null;
 
   const markOffline = () => { for (const b of root.querySelectorAll('[data-run], [data-fix]')) b.disabled = !!S.offline; };
   const visible = () => S.panel.tab() === 'status' && !S.panel.collapsed();
@@ -336,10 +369,34 @@ export function createStatus(S, root) {
     if (ids.length) $$('#stTurnOn').onclick = () => turnOnZones(S, api, ids, out.zones);
   }
 
+  // renderTiles draws the headline tiles from the last status and power
+  // readings. The power tile is a button to the Power section.
+  function renderTiles(st) {
+    const ids = g.controllers.map((c) => c.id), health = verdict(ids, st.health);
+    const up = ids.filter((id) => healthOf(st.health, id)?.reachable === true).length;
+    const layers = S.houseStatus === 'available' ? S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(g, S.tree, l.target)) : null;
+    const lit = g.mapless ? null : litCount(g, st, layers);
+    const total = layers ? normRanges(layers.flatMap((r) => r || [])).reduce((n, r) => n + r[1] - r[0] + 1, 0) : 0;
+    const pw = lastPower && lastPower.frame ? { ...powerSummary(lastPower, (id) => controllerName(g, id)), anyKnown: lastPower.estimate.some((o) => o.known) } : null;
+    const facts = tileFacts({ lit, total, health: { up, n: ids.length, cls: health.cls, text: health.text }, known: up, late: st.late_frames || 0, fps: { measured: st.measured_fps, target: st.fps }, power: pw });
+    const box = $$('#stTiles');
+    box.hidden = false;
+    box.innerHTML = facts.map((f) => f.power
+      ? `<button type="button" class="stat ${f.cls}" id="stPowerTile" title="${esc(f.title)}"><b>${esc(f.v)}</b><span>${f.label}</span></button>`
+      : `<div class="stat ${f.cls}" title="${esc(f.title)}"><b>${esc(f.v)}</b><span>${f.label}</span></div>`).join('');
+    $$('#stPowerTile').onclick = () => {
+      const pwBox = $$('#stPower');
+      const details = pwBox.querySelector('details');
+      if (details && pwBox.querySelector('p.muted')) details.open = true; // the note's Details, when it is the note
+      pwBox.previousElementSibling.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    };
+  }
+
   function render(st) {
     const perf = S.perf();
     const health = verdict(g.controllers.map((c) => c.id), st.health);
     const lit = g.mapless ? maplessVerdict(st) : lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
+    renderTiles(st);
     $$('#stBody').hidden = false;
     $$('#stRunsBox').hidden = !!g.mapless; // run lengths are the map's
     const zero = g.zones.filter((z) => st.brightness?.zones?.[z.id] === 0);
@@ -356,11 +413,12 @@ export function createStatus(S, root) {
     if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
     $$('#stVerdict').innerHTML = `<span>${esc(head.text)}</span>${head.second ? `<small>${esc(head.second)}</small>` : ''}`;
     renderFix(st, isDark);
-    // Health is the second line, in plain text unless something is wrong.
-    $$('#stHealth').hidden = false;
+    // The controllers tile says the health; this line only adds when the
+    // reading is stale, when it says since when.
+    const readAt = staleSince ? new Date(lastAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
+    $$('#stHealth').hidden = !readAt;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
     $$('#stHealth').title = 'Whether Glowstack can reach each controller over the network';
-    const readAt = staleSince ? new Date(lastAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
     $$('#stHealth').innerHTML = `${mark(health.cls === 'ok' && !readAt ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle')}<span>${esc(asOf(health.text, readAt))}</span>`;
     // Facts about the installation, once: the verdict above answers the question.
     $$('#stStats').textContent = [`${count(st.solve.pixels)} lights`, `${plural(st.preview_layers, 'look')} in preview`, `Up ${readableDuration(st.uptime)}`].join(' · ');
@@ -376,7 +434,9 @@ export function createStatus(S, root) {
 
     const shared = sharedFact(g.controllers.map((c) => controllerFact(healthOf(st.health, c.id), nothingLit)));
     $$('#stCtlShared').textContent = shared ? asOf(`all ${shared.toLowerCase()}`, readAt) : '';
-    $$('#stCtl').innerHTML = g.controllers.map((c) => {
+    // An unreachable controller sorts first; the rest keep the config's order.
+    const byFault = [...g.controllers].sort((a, b) => (healthOf(st.health, a.id)?.reachable === false ? 0 : 1) - (healthOf(st.health, b.id)?.reachable === false ? 0 : 1));
+    $$('#stCtl').innerHTML = byFault.map((c) => {
       const h = healthOf(st.health, c.id);
       let dot = 'idle', line = '';
       const fact = controllerFact(h, nothingLit);
@@ -442,6 +502,8 @@ export function createStatus(S, root) {
       return;
     }
     shownPower = true;
+    lastPower = pw;
+    if (last) renderTiles(last);
     if (!pw.frame) { showState(box, { kind: 'loading', title: 'Waiting for the first frame…' }); return; }
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
     const limit = (ma) => (ma ? (ma / 1000).toFixed(1) + ' A' : '—');
