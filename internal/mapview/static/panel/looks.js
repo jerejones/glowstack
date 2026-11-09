@@ -856,7 +856,17 @@ export function createLooks(S, root) {
   // two take a second line beneath it. Open, when the place and a worded
   // Remove cannot share the line, Remove drops its word (its aria-label and
   // title still say it) rather than the name losing letters.
+  // alignForm hangs an open Tweak form under its look's name: the form's
+  // labels start at the name's left edge, whatever the badge before it.
+  function alignForm(c) {
+    const el = c.el, form = el.querySelector('.slot > .form'), name = el.querySelector('.name-line b');
+    el.style.removeProperty('--name-in');
+    if (!form || !name.offsetParent) return;
+    const inset = name.getBoundingClientRect().left - form.getBoundingClientRect().left - (parseFloat(getComputedStyle(form).paddingLeft) || 0);
+    el.style.setProperty('--name-in', Math.max(0, Math.round(inset * 10) / 10) + 'px');
+  }
   function fitControls(c) {
+    alignForm(c);
     const el = c.el, name = el.querySelector('.name-line b'), box = el.querySelector('.controls');
     el.classList.remove('tight', 'two-line');
     if (!name.offsetParent || S.panel.layout() !== 'sheet') return;
@@ -1117,6 +1127,7 @@ export function createLooks(S, root) {
     c.form = form;
     openRow(c, true); // a form opens in a row that shows it
     c.el.querySelector('.slot').append(form.el);
+    alignForm(c);
     c.el.querySelector('.tweak').setAttribute('aria-expanded', 'true');
     c.el.querySelector('.tweak').classList.add('on');
     // Editing needs the room: the sheet rises, whatever the form's height.

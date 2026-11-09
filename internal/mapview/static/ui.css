@@ -825,7 +825,12 @@ html:not(.coarse) { --swatch-h: 36px; }
 }
 
 /* the Tweak form */
-.form { background: var(--card2); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; }
+/* A nested card is a step of background, not another border: a stronger
+ * outline is kept for focus, selection and the tab's primary card. The form
+ * hangs under its look's name, its labels on the name's left edge (looks.js
+ * measures --name-in). */
+.form { background: var(--card2); border: 0; border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; }
+.layer .slot > .form { margin-left: var(--name-in, 0px); }
 .form > details { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 2px; }
 .form details details { margin-top: 8px; }
 .form .f { display: grid; grid-template-columns: minmax(0, var(--label-w)) minmax(0, 1fr); gap: 4px 8px; align-items: center; margin: 6px 0; }
@@ -878,7 +883,7 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
   .form .channel-row input[type=range] { grid-column: 1 / -1; grid-row: 2; }
 }
 .form .f:has(.color-picker[open]) { align-items: start; }
-.form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 1px solid var(--line); border-radius: 10px; }
+.form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 0; border-radius: 10px; }
 .form .channel-row { display: grid; grid-template-columns: 84px minmax(40px, 1fr) 48px; align-items: center; gap: 8px; margin: 10px 0; }
 .form .channel-row label { font-size: var(--t-meta); color: #e2e8f0; }
 .form .channel-row input[type=number] { width: 48px; min-width: 0; padding: 0 3px; text-align: center; }

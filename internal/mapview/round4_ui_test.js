@@ -480,3 +480,19 @@ test('Refinement 1: a phone\'s layer controls are grouped and the disclosure is 
   assert.match(phone, /\.layer \.row-expand \{ display: inline-flex;[^}]*grid-column: 5; grid-row: 1; \}/);
   assert.match(looks, /el\.querySelector\('\.row-expand'\)\.setAttribute\('aria-label', line\.label\);/);
 });
+
+test('Refinement 2: nested cards step their background; Tweak\'s labels sit on the look name\'s edge', () => {
+  // The Tweak form and the color mixer inside it have no border of their own: with the stage's, a setting label is at most two bordered surfaces deep.
+  assert.match(css, /^\.form \{ background: var\(--card2\); border: 0;/m);
+  assert.match(css, /^\.form \.color-mixer \{[^}]*background: #151a22; border: 0;/m);
+  // The stronger outline is the primary card's (and popovers that float over the page).
+  const strong = css.split('\n').filter((l) => /border: 1px solid var\(--line-strong\)/.test(l)).map((l) => l.trim().split(' {')[0]);
+  for (const sel of strong) assert.match(sel, /^(\.stage|\.setup-cal|\.hover-label|\.target-picker|\.preset-menu|\.picker-pop)/, sel);
+  assert.ok(strong.includes('.stage'), 'the primary card keeps it');
+  // The form hangs under the look's name: looks.js measures where the name starts.
+  assert.match(css, /\.layer \.slot > \.form \{ margin-left: var\(--name-in, 0px\); \}/);
+  const looks = read('panel/looks.js');
+  assert.match(looks, /const inset = name\.getBoundingClientRect\(\)\.left - form\.getBoundingClientRect\(\)\.left - \(parseFloat\(getComputedStyle\(form\)\.paddingLeft\) \|\| 0\);/);
+  assert.match(looks, /c\.el\.querySelector\('\.slot'\)\.append\(form\.el\);\s*alignForm\(c\);/);
+  assert.match(looks, /function fitControls\(c\) \{\s*alignForm\(c\);/, 'kept through a resize');
+});
