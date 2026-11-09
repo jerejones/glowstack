@@ -503,7 +503,7 @@ export function createLooks(S, root) {
       else if (which === 'pinned') showState(grid, { kind: 'empty', title: 'Nothing pinned yet', detail: 'Pin a preset on the Presets tab to keep it here.' });
       else if (which === 'effects') showState(grid, { kind: 'empty', title: 'No effects to show' });
       else {
-        grid.innerHTML = stateHTML({ kind: 'empty', title: 'No presets yet', detail: 'Save a look as a preset and it appears here.', action: { id: 'lkEmptyNew', label: 'New preset' } });
+        grid.innerHTML = stateHTML({ kind: 'empty', title: 'No presets yet', detail: 'Save a look as a preset and it appears here.', action: { id: 'lkEmptyNew', label: 'Create a preset' } });
         grid.querySelector('#lkEmptyNew').onclick = () => { S.panel.openTab('presets'); S.presetLibrary.openEditor(); };
       }
     }

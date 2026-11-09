@@ -134,7 +134,7 @@ export function createPresets(S, root) {
       };
       box.append(row);
     }
-    if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? 'No matching presets' : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.', action: S.presets.length ? null : { id: 'prEmptyNew', label: 'New preset' } });
+    if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? 'No matching presets' : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.', action: S.presets.length ? null : { id: 'prEmptyNew', label: 'Create a preset' } });
     box.querySelector('#prEmptyNew')?.addEventListener('click', () => openEditor());
     markTry();
     if (busy) setBusy(true);

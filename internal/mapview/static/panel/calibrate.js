@@ -460,7 +460,7 @@ export function createCalibrate(S, root) {
       const r = run && g.runs.find((x) => x.id === run);
       const first = r && r.anchors.find((a) => a.source === 'estimated');
       parts.push(`<h1 class="title">Line up the map with the lights</h1><p class="muted">Each step lights one point. ${MOVE_HOW} Then confirm.</p>${warningHTML('This changes the real lights until you stop.')}`);
-      parts.push(`<div class="row">${btn(`${icon('target')}${r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating'}`, () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go grow icon-btn')}</div>`);
+      parts.push(`<div class="row">${btn(`${icon('target')}${r ? `Start on ${esc(runLabel(r.id))}` : 'Start calibrating'}`, () => session.start(r ? (first ? { kind: 'anchor', run: r.id, node: g.nodes[first.node].id } : { kind: 'bands', run: r.id }) : null), 'go icon-btn')}</div>`);
       parts.push('<details class="more"><summary>Details</summary><div class="muted small">Measurements are saved on the Glowstack server and survive restarts.</div></details>');
     } else {
       if (st.warning) parts.push(warningHTML(humanText(g, st.warning)));

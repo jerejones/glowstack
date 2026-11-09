@@ -1327,6 +1327,17 @@ desk.
   (one, or all in order) onto the house stack with the same look and seed.
   Applying is always a separate, green button; nothing on the map applies
   by itself.
+- **Primary actions.** One shape per role. A primary (the green `.go`
+  button) is full width only in a sticky action bar: the Looks footer
+  (push to live), the calibration dock (Confirm) and the preset editor's
+  bar (Save preset). Everywhere else a primary is inline and content
+  width: Setup's Calibrate, Calibrate's Start, an empty state's action, a
+  dialog's confirm. Heights are one value per pointer type (28 px on a fine
+  pointer, 44 px on a coarse one); the calibration dock's buttons are the
+  one exception, 56 px, because they are pressed while standing outside
+  and looking at the lights. Labels are a verb first in sentence case
+  ("Put 1 look on the lights", "Save preset", "Confirm", "Create a
+  preset"), never a noun phrase or Title Case.
 - **Preview or live.** Each viewer picks what its map shows: the preview
   (preview layers over the house; the house's own frames when nothing is
   previewed) or live, what the lights show, even while someone

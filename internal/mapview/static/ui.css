@@ -792,8 +792,7 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 /* Nothing measured yet: Calibrate takes the row, its count under it. Once a
  * point is, the button is its own width and the count sits beside it. */
 .setup-cal .row { gap: 6px 12px; }
-.setup-cal:not(.started) #suCalN { flex: 1 1 100%; }
-.setup-cal.started #suCal { flex: none; }
+.setup-cal:not(.started) #suCalN { flex: 1 1 100%; } /* at 0 measured the count takes its own line */
 .help { margin-top: 6px; }
 #suAdvanced { margin-top: 16px; }
 .section-disclosure > summary, #suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
@@ -961,6 +960,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-editor > label.check { display: flex; }
 .preset-editor { border-color: var(--line-strong) !important; scroll-margin-top: 12px; }
 /* The scrollport's padding counts against sticky: reach the panel's edge. */
+.editor-actions .go { flex: 1; } /* a sticky action bar: its primary fills it (design.md, Primary actions) */
 .editor-actions { position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; margin: 10px -12px -12px; padding: 8px 12px; background: var(--surface, #16191e); border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
 .preset-editor { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin: 12px 0; background: var(--surface, #16191e); }
 .preset-entry { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; margin: 6px 0; background: var(--surface, #16191e); }

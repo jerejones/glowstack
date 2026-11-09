@@ -1511,10 +1511,10 @@ test('the polish round: tall primaries, ringed thumbs, a real glyph, even segmen
   assert.match(read('form.js'), /uses the look's colors/);
   assert.match(css, /\.seg > button \+ button \{ border-left: 0;/, 'a selected segment has no heavier left edge');
   const { stateHTML } = await import('./static/states.js');
-  assert.match(stateHTML({ title: 'x', action: { id: 'a1', label: 'New preset' } }), /<button type="button" class="go" id="a1">New preset<\/button>/);
+  assert.match(stateHTML({ title: 'x', action: { id: 'a1', label: 'Create a preset' } }), /<button type="button" class="go" id="a1">Create a preset<\/button>/);
   assert.doesNotMatch(stateHTML({ title: 'x' }), /class="go"/);
-  assert.match(read('panel/presets.js'), /id: 'prEmptyNew', label: 'New preset'/);
-  assert.match(read('panel/looks.js'), /id: 'lkEmptyNew', label: 'New preset'/);
+  assert.match(read('panel/presets.js'), /id: 'prEmptyNew', label: 'Create a preset'/);
+  assert.match(read('panel/looks.js'), /id: 'lkEmptyNew', label: 'Create a preset'/);
 });
 
 test('a layered effect palette reads the colors of its own layer', async () => {
@@ -2642,10 +2642,10 @@ test('Refinement 5: a section status has its own slot', () => {
 
 test("Refinement 6: Calibrate's weight on Setup", () => {
   const setup = read('panel/setup.js');
-  assert.match(setup, /<div class="row"><button type="button" id="suCal" class="go grow icon-btn"><\/button><div class="muted small" id="suCalN"><\/div><\/div>/, 'the count shares the row');
+  assert.match(setup, /<div class="row"><button type="button" id="suCal" class="go icon-btn"><\/button><div class="muted small" id="suCalN"><\/div><\/div>/, 'the count shares the row; the button is content width (round 2, refinement 3)');
   assert.match(setup, /classList\.toggle\('started', \(st\?\.measured \|\| 0\) >= 1\)/, 'from the first measured point');
-  assert.match(css, /\.setup-cal:not\(\.started\) #suCalN \{ flex: 1 1 100%; \}/, 'at 0 measured the button keeps the row');
-  assert.match(css, /\.setup-cal\.started #suCal \{ flex: none; \}/, 'then it is its own width');
+  assert.match(css, /\.setup-cal:not\(\.started\) #suCalN \{ flex: 1 1 100%; \}/, 'at 0 measured the count takes its own line');
+  assert.doesNotMatch(css, /#suCal \{ flex: none; \}/, 'no rule needed to shrink it: it was never stretched');
 });
 
 test('Refinement 7 (round 1) and 2 (round 2): the Power note is plain; the key and controllers are one disclosure away', async () => {
@@ -2672,6 +2672,37 @@ test('Refinement 7 (round 1) and 2 (round 2): the Power note is plain; the key a
   assert.match(src, /const notSetDetails = \(sum\) => sum\.notSetDetail \? `<details><summary>Details<\/summary><p class="plain">\$\{esc\(sum\.notSetDetail\)\}<\/p><\/details>` : ''/, 'the detail sits under a Details disclosure like the warning cards');
   assert.equal((src.match(/\$\{notSetDetails\(sum\)\}/g) || []).length, 2, 'in both the nothing-known and the partial branches');
   assert.doesNotMatch(src, /max_ma on each output/, 'the old sentence naming the wrong key is gone');
+});
+
+test('Refinement 3 (round 2): one primary-action shape per role', () => {
+  // Every primary in the UI, with its context. A new one must be added here
+  // with its rule: full width only in a sticky action bar.
+  const primaries = [
+    { file: 'panel/looks.js', re: /<button type="button" class="go icon-btn" id="lkPushAll">/, bar: '.bar-main' },
+    { file: 'panel/calibrate.js', re: /<div class="cal-confirm"><button type="button" class="go icon-btn" id="caConfirm"/, bar: '.cal-confirm' },
+    { file: 'panel/presets.js', re: /<button type="button" id="prSave" class="go icon-btn">\$\{icon\('check'\)\}Save preset<\/button>/, bar: '.editor-actions' },
+    { file: 'panel/setup.js', re: /<button type="button" id="suCal" class="go icon-btn">/, bar: null },
+    { file: 'panel/calibrate.js', re: /'Start calibrating'\}`, \(\) => session\.start\([^)]*\)[^,]*, 'go icon-btn'\)/, bar: null },
+    { file: 'states.js', re: /<button type="button" class="go" id="\$\{esc\(action\.id\)\}">/, bar: null },
+    { file: 'dialog.js', re: /<button value="yes" class="\$\{danger \? 'danger' : 'go'\}">/, bar: null },
+  ];
+  for (const p of primaries) assert.match(read(p.file), p.re, `${p.file}: ${p.re}`);
+  // No other primary exists.
+  const all = ['panel/looks.js', 'panel/calibrate.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js', 'states.js', 'dialog.js', 'app.js', 'sheet.js', 'form.js'].map((f) => read(f)).join('\n');
+  assert.equal((all.match(/class="go\b|class="\$\{danger \? 'danger' : 'go'\}"|'go icon-btn'|'go'/g) || []).length, primaries.length, 'every primary is in the list above');
+  assert.doesNotMatch(all, /go grow/, 'an inline primary is never stretched');
+  // The three action bars stretch theirs; nothing else does.
+  for (const bar of ['.bar-main', '.cal-confirm', '.editor-actions']) assert.match(css, new RegExp(`\\${bar} \\.go \\{ flex: 1`), `${bar} stretches its primary`);
+  assert.equal((css.match(/\.go \{ flex: 1/g) || []).length, 4, 'those three, plus the phone block repeating the Looks footer rule');
+  assert.match(css, /\.editor-actions \{ position: sticky/);
+  assert.match(css, /\.look-bar \{[^}]*position: sticky/);
+  // Labels: a verb first, sentence case.
+  for (const label of ['Create a preset', 'Save preset', 'Confirm', 'Start calibrating', 'Change effect']) assert.match(all, new RegExp(label));
+  assert.doesNotMatch(all, /label: 'New preset'/, 'the empty-state primary is verb first');
+  // The rule is written down.
+  const design = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'design.md'), 'utf8');
+  assert.match(design, /\*\*Primary actions\.\*\* One shape per role\. A primary \(the green `\.go`\s+button\) is full width only in a sticky action bar/);
+  assert.match(design, /Labels are a verb first in sentence case/);
 });
 
 test('B138: the compact state card never cuts its own words', async () => {

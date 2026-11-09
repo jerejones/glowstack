@@ -46,7 +46,7 @@ export function createSetup(S, root) {
     <h1 class="title">Set up the map</h1>
     <section class="setup-cal">
       <p class="muted">Calibrating lines the map up with the real lights, one point at a time.</p>
-      <div class="row"><button type="button" id="suCal" class="go grow icon-btn"></button><div class="muted small" id="suCalN"></div></div>
+      <div class="row"><button type="button" id="suCal" class="go icon-btn"></button><div class="muted small" id="suCalN"></div></div>
     </section>
     <h2 class="sub">Color the map by</h2>
     <div class="seg five" id="suModes" role="group" aria-label="Color the map by">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
