@@ -9,7 +9,15 @@
 
 // toastHome is where messages go: over the map, or while calibrating in the
 // calibration panel, since the map is then the target being lined up.
-export const toastHome = (calibrating, panelReady) => (calibrating && panelReady ? 'caToasts' : 'toasts');
+// On a phone whose sheet is up (sheet: the half or full detent) they go in
+// the sheet, above its sticky bar, so a message never covers the map's lit
+// area (move E).
+export const toastHome = (calibrating, panelReady, sheet = false) => (calibrating && panelReady ? 'caToasts' : sheet ? 'panelToasts' : 'toasts');
+
+// sheetToastTop is where the sheet's toasts end, in px from the sheet's top
+// edge: above its sticky bar (bar is the bar's height, 0 with none) and the
+// safe area, with a gap. visible is how much of the sheet shows.
+export const sheetToastTop = ({ visible, bar = 0, safe = 0 }) => Math.max(0, visible - bar - safe - 8);
 
 // toastBottom is how far above the stage's bottom toasts sit: over the
 // toggle, the legend and the sheet.

@@ -356,6 +356,16 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 .toast .msg div { font-size: var(--t-s); color: var(--muted); }
 .toast button { min-width: var(--tap); padding: 0; background: transparent; border: 0; }
 .toast button.act { flex: none; padding: 0 10px; border: 1px solid var(--control-line); background: var(--card2); white-space: nowrap; }
+/* On a phone whose sheet is up, messages sit in the sheet, ending just above
+ * its sticky bar (app.js sets top), never over the map's lit area (move E). */
+.panel-toasts { display: none; }
+@media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
+  .panel-toasts { display: flex; position: absolute; z-index: 6; left: 8px; right: 8px; bottom: auto; width: auto; transform: translateY(-100%); }
+}
+/* The quieter Undo on the "On the lights" card: a link, there for five minutes. */
+.stage-undo { margin: 4px 4px 0; text-align: right; font-size: var(--t-help); }
+.stage-undo[hidden] { display: none; }
+.stage-undo button { min-height: var(--tap); }
 
 /* the inspect card: floating on the map with a mouse, a row in the sheet on phones */
 .inspect table { border-collapse: collapse; width: 100%; }

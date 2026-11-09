@@ -561,6 +561,84 @@ func (s *Stack) Restore(data []byte) (warnings []string, err error) {
 	return warnings, nil
 }
 
+// Snapshot returns the live layers that are saved (not the ephemeral ones),
+// bottom first, exactly as they are: ids, seeds, times, order and their own
+// copies of the parameters. Reinstate puts a snapshot back.
+func (s *Stack) Snapshot() []Layer {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []Layer{}
+	for _, e := range s.entries {
+		if e.removedAt.IsZero() && !e.Ephemeral {
+			l := e.Layer
+			l.Params = cloneParams(l.Params)
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// Reinstate makes the live, saved layers exactly a snapshot's (bottom
+// first): the same layers, order, targets, parameters, seeds and times. A
+// layer that is still live keeps its place in its fade, so putting the
+// stack back doesn't blink what never left; one that had been removed
+// fades in again; live layers the snapshot doesn't have fade out, as Remove
+// does. Ephemeral layers (calibration's) are not part of a snapshot and
+// stay on top. A snapshot layer that no longer validates, or whose
+// lifetime has ended, is dropped with a warning. It only changes the
+// stack: like any other change, the frames that follow carry it.
+func (s *Stack) Reinstate(layers []Layer) (warnings []string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.clock.Now()
+	live := map[string]*entry{}
+	for _, e := range s.entries {
+		if e.removedAt.IsZero() && !e.Ephemeral {
+			live[e.ID] = e
+		}
+	}
+	var kept, fading, ephemeral []*entry
+	seen := map[string]bool{}
+	for _, l := range layers {
+		if l.Ephemeral || l.ID == "" || seen[l.ID] {
+			continue
+		}
+		l.Params = cloneParams(l.Params)
+		if err := s.check(&l, now); err != nil {
+			warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", l.ID, err))
+			continue
+		}
+		l.Revision = s.version + 1
+		e := &entry{Layer: l, shown: now}
+		if old, ok := live[l.ID]; ok {
+			next := *old
+			next.Layer = l
+			e = &next
+		}
+		if err := s.setFades(e); err != nil {
+			warnings = append(warnings, fmt.Sprintf("layer %q: %v; dropped", l.ID, err))
+			continue
+		}
+		seen[l.ID] = true
+		kept = append(kept, e)
+	}
+	for _, e := range s.entries {
+		switch {
+		case !e.removedAt.IsZero():
+			fading = append(fading, e)
+		case e.Ephemeral:
+			ephemeral = append(ephemeral, e)
+		case !seen[e.ID]:
+			s.remove(e, now)
+			fading = append(fading, e)
+		}
+	}
+	// Layers on their way out draw beneath what is live, as they fade.
+	s.entries = append(append(fading, kept...), ephemeral...)
+	s.changed()
+	return warnings
+}
+
 // Save writes state.json to st.
 func (s *Stack) Save(st storage.Store) error {
 	data, err := s.Marshal()

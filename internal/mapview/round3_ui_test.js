@@ -271,3 +271,81 @@ test('C: the panel points at the map with the soft halo', async () => {
   // Owner decisions: no camera buttons, reset-view control or map toolbar came with it.
   assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"/i);
 });
+
+test('E: undo after apply: ten seconds on the toast, five minutes on the card, one level', async () => {
+  const { createUndo, mark, undoResult, TOAST_MS, LINK_MS } = await import('./static/undo.js');
+  assert.equal(TOAST_MS, 10000);
+  assert.equal(LINK_MS, 5 * 60 * 1000);
+  let t = 1000;
+  const undo = createUndo(() => t);
+  assert.equal(undo.toast(), false); assert.equal(undo.link(), false); assert.equal(undo.point(), null);
+  undo.set('a1', 'applied 2 looks');
+  assert.deepEqual(undo.point(), { id: 'a1', at: 1000, what: 'applied 2 looks' });
+  assert.equal(undo.toast(), true); assert.equal(undo.link(), true);
+  t += 9999; assert.equal(undo.toast(), true, 'still on the toast just under ten seconds');
+  t += 1; assert.equal(undo.toast(), false, 'the toast\'s Undo is gone at ten seconds');
+  assert.equal(undo.link(), true, 'the card keeps the quieter link');
+  assert.equal(undo.linkLeft(), LINK_MS - 10000);
+  t = 1000 + LINK_MS - 1; assert.equal(undo.link(), true);
+  t = 1000 + LINK_MS; assert.equal(undo.link(), false, 'for five minutes'); assert.equal(undo.linkLeft(), 0);
+  // The next apply takes its place: one level only.
+  t = 5000; undo.set('a1', 'x'); t = 6000; undo.set('b2', 'applied the look');
+  assert.equal(undo.point().id, 'b2'); assert.equal(undo.point().at, 6000);
+  undo.clear(); assert.equal(undo.link(), false);
+  // A change that could not be marked offers no undo.
+  undo.set('', 'applied the look'); assert.equal(undo.point(), null); assert.equal(undo.toast(), false);
+  // mark asks the server before the change; a failure is no undo, never a blocked apply.
+  const calls = [];
+  assert.equal(await mark(async (path, opts) => { calls.push([path, opts.method]); return { id: 'p9', layers: 2 }; }), 'p9');
+  assert.deepEqual(calls, [['/api/v1/undo', 'PUT']]);
+  assert.equal(await mark(async () => { throw new Error('down'); }), '');
+  // What pressing Undo reports.
+  assert.deepEqual(undoResult(null), { text: 'Undone. The lights are as they were before.', warn: false, gone: true });
+  assert.equal(undoResult({ status: 409 }).gone, true, 'a later change took its place');
+  assert.match(undoResult({ status: 409 }).text, /can no longer be undone/);
+  assert.equal(undoResult({ network: true }).gone, false, 'a failed request keeps the point for another try');
+});
+
+test('E: undo restores a stack exactly, through the layer API, and is never a power command', () => {
+  const looks = read('panel/looks.js'), undo = read('undo.js');
+  // The mark comes before the change, for every change to the lights made here.
+  assert.match(looks, /const point = await mark\(api\);\s*try \{\s*await post\('\/api\/map\/preview\/promote'/, 'Put, Add, Update and Replace');
+  assert.match(looks, /const point = live \? await mark\(api\) : '';/, 'Remove on a live look; a preview row is not the lights');
+  // The restore is one request with the point's id: the server puts back the same layers, order, targets, brightness and parameters.
+  assert.match(looks, /await post\('\/api\/v1\/undo', \{ id: p\.id \}\)/);
+  const server = fs.readFileSync(path.join(__dirname, '..', 'api', 'undo.go'), 'utf8');
+  assert.match(server, /api\.app\.Stack\.Reinstate\(snapshot\)/);
+  assert.match(server, /u\.id != id[\s\S]{0,80}StatusConflict/, 'after a second apply the first is no longer undoable');
+  // Nothing in undo, client or server, speaks to a controller or to brightness.
+  for (const [name, src] of [['undo.js', undo], ['undo.go', server.replace(/^\s*\/\/.*$/gm, '')]]) {
+    assert.doesNotMatch(src, /json\/state|"on"\s*:|\bbri\b|\/api\/v1\/brightness|SetBrightness|turnOn/, `${name} sends no power or brightness command`);
+  }
+  const undoFn = /async function undoLast\(\) \{[\s\S]*?\n  \}/.exec(looks)[0];
+  assert.doesNotMatch(undoFn, /brightness|turnOn|json\/state/);
+  // Zone brightness changes are not undoable and offer no undo.
+  assert.doesNotMatch(read('house-status.js'), /undo/i);
+  // The toast carries Undo for TOAST_MS; the card link is quieter and goes on its timer.
+  assert.match(looks, /if \(!r\.warn\) return S\.toast\(r\.text, \{ ms: TOAST_MS, actions \}\);/);
+  assert.match(looks, /<button type="button" class="target-btn" id="lkUndo"[^>]*>Undo last change<\/button>/);
+  assert.match(looks, /if \(undo\.link\(\)\) undoTimer = setTimeout\(renderUndo, undo\.linkLeft\(\) \+ 50\);/);
+  // The consequence is already on the button before the apply; nothing permanent was added.
+  assert.match(looks, /label: `Put \$\{looks\} on the lights`/);
+  // The fake controllers record what they are asked, and the Go test asserts no power-off.
+  const goTest = fs.readFileSync(path.join(__dirname, '..', 'api', 'undo_test.go'), 'utf8');
+  assert.match(goTest, /func TestUndoNeverSendsAPowerCommand/);
+  assert.match(goTest, /if r\.PowerOff\(\) \{/);
+});
+
+test('E: on a phone the toast sits in the sheet above the sticky bar, not over the map', async () => {
+  const { toastHome, sheetToastTop } = await import('./static/map-frame.js');
+  assert.equal(toastHome(false, true, true), 'panelToasts', 'the sheet is up: messages go in it');
+  assert.equal(toastHome(false, true, false), 'toasts', 'a peeking sheet or a side panel: over the map, as before');
+  assert.equal(toastHome(true, true, true), 'caToasts', 'calibration keeps its own');
+  // The toasts end 8 px above the bar; with no bar, above the sheet's bottom edge.
+  assert.equal(sheetToastTop({ visible: 540, bar: 60, safe: 0 }), 472);
+  assert.equal(sheetToastTop({ visible: 540, bar: 0, safe: 20 }), 512);
+  assert.equal(sheetToastTop({ visible: 20, bar: 60, safe: 0 }), 0);
+  assert.match(css, /\.panel-toasts \{ display: flex; position: absolute;[^}]*transform: translateY\(-100%\); \}/);
+  assert.match(read('index.html'), /<div id="panelToasts" class="toasts panel-toasts" aria-live="polite"><\/div>/);
+  assert.match(read('app.js'), /const box = \$\(toastHome\(S\.calibrating, !!\$\('caToasts'\), sheetUp\(\)\)\);/);
+});

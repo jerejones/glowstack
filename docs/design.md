@@ -1361,6 +1361,23 @@ desk.
   (one, or all in order) onto the house stack with the same look and seed.
   Applying is always a separate, green button; nothing on the map applies
   by itself.
+- **Undo after apply.** Every change to the real lights made from the map
+  (Put, Add, Update, Replace, and Remove on a live look) can be taken back
+  once. The confirmation toast carries **Undo** for 10 seconds, and the
+  "On the lights" card keeps a quieter **Undo last change** link until the
+  next change or for 5 minutes, whichever is first. One level only.
+  The server holds the undo point (`PUT /api/v1/undo` marks the live stack
+  just before the change; `POST /api/v1/undo` with the mark's id puts it
+  back; a later mark makes an earlier id answer 409). The restore is exact:
+  the same layers, order, targets, brightness, parameters, ids and seeds,
+  and a layer that stayed live through the change does not fade in again.
+  Undo restores a stack of looks and nothing else. It is never a power
+  command: it sends a controller nothing that pushing or removing a layer
+  could not, and never turns one off. If the stack was empty before, undo
+  makes it empty. It does not touch master or zone brightness, and a zone's
+  "Turn on" is not something undo offers to take back. On a phone whose
+  sheet is up, toasts sit in the sheet above its sticky bar, not over the
+  map.
 - **Primary actions.** One shape per role. A primary (the green `.go`
   button) is full width only in a sticky action bar: the Looks footer
   (push to live), the calibration dock (Confirm) and the preset editor's

@@ -20,6 +20,7 @@ import { textField, wireClear } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 import { tapHint } from '../map-control.js';
+import { createUndo, mark, undoResult, TOAST_MS } from '../undo.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const TARGET = 'glowstack.looks.target';
@@ -307,10 +308,13 @@ export function applyResult(what, outcome, name = what) {
   const who = zones.length < 3 && list.length <= 40 ? list : `${zones.length} zones`;
   return { text: `Applied ${name}. ${who} ${zones.length === 1 ? 'is' : 'are'} at 0%, so ${zones.length === 1 ? 'it stays' : 'they stay'} dark.`, warn: true, zones: { ids: outcome.ids, names: zones } };
 }
-const applyToast = (S, what, outcome, name) => {
+// The confirmation carries Undo for TOAST_MS (undo: {label, run}, or null
+// when the change could not be marked), beside the dark toast's Turn on.
+const applyToast = (S, what, outcome, name, undo) => {
   const r = applyResult(what, outcome, name);
-  if (!r.warn) return S.toast(r.text);
-  return S.toast(r.text, { ms: 12000, warn: true, action: r.zones && { label: turnOnLabel(r.zones.names), run: () => turnOnZones(S, api, r.zones.ids, r.zones.names) } });
+  const actions = undo ? [{ ...undo, id: 'undo', quiet: r.warn }] : [];
+  if (!r.warn) return S.toast(r.text, { ms: TOAST_MS, actions });
+  return S.toast(r.text, { ms: TOAST_MS, warn: true, action: r.zones && { label: turnOnLabel(r.zones.names), run: () => turnOnZones(S, api, r.zones.ids, r.zones.names) }, actions });
 };
 
 // underBar says a card is cut by the sticky bar's top edge.
@@ -379,6 +383,7 @@ export function createLooks(S, root) {
       <div class="stage-warn" id="lkDark" data-dark hidden></div>
       <div class="list" id="lkRows"><button type="button" class="live-sum prev-sum" id="lkPrevSum" aria-expanded="false" hidden><small class="kind">Preview</small><span class="text"></span>${icon('chevronDown')}</button><button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live</small><span class="text"></span>${icon('chevronDown')}</button></div>
       <div id="lkStageState"></div>
+      <p class="stage-undo" id="lkUndoLine" hidden><button type="button" class="target-btn" id="lkUndo" title="Put the lights back as they were before the last change made here">Undo last change</button></p>
     </section>
     <section class="library" aria-label="Presets and effects">
       <div class="catalog-head" id="lkCatalogHead">
@@ -700,12 +705,53 @@ export function createLooks(S, root) {
   }
   // remove takes layer l (at base) off, or just the selected part of it.
   async function remove(c, base) {
-    const part = removeScope(c.layer);
+    const part = removeScope(c.layer), live = c.lane === 'house', name = layerName(S, c.layer);
+    // Removing a look from the lights changes them: it can be taken back.
+    const point = live ? await mark(api) : '';
     try {
       if (part) await post(base, { target: part, effect: 'solid', params: { color: '#000000' } });
       else { await del(base + '/' + encodeURIComponent(c.id)); if (c.lane === 'preview') forget(c.id); }
       await S.refresh();
-    } catch (e) { S.fail('remove the look', e); }
+    } catch (e) { S.fail('remove the look', e); return; }
+    if (!live) return;
+    offerUndo(point, `removed ${name}`);
+    S.toast(`Removed ${String(name).replace(/\u00a0/g, ' ')} from ${part ? targetName(g, part) : 'the lights'}.`, { ms: TOAST_MS, actions: undoAction() });
+  }
+
+  // ---------- undo ----------
+
+  // undo is the one change this page can take back. offerUndo records the
+  // point marked before a change (none if the mark failed) and keeps the
+  // card's link for its five minutes; undoAction is the toast's button.
+  const undo = createUndo();
+  let undoTimer = 0;
+  function offerUndo(id, what) {
+    undo.set(id, what);
+    clearTimeout(undoTimer);
+    if (undo.link()) undoTimer = setTimeout(renderUndo, undo.linkLeft() + 50);
+    renderUndo();
+  }
+  const undoAction = () => (undo.point() ? [{ id: 'undo', label: 'Undo', run: undoLast }] : []);
+  function renderUndo() {
+    const p = undo.link() ? undo.point() : null;
+    $$('#lkUndoLine').hidden = !p;
+    if (p) $$('#lkUndo').setAttribute('aria-label', `Undo last change: ${p.what}`);
+  }
+  // undoLast puts the lights' stack back as it was before the last change.
+  // It restores looks only: no power command, no zone brightness.
+  let undoing = false;
+  async function undoLast() {
+    const p = undo.point();
+    if (!p || undoing) return;
+    undoing = true;
+    let failure = null;
+    try { await post('/api/v1/undo', { id: p.id }); } catch (e) { failure = e; }
+    undoing = false;
+    const r = undoResult(failure);
+    if (r.gone) { undo.clear(); clearTimeout(undoTimer); }
+    renderUndo();
+    await S.refresh();
+    S.toast(r.text, r.warn ? { warn: true } : {});
   }
 
   // makeCard builds one row: the name on its own line, so no control can
@@ -1090,6 +1136,8 @@ export function createLooks(S, root) {
     const going = (S.preview ? S.preview.layers : []).filter((l) => list.includes(l.id));
     const applied = going.map((l) => targetRanges(g, S.tree, l.target)), names = going.map((l) => layerName(S, l));
     applying = true;
+    // The lights are about to change: mark how they are, so it can be undone.
+    const point = await mark(api);
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
     } catch (e) { applying = false; S.fail('apply the look', e); await S.refresh(); return; }
@@ -1114,8 +1162,10 @@ export function createLooks(S, root) {
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
-    darkToast = applyToast(S, what, outcome, names.length === 1 ? names[0] : `${names.length} looks`);
+    offerUndo(point, `applied ${list.length === 1 ? names[0] || 'the look' : list.length + ' looks'}`);
+    darkToast = applyToast(S, what, outcome, names.length === 1 ? names[0] : `${names.length} looks`, undoAction()[0] || null);
   }
+  $$('#lkUndo').onclick = undoLast;
   $$('#lkPushAll').onclick = () => apply([], plan?.replace ? hidden : []);
   $$('#lkClear').onclick = async () => {
     try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.fail('clear the preview', e); }

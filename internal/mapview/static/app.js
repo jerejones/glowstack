@@ -28,7 +28,7 @@ import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML, showButton } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure, skeletonHTML } from './states.js';
-import { frameInsets, framePad, toastBottom, toastHome } from './map-frame.js';
+import { frameInsets, framePad, toastBottom, toastHome, sheetToastTop } from './map-frame.js';
 import { foldable, merged } from './toast-merge.js';
 import { createTiles } from './tiles.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
@@ -79,24 +79,32 @@ const S = {
 
 // toast shows a message in the one toast area. An Error shows its
 // server message and file:line details.
+// sheetUp says a phone's sheet is showing its contents: messages go in it.
+const sheetUp = () => !!S.panel && S.panel.layout() === 'sheet' && !S.panel.collapsed();
 function toast(msg, opts = {}) {
-  const box = $(toastHome(S.calibrating, !!$('caToasts')));
+  const box = $(toastHome(S.calibrating, !!$('caToasts'), sheetUp()));
   const err = msg instanceof Error;
   const el = document.createElement('div');
   el.className = 'toast' + (err || opts.error ? ' error' : opts.warn ? ' warn' : opts.neutral ? ' neutral' : '');
   // Messages arriving together fold into this one: see toast-merge.js.
   const showing = [...box.children].map((t) => ({ el: t, ...t.note }));
-  const folded = foldable(showing, { error: err || opts.error, action: opts.action }, S.panel ? S.panel.layout() : 'wide', Date.now());
+  const folded = foldable(showing, { error: err || opts.error, action: opts.action || opts.actions?.[0] }, S.panel ? S.panel.layout() : 'wide', Date.now());
   for (const t of folded) t.el.remove();
   const { text, details } = merged(err ? msg.message : msg, err ? msg.details || [] : opts.details || [], folded);
-  el.note = { at: Date.now(), error: err || opts.error, action: opts.action, text, details };
+  el.note = { at: Date.now(), error: err || opts.error, action: opts.action || opts.actions?.[0], text, details };
   el.innerHTML = `<span class="msg">${esc(text)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
-  if (opts.action) { // one button that does the toast's fix, then clears it
-    el.classList.add('has-action');
-    const act = Object.assign(document.createElement('button'), { type: 'button', className: 'act', textContent: opts.action.label });
-    act.onclick = () => { el.remove(); opts.action.run(); };
-    el.querySelector('.msg').after(act);
+  // Buttons that do the toast's fix, then clear it: the one action, and
+  // after an apply Undo beside it (opts.actions).
+  const actions = [opts.action, ...(opts.actions || [])].filter(Boolean);
+  if (actions.length) el.classList.add('has-action');
+  let after = el.querySelector('.msg');
+  for (const a of actions) {
+    const act = Object.assign(document.createElement('button'), { type: 'button', className: 'act' + (a.quiet ? ' quiet' : ''), textContent: a.label });
+    if (a.id) act.dataset.act = a.id;
+    act.onclick = () => { el.remove(); a.run(); };
+    after.after(act);
+    after = act;
   }
   placeToasts();
   box.appendChild(el);
@@ -109,11 +117,16 @@ function placeToasts() {
   if (!S.panel) return;
   const stage = $('stage').getBoundingClientRect();
   $('toasts').style.bottom = toastBottom({ floats: floatsBottom(stage) }) + 'px';
+  // In the sheet they end just above its sticky bar, when it has one showing.
+  const bar = [...document.querySelectorAll('#content .look-bar, #content .editor-actions')].find((b) => b.offsetParent);
+  $('panelToasts').style.top = sheetToastTop({ visible: S.panel.covered(), bar: bar ? bar.offsetHeight : 0, safe: parseFloat(getComputedStyle($('panel')).paddingBottom) || 0 }) + 'px';
 }
+S.placeToasts = placeToasts;
 // moveToasts carries messages already showing to where they belong now.
 S.moveToasts = () => {
-  const home = $(toastHome(S.calibrating, !!$('caToasts'))), other = home.id === 'toasts' ? $('caToasts') : $('toasts');
-  if (other) home.append(...other.children);
+  const home = $(toastHome(S.calibrating, !!$('caToasts'), sheetUp()));
+  for (const id of ['toasts', 'caToasts', 'panelToasts']) { const other = $(id); if (other && other !== home) home.append(...other.children); }
+  placeToasts();
 };
 // S.fail reports an action that failed, naming the action.
 S.fail = (doing, e) => toast(failure(doing, e), { error: true, details: (e && e.details) || [] });
@@ -882,6 +895,7 @@ async function main() {
   S.status = createStatus(S, $('tab-status'));
   S.on('preview', refitPreview);
   for (const ev of ['preview', 'select', 'tab', 'detent', 'layout', 'view', 'runVisibility']) S.on(ev, applyPoint);
+  for (const ev of ['tab', 'detent', 'layout', 'preview']) S.on(ev, () => S.moveToasts());
   bindChrome();
   bindMap();
   bootStep = 'draw the map';

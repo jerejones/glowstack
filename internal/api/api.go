@@ -73,6 +73,7 @@ type API struct {
 	app     *app.App
 	started time.Time
 	strips  stripCache // effect sprites, drawn once each
+	undo    undoPoint  // the live stack before the last marked change
 }
 
 // Mount is an httpserver.Mount that registers the API's routes.
@@ -99,6 +100,9 @@ func (api *API) Register(s *httpserver.Server) {
 		h("PATCH "+base+"/{id}", ls.edit)
 		h("DELETE "+base+"/{id}", ls.remove)
 	}
+	h("PUT /api/v1/undo", api.undoMark)
+	h("GET /api/v1/undo", api.undoGet)
+	h("POST /api/v1/undo", api.undoRestore)
 	h("GET /api/v1/effects", api.effects)
 	h("GET /api/v1/effects/{id}", api.effect)
 	h("GET /api/v1/effects/{id}/strip.png", api.effectStrip)
@@ -129,7 +133,7 @@ func (api *API) index(w http.ResponseWriter, r *http.Request) error {
 		"api":  "v1",
 		"endpoints": []string{
 			"layers", "preview/layers", "effects", "palettes", "presets", "areas", "zones",
-			"mappings", "controllers", "brightness", "status", "reload", "calibration",
+			"mappings", "controllers", "brightness", "status", "reload", "calibration", "undo",
 		},
 	})
 }

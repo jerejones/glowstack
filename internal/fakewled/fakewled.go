@@ -13,13 +13,16 @@
 package fakewled
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -81,6 +84,59 @@ type Device struct {
 	fpsCount int
 	fpsFrom  time.Time
 	waiters  []chan struct{}
+	requests []Request
+}
+
+// Request is one HTTP request a fake device received.
+type Request struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+	Body   string `json:"body,omitempty"` // the first 4 kB
+}
+
+// PowerOff says whether the request would turn a WLED device off: a write
+// to its JSON state API with "on" false. Nothing in Glowstack may ever
+// send one; the tests ask the fakes.
+func (r Request) PowerOff() bool {
+	if r.Method == http.MethodGet || !strings.HasPrefix(r.Path, "/json") {
+		return false
+	}
+	var body struct {
+		On    any `json:"on"`
+		State struct {
+			On any `json:"on"`
+		} `json:"state"`
+	}
+	if json.Unmarshal([]byte(r.Body), &body) != nil {
+		return false
+	}
+	off := func(v any) bool { return v == false || v == "f" || v == float64(0) }
+	return off(body.On) || off(body.State.On)
+}
+
+// Requests returns the HTTP requests the device has received, oldest first
+// (the last 1000).
+func (d *Device) Requests() []Request {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]Request(nil), d.requests...)
+}
+
+// record keeps r in the request log and hands it on to next.
+func (d *Device) record(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/requests" {
+			body, _ := io.ReadAll(io.LimitReader(r.Body, 4096))
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			d.mu.Lock()
+			d.requests = append(d.requests, Request{Method: r.Method, Path: r.URL.Path, Body: string(body)})
+			if n := len(d.requests); n > 1000 {
+				d.requests = d.requests[n-1000:]
+			}
+			d.mu.Unlock()
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // New makes a device. Pixels must be positive.
@@ -254,9 +310,27 @@ func (d *Device) Serve(ctx context.Context) error {
 }
 
 // Handler serves /json/info, /json/cfg, /frame (the shown frame as raw
-// bytes) and / (a page drawing the pixels).
+// bytes) and / (a page drawing the pixels). It accepts a write to
+// /json/state as WLED would, and keeps every request it gets, which
+// /requests lists: a test can then say what a controller was, and was
+// never, asked.
 func (d *Device) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /json/state", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"success": true}) })
+	mux.HandleFunc("POST /json", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, map[string]any{"success": true}) })
+	mux.HandleFunc("GET /requests", func(w http.ResponseWriter, r *http.Request) {
+		reqs := d.Requests()
+		offs := 0
+		for _, q := range reqs {
+			if q.PowerOff() {
+				offs++
+			}
+		}
+		if reqs == nil {
+			reqs = []Request{}
+		}
+		writeJSON(w, map[string]any{"requests": reqs, "power_offs": offs})
+	})
 	mux.HandleFunc("GET /json/info", func(w http.ResponseWriter, r *http.Request) { writeJSON(w, d.info()) })
 	mux.HandleFunc("GET /ledmap.json", func(w http.ResponseWriter, r *http.Request) {
 		if d.cfg.LedMaps < 1 {
@@ -276,7 +350,7 @@ func (d *Device) Handler() http.Handler {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		fmt.Fprintf(w, page, d.cfg.Name, d.cfg.Name, d.channels)
 	})
-	return mux
+	return d.record(mux)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

@@ -341,7 +341,7 @@ test('B34: picker lists show whole rows, and Show on has no scroll of its own', 
 
 test('B35: a warning toast is the warning color', () => {
   assert.match(css, /\.toast\.warn \{ border-left-color: var\(--warn\)/);
-  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, \{ ms: 12000, warn: true,/);
+  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, \{ ms: TOAST_MS, warn: true,/);
   assert.match(read('app.js'), /opts\.warn \? ' warn'/);
 });
 
@@ -2461,7 +2461,7 @@ test('B135: toasts arriving together fold into one, and the phone sheet shows on
   assert.deepEqual(merged('Applied the look.', [], [{ text: 'Turned on Street and Yard.', details: [] }]), { text: 'Applied the look.', details: ['Turned on Street and Yard.'] });
   assert.deepEqual(merged('Third.', ['own detail'], [{ text: 'First.', details: ['a'] }, { text: 'Second.', details: [] }]), { text: 'Third.', details: ['own detail', 'Second.', 'First.', 'a'] });
   const app = read('app.js');
-  assert.match(app, /const folded = foldable\(showing, \{ error: err \|\| opts\.error, action: opts\.action \}, S\.panel \? S\.panel\.layout\(\) : 'wide', Date\.now\(\)\)/);
+  assert.match(app, /const folded = foldable\(showing, \{ error: err \|\| opts\.error, action: opts\.action \|\| opts\.actions\?\.\[0\] \}, S\.panel \? S\.panel\.layout\(\) : 'wide', Date\.now\(\)\)/);
   assert.match(app, /for \(const t of folded\) t\.el\.remove\(\)/);
 });
 
