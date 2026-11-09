@@ -77,7 +77,7 @@ function toast(msg, opts = {}) {
   const box = $('toasts');
   const err = msg instanceof Error;
   const el = document.createElement('div');
-  el.className = 'toast' + (err || opts.error ? ' error' : opts.warn ? ' warn' : '');
+  el.className = 'toast' + (err || opts.error ? ' error' : opts.warn ? ' warn' : opts.neutral ? ' neutral' : '');
   const details = err ? msg.details || [] : opts.details || [];
   el.innerHTML = `<span class="msg">${esc(err ? msg.message : msg)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
@@ -544,6 +544,9 @@ S.labelAvoid = () => {
   return rects;
 };
 // litNow says whether what's on the lights can be seen, for the chip.
+// A warning card on the open tab says why the lights are dark: the chip
+// doesn't say it again. It still says so when that card can't be seen.
+const darkInPanel = () => !S.panel.collapsed() && !!$(`tab-${S.panel.tab()}`).querySelector('[data-dark]:not([hidden])');
 const litNow = () => lightOutcome(S.geo, S.statusData?.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(S.geo, S.tree, l.target)));
 S.refreshBadge = badge;
 let badgeShown = false;
@@ -552,7 +555,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.calibrating ? 'live' : S.overlay?.st.mode, lit: litNow() });
+  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.calibrating ? 'live' : S.overlay?.st.mode, lit: !S.calibrating && darkInPanel() ? null : litNow() });
   const b = $('badge');
   b.innerHTML = badgeHTML(m);
   b.className = 'badge ' + m.cls;
@@ -652,6 +655,7 @@ function onDetent(d) {
     S.view.release(h);
   } else setInsets();
   markDirty();
+  S.emit('detent', d);
 }
 
 // ---------- boot ----------
@@ -726,6 +730,8 @@ async function main() {
   connect();
   S.on('status', badge);
   S.on('house', badge);
+  S.on('tab', badge);
+  S.on('detent', badge);
   await S.refresh();
   setInterval(pollPreview, 1000);
   setInterval(pollHouse, 2000);

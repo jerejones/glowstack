@@ -269,6 +269,7 @@ input[type=checkbox]:checked::after {
 }
 .toast.error { border-left-color: var(--bad); color: var(--fg); }
 .toast.warn { border-left-color: var(--warn); }
+.toast.neutral { border-left-color: var(--line-strong); }
 .toast .msg { flex: 1; }
 .toast .msg div { font-size: var(--t-s); color: var(--muted); }
 .toast button { min-width: var(--tap); padding: 0; background: transparent; border: 0; }
@@ -360,6 +361,7 @@ input[type=checkbox]:checked::after {
   /* The sheet's half detent is short: the looks come first. */
   .tab h1.title, .tab .looks-head, .tab .library-heading { margin-top: 16px; }
   body[data-detent=half] .tab .looks-head { margin: 8px 0 4px; }
+  body[data-detent=half] .catalog-head { margin: 6px 0 4px; }
   body[data-detent=half] .now { margin-bottom: 0; }
   body[data-detent=half] .now:not(.idle):not(.stale) small { display: none; }
   .look-bar { padding-top: 4px; padding-bottom: 4px; }
@@ -390,11 +392,19 @@ details[open] > summary::before { transform: rotate(90deg); }
 .looks-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: var(--title-row); margin: 10px 0 8px; }
 .looks-head h1.title, .library-heading h1.title { margin: 0; flex: none; }
 .looks-head { position: relative; }
+.catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 10px 0 6px; }
+.catalog-head .group-head { margin: 0; }
+.place-row { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.place-row .meta { color: var(--muted); font-size: var(--t-s); }
+.place-row .meta:empty { display: none; }
+button.place { min-width: 0; padding: 2px 8px; background: transparent; }
+.place b { font-weight: 500; overflow-wrap: anywhere; text-align: left; }
 .target-btn { min-width: 0; flex: 0 1 auto; padding-top: 3px; padding-bottom: 3px; }
 .target-btn > .muted { flex: none; white-space: nowrap; }
 /* A long name takes a second line rather than being cut off. */
 .target-btn b { min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .target-picker { position: absolute; z-index: 4; top: calc(100% + 4px); left: 0; right: 0; display: grid; gap: 6px; padding: 8px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+.target-picker.up { top: auto; bottom: calc(100% + 4px); }
 .target-list { overflow-y: auto; overscroll-behavior: contain; }
 .target-picker input { width: 100%; }
 .target-list h3 { margin: 8px 0 4px; font-size: var(--t-help); color: var(--muted); font-weight: 600; }
@@ -432,7 +442,6 @@ details[open] > summary::before { transform: rotate(90deg); }
 .layer .top { display: flex; align-items: center; gap: 8px; }
 .layer .top .what { flex: 1; min-width: 0; }
 .layer .top .what b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.layer .top .what span { color: var(--muted); font-size: var(--t-s); }
 .layer .strip { height: 8px; border-radius: 3px; margin: 6px 0 2px; border: 1px solid var(--rim); }
 .layer .bri { display: flex; align-items: center; gap: 8px; }
 .bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-s); }
@@ -499,7 +508,8 @@ details[open] > summary::before { transform: rotate(90deg); }
 .nv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .nv > .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
-.verdict { display: flex; align-items: center; gap: 8px; font-size: var(--t-l); font-weight: 600; margin: 4px 0 10px; }
+.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-l); font-weight: 600; margin: 4px 0 10px; }
+.verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; color: #fcd9a5; }
 .verdict.bad { color: #fca5a5; }
 .verdict.ok { color: var(--house); }
 .verdict.warn { color: var(--warn); }

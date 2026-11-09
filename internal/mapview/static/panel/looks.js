@@ -10,7 +10,7 @@
 // applying the copy promotes it and then removes the original, in that
 // order, so the lights are never without the look. The preview clock
 // is a line at the bottom that opens to its controls.
-import { post, del, esc, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
+import { post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
 import { houseStatusMessage, darkZones, darkMessage, lightOutcome } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
@@ -126,15 +126,20 @@ export function replaceNote(names) {
 
 // applyResult is what Apply reports: plain success only when the look can
 // be seen. outcome is lightOutcome for the applied looks.
-export function applyResult(what, outcome) {
+export function applyResult(what, outcome, cardShown = false) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
+  // The card in the lane says why, once: this just confirms it was applied.
+  if (cardShown) return { text: `Applied ${what}.`, warn: false, neutral: true };
   const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
   return { text: `${lead} ${outcome.message}`, warn: true };
 }
-const applyToast = (S, what, outcome) => {
-  const r = applyResult(what, outcome);
-  return S.toast(r.text, r.warn ? { ms: 9000, warn: true } : {});
+const applyToast = (S, what, outcome, cardShown) => {
+  const r = applyResult(what, outcome, cardShown);
+  return S.toast(r.text, r.warn ? { ms: 9000, warn: true } : r.neutral ? { neutral: true } : {});
 };
+
+// underBar says a card is cut by the sticky bar's top edge.
+export const underBar = (rect, barTop) => rect.top < barTop && rect.bottom > barTop;
 
 export function createLooks(S, root) {
   const g = S.geo;
@@ -143,17 +148,17 @@ export function createLooks(S, root) {
   const cards = new Map(); // lane:id → card
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
-    <div class="looks-head">
-      <h1 class="title">Looks</h1>
-      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Choose where the next look goes" aria-haspopup="dialog"><span class="muted">Apply to</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
+    <div class="looks-head"><h1 class="title">Looks</h1></div>
+    <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span></button>
+    <div class="catalog-head" id="lkCatalogHead">
+      <h2 class="group-head" id="lkPresetsHead">Presets</h2>
+      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Adds to</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
       <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
         ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
-        <div class="muted small">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
+        <div class="muted small" id="lkPickHint">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
         <div class="target-list" id="lkTargetList"></div>
       </div>
     </div>
-    <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span></button>
-    <h2 class="group-head" id="lkPresetsHead">Presets</h2>
     <div class="cards" id="lkPresets"></div>
     <details id="lkOtherPresets"><summary>More presets <span class="muted"></span></summary><div class="cards"></div></details>
     <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
@@ -164,7 +169,7 @@ export function createLooks(S, root) {
     </div>
     <div class="lane" id="lkHouse">
       <div class="row"><h2>On the lights <small id="lkHouseN"></small></h2></div>
-      <div id="lkDark" hidden></div>
+      <div id="lkDark" data-dark hidden></div>
       <div class="list"></div>
     </div>
     <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="t" id="lkClockText"></span></summary>
@@ -202,13 +207,17 @@ export function createLooks(S, root) {
     return target && targetRanges(g, S.tree, target) ? target : 'all';
   }
   let shownDark = '';
-  const picker = $$('#lkPicker'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch');
+  const picker = $$('#lkPicker'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch'), head = $$('#lkCatalogHead');
+  // The one list of places serves the Adds to button, and, inside a preview
+  // card, that layer's own place. pickFor is the card it is open for.
+  let pickFor = null, opener = targetBtn;
   const targetKey = (t) => JSON.stringify(targetRanges(g, S.tree, t));
   const sameTarget = (a, b) => a === b || targetKey(a) === targetKey(b);
   function fillTargets() {
     const t = currentTarget();
     $$('#lkTargetName').textContent = S.sel ? nodeName(S.sel.node) : targetName(g, t);
     if (picker.hidden) return;
+    const value = pickFor ? pickFor.layer.target : t;
     const groups = targetGroups(S.tree, { query: search.value, visibleRuns: S.visibility.runs });
     $$('#lkTargetList').replaceChildren(...groups.flatMap((grp) => {
       const head = document.createElement('h3');
@@ -219,7 +228,7 @@ export function createLooks(S, root) {
         const b = document.createElement('button');
         b.type = 'button';
         b.textContent = it.label;
-        press(b, sameTarget(it.value, t));
+        press(b, sameTarget(it.value, value));
         b.onclick = () => choose(it.value);
         return b;
       }));
@@ -232,10 +241,17 @@ export function createLooks(S, root) {
     }));
     if (!groups.length) showState($$('#lkTargetList'), { kind: 'empty', title: 'No place by that name' });
   }
-  const outside = (e) => { if (!picker.contains(e.target) && !targetBtn.contains(e.target)) openPicker(false); };
-  function openPicker(on) {
+  const outside = (e) => { if (!picker.contains(e.target) && !opener.contains(e.target)) openPicker(false); };
+  // openPicker opens the list for the next look, or for card c's own place.
+  function openPicker(on, c = null) {
+    opener.setAttribute('aria-expanded', 'false');
     picker.hidden = !on;
-    targetBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    pickFor = on ? c : null;
+    opener = pickFor ? pickFor.el.querySelector('.place') : targetBtn;
+    opener.setAttribute('aria-expanded', on ? 'true' : 'false');
+    (pickFor ? pickFor.el.querySelector('.place-row') : head).append(picker);
+    picker.setAttribute('aria-label', pickFor ? 'Where this look goes' : 'Where the next look goes');
+    $$('#lkPickHint').hidden = !!pickFor;
     document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
     if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus(); }
   }
@@ -245,10 +261,34 @@ export function createLooks(S, root) {
     const list = $$('#lkTargetList'), content = root.parentElement, bar = $$('#lkBar');
     const room = () => content.getBoundingClientRect().bottom - list.getBoundingClientRect().top - (bar.hidden ? 0 : bar.offsetHeight) - 12;
     if (S.panel.layout() === 'sheet' && S.panel.detent() !== 'full' && room() < 220) S.panel.setDetent('full');
-    list.style.maxHeight = Math.max(120, room()) + 'px';
+    // A card low in the list has its room above it: bring the card up first.
+    picker.classList.remove('up');
+    // Its least height first: the room is what's left with that much open.
+    list.style.maxHeight = '220px';
+    if (pickFor) pickFor.el.querySelector('.place-row').scrollIntoView({ block: 'start' });
+    // At the end of the list there's no scrolling further: it opens upward.
+    if (pickFor && room() < 220) {
+      const row = pickFor.el.querySelector('.place-row').getBoundingClientRect().top - content.getBoundingClientRect().top;
+      picker.classList.add('up');
+      list.style.maxHeight = Math.max(120, row - (picker.offsetHeight - list.offsetHeight) - 16) + 'px';
+    } else list.style.maxHeight = Math.max(120, room()) + 'px';
+    picker.scrollIntoView({ block: 'nearest' });
   }
-  for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { openPicker(false); targetBtn.focus(); });
+  for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { const back = opener; openPicker(false); back.focus(); });
+  // moveLayer gives one preview layer a new place. Where the next look goes
+  // doesn't change: that is the Adds to button's.
+  async function moveLayer(c, value) {
+    const back = opener;
+    openPicker(false);
+    back.focus({ preventScroll: true });
+    if (sameTarget(c.layer.target, value)) return;
+    try {
+      await patch('/api/v1/preview/layers/' + encodeURIComponent(c.id), { target: value });
+      await S.refresh();
+    } catch (e) { S.fail('move the look', e); }
+  }
   function choose(value) {
+    if (pickFor) { moveLayer(pickFor, value); return; }
     target = value;
     save(TARGET, target);
     openPicker(false);
@@ -392,8 +432,9 @@ export function createLooks(S, root) {
     const el = document.createElement('div');
     el.className = 'layer';
     el.innerHTML = `
-      <div class="top"><div class="what"><b></b><span></span></div>
+      <div class="top"><div class="what"><b></b></div>
         <button type="button" class="tweak" aria-expanded="false">Tweak</button><button type="button" data-a="remove">Remove</button></div>
+      <div class="place-row"><span class="meta"></span></div>
       <div class="strip"></div>
       <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
       <div class="acts"></div>
@@ -407,6 +448,12 @@ export function createLooks(S, root) {
     el.querySelector('.tweak').onclick = () => tweak(c);
     el.querySelector('[data-a=remove]').onclick = () => remove(c, lane === 'preview' ? '/api/map/preview/layers' : '/api/v1/layers');
     if (lane === 'preview') {
+      const place = Object.assign(document.createElement('button'), { type: 'button', className: 'place icon-btn', title: 'Move this look somewhere else' });
+      place.setAttribute('aria-haspopup', 'dialog');
+      place.setAttribute('aria-expanded', 'false');
+      place.onclick = () => (pickFor === c ? openPicker(false) : openPicker(true, c));
+      escapeCloses(place, () => pickFor === c, () => { openPicker(false); place.focus(); });
+      el.querySelector('.place-row').prepend(place);
       const acts = el.querySelector('.acts');
       acts.innerHTML = `<button type="button" data-a="apply" hidden title="Put only this look on the lights">Apply only this</button>`;
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
@@ -419,11 +466,14 @@ export function createLooks(S, root) {
     const el = c.el;
     el.style.setProperty('--acc', c.lane === 'preview' ? 'var(--preview)' : 'var(--house)');
     el.querySelector('.what b').textContent = layerName(S, l);
-    const bits = ['on ' + (l.target === 'all' ? 'everything' : targetName(g, l.target))];
+    // A preview layer's place is a control; on the lights it's a fact.
+    const placeName = targetName(g, l.target), placeBtn = el.querySelector('.place');
+    if (placeBtn) placeBtn.innerHTML = `<span class="muted">On</span><b>${esc(placeName)}</b>${icon('chevronDown')}`;
+    const bits = placeBtn ? [] : [`On ${placeName}`];
     if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
     if (l.expires) bits.push('until ' + new Date(l.expires).toLocaleTimeString());
     if (onTop) bits.push('on top');
-    el.querySelector('.what span').textContent = bits.join(' · ');
+    el.querySelector('.meta').textContent = bits.join(' · ');
     const eff = effectFor(S, l);
     el.querySelector('.strip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
     const bri = el.querySelector('.bri input');
@@ -455,7 +505,12 @@ export function createLooks(S, root) {
       if (c.el !== next) box.insertBefore(c.el, next);
       prev = c.el;
     }
-    for (const [key, c] of cards) if (c.lane === lane && !keep.has(key)) { c.el.remove(); cards.delete(key); }
+    for (const [key, c] of cards) {
+      if (c.lane !== lane || keep.has(key)) continue;
+      if (pickFor === c) openPicker(false); // the list lives in this card while open
+      c.el.remove();
+      cards.delete(key);
+    }
     return layers.length;
   }
 
@@ -493,13 +548,14 @@ export function createLooks(S, root) {
     const house = S.house.filter((l) => !l.ephemeral);
     const hbox = $$('#lkHouse .list');
     renderLane(hbox, 'house', house);
-    // Nothing listed and the last reading on the line above: it says it all.
-    const houseNote = S.houseStatus === 'unavailable' && S.houseRead && !S.house.length ? null : houseState(S.houseStatus, S.house.length);
+    // A failed refresh with a last reading: the line above says it, once.
+    const houseNote = S.houseStatus === 'unavailable' && S.houseRead ? null : houseState(S.houseStatus, S.house.length);
     laneState(hbox, houseNote);
     $$('#lkHouse').hidden = !S.house.length && (!houseNote || houseNote.kind === 'empty');
     // The zones at 0% once, for the lane: not on every card.
     const dark = darkMessage([...new Set(house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
     $$('#lkDark').hidden = !dark;
+    S.refreshBadge?.();
     if (dark !== shownDark) { shownDark = dark; $$('#lkDark').innerHTML = dark ? warningHTML(dark) : ''; }
     $$('#lkClockBox').hidden = !prev.length;
     const eph = S.house.length - house.length;
@@ -611,6 +667,9 @@ export function createLooks(S, root) {
     c.el.querySelector('.slot').append(form.el);
     c.el.querySelector('.tweak').setAttribute('aria-expanded', 'true');
     c.el.querySelector('.tweak').classList.add('on');
+    // Too tall for half a sheet: it needs the room, not half of itself.
+    const content = root.parentElement, bar = $$('#lkBar');
+    if (S.panel.layout() === 'sheet' && S.panel.detent() === 'half' && form.el.offsetHeight > content.clientHeight - (bar.hidden ? 0 : bar.offsetHeight)) S.panel.setDetent('full');
     // The form can open below the sticky bar, where a tap seems to do nothing.
     form.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
@@ -641,7 +700,7 @@ export function createLooks(S, root) {
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
-    darkToast = applyToast(S, what, outcome);
+    darkToast = applyToast(S, what, outcome, !$$('#lkDark').hidden && !S.panel.collapsed());
     if (outcome.dark && !S.panel.collapsed()) $$('#lkDark').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   $$('#lkPushAll').onclick = () => apply([], hidden);
@@ -724,12 +783,22 @@ export function createLooks(S, root) {
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
   S.on('show', renderLanes);
+  // Rising to full can leave a card half under the bar: nothing just shown
+  // is left cut by it.
+  function clearBar() {
+    const bar = $$('#lkBar');
+    if (S.panel.tab() !== 'looks' || S.panel.collapsed() || bar.hidden) return;
+    const barTop = bar.getBoundingClientRect().top;
+    const cut = [...$$('#lkPreview .list').children].find((el) => underBar(el.getBoundingClientRect(), barTop));
+    cut?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  S.on('detent', clearBar);
   S.on('tab', () => { syncBarInset(); });
   S.on('status', renderLanes); // a zone's brightness changed the notes
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();
-  S.on('ready', () => S.panel.refit());
+  S.on('ready', () => { S.panel.refit(); clearBar(); });
 
   return {
     push,

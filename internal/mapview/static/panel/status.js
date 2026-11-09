@@ -251,7 +251,10 @@ export function createStatus(S, root) {
     const lit = lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
     $$('#stBody').hidden = false;
     $$('#stVerdict').className = `verdict ${lit.cls}`;
-    $$('#stVerdict').textContent = lit.text;
+    // The verdict says why and what to do: no second card for the same thing.
+    const isDark = lit.cls === 'warn';
+    if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
+    $$('#stVerdict').innerHTML = `<span>${esc(lit.text)}</span>${isDark ? '<small>Raise the brightness in Home Assistant.</small>' : ''}`;
     // Health is the second line, in plain text unless something is wrong.
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
@@ -324,7 +327,8 @@ export function createStatus(S, root) {
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
     markOffline();
 
-    renderIssues(st.solve.warnings || [], dark);
+    renderIssues(st.solve.warnings || [], isDark ? '' : dark);
+    S.refreshBadge?.();
   }
 
   let shownPower = false;

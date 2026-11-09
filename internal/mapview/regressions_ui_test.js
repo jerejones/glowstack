@@ -50,7 +50,7 @@ test('a zone at 0 brightness is named where a look was applied, and only that zo
   assert.equal(darkMessage([]), '');
   const status = read('panel/status.js');
   assert.match(status, /darkMessage\(darkZones\(/);
-  assert.match(read('panel/looks.js'), /applyToast\(S, what, outcome\)/);
+  assert.match(read('panel/looks.js'), /applyToast\(S, what, outcome,/);
 });
 
 test('sticky bars never cover what scrolls into view', () => {
@@ -311,7 +311,7 @@ test('B28: Escape closes a popover and stops there', async () => {
   open = false;
   assert.equal(press('Escape').stopped, false, 'a closed popover leaves the key alone');
   const looks = read('panel/looks.js');
-  assert.match(looks, /escapeCloses\(el, \(\) => !picker\.hidden, \(\) => \{ openPicker\(false\); targetBtn\.focus\(\); \}\)/, 'Show on returns focus');
+  assert.match(looks, /escapeCloses\(el, \(\) => !picker\.hidden, \(\) => \{ const back = opener; openPicker\(false\); back\.focus\(\); \}\)/, 'Show on returns focus');
   assert.match(looks, /setAttribute\('aria-expanded', on \? 'true' : 'false'\)/);
   assert.match(read('form.js'), /escapeCloses\(box, \(\) => box\.open/, 'the color editor');
   assert.match(read('picker.js'), /escapeCloses\(el, \(\) => !pop\.hidden, \(\) => close\(true\)\)/, 'the picker');
@@ -340,7 +340,7 @@ test('B34: picker lists show whole rows, and Show on has no scroll of its own', 
 
 test('B35: a warning toast is the warning color', () => {
   assert.match(css, /\.toast\.warn \{ border-left-color: var\(--warn\)/);
-  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, r\.warn \? \{ ms: 9000, warn: true \} : \{\}\)/);
+  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, r\.warn \? \{ ms: 9000, warn: true \} : r\.neutral/);
   assert.match(read('app.js'), /opts\.warn \? ' warn'/);
 });
 
@@ -631,12 +631,12 @@ test('plain words: model parts, effect subtitles, and numbers with commas', asyn
 
 test('the brightness warning is said once per screen, and its toast leaves with the tab', () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /darkToast = applyToast\(S, what, outcome\)/, 'the result of Apply, once');
+  assert.match(looks, /darkToast = applyToast\(S, what, outcome,/, 'the result of Apply, once');
   assert.match(looks, /S\.on\('tab', \(\) => \{ darkToast\?\.remove\(\)/);
   assert.doesNotMatch(looks, /note\.className = orig \? 'note copy-note' : dark/, 'not on every card as well');
   const status = read('panel/status.js');
   assert.doesNotMatch(status, /stDark/, 'one issues list on Status');
-  assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], dark\)/);
+  assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
 });
 
 test('Everything is the one term, and the Runs group says why runs are missing', async () => {
@@ -997,7 +997,8 @@ test('jargon is gone or explained', async () => {
   const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
   assert.doesNotMatch(setup, />Even runs too</);
   assert.doesNotMatch(setup, />Copy view</);
-  assert.match(looks, />Apply to</);
+  assert.match(looks, />Adds to</);
+  assert.doesNotMatch(looks, />Apply to</);
   assert.doesNotMatch(looks, /Next look on/);
   assert.match(looks, /The lights keep running/);
   assert.doesNotMatch(cal, /At the estimate/);
@@ -1112,4 +1113,52 @@ test('B80: Calibrate Details uses plain names, with raw ids behind their own dis
   assert.doesNotMatch(src, /<th>Target<\/th>/, 'the raw target is not a row');
   assert.doesNotMatch(src, /esc\(c\.controller\) \+ ':' \+ c\.index/, 'no raw id in the plain table');
   assert.match(src, /<details class="ids"/);
+});
+
+test('B71: the catalog control says where the next look goes, and a layer has its own place', () => {
+  const src = read('panel/looks.js');
+  // The control sits with what it governs: the catalog, above the cards.
+  const head = /<div class="catalog-head"[\s\S]*?<div class="cards" id="lkPresets">/.exec(src);
+  assert.ok(head, 'the Adds to control is in the catalog heading');
+  assert.match(head[0], />Adds to</);
+  // A preview layer's place is a control of its own, on its own card.
+  assert.match(src, /className: 'place icon-btn'/);
+  assert.match(src, /<span class="muted">On<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
+  assert.match(src, /\/api\/v1\/preview\/layers\/.*\{ target: value \}/, 'moving a layer patches only that layer');
+  assert.match(src, /escapeCloses\(place, \(\) => pickFor === c/, 'Escape closes it, even with focus left on the button');
+  // Choosing for a layer must not change where the next look goes.
+  const move = /function choose\(value\) \{[\s\S]*?target = value;/.exec(src)[0];
+  assert.match(move, /if \(pickFor\) \{ moveLayer\(pickFor, value\); return; \}/);
+});
+
+test('B72: anything cut by the sticky bar is scrolled clear after the sheet rises', async () => {
+  const { underBar } = await import('./static/panel/looks.js');
+  assert.equal(underBar({ top: 700, bottom: 820 }, 784), true, 'its slider is under the bar');
+  assert.equal(underBar({ top: 500, bottom: 760 }, 784), false, 'fully above');
+  assert.equal(underBar({ top: 800, bottom: 900 }, 784), false, 'wholly below is just further down the list');
+  const src = read('panel/looks.js');
+  assert.match(src, /S\.on\('detent', clearBar\)/);
+  assert.match(read('app.js'), /S\.emit\('detent', d\)/);
+  assert.match(css, /scroll-padding-bottom: calc\(var\(--look-bar, 0px\) \+ 8px\)/, 'the scroller reserves the bar');
+});
+
+test('B75: the dark warning is said once on a screen', async () => {
+  const { applyResult } = await import('./static/panel/looks.js');
+  const dark = { dark: 'none', zones: ['Porch'], message: 'Porch is at 0% brightness, so nothing shows there.' };
+  // The card in the lane says why: the toast only confirms, neutrally.
+  const shown = applyResult('the look to the lights', dark, true);
+  assert.equal(shown.warn, false);
+  assert.equal(shown.neutral, true);
+  assert.doesNotMatch(shown.text, /0%|dark/);
+  // No card on screen (a collapsed panel): the toast is the warning.
+  const hidden = applyResult('the look to the lights', dark, false);
+  assert.equal(hidden.warn, true);
+  assert.match(hidden.text, /0% brightness/);
+  // The chip steps back while a card on the open tab explains it.
+  assert.match(read('app.js'), /lit: !S\.calibrating && darkInPanel\(\) \? null : litNow\(\)/);
+  // Status: the verdict carries the fix instead of a card repeating it.
+  const status = read('panel/status.js');
+  assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
+  // A failed refresh: the now-line says so; the lane doesn't say it again.
+  assert.match(read('panel/looks.js'), /S\.houseStatus === 'unavailable' && S\.houseRead \? null : houseState/);
 });
