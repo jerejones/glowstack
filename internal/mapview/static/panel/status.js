@@ -236,7 +236,7 @@ export function createStatus(S, root) {
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details></div>
     <h2>Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     <p class="meta-line" id="stStats"></p>
-    <details id="stDiag"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
+    <details id="stDiag" class="section-disclosure"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
     </div>`;
   const $$ = (s) => root.querySelector(s);
   let last = null, lastAt = 0, shownFailure = false, staleSince = false;

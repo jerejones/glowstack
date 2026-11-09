@@ -710,6 +710,7 @@ export function createForm(ctx) {
   // ---- More: the rest of the params ----
   const rest = moreParams(schema, (effect.wled && effect.wled.bindings) || [], ctx.outside);
   const more = document.createElement('details');
+  more.className = 'section-disclosure';
   more.innerHTML = `<summary>More settings <span class="muted">(${rest.length})</span></summary>`;
   for (const { label: groupLabel, rows } of groupParams(rest)) {
     let parent = more;

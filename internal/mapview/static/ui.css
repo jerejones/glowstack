@@ -417,7 +417,11 @@ input[type=checkbox]:checked::after {
 .kv { border-collapse: collapse; width: 100%; }
 .kv th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 10px 3px 0; white-space: nowrap; vertical-align: top; }
 .kv td { padding: 3px 0; }
-details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; }
+/* Disclosures come in two tiers. One that heads a section (Advanced, More
+ * settings, Diagnostics) takes the section step, --t-h2; an inline one (What
+ * these words mean, Preview clock, Details and the rest) stays at the body
+ * size, --t-m. */
+details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; font-size: var(--t-m); }
 details > summary::-webkit-details-marker { display: none; }
 details > summary::before {
   content: ''; width: 12px; height: 12px; flex: none; background: var(--muted);
@@ -623,7 +627,7 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .setup-cal p { margin-top: 0; }
 .help { margin-top: 6px; }
 #suAdvanced { margin-top: 16px; }
-#suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
+.section-disclosure > summary, #suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
 /* Its sections sit under Advanced: indented, and a size below the top-level
  * ones. Every section is one wrapper, so a control takes the wrapper's width. */
 #suAdvanced > :not(summary) { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-strong); }

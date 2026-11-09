@@ -1033,7 +1033,7 @@ test('one word for previewing, in purple, and stacking is said out loud', () => 
 
 test('Status splits what matters from diagnostics, and repeats no amber', async () => {
   const status = read('panel/status.js');
-  assert.match(status, /<details id="stDiag"><summary>Diagnostics/);
+  assert.match(status, /<details id="stDiag" class="section-disclosure"><summary>Diagnostics/);
   assert.ok(status.indexOf("'frames late'") > status.indexOf('stDiagStats').valueOf(), 'frame numbers are in the diagnostics');
   const { groupIssues } = await import('./static/panel/status.js');
   const spacing = (s) => ({ summary: s, kind: 'spacing', fix: { label: 'Calibrate this run', run: 'r' } });
@@ -2336,4 +2336,12 @@ test('More settings group by what they affect, and help waits to be wanted', asy
   assert.match(css, /\.form \.f\.hinted\.show-doc > \.doc, \.form \.f\.hinted > \.ctl:focus-within ~ \.doc \{ display: block; \}/);
   const form = read('form.js');
   assert.match(form, /field\(wled, label, bindingSlider\(b, lf\), null, title\)/, 'the WLED controls above More do not change');
+});
+
+test('disclosures come in two documented tiers', () => {
+  assert.match(css, /Disclosures come in two tiers/);
+  assert.match(css, /details > summary \{[^}]*font-size: var\(--t-m\);/);
+  assert.match(css, /\.section-disclosure > summary, #suAdvanced > summary \{ font-size: var\(--t-h2\); font-weight: 600;/);
+  assert.match(read('form.js'), /more\.className = 'section-disclosure'/);
+  assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });
