@@ -108,6 +108,22 @@ export function maplessVerdict(st) {
   return st.layers ? { cls: '', text: `${plural(st.layers, 'look')} on the lights` } : { cls: '', text: 'Nothing is lit: no looks are on the lights' };
 }
 
+// faultLine names the unreachable controllers, for the headline. '' with none.
+export function faultLine(ids, health, name = (id) => id) {
+  const down = ids.filter((id) => healthOf(health, id)?.reachable === false);
+  if (!down.length) return '';
+  const who = down.length <= 3 ? `: ${joined(down.map(name))}` : '';
+  return `${plural(down.length, 'controller')} unreachable${who}`;
+}
+
+// headline is the verdict, ranked: controller faults, then dark zones, then
+// run warnings, then all well. What it outranks becomes the second line.
+export function headline(lit, fault, warnings = 0) {
+  if (fault) return { cls: 'bad', text: fault, second: lit.text };
+  if (lit.cls === 'warn' || !warnings) return { cls: lit.cls, text: lit.text, second: '' };
+  return { cls: 'warn', text: `${plural(warnings, 'warning')} to check below`, second: lit.text };
+}
+
 // powerSummary is the power estimate in words: name(id) reads a
 // controller. An output with no LED current is unknown, never zero, and
 // that carries through the totals and the limiting line.
@@ -224,6 +240,7 @@ export function createStatus(S, root) {
     let st;
     try { st = await api('/api/v1/status'); S.setServerUp?.(true); } catch (e) {
       if (e?.network) S.setServerUp?.(false);
+      if (!S.statusFailed) { S.statusFailed = true; S.refreshBadge?.(); }
       if (!last) {
         // A poll mustn't redraw the card out from under a tap on Retry.
         if (shownFailure) return;
@@ -240,6 +257,7 @@ export function createStatus(S, root) {
     }
     lastAt = Date.now();
     staleSince = false;
+    if (S.statusFailed) { S.statusFailed = false; S.refreshBadge?.(); }
     $$('#stStale').hidden = true;
     const levels = JSON.stringify(st.brightness);
     const changed = levels !== JSON.stringify(last?.brightness);
@@ -289,14 +307,16 @@ export function createStatus(S, root) {
     const lit = g.mapless ? maplessVerdict(st) : lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
     $$('#stBody').hidden = false;
     $$('#stRunsBox').hidden = !!g.mapless; // run lengths are the map's
-    $$('#stVerdict').className = `verdict ${lit.cls}`;
+    const shownWarnings = groupIssues((st.solve.warnings || []).map((w) => warningSummary(g, w))).length;
+    const head = headline(lit, faultLine(g.controllers.map((c) => c.id), st.health, (id) => controllerName(g, id)), shownWarnings);
+    $$('#stVerdict').className = `verdict ${head.cls}`;
     // The verdict says why and what to do: no second card for the same thing.
     const isDark = lit.cls === 'warn';
     // The effective result comes first; the controllers only say the wire works.
     const nothingLit = lit.text.startsWith('Nothing is lit');
     $$('#stCtlNote').hidden = !nothingLit;
     if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
-    $$('#stVerdict').innerHTML = `<span>${esc(lit.text)}</span>${isDark ? `<small>Raise the brightness in Home Assistant. ${esc(BRIGHTNESS_RULE)}</small>` : ''}`;
+    $$('#stVerdict').innerHTML = `<span>${esc(head.text)}</span>${head.second ? `<small>${esc(head.second)}</small>` : ''}${isDark ? `<small>Raise the brightness in Home Assistant. ${esc(BRIGHTNESS_RULE)}</small>` : ''}`;
     // Health is the second line, in plain text unless something is wrong.
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;

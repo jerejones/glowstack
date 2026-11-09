@@ -1931,6 +1931,21 @@ test('a place that reads Everything is everything, even when one zone holds ever
   assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }] }), 'run:r');
 });
 
+test('B107: the chip never vouches for the lights without a fresh reading', async () => {
+  const { mapStatus } = await import('./static/map-status.js');
+  const previewing = { previewing: true }, idle = { previewing: false };
+  for (const connected of [true, false]) for (const fresh of [true, false]) for (const preview of [idle, previewing]) {
+    const m = mapStatus({ connected, fresh, show: '', preview });
+    if (!connected) assert.equal(m.text, 'Offline');
+    else if (preview.previewing) assert.equal(m.text, 'Showing your preview');
+    else if (fresh) assert.equal(m.cls, 'house');
+    else { assert.equal(m.text, 'Lights: state unknown'); assert.notEqual(m.cls, 'house'); assert.match(m.title, /failed/); }
+  }
+  assert.equal(mapStatus({ connected: true, fresh: false, show: 'house', preview: previewing }).text, 'Lights: state unknown', 'a hidden preview changes nothing');
+  assert.equal(mapStatus({ connected: true, fresh: false, show: '', preview: idle, lit: { dark: 'none', message: 'x' } }).text, 'Lights: state unknown', 'stale zones are not news');
+  assert.equal(mapStatus({ connected: true, mapless: true, fresh: false, show: '', preview: null }).text, 'Map unavailable');
+});
+
 test('B110: Escape closes the newest open popover on screen, wherever focus is', async () => {
   let key = null;
   globalThis.document = { addEventListener: (type, fn, capture) => { assert.equal(type, 'keydown'); assert.equal(capture, true); key = fn; } };
@@ -1949,4 +1964,17 @@ test('B110: Escape closes the newest open popover on screen, wherever focus is',
   assert.equal(press(), false, 'with none open the key goes on to the map');
   assert.equal(closeTopPopover(), false);
   delete globalThis.document;
+});
+
+test('B105: a controller fault leads the verdict, ahead of dark zones and warnings', async () => {
+  const { headline, faultLine } = await import('./static/panel/status.js');
+  const ok = { reachable: true }, down = { reachable: false };
+  assert.equal(faultLine(['a', 'b'], { a: ok, b: down }, (id) => id.toUpperCase()), '1 controller unreachable: B');
+  assert.equal(faultLine(['a', 'b'], { a: ok, b: ok }), '');
+  assert.equal(faultLine(['a', 'b', 'c', 'd'], { a: down, b: down, c: down, d: down }), '4 controllers unreachable', 'a long list is a count');
+  const unlit = { cls: '', text: 'Nothing is lit: no looks are on the lights' }, dark = { cls: 'warn', text: 'Partly lit: porch at 0%' }, lit = { cls: 'ok', text: 'Lit: 1 look on the lights' };
+  assert.deepEqual(headline(unlit, '1 controller unreachable: B', 2), { cls: 'bad', text: '1 controller unreachable: B', second: unlit.text });
+  assert.deepEqual(headline(dark, '', 2), { cls: 'warn', text: dark.text, second: '' }, 'dark zones outrank warnings');
+  assert.deepEqual(headline(lit, '', 2), { cls: 'warn', text: '2 warnings to check below', second: lit.text });
+  assert.deepEqual(headline(lit, '', 0), { cls: 'ok', text: lit.text, second: '' });
 });

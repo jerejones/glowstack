@@ -17,10 +17,11 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // color mode, 'live' when the map shows real colors), lit (lightOutcome for
 // the looks on the lights), mapless (the map couldn't be loaded or drawn;
 // the page still answers), connecting (no socket result yet: a first
-// connection hasn't opened or failed). The chip follows one rule, on every tab and with
+// connection hasn't opened or failed), fresh (the latest reading of the
+// lights came back; a failed or missing one can't vouch for them). The chip follows one rule, on every tab and with
 // the sheet open or shut: nothing lit never reads as the lights showing, and
 // the tab says why, once.
-export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', mode = 'live', lit = null, mapless = false }) {
+export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', mode = 'live', lit = null, mapless = false, fresh = true }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
@@ -36,6 +37,7 @@ export function mapStatus({ connected, connecting = false, show, preview, target
   if (showing === 'preview') {
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }
+  if (!fresh) return { ...toggle, text: 'Lights: state unknown', detail: '', cls: 'mode', title: "The last reading of the lights failed, so the map may not match them." };
   if (lit?.dark) return { ...toggle, text: lit.dark === 'none' ? 'Lights: nothing lit' : 'Lights: partly lit', detail: lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message };
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
 }

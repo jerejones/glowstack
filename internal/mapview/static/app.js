@@ -599,7 +599,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed });
+  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed });
   const b = $('badge');
   b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;
