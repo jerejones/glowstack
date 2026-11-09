@@ -217,7 +217,9 @@ function setInsets() {
     calTop: $('calibrate').getBoundingClientRect().top - stage.top,
     floats: floatsBottom(stage),
   });
-  S.view.setInsets(top, bottom, framePad(S.calibrating ? '' : S.panel.layout()));
+  // Markers on the lights (calibration's points, Wiring's rings) are framed with them.
+  const shown = S.overlay?.shown();
+  S.view.setInsets(top, bottom, framePad({ width: stage.width, height: stage.height - top - bottom, markers: !!shown && (shown.nodes || shown.mode === 'outputs') }));
 }
 S.setInsets = setInsets;
 

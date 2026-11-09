@@ -60,3 +60,39 @@ test('B144: the label placer treats the chrome over the map as occupied', async 
   assert.match(read('app.js'), /S\.labelAvoid = \(\) => occupiedRects\(document, /);
   assert.match(read('panel/setup.js'), /plural\(n, 'label'\)\} hidden: no room\./);
 });
+
+test('B145: the fit margin scales with the pane and counts a marker\'s ring', async () => {
+  const { framePad, frameMargin, FRAME_MARGIN, MARKER_RING, fitDepth } = await import('./static/map-frame.js');
+  assert.equal(FRAME_MARGIN, 0.04);
+  // At least 4% of the free rectangle's width at each side, never under 12 px, at every pane width.
+  for (const width of [320, 390, 700, 860, 940, 1340, 2560]) {
+    const { side } = framePad({ width, height: 600 });
+    assert.ok(side >= width * 0.04 - 0.05 && side >= 12, `${width}: ${side}`);
+  }
+  // The two desktop panes at 1440x900 clear 36 px; a phone gives up under 16 px a side.
+  assert.ok(framePad({ width: 860, height: 800 }).side >= 36.5);
+  assert.ok(framePad({ width: 940, height: 800 }).side >= 38);
+  assert.ok(framePad({ width: 390, height: 240 }).side <= 16);
+  // The same proportion above and below (frameInsets has taken 6 px already), and a phone's short band keeps its 8 px.
+  const tall = framePad({ width: 860, height: 800 });
+  assert.ok(tall.edge + 6 >= 800 * 0.04 && Math.abs((tall.edge + 6) / 800 - tall.side / 860) < 0.005, JSON.stringify(tall));
+  assert.ok(framePad({ width: 390, height: 240 }).edge + 6 >= 9);
+  assert.ok(frameMargin(940) > frameMargin(390));
+  // Where markers are drawn their ring is framed too, at the sides and above and below.
+  const plain = framePad({ width: 940, height: 700 }), marked = framePad({ width: 940, height: 700, markers: true });
+  assert.equal(Math.round((marked.side - plain.side) * 10) / 10, MARKER_RING);
+  assert.equal(Math.round((marked.edge - plain.edge) * 10) / 10, MARKER_RING);
+  assert.ok(MARKER_RING >= 11 + 1, 'Wiring\'s ring is 11 px and its stroke 2');
+  // A point at the depth the fit gives draws its dot inside the pad.
+  const k = 800 / (2 * Math.tan(20 * Math.PI / 180)), half = 430, pad = plain.side;
+  const depth = fitDepth(12, 0.033, k, half, pad);
+  assert.ok(12 * k / depth + Math.max(1.5, 1.35 * 0.033 * k / depth / 2) <= half - pad + 1e-6);
+  // app.js passes the free rectangle and whether markers show; the fit looks at every light, not a sample.
+  const app = read('app.js');
+  assert.match(app, /framePad\(\{ width: stage\.width, height: stage\.height - top - bottom, markers: /);
+  assert.match(app, /shown\.nodes \|\| shown\.mode === 'outputs'/);
+  assert.match(read('scene.js'), /Math\.floor\(n \/ 30000\)/);
+  assert.match(read('plan.js'), /Math\.max\(W - 2 \* padSide, 1\) \/ w/);
+  assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar/i, 'default framing only: no new control');
+  assert.match(design, /at least 4% of the free rectangle/);
+});

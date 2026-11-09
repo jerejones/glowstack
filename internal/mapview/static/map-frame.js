@@ -47,10 +47,23 @@ export function frameInsets({ height, chips, crumbs, controls, layout, covered, 
 
 // framePad is how far inside the free rectangle the lights are framed, in
 // px: side from its left and right edges, edge from its top and bottom
-// (frameInsets has already taken 6 px of each of those). A phone's band of
-// map is short and wide, so the width is what runs out first there (B141):
-// 12 px clear at the sides and 8 px above and below, with a pixel to spare.
-export const framePad = (layout) => (layout === 'sheet' ? { side: 13, edge: 3 } : { side: 0, edge: 0 });
+// (frameInsets has already taken 6 px of each of those). The margin scales
+// with the pane (B145): at least FRAME_MARGIN (4%) of the free rectangle's
+// width at each side, a little more on a wide pane, and the same share of
+// its height above and below. A wide desktop pane frames the house with air
+// around it; a phone's short band keeps almost all of its width, and never
+// less than its 12 px at the sides and 8 px above and below, with a pixel to
+// spare (B141). Where markers are drawn on the lights (calibration points,
+// Wiring's output rings) their ring is part of what has to clear, not only
+// the dot under it. width and height are the free rectangle's.
+export const FRAME_MARGIN = 0.04;
+export const MARKER_RING = 12; // px: the widest resting marker's radius and stroke
+// frameMargin is that margin for one dimension of the free rectangle, in px.
+export const frameMargin = (size) => Math.max(size * FRAME_MARGIN, size * 0.05 - 6);
+export function framePad({ width = 0, height = 0, markers = false } = {}) {
+  const ring = markers ? MARKER_RING : 0, r1 = (v) => Math.round(v * 10) / 10;
+  return { side: r1(Math.max(13, frameMargin(width)) + ring), edge: r1(Math.max(3, frameMargin(height) - 6) + ring) };
+}
 
 // DOT is the drawn dot's radius in px per px of projected pitch, and its
 // least radius: scene.js draws a pixel 1.35 pitches wide, never under 3 px.

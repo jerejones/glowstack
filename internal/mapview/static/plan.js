@@ -17,7 +17,7 @@ import { clamp, nearestRun } from './util.js';
 export function openPlan(canvas, plan, planIndex, opts) {
   const { px } = opts;
   const n = px.count;
-  let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0;
+  let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0, padSide = 0, padEdge = 0;
   const v = { k: 50, tx: 0, ty: 0 };
   let auto = true, version = 0;
   let colors = null, gray = new Set(), selection = null, pointed = null;
@@ -49,7 +49,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
   function fitBox(x0, y0, x1, y1) {
     const w = Math.max(x1 - x0, 0.5), h = Math.max(y1 - y0, 0.5);
     const hf = Math.max(H - insetTop - insetBottom, 1);
-    const k = Math.min(W / (w * 1.15), hf / (h * 1.15));
+    // Its own 15% of air, and never less than the pad the page asks for.
+    const k = Math.min(W / (w * 1.15), hf / (h * 1.15), Math.max(W - 2 * padSide, 1) / w, Math.max(hf - 2 * padEdge, 1) / h);
     v.k = k; v.tx = W / 2 - (x0 + w / 2) * k; v.ty = insetTop + hf / 2 - (y0 + h / 2) * k;
     changed();
   }
@@ -223,9 +224,10 @@ export function openPlan(canvas, plan, planIndex, opts) {
       cache = null;
       this.relayout();
     },
-    setInsets(top, bottom) {
-      if (top === insetTop && bottom === insetBottom) return;
-      insetTop = top; insetBottom = bottom;
+    setInsets(top, bottom, pad = {}) {
+      const side = pad.side || 0, edge = pad.edge || 0;
+      if (top === insetTop && bottom === insetBottom && side === padSide && edge === padEdge) return;
+      insetTop = top; insetBottom = bottom; padSide = side; padEdge = edge;
       this.relayout();
     },
     relayout() { if (auto) fit(); else changed(); },

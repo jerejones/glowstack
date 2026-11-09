@@ -1220,9 +1220,15 @@ desk.
 
   The map frames its content in the part of the screen the panel and chips
   leave free, so the whole house shows above a peeking sheet. The fit is to
-  that free rectangle, its width as well as its height: on a phone every
-  drawn pixel stays at least 12 px clear of the left and right edges and
-  8 px below the chip bar and above the sheet, at the peek and half detents.
+  that free rectangle, its width as well as its height, with a margin that
+  scales with it: at least 4% of the free rectangle's width at each side
+  (about 37 px beside the desktop panel) and the same share of its height
+  above and below. It is never less than a phone's floor: every drawn pixel
+  stays at least 12 px clear of the left and right edges and 8 px below the
+  chip bar and above the sheet, at the peek and half detents. Where markers
+  are drawn on the lights (calibration's points, Wiring's output rings) the
+  fit counts a marker's ring as well as the dot under it. This is the
+  default framing only; a camera placed by hand stays where it was put.
   When the band is short the house draws smaller; the sheet keeps its height.
 - **Touch and pointer.** A tap selects (a finger may drift 6 px); a long
   press (450 ms) pins a pixel's inspect card; a double tap fits. With a

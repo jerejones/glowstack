@@ -355,9 +355,11 @@ export async function open(glCanvas, input, opts) {
     return { f, u, r: new THREE.Vector3().crossVectors(f, u) };
   }
 
-  // litPoints samples the lights being drawn, enough to find their extent.
+  // litPoints is the lights being drawn, to find their extent. Every one on
+  // a site of ordinary size: a stride skips corners, and a skipped corner is a
+  // pixel or two of margin the fit promised and did not keep (B145).
   function litPoints() {
-    const step = Math.max(1, Math.floor(n / 1500)), out = [];
+    const step = Math.max(1, Math.floor(n / 30000)), out = [];
     for (let p = 0; p < n; p += step) if (flags[p] < 4) out.push(Object.assign(new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]), { dl: dl[p] }));
     return out;
   }

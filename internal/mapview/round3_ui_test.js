@@ -19,10 +19,11 @@ test('B141: the camera fits the free rectangle, its width as well as its height'
   const { fitDepth, framePad, frameInsets } = await import('./static/map-frame.js');
   // A phone keeps 12 px clear at the sides and 8 px above and below (6 of
   // those are frameInsets'), with a pixel to spare; wider layouts keep theirs.
-  assert.deepEqual(framePad('sheet'), { side: 13, edge: 3 });
-  assert.deepEqual(framePad('wide'), { side: 0, edge: 0 });
+  // (Round 4's B145 made the pad scale with the pane; a phone's band keeps these floors.)
   const ins = frameInsets({ height: 844, chips: 54, crumbs: null, controls: 54, layout: 'sheet', covered: 540, calibrating: false, calTop: 0, floats: 0 });
-  assert.ok(ins.top - 54 + framePad('sheet').edge >= 8 && ins.bottom - 540 + framePad('sheet').edge >= 8);
+  const phonePad = framePad({ width: 390, height: 844 - ins.top - ins.bottom });
+  assert.ok(phonePad.side >= 13 && phonePad.edge >= 3, JSON.stringify(phonePad));
+  assert.ok(ins.top - 54 + phonePad.edge >= 8 && ins.bottom - 540 + phonePad.edge >= 8);
   // A 390 px band 250 px tall: k px per unit of tangent. A point 10 m off
   // center with a 3 cm pitch, at the depth fitDepth gives, draws its dot's
   // edge inside the pad.
