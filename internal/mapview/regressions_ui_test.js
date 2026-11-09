@@ -1186,7 +1186,7 @@ test('Setup leads with Calibrate and the color mode, and tucks the model behind 
   const src = read('panel/setup.js');
   const at = (t) => src.indexOf(t);
   assert.ok(at('id="suCal"') < at('Color the map by') && at('Color the map by') < at('Which lights to show'), 'the order on the page');
-  const adv = /<details id="suAdvanced">[\s\S]*?<\/details>/.exec(src)[0];
+  const adv = /<details id="suAdvanced" class="section-disclosure">[\s\S]*?<\/details>/.exec(src)[0];
   assert.match(adv, /id="suModel"/);
   assert.match(adv, /id="suCamera"/);
   assert.match(css, /#suLayers > button \{[^}]*white-space: nowrap/, 'chip labels stay on one line');
@@ -2073,7 +2073,8 @@ test('one section-heading step, with a smaller h3 nested under Advanced', () => 
   assert.doesNotMatch(css, /\.stage-head h2 \{[^}]*font-size/, 'the stage heading is a section heading');
   assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*color: #f3f4f6/);
   assert.doesNotMatch(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*font-size: var\(--t-h3\)/);
-  assert.match(css, /#suAdvanced > summary \{ font-size: var\(--t-h2\)/);
+  assert.match(css, /\.section-disclosure > summary \{ font-size: var\(--t-h2\)/);
+  assert.match(read('panel/setup.js'), /<details id="suAdvanced" class="section-disclosure">/, 'Advanced takes the section tier by class (round 3)');
   assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
   assert.match(css, /\.calibrate h3 \{ font-size: var\(--t-h2\); \}/, 'Progress');
 });
@@ -2325,7 +2326,7 @@ test('More settings group by what they affect, and help waits to be wanted', asy
 test('disclosures come in two documented tiers', () => {
   assert.match(css, /Disclosures come in three tiers/);
   assert.match(css, /details > summary \{[^}]*font-size: var\(--t-m\);/);
-  assert.match(css, /\.section-disclosure > summary, #suAdvanced > summary \{ font-size: var\(--t-h2\); font-weight: 600;/);
+  assert.match(css, /\.section-disclosure > summary \{ font-size: var\(--t-h2\); font-weight: 600;/);
   assert.match(read('form.js'), /more\.className = 'form-disclosure'/);
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });

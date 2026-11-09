@@ -163,7 +163,10 @@ button, .chip {
 }
 button:hover { border-color: #8b95a3; }
 button:disabled, button[aria-disabled=true] { color: var(--disabled); background: transparent; cursor: not-allowed; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The focus ring is a near-white ring set off from the control by a gap: a
+ * shape of its own, never mistaken for the blue fill or border that says
+ * selected or pinned. */
+:focus-visible { outline: 2px solid #f8fafc; outline-offset: 2px; }
 button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 /* --muted misses AA on these surfaces; what's inside reads the lighter one. */
 button.on, .toast, .cal-prog li.here, .cal-prog li:hover { --muted: var(--muted-raised); }
@@ -740,8 +743,10 @@ html:not(.coarse) { --swatch-h: 36px; }
 .look-bar.note-below .bar-note { order: 5; flex: 0 0 100%; white-space: normal; overflow: visible; }
 
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  /* The tab bar names the tab: on a phone the stage is the sheet's first content. */
+  /* The tab bar names the tab: on a phone's half sheet the stage is the sheet's
+   * first content. At the full detent Looks has its heading, as the other tabs do. */
   .tab .looks-head { display: none; }
+  body[data-detent=full] .tab .looks-head { display: flex; margin-top: 16px; }
   .stage { margin-top: 8px; }
   /* A row is one line until asked: kind, name, where, how bright, a chevron.
    * The Library stays within reach while previewing. */
@@ -857,7 +862,7 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .channel-row label { font-size: var(--t-meta); color: #e2e8f0; }
 .form .channel-row input[type=number] { width: 48px; min-width: 0; padding: 0 3px; text-align: center; }
 .form .channel-row input[type=range] { --track: transparent; }
-.form .channel-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.form .channel-row input:focus-visible { outline: 2px solid #f8fafc; outline-offset: 3px; }
 .form .color-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
 .form .color-choices button { font-size: var(--t-s); padding: 4px 7px; }
 .form .color-note { color: var(--muted); font-size: var(--t-help); line-height: 1.4; margin-top: 12px; }
@@ -874,7 +879,11 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .setup-cal:not(.started) #suCalN { flex: 1 1 100%; } /* at 0 measured the count takes its own line */
 .help { margin-top: 6px; }
 #suAdvanced { margin-top: 16px; }
-.section-disclosure > summary, #suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
+/* One disclosure style per level, by class: a section's disclosure
+ * (.section-disclosure: Diagnostics, Advanced) reads at a section heading's
+ * size; every other one (Details, All runs, After limiting, What these
+ * words mean) takes the base rule above. No disclosure is sized by its id. */
+.section-disclosure > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
 .form-disclosure > summary { font-size: var(--t-h3); font-weight: 600; color: #f3f4f6; }
 /* Beside the map, open More settings scrolls inside, so with every group open
  * the Library stays within a panel's height of the top. */

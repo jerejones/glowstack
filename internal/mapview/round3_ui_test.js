@@ -515,3 +515,24 @@ test('Refinement 6: level card rows: a sub line sits under its name, and a row\'
   // The name still wraps to two lines rather than being cut.
   assert.match(css, /\.preset \.name \{\s*display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;/);
 });
+
+test('Refinement 7: one disclosure style per level, a focus ring of its own, a Looks heading on the full sheet', () => {
+  // Disclosures: the base rule is the inline tier; the section tier is a class. None is sized by its id.
+  assert.match(css, /^details > summary \{[^}]*font-size: var\(--t-m\); font-weight: 600; \}/m);
+  assert.match(css, /^\.section-disclosure > summary \{ font-size: var\(--t-h2\); font-weight: 600; color: #f3f4f6; \}/m);
+  assert.doesNotMatch(css, /#[A-Za-z]+ > summary \{[^}]*font-(size|weight)/, 'no id-specific disclosure size or weight');
+  assert.match(read('panel/setup.js'), /<details id="suAdvanced" class="section-disclosure"><summary>Advanced<\/summary>/);
+  assert.match(read('panel/status.js'), /<details id="stDiag" class="section-disclosure"><summary>Diagnostics<\/summary>/);
+  assert.match(read('panel/status.js'), /<details id="stRunsMore"><summary><\/summary>/, 'All N runs: the inline tier');
+  assert.match(read('panel/status.js'), /<details><summary>Details<\/summary>/);
+  // The focus ring: a near-white ring with a gap, not the accent blue of a selected or pinned control.
+  const ring = /^:focus-visible \{[^}]*\}/m.exec(css)[0];
+  assert.match(ring, /outline: 2px solid #f8fafc; outline-offset: 2px;/);
+  assert.doesNotMatch(ring, /var\(--accent\)/);
+  for (const rule of css.match(/[^{}]*:focus-visible[^{]*\{[^}]*outline:[^}]*\}/g)) assert.doesNotMatch(rule, /outline: [^;]*var\(--accent\)/, rule.slice(0, 60));
+  assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ color: var\(--accent\); border-color: var\(--accent\); \}/, 'pinned is the accent: the ring is not');
+  // A phone's full sheet shows the Looks heading, as the other tabs show theirs; the half sheet keeps the room.
+  const phone = css.slice(css.indexOf('  .tab .looks-head { display: none; }'));
+  assert.match(phone, /^  \.tab \.looks-head \{ display: none; \}\s*body\[data-detent=full\] \.tab \.looks-head \{ display: flex; margin-top: 16px; \}/);
+  assert.match(read('panel/looks.js'), /<div class="looks-head"><h1 class="title">Looks<\/h1><\/div>/);
+});

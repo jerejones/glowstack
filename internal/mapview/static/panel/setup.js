@@ -66,7 +66,7 @@ export function createSetup(S, root) {
       <button type="button" id="suEven" aria-pressed="false" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label evenly spaced runs</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
-    <details id="suAdvanced"><summary>Advanced</summary>
+    <details id="suAdvanced" class="section-disclosure"><summary>Advanced</summary>
     <div id="suModel" hidden><h3 class="sub">Model detail</h3>
       <div class="seg" id="suDetail" role="group" aria-label="Model detail"><button type="button" data-detail="simple" title="A dim outline, so the lights and targets lead">Simple</button><button type="button" data-detail="full" title="Every line of the model, including what's behind walls">Full detail</button></div>
       <h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small help">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
