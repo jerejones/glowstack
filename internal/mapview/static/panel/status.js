@@ -11,7 +11,7 @@
 // unreachable is drawn gray while the map shows the lights.
 import { api, esc, fmt, plural, count, humanize, covers, normRanges } from '../util.js';
 import { showState, stateHTML } from '../states.js';
-import { darkZones, darkMessage, joined, BRIGHTNESS_RULE } from '../house-status.js';
+import { darkZones, darkMessage, joined, lightOutcome, turnOnLabel, turnOnZones } from '../house-status.js';
 import { targetRanges } from '../select.js';
 import { runName, controllerName, warningSummary } from '../names.js';
 import { icon } from '../icons.js';
@@ -217,6 +217,7 @@ export function createStatus(S, root) {
   root.innerHTML = `
     <h1 class="title">Status</h1>
     <div id="stVerdict" class="verdict" role="status">${stateHTML({ kind: 'loading', title: 'Loading status…' })}</div>
+    <div id="stFix" class="status-fix" hidden></div>
     <div id="stStale" class="stale-note" role="status" hidden></div>
     <div id="stHealth" class="health" hidden></div>
     <div id="stIssues"></div>
@@ -301,6 +302,20 @@ export function createStatus(S, root) {
     }
   }
 
+  // renderFix offers the one press that lifts a dark verdict: only the zones
+  // at 0% that are keeping a look dark. Drawn only on a change, so a poll
+  // can't replace the button under a press.
+  let shownFix = '';
+  function renderFix(st, isDark) {
+    const out = isDark && !g.mapless && S.houseStatus === 'available' ? lightOutcome(g, st.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(g, S.tree, l.target))) : null;
+    const ids = out?.ids || [], box = $$('#stFix'), key = ids.join();
+    if (key === shownFix) return;
+    shownFix = key;
+    box.hidden = !ids.length;
+    box.innerHTML = ids.length ? `<button type="button" class="icon-btn" id="stTurnOn">${icon('sun')}${esc(turnOnLabel(out.zones))}</button>` : '';
+    if (ids.length) $$('#stTurnOn').onclick = () => turnOnZones(S, api, ids, out.zones);
+  }
+
   function render(st) {
     const perf = S.perf();
     const health = verdict(g.controllers.map((c) => c.id), st.health);
@@ -316,13 +331,14 @@ export function createStatus(S, root) {
     const nothingLit = lit.text.startsWith('Nothing is lit');
     $$('#stCtlNote').hidden = !nothingLit;
     if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
-    $$('#stVerdict').innerHTML = `<span>${esc(head.text)}</span>${head.second ? `<small>${esc(head.second)}</small>` : ''}${isDark ? `<small>Raise the brightness in Home Assistant. ${esc(BRIGHTNESS_RULE)}</small>` : ''}`;
+    $$('#stVerdict').innerHTML = `<span>${esc(head.text)}</span>${head.second ? `<small>${esc(head.second)}</small>` : ''}`;
+    renderFix(st, isDark);
     // Health is the second line, in plain text unless something is wrong.
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
     $$('#stHealth').title = 'Whether Glowstack can reach each controller over the network';
     const readAt = staleSince ? new Date(lastAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
-    $$('#stHealth').innerHTML = `${mark(health.cls === 'ok' && !nothingLit && !readAt ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle')}<span>${esc(asOf(health.text, readAt))}</span>`;
+    $$('#stHealth').innerHTML = `${mark(health.cls === 'ok' && !readAt ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle')}<span>${esc(asOf(health.text, readAt))}</span>`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
     // Facts about the installation, once: the verdict above answers the question.
     $$('#stStats').textContent = [`${count(st.solve.pixels)} lights`, `${plural(st.preview_layers, 'look')} in preview`, `Up ${readableDuration(st.uptime)}`].join(' · ');
@@ -345,7 +361,7 @@ export function createStatus(S, root) {
       const kit = [nb(plural(c.pixels, 'light')), nb(plural(c.outputs.length, 'output'))];
       const titled = h?.version ? `${c.id} · version ${h.version}` : c.id;
       if (h) {
-        dot = h.reachable === true && !nothingLit && !readAt ? 'ok' : h.reachable === false ? 'bad' : 'idle';
+        dot = h.reachable === true && !readAt ? 'ok' : h.reachable === false ? 'bad' : 'idle';
         // Only worth saying when it isn't simply working.
         if (h.lastSeen && !(h.reachable === true && h.sending === true)) line = nb('Last answered ' + ago(h.lastSeen));
         const faults = [];

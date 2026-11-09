@@ -10,7 +10,7 @@
  * app.js which one applies. Calibration mode is at the end. */
 
 :root {
-  --t-verdict: 22px;     /* Status's one-line answer */
+  --t-verdict: 18px;     /* Status's answer: a size below the page title */
   --field: #0f1115; --field-line: #6b7480; --title-row: 44px;
   --control-line: #6b7480; /* a control's edge: 3:1 on every surface it sits on */
   --bg: #0d0e10;
@@ -406,6 +406,7 @@ input[type=checkbox]:checked::after {
   body[data-detent=half] .now:not(.idle):not(.stale) small { display: none; }
   .look-bar { padding-top: 4px; padding-bottom: 4px; }
   /* One action leads on the phone: the rest are quiet beside it. */
+  .look-acts { flex-wrap: nowrap; }
   .look-acts .go { flex: 1; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
@@ -456,9 +457,24 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .target-group { padding: 8px 0; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
 .target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
+.looks-slot { display: flow-root; }
+.looks-slot .lane { margin: 6px 0 8px; }
+/* The wide panel has room for a card's place beside its name, so a preview
+ * moves the grid under the pointer as little as possible. */
+@media (min-width: 1280px) {
+  .looks-slot .layer { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; column-gap: 8px; }
+  .looks-slot .layer .top { display: contents; }
+  .looks-slot .layer .top .what { grid-row: 1; grid-column: 1; }
+  .looks-slot .layer .place-row { grid-row: 1; grid-column: 2; position: static; }
+  .looks-slot .layer .tweak { grid-row: 1; grid-column: 3; }
+  .looks-slot .layer [data-a=remove] { grid-row: 1; grid-column: 4; }
+  .looks-slot .layer > :not(.top):not(.place-row) { grid-column: 1 / -1; }
+  .looks-slot .layer .acts, .looks-slot .layer .note:empty, .looks-slot .layer .slot:empty { display: none; }
+  .looks-slot .layer .acts:not(:empty) { display: flex; }
+}
 .now { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 8px; margin: 0 0 8px; border: 1px solid var(--line); border-radius: var(--radius); }
 /* While previewing with nothing on the lights: a line of status, not a card. */
-.now.plain { min-height: 0; padding: 0 2px; margin: 6px 0 10px; border: 0; }
+.now.plain { min-height: 0; padding: 0 2px; margin: 0 0 4px; border: 0; }
 .now.plain b { font-weight: 400; color: var(--muted); }
 .lane-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0; }
 .now .strip { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid var(--rim); }
@@ -513,10 +529,12 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
   margin: 12px -12px 0; padding: 8px 12px; background: #111317; border-top: 1px solid var(--line); box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
 }
 .group-head { margin: 10px 0 6px; }
-.bar-note { margin: 0; color: var(--muted); font-size: var(--t-help); }
+.bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-help); white-space: nowrap; overflow: hidden; }
 .bar-note.warn { color: #fcd9a5; }
 .look-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
 .look-acts #lkClear { margin-right: auto; }
+.look-acts button, .bar-line button { flex: none; white-space: nowrap; }
 .clock-box { margin: 10px 0; }
 .clock-box:not([open]) .t, .clock-box[open] .clock-hint { display: none; }
 .clock-hint { margin-left: auto; font-size: var(--t-meta); }
@@ -570,7 +588,8 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .nv > .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
 .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-verdict); line-height: 1.25; font-weight: 650; letter-spacing: -0.01em; margin: 4px 0 10px; }
-.verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; letter-spacing: 0; color: #fcd9a5; }
+.verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; letter-spacing: 0; color: var(--fg); }
+.status-fix { margin: -4px 0 10px; }
 .verdict.bad { color: #fca5a5; }
 .verdict.ok { color: var(--house); }
 .verdict.warn { color: var(--warn); }

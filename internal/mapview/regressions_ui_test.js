@@ -45,7 +45,7 @@ test('a zone at 0 brightness is named where a look was applied, and only that zo
   assert.deepEqual(darkZones(geo, null, [[0, 4]]), [], 'no reading yet');
   const say = darkMessage(['Yard']);
   assert.match(say, /^Yard is at 0% brightness/);
-  assert.match(say, /Home Assistant/);
+  assert.doesNotMatch(say, /Home Assistant/, 'one sentence: the button is the fix');
   assert.match(darkMessage(['Yard', 'Porch', 'Shed']), /^Yard, Porch and Shed are at/);
   assert.equal(darkMessage([]), '');
   const status = read('panel/status.js');
@@ -572,7 +572,6 @@ test('B45: whatever a tap opens in the panel scrolls clear of the bar', () => {
   const sheet = read('sheet.js');
   assert.match(sheet, /addEventListener\('toggle'/);
   assert.match(sheet, /e\.target === opening && e\.target\.open/, 'only when opened by hand, not by a poll');
-  assert.match(read('panel/looks.js'), /S\.panel\.fitHalf = /);
   assert.match(read('panel/looks.js'), /S\.panel\.tab\(\) !== 'looks'\) content\.style\.removeProperty\('--look-bar'\)/, "another tab's scroll isn't padded for a bar it doesn't have");
 });
 
@@ -841,7 +840,7 @@ test('the footer holds actions, and clearing reads apart from removing', async (
   assert.equal(clearLabel(2), 'Clear all');
   assert.match(looks, /\[data-a=remove\]'\)\.hidden = prev\.length < 2 && !removeScope/);
   assert.equal(replaceNote([]), '');
-  assert.equal(replaceNote(['Glitter']), 'Glitter is on these lights. Replace takes it off; Add on top keeps it underneath.');
+  assert.equal(replaceNote(['Glitter']), 'Replaces Glitter');
   assert.match(css, /\.look-acts \.go \{ flex: 1; \}/, 'one primary action on the phone footer');
 });
 
@@ -857,7 +856,7 @@ test('every panel warns with the same card, in the same nouns', async () => {
   assert.match(warningHTML('Porch is at 0%'), /class="issue solo"[\s\S]*Porch is at 0%/);
   assert.doesNotMatch(css, /dark-note|cal-warn/);
   assert.doesNotMatch(read('panel/calibrate.js'), /cal-warn/);
-  assert.match(read('panel/looks.js'), /warningHTML\(dark\)/);
+  assert.match(read('panel/looks.js'), /class="issue solo">\$\{warningBody\(banner\.text\)\}/);
   assert.doesNotMatch(read('panel/looks.js'), /Could not load your looks|Take this layer|'Layer brightness|"Layer brightness/);
 });
 
@@ -1046,7 +1045,6 @@ test('the phone sheet keeps Expand on the handle and tabs to themselves', () => 
   assert.match(sheet, /\.ico svg \{ width: 20px; height: 20px; \}/);
   assert.match(css, /--peek: 68px/);
   assert.match(read('sheet.js'), /const PEEK = 68;/);
-  assert.match(read('panel/looks.js'), /const PEEK_CHROME = 68;/);
 });
 
 test('a long look name wraps instead of being cut off', () => {
@@ -1138,11 +1136,11 @@ test('B72: anything cut by the sticky bar is scrolled clear after the sheet rise
 test('B75: the dark warning is said once on a screen', async () => {
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Porch'], message: 'Porch is at 0% brightness, so nothing shows there.' };
-  // The card says why: the toast only confirms, neutrally, and not as plain success.
+  // The banner says why: the toast only confirms, in a neutral color, and doesn't repeat it.
   const shown = applyResult('the look to the lights', dark, true);
   assert.equal(shown.warn, false);
   assert.equal(shown.neutral, true);
-  assert.equal(shown.text, 'Applied the look to the lights, but they stay dark.');
+  assert.equal(shown.text, 'Applied the look to the lights.');
   // No card on screen (a collapsed panel): the toast is the warning.
   const hidden = applyResult('the look to the lights', dark, false);
   assert.equal(hidden.warn, true);
@@ -1197,14 +1195,6 @@ test('Setup leads with Calibrate and the color mode, and tucks the model behind 
   assert.match(adv, /id="suModel"/);
   assert.match(adv, /id="suCamera"/);
   assert.match(css, /#suLayers > button \{[^}]*white-space: nowrap/, 'chip labels stay on one line');
-});
-
-test('polish 10: at half, the sheet settles between Setup controls', async () => {
-  const { halfSpill } = await import('./static/panel/setup.js');
-  assert.equal(halfSpill([{ top: 0, bottom: 40 }, { top: 50, bottom: 90 }], 45), 0, 'between rows');
-  assert.equal(halfSpill([{ top: 0, bottom: 40 }, { top: 50, bottom: 90 }], 70), 28, 'to the bottom of the cut row, with a margin');
-  assert.equal(halfSpill([{ top: 0, bottom: 300 }], 70), 0, 'a row too tall to settle on is left alone');
-  assert.equal(halfSpill([{ top: 60, bottom: 140 }], 70), -18, 'a far bottom settles above the row instead');
 });
 
 test('polish: plain labels and counts', async () => {
@@ -1363,9 +1353,9 @@ test('B87: opening Tweak shows the first control above the bar, and the form as 
   assert.match(looks, /revealing \|\| S\.panel\.tab\(\)/, 'the rising sheet does not scroll somewhere else first');
 });
 
-test('Looks folds the long grids once something previews, and a preview on an empty house says so', async () => {
+test('Looks leaves the grids alone when something previews, and a preview on an empty house says so', async () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /if \(prev\.length && !hadPreview\) \$\$\('#lkEffects'\)\.open = \$\$\('#lkOtherPresets'\)\.open = false/);
+  assert.doesNotMatch(looks, /hadPreview/, 'a preview no longer folds the grid under the pointer');
   assert.match(looks, /class="muted">Goes on</, 'where the look goes, in words');
   assert.match(looks, /clock-hint/, 'the clock says what it is for while closed');
   const { applyResult } = await import('./static/panel/looks.js');
@@ -1509,21 +1499,13 @@ test('essential metadata is 14px and a phone heading qualifier gets its own line
   assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block; margin-left: 0;/);
 });
 
-test('a phone puts the preview ahead of the chooser, only while there is one', async () => {
-  const { previewFirst } = await import('./static/panel/looks.js');
-  assert.equal(previewFirst('sheet', 1), true);
-  assert.equal(previewFirst('sheet', 0), false, 'presets first with no preview');
-  assert.equal(previewFirst('wide', 2), false);
-  assert.equal(previewFirst('side', 2), false);
-});
-
 test('every secondary action on a card or row has its icon and word, and category keys share one swatch', () => {
   const looks = read('panel/looks.js'), presets = read('panel/presets.js'), overlay = read('overlay.js');
   assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
   assert.match(presets, /\$\{icon\('more'\)\}More/);
   assert.match(looks, /\$\{icon\('setup'\)\}Tweak/);
   assert.match(looks, /\$\{icon\('trash'\)\}<span>Remove/);
-  assert.match(looks, /\$\{icon\('check'\)\}Apply only this/);
+  assert.match(looks, /\$\{icon\('apply'\)\}Apply only this/);
   for (const m of overlay.matchAll(/<span class="(sw[^"]*)" style="background:rgb/g)) assert.equal(m[1], 'sw', 'categories are the plain swatch');
 });
 
@@ -1659,8 +1641,8 @@ test('the 0% warning is said once on a screen, with how the brightnesses combine
   assert.match(darkMessage(['Porch']), /Porch is at 0% brightness/);
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /bri-note/, 'no second note on each card');
-  assert.match(looks, /\$\{lit\.message\} \$\{BRIGHTNESS_RULE\}/);
-  assert.match(read('panel/status.js'), /BRIGHTNESS_RULE/);
+  assert.match(looks, /id="lkWords"[^\n]*\$\{BRIGHTNESS_RULE\}/, 'the rule lives in the glossary');
+  assert.doesNotMatch(read('panel/status.js'), /BRIGHTNESS_RULE/);
   assert.doesNotMatch(read('map-status.js'), /at 0%`/);
 });
 
@@ -1721,8 +1703,11 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
   assert.doesNotMatch(status, /kit\.push\(nb\('version/, 'the version moved to the name tooltip');
 });
 
-test('a phone tab opens tall enough to use: Setup reads like Presets and Status', () => {
-  assert.match(read('sheet.js'), /READING = new Set\(\['presets', 'setup', 'status'\]\)/);
+test('the half sheet is one height on every tab, so the map holds still', () => {
+  const sheet = read('sheet.js');
+  assert.match(sheet, /const HALF = 0\.5;/);
+  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\)/);
+  assert.doesNotMatch(sheet, /READING|fitHalf/);
 });
 
 test('B102: a palette with its own colors says the look colors are unused', async () => {
@@ -1824,22 +1809,20 @@ test('B103: Preview and Lights are off until the map is ready, and say why', asy
   assert.equal(empty.ariaDisabled, true);
 });
 
-test('Applying into a 0% zone warns first and never reports plain success', async () => {
-  const { applyWarning, applyResult } = await import('./static/panel/looks.js');
-  assert.equal(applyWarning({ dark: '' }), '');
-  assert.match(applyWarning({ dark: 'none', message: 'Yard is at 0% brightness, so nothing shows there. Raise the brightness in Home Assistant.' }), /^This will stay dark on the lights\. Yard is at 0%/);
-  assert.match(applyWarning({ dark: 'part', message: 'Yard is at 0%.' }), /^Part of this will stay dark/);
+test('Applying into a 0% zone never reports plain success alone', async () => {
+  const { applyResult } = await import('./static/panel/looks.js');
   const shown = applyResult('the look to the lights', { dark: 'none', message: 'Yard is at 0%.' }, true);
-  assert.equal(shown.text, 'Applied the look to the lights, but they stay dark.');
+  assert.equal(shown.neutral, true, 'the banner on screen carries the warning');
   assert.equal(shown.warn, false);
   const alone = applyResult('the look to the lights', { dark: 'part', message: 'Yard is at 0%.' }, false);
+  assert.equal(alone.warn, true);
   assert.match(alone.text, /part of it stays dark\. Yard is at 0%/);
   assert.equal(applyResult('the look', { dark: '' }).text, 'Applied the look.');
 });
 
 test('the dark reason sits right under the line naming what is on the lights', () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /now\.after\(\$\$\('#lkDark'\)\)/);
+  assert.match(looks, /\[now\]\), \$\$\('#lkDark'\)/);
   assert.doesNotMatch(/id="lkHouse"[\s\S]*?<\/div>\s*<\/div>/.exec(looks)[0], /lkDark/);
 });
 
@@ -1867,7 +1850,7 @@ test('one control language: one slider, one selected fill, one readout', () => {
 test('action buttons lead with an icon; the header says it sets new previews', () => {
   const looks = read('panel/looks.js'), setup = read('panel/setup.js'), status = read('panel/status.js'), presets = read('panel/presets.js'), cal = read('panel/calibrate.js');
   assert.match(looks, /id="lkAdd"[^>]*>\$\{icon\('plus'\)\}/);
-  assert.match(looks, /innerHTML = `\$\{icon\('check'\)\}\$\{updates/);
+  assert.match(looks, /innerHTML = `\$\{icon\('apply'\)\}\$\{updates/);
   assert.match(looks, /\$\{icon\('close'\)\}\$\{clearLabel/);
   assert.match(presets, /id="prNew" class="icon-btn">\$\{icon\('plus'\)\}/);
   assert.match(setup, /icon\('target'\)\}\$\{running/);
@@ -1979,10 +1962,63 @@ test('B105: a controller fault leads the verdict, ahead of dark zones and warnin
   assert.deepEqual(headline(lit, '', 0), { cls: 'ok', text: lit.text, second: '' });
 });
 
-test('camera: no Overhead code and no named-view text is left', () => {
-  const scene = read('scene.js');
-  assert.doesNotMatch(scene, /overhead|named view|named\(/i);
-  assert.doesNotMatch(read('panel/setup.js'), /overhead|suCamMode|named views/);
+const ZONES = {
+  areas: [{ id: 'yard', ranges: [[0, 9]] }, { id: 'porch', ranges: [[10, 19]] }],
+  zones: [{ id: 'yard', name: 'Yard', area: 'yard' }, { id: 'porch', name: 'Porch', area: 'porch' }],
+};
+
+test('the one-press fix only ever raises zones at 0% that are blocking a look', async () => {
+  const { lightOutcome, onLevels, turnOnLabel } = await import('./static/house-status.js');
+  const out = lightOutcome(ZONES, { master: 1, zones: { yard: 0, porch: 0.5 } }, [[[0, 4]]]);
+  assert.deepEqual(out.ids, ['yard'], 'porch is lit, and has no look on it');
+  assert.equal(turnOnLabel(['Yard']), 'Turn on Yard');
+  assert.equal(turnOnLabel(['Yard', 'Porch']), 'Turn on all 2');
+  const zones = [{ id: 'yard', brightness: 0, on_level: 0.4 }, { id: 'porch', brightness: 0.5, on_level: 1 }, { id: 'side', brightness: 0, on_level: 1 }];
+  assert.deepEqual(onLevels(zones, ['yard', 'porch']), { yard: 0.4 }, 'a zone raised meanwhile is left alone, and so is one not asked for');
+  assert.deepEqual(onLevels([{ id: 'yard', brightness: 0, on_level: 0 }], ['yard']), {}, 'never sends 0');
+  const sources = ['house-status.js', 'panel/looks.js', 'panel/status.js'].map(read).join('');
+  assert.doesNotMatch(sources, /["']?\bon["']?:\s*false/, 'nothing here turns anything off');
+  assert.doesNotMatch(sources, /JSON\.stringify\(\{ master/, 'no master brightness control');
+});
+
+test('one 0% message: the banner beside the map, the Apply bar on a phone with a preview', async () => {
+  const { zoneWarning } = await import('./static/house-status.js');
+  const yard = { dark: 'none', zones: ['Yard'], ids: ['yard'], message: 'Yard is dark.' }, porch = { dark: 'part', zones: ['Porch'], ids: ['porch'], message: 'Porch is dark.' };
+  const none = { dark: '', zones: [], ids: [], message: '' };
+  assert.equal(zoneWarning(none, none, { previewing: true, sheet: false }), null);
+  assert.equal(zoneWarning(yard, none, { previewing: false, sheet: true }).where, 'banner');
+  const landing = zoneWarning(none, porch, { previewing: true, sheet: false });
+  assert.equal(landing.where, 'bar');
+  assert.equal(landing.text, 'Part of this stays dark: zone at 0%');
+  const both = zoneWarning(yard, porch, { previewing: true, sheet: false });
+  assert.equal(both.where, 'banner');
+  assert.deepEqual(both.ids, ['yard', 'porch'], 'one button covers both');
+  assert.equal(zoneWarning(yard, porch, { previewing: true, sheet: true }).where, 'bar', 'the banner would be scrolled off');
+  const master = { dark: 'none', zones: [], ids: [], message: 'Brightness is at 0%, so nothing shows. Raise it in Home Assistant.' };
+  assert.deepEqual(zoneWarning(master, none, { previewing: false, sheet: false }).ids, [], 'no button for the master level');
+});
+
+test('B109: footer labels never wrap and the phone row has room for all three', async () => {
+  const { clearLabel, replaceNote } = await import('./static/panel/looks.js');
+  assert.match(css, /\.look-acts button, \.bar-line button \{ flex: none; white-space: nowrap; \}/);
+  assert.equal(clearLabel(1, true), 'Clear', 'beside Add and Replace');
+  assert.equal(replaceNote(['A', 'B', 'C']), 'Replaces 3 looks', 'a long list is a count, so the note stays one line');
+  assert.equal(replaceNote(['A long name for the first look', 'And a long name for the second']), 'Replaces 2 looks');
+  assert.match(css, /\.bar-note \{[^}]*white-space: nowrap/);
+});
+
+test('B108, B106: the slot above the grid holds the preview, and Apply leaves the grid and the heading', () => {
+  const looks = read('panel/looks.js');
+  const slot = /id="lkSlot">[\s\S]*?id="lkCatalogHead"/.exec(looks)[0];
+  for (const id of ['lkNow', 'lkDark', 'lkPreview', 'lkWords']) assert.match(slot, new RegExp(`id="${id}"`), `${id} sits above the grid`);
+  assert.match(looks, /heldSlot = S\.panel\.layout\(\) === 'sheet' \? 0 : slotBefore/, 'Apply keeps the height the preview had');
+  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' && !S\.panel\.collapsed\(\) && cards\.has\('preview:' \+ added\.id\)/, 'beside the map a click does not scroll the grid');
+  assert.match(looks, /if \(!S\.panel\.collapsed\(\)\) root\.parentElement\.scrollTo\(\{ top: 0/, 'Apply shows the heading');
+});
+
+test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
+  assert.match(css, /@media \(min-width: 1280px\) \{ :root \{ --panel-w: 500px; \} \}/);
+  assert.match(css, /--layout: sheet; --panel-space: 0px/);
 });
 
 test('polish: apply and stop have their own icons, Calibrate no longer looks like a sparkle', () => {
@@ -1991,6 +2027,7 @@ test('polish: apply and stop have their own icons, Calibrate no longer looks lik
   assert.notEqual(path('stop'), path('close'));
   assert.match(path('target'), /a6 6 0/, 'a bullseye, unlike the four-point sparkle');
   assert.match(read('panel/calibrate.js'), /\$\{icon\('stop'\)\}Stop/);
+  assert.match(read('panel/looks.js'), /in-badge">\$\{icon\('eye'\)\}/, 'Previewing reads the same on Looks and Presets');
 });
 
 test('unused palette colors fold into one line', () => {
@@ -1999,13 +2036,24 @@ test('unused palette colors fold into one line', () => {
   assert.match(form, /c\.row\.hidden = c\.ignored\(\)/);
 });
 
+test('camera: no Overhead code and no named-view text is left', () => {
+  const scene = read('scene.js');
+  assert.doesNotMatch(scene, /overhead|named view|named\(/i);
+  assert.doesNotMatch(read('panel/setup.js'), /overhead|suCamMode|named views/);
+});
+
+test('the card picker opens under its own button, even with the Tweak form open', () => {
+  assert.match(read('panel/looks.js'), /picker\.style\.top = pickFor\.el\.querySelector\('\.place-row'\)\.getBoundingClientRect\(\)\.bottom/);
+});
+
+test('Apply from an open Tweak form or a stack leaves no hole above the grid', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /lane\.slice\(1\)\.reduce/);
+  assert.match(looks, /c\.form \? c\.form\.el\.offsetHeight : 0/);
+});
+
 test('wiring marks: the output number has a dark disc to sit on, and the chip close icon is centered', () => {
   assert.match(read('overlay.js'), /ring\(q, 11, `rgb\(\$\{o\.color\}\)`, 2, null, 'rgba\(0,0,0,\.8\)'\)/);
   assert.match(read('overlay.js'), /600 13px/);
   assert.match(css, /\.crumbs \.x \{ display: inline-flex; align-items: center; justify-content: center;/);
-});
-
-test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
-  assert.match(css, /@media \(min-width: 1280px\) \{ :root \{ --panel-w: 500px; \} \}/);
-  assert.match(css, /--layout: sheet; --panel-space: 0px/);
 });

@@ -16,9 +16,7 @@ const DETENT = 'glowstack.sheet.detent';
 const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
 const PEEK = 68;   // handle (with Expand) and tab bar
 const STRIP = 200; // the map above a full sheet: --strip in ui.css
-const HALF = 0.45; // of the window's height
-const HALF_READING = 0.62; // the same, for tabs that are lists to read
-const READING = new Set(['presets', 'setup', 'status']);
+const HALF = 0.5; // of the window's height, the same on every tab so the map holds still
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
 // guardSelection stops text selection while dragging() says so.
@@ -47,10 +45,8 @@ export function createPanel(hooks) {
   const safeBottom = () => parseFloat(getComputedStyle(panel).paddingBottom) || 0;
   const heights = () => {
     const h = innerHeight, sb = safeBottom();
-    return { peek: PEEK + sb, half: fitHalf(Math.max(HALF_MIN + sb, Math.round(h * (READING.has(tab) ? HALF_READING : HALF)))), full: h - STRIP };
+    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * HALF)), full: h - STRIP };
   };
-  // fitHalf lets the active tab settle the half detent on a whole row.
-  const fitHalf = (base) => (panelApi.fitHalf ? panelApi.fitHalf(base) ?? base : base);
   function setVisible(px) {
     visible = px;
     root.style.setProperty('--sheet-visible', px + 'px');
@@ -74,7 +70,6 @@ export function createPanel(hooks) {
       b.setAttribute('aria-selected', on);
     }
     for (const s of panel.querySelectorAll('.tab')) s.hidden = s.id !== 'tab-' + name;
-    if (layout === 'sheet') setVisible(heights()[detent]); // the tab sets the half detent's height
     hooks.onTab(name);
   }
 
@@ -230,8 +225,6 @@ export function createPanel(hooks) {
     // contents can't be seen.
     collapsed: () => (layout === 'sheet' ? detent === 'peek' : layout === 'side' && rail),
     refresh: () => refresh(false),
-    // refit re-measures a settled half detent after its content changed.
-    refit() { if (layout === 'sheet' && detent === 'half') setVisible(heights().half); },
   });
   return panelApi;
 }

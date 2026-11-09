@@ -10,11 +10,11 @@
 // applying the copy promotes it and then removes the original, in that
 // order, so the lights are never without the look. The preview clock
 // is a line at the bottom that opens to its controls.
-import { post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize, noOrphan } from '../util.js';
+import { api, post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize, noOrphan } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
-import { houseStatusMessage, lightOutcome, BRIGHTNESS_RULE } from '../house-status.js';
+import { houseStatusMessage, lightOutcome, turnOnLabel, turnOnZones, zoneWarning, BRIGHTNESS_RULE } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
-import { showState, stateHTML, warningHTML } from '../states.js';
+import { showState, stateHTML, warningBody } from '../states.js';
 import { icon } from '../icons.js';
 import { textField } from '../field.js';
 import { escapeCloses } from '../picker.js';
@@ -22,7 +22,6 @@ import { escapeCloses } from '../picker.js';
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
 const TARGET = 'glowstack.looks.target';
-const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
 
 // effectKind says what an effect takes its colors from, for its card.
 export function effectKind(e) {
@@ -73,9 +72,6 @@ export function houseState(status, count) {
   if (status === 'unavailable') return { kind: 'error', title, detail: "Glowstack didn't answer. The lights are not affected." };
   return { kind: status === 'available' ? 'empty' : 'loading', title };
 }
-
-// previewFirst says the preview's cards go ahead of the preset chooser.
-export function previewFirst(layout, layers) { return layout === 'sheet' && layers > 0; }
 
 // nowLine is the current-state line above the catalog, as words. house is
 // the lights' layers, nameOf reads them, read says a reading ever came back;
@@ -131,29 +127,25 @@ export function replacedBy(house, preview, rangesOf, originals = new Set()) {
 }
 
 // clearLabel is the footer's way out: it must not read like a card's Remove.
-export const clearLabel = (n) => (n > 1 ? 'Clear all' : 'Clear preview');
+// Beside Add and Replace there's room only for the verb.
+export const clearLabel = (n, tight = false) => (tight ? 'Clear' : n > 1 ? 'Clear all' : 'Clear preview');
 
-// replaceNote explains the choice between Add on top and Replace lights.
+// replaceNote is the footer's one line on what Replace takes off. A long
+// list is a count, so the line never wraps.
 export function replaceNote(names) {
   if (!names.length) return '';
-  const list = names.length < 3 ? names.join(' and ') : `${names.length} looks`;
-  return `${list} ${names.length === 1 ? 'is' : 'are'} on these lights. Replace takes ${names.length === 1 ? 'it' : 'them'} off; Add on top keeps ${names.length === 1 ? 'it' : 'them'} underneath.`;
+  const list = names.join(' and ');
+  return `Replaces ${names.length < 3 && list.length <= 40 ? list : `${names.length} ${names.length === 1 ? 'look' : 'looks'}`}`;
 }
 
 // applyResult is what Apply reports: plain success only when the look can
 // be seen. outcome is lightOutcome for the applied looks.
 export function applyResult(what, outcome, cardShown = false) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
+  // The banner on screen says why, once: this only confirms, in a neutral color.
+  if (cardShown) return { text: `Applied ${what}.`, warn: false, neutral: true };
   const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
-  // The warning on screen says why, once: this confirms, never as plain success.
-  return cardShown ? { text: lead, warn: false, neutral: true } : { text: `${lead} ${outcome.message}`, warn: true };
-}
-
-// applyWarning is the Apply bar's word before it's pressed: the looks in
-// preview would land in zones at 0%. '' when they would show.
-export function applyWarning(outcome) {
-  if (!outcome.dark) return '';
-  return `${outcome.dark === 'none' ? 'This will stay dark' : 'Part of this will stay dark'} on the lights. ${outcome.message}`;
+  return { text: `${lead} ${outcome.message}`, warn: true };
 }
 const applyToast = (S, what, outcome, cardShown) => {
   const r = applyResult(what, outcome, cardShown);
@@ -183,9 +175,17 @@ export function createLooks(S, root) {
   const word = S.coarse ? 'Tap' : 'Click';
   root.innerHTML = `
     <div class="looks-head"><h1 class="title">Looks</h1></div>
+    <div class="looks-slot" id="lkSlot">
     <div class="now" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span><button type="button" class="now-go quiet icon-btn" id="lkNowGo" title="Go to what is on the lights, to tweak or remove it">${icon('eye')}View</button></div>
     <div id="lkDark" data-dark hidden></div>
-    <details class="words" id="lkWords" hidden><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p></details>
+    <div class="lane" id="lkPreview">
+      <div class="row"><h2>Preview <small>on the map only</small></h2></div>
+      <p class="muted small lane-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
+      <p class="muted small stack-note" id="lkStack" hidden>Looks stack. The top one in this list is in front wherever they overlap.</p>
+      <div class="list"></div>
+    </div>
+    <details class="words" id="lkWords" hidden><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>
+    </div>
     <div class="catalog-head" id="lkCatalogHead">
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
       <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their cards." aria-haspopup="dialog"><span class="muted">New previews go on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
@@ -199,12 +199,6 @@ export function createLooks(S, root) {
     <div class="cards" id="lkPresets"></div>
     <details id="lkOtherPresets"><summary>More presets <span class="muted"></span></summary><div class="cards"></div></details>
     <details id="lkEffects"><summary>Effects <span class="muted"></span></summary><div class="cards"></div></details>
-    <div class="lane" id="lkPreview">
-      <div class="row"><h2>Preview <small>on the map only</small></h2></div>
-      <p class="muted small lane-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
-      <p class="muted small stack-note" id="lkStack" hidden>Looks stack. The top one in this list is in front wherever they overlap.</p>
-      <div class="list"></div>
-    </div>
     <div class="lane" id="lkHouse">
       <div class="row"><h2>On the lights <small id="lkHouseN"></small></h2></div>
       <div class="list"></div>
@@ -226,12 +220,12 @@ export function createLooks(S, root) {
     </div>
     </details>
     <div class="look-bar" id="lkBar" hidden>
-      <p class="bar-note" id="lkBarNote" hidden></p>
+      <div class="bar-line" id="lkBarLine" hidden><p class="bar-note" id="lkBarNote"></p><button type="button" class="quiet icon-btn" id="lkBarOn" hidden></button></div>
       <div class="look-acts">
         <button type="button" id="lkClear" class="quiet icon-btn" title="Take everything off the preview; the lights don't change"></button>
         <button type="button" id="lkToPreview" class="quiet icon-btn" hidden title="Back to the preview's cards">${icon('eye')}Go to preview</button>
-        <button type="button" id="lkAdd" class="quiet icon-btn" hidden title="Put this on the lights above what's already there">${icon('plus')}Add on top</button>
-        <button type="button" class="go icon-btn" id="lkPushAll">${icon('check')}Apply to lights</button>
+        <button type="button" id="lkAdd" class="quiet icon-btn" hidden title="Put this on the lights above what's already there">${icon('plus')}Add to lights</button>
+        <button type="button" class="go icon-btn" id="lkPushAll">${icon('apply')}Apply to lights</button>
       </div>
     </div>`;
   const $$ = (sel) => root.querySelector(sel);
@@ -310,10 +304,13 @@ export function createLooks(S, root) {
   // a sheet with too little room rises first.
   function fitPicker() {
     const list = pickList, content = root.parentElement, bar = $$('#lkBar');
+    picker.style.top = '';
     if (picker.classList.contains('as-sheet')) { list.style.maxHeight = ''; picker.classList.remove('up'); return; }
     const room = () => content.getBoundingClientRect().bottom - list.getBoundingClientRect().top - (bar.hidden ? 0 : bar.offsetHeight) - 12;
     // A card low in the list has its room above it: bring the card up first.
     picker.classList.remove('up');
+    // Right under its own button, not under a Tweak form that is open below it.
+    if (pickFor) picker.style.top = pickFor.el.querySelector('.place-row').getBoundingClientRect().bottom - pickFor.el.getBoundingClientRect().top + 4 + 'px';
     // Its least height first: the room is what's left with that much open.
     list.style.maxHeight = '220px';
     if (pickFor) pickFor.el.querySelector('.place-row').scrollIntoView({ block: 'start' });
@@ -321,6 +318,7 @@ export function createLooks(S, root) {
     if (pickFor && room() < 220) {
       const row = pickFor.el.querySelector('.place-row').getBoundingClientRect().top - content.getBoundingClientRect().top;
       picker.classList.add('up');
+      picker.style.top = '';
       list.style.maxHeight = Math.max(120, row - (picker.offsetHeight - list.offsetHeight) - 16) + 'px';
     } else list.style.maxHeight = Math.max(120, room()) + 'px';
     picker.scrollIntoView({ block: 'nearest' });
@@ -361,7 +359,7 @@ export function createLooks(S, root) {
     b.type = 'button';
     b.className = 'preset';
     b.title = title || name;
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}<span>Previewing</span></span>`;
+    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
     b.dataset.look = look;
     b.onclick = onclick;
     return b;
@@ -441,8 +439,9 @@ export function createLooks(S, root) {
         if (S.show === 'house') { S.setShow(''); S.toast('Showing your preview on the map.'); }
       }
       await S.refresh();
-      // The new layer's card, where it can be seen: not under the bar.
-      if (added && !S.panel.collapsed() && cards.has('preview:' + added.id)) reveal(cards.get('preview:' + added.id).el, true);
+      // On a phone the new layer's card comes into view, above the bar. Beside
+      // the map it's already at the top, and the grid stays under the pointer.
+      if (added && S.panel.layout() === 'sheet' && !S.panel.collapsed() && cards.has('preview:' + added.id)) reveal(cards.get('preview:' + added.id).el, true);
     } catch (e) { S.fail('preview the look', e); } finally { tapping.delete(key); }
   }
 
@@ -507,7 +506,7 @@ export function createLooks(S, root) {
       escapeCloses(place, () => pickFor === c, () => { openPicker(false); place.focus(); });
       el.querySelector('.place-row').prepend(place);
       const acts = el.querySelector('.acts');
-      acts.innerHTML = `<button type="button" class="icon-btn" data-a="apply" hidden title="Put only this look on the lights">${icon('check')}Apply only this</button>`;
+      acts.innerHTML = `<button type="button" class="icon-btn" data-a="apply" hidden title="Put only this look on the lights">${icon('apply')}Apply only this</button>`;
       acts.querySelector('[data-a=apply]').onclick = () => apply([c.id]);
     }
     return c;
@@ -579,32 +578,17 @@ export function createLooks(S, root) {
     showState(el, opts.kind === 'error' ? { ...opts, retry: () => { el.dataset.key = ''; return S.refresh(); } } : opts);
   }
 
-  // On a phone the preview being worked on comes before the chooser; with
-  // none, or beside the map on a desktop, presets stay first.
-  function orderPreview() {
-    const lane = $$('#lkPreview');
-    const next = previewFirst(S.panel.layout?.(), S.preview?.layers?.length ?? 0) ? head : $$('#lkHouse');
-    const after = lane.nextElementSibling === $$('#lkNow') ? $$('#lkNow').nextElementSibling : lane.nextElementSibling;
-    if (after !== next) next.before(lane);
-  }
-
   function renderLanes() {
     const prev = S.preview ? S.preview.layers : [];
     const pbox = $$('#lkPreview .list');
     renderLane(pbox, 'preview', prev);
     const previewNote = previewState(S.preview, S.previewStatus, word);
     laneState(pbox, previewNote);
-    orderPreview();
     // An empty lane says nothing the current-state line doesn't.
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     $$('#lkStack').hidden = prev.length < 2;
-    $$('#lkWords').hidden = !!prev.length || S.house.some((l) => !l.ephemeral);
     // The toggle can be on Lights with a preview open: this section says so.
     $$('#lkMapNote').hidden = !(prev.length && S.show === 'house');
-    // Once something is previewing it's the thing being worked on: the long
-    // grids fold away so its card sits close to the heading.
-    if (prev.length && !hadPreview) $$('#lkEffects').open = $$('#lkOtherPresets').open = false;
-    hadPreview = prev.length > 0;
     for (const c of cards.values()) {
       if (c.lane !== 'preview') continue;
       c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
@@ -613,7 +597,9 @@ export function createLooks(S, root) {
     }
     const house = S.house.filter((l) => !l.ephemeral);
     const lit = lightOutcome(g, S.statusData?.brightness, house.map((l) => targetRanges(g, S.tree, l.target)));
-    renderBar(prev, !!lit.dark);
+    const landing = lightOutcome(g, S.statusData?.brightness, prev.map((x) => targetRanges(g, S.tree, x.target)));
+    const warning = zoneWarning(lit, landing, { previewing: prev.length > 0, sheet: S.panel.layout() === 'sheet' });
+    renderBar(prev, warning);
     markPreviewed();
 
     const hbox = $$('#lkHouse .list');
@@ -623,11 +609,23 @@ export function createLooks(S, root) {
     laneState(hbox, houseNote);
     $$('#lkHouse').hidden = !S.house.length && (!houseNote || houseNote.kind === 'empty');
     // The zones at 0% once on this screen, here: not on the chip, the row
-    // above the catalog or every card.
-    const dark = lit.dark ? `${lit.message} ${BRIGHTNESS_RULE}` : '';
-    $$('#lkDark').hidden = !dark;
+    // above the catalog or every card. The rule behind it is in the glossary.
+    const banner = warning?.where === 'banner' ? warning : null;
+    $$('#lkWords').hidden = !banner && (!!prev.length || house.length > 0);
+    $$('#lkDark').hidden = !banner;
     S.refreshBadge?.();
-    if (dark !== shownDark) { shownDark = dark; $$('#lkDark').innerHTML = dark ? warningHTML(dark) : ''; }
+    // Drawn only on a change: a poll mustn't replace the button under a press.
+    const dark = banner ? `${banner.text}|${banner.names}` : '';
+    if (dark !== shownDark) {
+      shownDark = dark;
+      $$('#lkDark').innerHTML = banner ? `<div class="issue solo">${warningBody(banner.text)}${banner.ids.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="lkDarkOn">${icon('sun')}${esc(turnOnLabel(banner.names))}</button></div>` : ''}</div>` : '';
+      const on = $$('#lkDarkOn');
+      if (on) on.onclick = () => turnOnZones(S, api, banner.ids, banner.names);
+    }
+    // After Apply the slot keeps its height, so the grid under the pointer
+    // doesn't jump up. A new preview or an empty slot lets it go.
+    if (!applying && (prev.length || !house.length)) heldSlot = 0;
+    $$('#lkSlot').style.minHeight = heldSlot && S.panel.layout() !== 'sheet' ? heldSlot + 'px' : '';
     $$('#lkClockBox').hidden = !prev.length;
     const eph = S.house.length - house.length;
     $$('#lkHouseN').textContent = eph ? `+ ${eph} calibration` : '';
@@ -641,14 +639,15 @@ export function createLooks(S, root) {
   }
   // renderNow is the current state above the catalog: one tap from the
   // full layer card, and short enough to leave the looks in view.
+  let heldSlot = 0, applying = false;
   function renderNow(prev, house) {
     const names = (ls) => (ls.length > 1 ? `${layerName(S, ls[0])} and ${ls.length - 1} more` : layerName(S, ls[0]));
     const line = nowLine({ house, previewing: prev.length > 0, status: S.houseStatus, read: S.houseRead, word, nameOf: names });
-    const now = $$('#lkNow'), trails = nowTrails(house.length, prev.length);
-    const place = trails ? $$('#lkPreview') : $$('.looks-head');
-    if (place.nextElementSibling !== now) place.after(now);
-    // Why what's on the lights is dark, right under the line that names it.
-    if (now.nextElementSibling !== $$('#lkDark')) now.after($$('#lkDark'));
+    const now = $$('#lkNow'), trails = nowTrails(house.length, prev.length), slot = $$('#lkSlot');
+    // The slot under the title: the preview, then a status line, when nothing
+    // is on the lights; otherwise what's on them, why it's dark, the preview.
+    const order = [...(trails ? [$$('#lkPreview'), now] : [now]), $$('#lkDark'), ...(trails ? [] : [$$('#lkPreview')]), $$('#lkWords')];
+    if (order.some((el, i) => slot.children[i] !== el)) slot.append(...order);
     now.classList.toggle('plain', trails);
     // What's in preview says so on its bar, card and map: this line is the lights.
     now.hidden = !line;
@@ -702,26 +701,30 @@ export function createLooks(S, root) {
   $$('#lkToPreview').onclick = () => { const first = $$('#lkPreview .list .layer'); if (first) { reveal(first, true); flash(first); } };
   for (const d of [$$('#lkEffects'), $$('#lkOtherPresets')]) d.addEventListener('toggle', syncToPreview);
   S.on('layout', syncToPreview);
-  let prevBar = false, hadPreview = false;
-  function renderBar(prev, darkShown = false) {
+  let shownBar = '';
+  function renderBar(prev, warning) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
     syncToPreview();
     syncBarInset();
-    if (bar.hidden !== !prevBar) { prevBar = !bar.hidden; S.panel.refit(); }
     if (!prev.length) return;
     const updates = prev.some((x) => copies[x.id]);
     const n = prev.length === 1 ? '' : prev.length + ' ';
     hidden = updates ? [] : replacedBy(S.house.filter((x) => !x.ephemeral), prev, (t) => targetRanges(g, S.tree, t), new Set(Object.values(copies)));
     $$('#lkAdd').hidden = !hidden.length;
-    $$('#lkClear').innerHTML = `${icon('close')}${clearLabel(prev.length)}`;
-    // One 0% message on the screen: the lights' own, if they already have one.
-    const landing = darkShown ? '' : applyWarning(lightOutcome(g, S.statusData?.brightness, prev.map((x) => targetRanges(g, S.tree, x.target))));
-    const note = [landing, replaceNote(hidden.map((x) => layerName(S, x)))].filter(Boolean).join(' ');
+    $$('#lkClear').innerHTML = `${icon('close')}${clearLabel(prev.length, hidden.length > 0)}`;
+    // The footer says one short thing: the one 0% message, when it's the
+    // bar's to say, else what Replace would take off.
+    const warn = warning?.where === 'bar' ? warning : null;
+    const note = warn ? warn.text : replaceNote(hidden.map((x) => layerName(S, x)));
+    $$('#lkBarLine').hidden = !note;
     $$('#lkBarNote').textContent = note;
-    $$('#lkBarNote').hidden = !note;
-    $$('#lkBarNote').classList.toggle('warn', !!landing);
-    $$('#lkPushAll').innerHTML = `${icon('check')}${updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`}`;
+    $$('#lkBarNote').classList.toggle('warn', !!warn);
+    const on = $$('#lkBarOn'), label = warn?.ids.length ? turnOnLabel(warn.names) : '';
+    on.hidden = !label;
+    if (label !== shownBar) { shownBar = label; on.innerHTML = label ? `${icon('sun')}${esc(label)}` : ''; }
+    on.onclick = warn ? () => turnOnZones(S, api, warn.ids, warn.names) : null;
+    $$('#lkPushAll').innerHTML = `${icon('apply')}${updates ? 'Update lights' : hidden.length ? 'Replace lights' : `Apply ${n}to lights`}`;
     $$('#lkPushAll').title = updates ? 'Put your changes on the lights in place of the original'
       : hidden.length ? `Takes off ${hidden.map((x) => layerName(S, x)).join(', ')}, which this would cover, and puts this on the lights`
         : "Adds this to the lights; whatever is on them stays underneath";
@@ -793,10 +796,18 @@ export function createLooks(S, root) {
     const list = ids.length ? ids : (S.preview ? S.preview.layers.map((l) => l.id) : []);
     // Read before promoting: a poll can empty the preview at any moment after.
     const applied = (S.preview ? S.preview.layers : []).filter((l) => list.includes(l.id)).map((l) => targetRanges(g, S.tree, l.target));
+    // Hold room for one card with its form shut: an open form or a stack of
+    // cards would leave a hole once they are gone.
+    const lane = [...$$('#lkPreview').querySelectorAll('.layer')];
+    const slotBefore = $$('#lkSlot').offsetHeight
+      - lane.slice(1).reduce((n, el) => n + el.offsetHeight, 0)
+      - (lane.length === 1 ? [...cards.values()].reduce((n, c) => n + (c.form ? c.form.el.offsetHeight : 0), 0) : 0);
+    applying = true;
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
-    } catch (e) { S.fail('apply the look', e); await S.refresh(); return; }
+    } catch (e) { applying = false; S.fail('apply the look', e); await S.refresh(); return; }
     openPicker(false); // the result, not the list of places, is what to see
+    heldSlot = S.panel.layout() === 'sheet' ? 0 : slotBefore;
     const replaced = [], replaceIds = replace.map((l) => l.id);
     for (const id of list) {
       const orig = copies[id];
@@ -810,11 +821,13 @@ export function createLooks(S, root) {
     // The status poll's brightness can be seconds old: read it now, so the
     // result can say what really happened.
     await S.status?.poll();
+    applying = false;
     const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
     const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
     darkToast = applyToast(S, what, outcome, !$$('#lkDark').hidden && !S.panel.collapsed());
-    if (outcome.dark && !S.panel.collapsed()) $$('#lkNow').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); // the warning sits right under it
+    // The result is what to see: the heading, and what's now on the lights.
+    if (!S.panel.collapsed()) root.parentElement.scrollTo({ top: 0, behavior: 'smooth' });
   }
   $$('#lkPushAll').onclick = () => apply([], hidden);
   $$('#lkAdd').onclick = () => apply([]);
@@ -878,21 +891,6 @@ export function createLooks(S, root) {
 
   // ---------- wiring ----------
 
-  // At half, a card edge meets the Apply bar (or the sheet's edge): no row is
-  // left half showing. From the first row that doesn't fit, by what it spills.
-  S.panel.fitHalf = (base) => {
-    if (S.panel.tab() === 'setup') return S.fitSetupHalf ? S.fitSetupHalf(base) : base;
-    if (S.panel.tab() !== 'looks') return base;
-    const content = root.parentElement, top = content.getBoundingClientRect().top - content.scrollTop;
-    const shown = base;
-    const room = shown - PEEK_CHROME - ($$('#lkBar').hidden ? 0 : $$('#lkBar').offsetHeight);
-    let spill = 0;
-    for (const c of $$('#lkPresets').children) {
-      const r = c.getBoundingClientRect(), cTop = r.top - top, cBottom = r.bottom - top;
-      if (cTop < room && cBottom > room) spill = Math.max(spill, cBottom - room);
-    }
-    return spill ? base + Math.ceil(spill) + 8 : base;
-  };
   S.on('presets', () => { renderCatalog(); renderLanes(); });
   S.on('preview', () => { renderLanes(); renderClock(); });
   S.on('house', renderLanes);
@@ -909,11 +907,10 @@ export function createLooks(S, root) {
   S.on('detent', clearBar);
   S.on('tab', () => { syncBarInset(); });
   S.on('status', renderLanes); // a zone's brightness changed the notes
-  addEventListener('resize', orderPreview);
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;
   fillTargets();
   renderCatalog();
-  S.on('ready', () => { S.panel.refit(); clearBar(); });
+  S.on('ready', clearBar);
 
   return {
     push,

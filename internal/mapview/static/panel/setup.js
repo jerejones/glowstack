@@ -17,21 +17,6 @@ import { icon } from '../icons.js';
 const ADVANCED = 'glowstack.setup.advanced';
 const KEY_FOLDED = 'glowstack.legend.folded';
 const KEY_FOLDED_CAL = 'glowstack.legend.folded.calibrating';
-const PEEK_CHROME = 68; // the sheet's handle and tabs, above .content
-const MAX_FIT = 64;     // past this the sheet would stop being a half
-
-// halfSpill is how far to move the sheet's edge off the first control it
-// cuts: down past it when that is near, else up above it. Rows are
-// {top, bottom}, edge the height showing. 0 when nothing is cut, or the cut
-// row is too tall to settle on.
-export function halfSpill(rows, edge) {
-  const cut = rows.find((r) => r.top < edge && r.bottom > edge);
-  if (!cut) return 0;
-  const down = Math.ceil(cut.bottom - edge) + 8;
-  if (down <= MAX_FIT) return down;
-  const up = Math.floor(cut.top - edge) - 8;
-  return -up <= MAX_FIT ? up : 0;
-}
 
 // keyFolded says the map's key starts folded. stored is the saved choice, or
 // null. Calibrating on a phone it starts folded: its map is a short strip.
@@ -89,23 +74,7 @@ export function createSetup(S, root) {
   upgradeSelects(root);
   const $$ = (s) => root.querySelector(s);
   $$('#suAdvanced').open = !!load(ADVANCED, false);
-  $$('#suAdvanced').addEventListener('toggle', () => { save(ADVANCED, $$('#suAdvanced').open); S.panel.refit(); });
-
-  // At half the sheet's edge falls between controls, never through one.
-  S.fitSetupHalf = (base) => {
-    const top = root.getBoundingClientRect().top - root.parentElement.getBoundingClientRect().top;
-    const at = root.getBoundingClientRect().top;
-    const rows = [];
-    let heading = null; // a heading is one row with the control under it
-    for (const el of root.querySelectorAll('h1, .setup-cal, .sub, .seg, .chips, .help, #suAdvanced > summary, h2')) {
-      if (!el.offsetHeight) continue;
-      const r = el.getBoundingClientRect(), row = { top: r.top - at + top, bottom: r.bottom - at + top };
-      if (heading) row.top = heading.top;
-      heading = el.matches('.sub') ? row : null;
-      if (!heading) rows.push(row);
-    }
-    return base + halfSpill(rows, base - PEEK_CHROME);
-  };
+  $$('#suAdvanced').addEventListener('toggle', () => save(ADVANCED, $$('#suAdvanced').open));
 
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
@@ -231,7 +200,7 @@ export function createSetup(S, root) {
   S.on('stream', renderRate);
 
   S.on('offline', () => { $$('#suCal').disabled = S.offline; });
-  S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); S.panel.refit(); refreshLegend(); });
+  S.on('view', () => { renderView(); $$('#suPlan').value = String(S.plan); refreshLegend(); });
   // Setup's colors and labels are Setup's: the other tabs show the plain map.
   S.on('tab', (t) => { if (t === 'setup') renderRate(); refreshLegend(); });
   renderOverlay();
