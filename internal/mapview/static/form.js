@@ -29,11 +29,40 @@ export function layerName(S, layer) {
   return (e && e.name) || layer.effect || 'layer';
 }
 
-// palette finds a palette by id or name.
+// palette finds a palette as the server does: by id, then by name in
+// any case.
 export function palette(S, name) {
   if (!S.palettes || typeof name !== 'string') return null;
   const k = name.toLowerCase();
-  return S.palettes.find((p) => p.id === k || p.name.toLowerCase() === k) || null;
+  return S.palettes.find((p) => p.id === name) || S.palettes.find((p) => p.name.toLowerCase() === k) || null;
+}
+
+// What "Default" means for each effect: the dflt it gives Palette.Resolve.
+const DEFAULT_PALETTE = { gradient: 'rainbow', burst: 'party', noise: 'party', sparkle: 'color-1' };
+
+const blend = (list) => (list.length === 1 ? list[0] : `linear-gradient(90deg, ${list.join(', ')})`);
+const stopsStrip = (stops) => `linear-gradient(90deg, ${stops.map(([t, c]) => `${displayColor(c)} ${(t * 100).toFixed(1)}%`).join(', ')})`;
+
+// paletteStrip is the CSS for a palette value (an id, a name or inline
+// stops), resolved like Palette.Resolve; null if it can't be found.
+// owner is the effect the palette belongs to, colors the effect's colors.
+function paletteStrip(S, value, owner, colors) {
+  if (Array.isArray(value)) return value.length ? stopsStrip(value) : null;
+  const p = palette(S, value);
+  if (!p) return null;
+  const col = (i) => displayColor(colors[i] || '#000000');
+  switch (p.id) {
+    case 'default': return paletteStrip(S, DEFAULT_PALETTE[owner] || 'party', owner, colors);
+    case 'color-1': return col(0);
+    case 'colors-1-2': return blend([col(0), col(1)]);
+    case 'color-gradient': return blend([col(2), col(1), col(0)]);
+    case 'colors-only': {
+      const n = colors.length >= 3 && parseColor(colors[2]) && colors[2] !== '#000000' ? 3 : 2;
+      const stops = Array.from({ length: n }, (_, i) => `${col(i)} ${(100 * i / n).toFixed(1)}%, ${col(i)} ${(100 * (i + 1) / n).toFixed(1)}%`);
+      return `linear-gradient(90deg, ${stops.join(', ')})`;
+    }
+  }
+  return p.stops.length ? stopsStrip(p.stops) : null;
 }
 
 // lookStrip is a CSS background showing a look's colors: its bands,
@@ -42,7 +71,9 @@ export function lookStrip(S, effectId, params) {
   const v = params || {};
   const key = (suffix) => Object.keys(v).find((k) => k === suffix || k.endsWith('.' + suffix));
   const e = (S.catalog.effects || []).find((x) => x.id === effectId);
-  const def = (suffix) => { const p = e && e.params.find((q) => q.name === suffix || q.name.endsWith('.' + suffix)); return p ? p.default : undefined; };
+  const schema = e ? e.params : [];
+  const def = (suffix) => { const p = schema.find((q) => q.name === suffix || q.name.endsWith('.' + suffix)); return p ? p.default : undefined; };
+  const named = (name) => (v[name] !== undefined ? v[name] : (schema.find((q) => q.name === name) || {}).default);
   const bands = v.bands || (effectId === 'bands' ? def('bands') : null);
   if (Array.isArray(bands) && bands.length) {
     const w = bands.map((b) => Math.max(parseQty('length', b.width || '0.5 m') || 0.01, 0.001));
@@ -58,18 +89,21 @@ export function lookStrip(S, effectId, params) {
     }
     return `linear-gradient(90deg, ${stops.join(', ')})`;
   }
-  const pk = key('palette');
-  const pal = palette(S, pk ? v[pk] : def('palette'));
-  const ck = key('colors');
-  const colors = ck ? v[ck] : null;
-  if (pal && !(colors && /^\* Col/.test(pal.name))) {
-    return `linear-gradient(90deg, ${pal.stops.map(([t, c]) => `${c} ${(t * 100).toFixed(1)}%`).join(', ')})`;
+  // A palette's colors are those of the effect it belongs to, so in a
+  // composite "sparkle.palette" goes with "sparkle.color".
+  const pname = (schema.find((q) => q.type === 'palette') || {}).name || key('palette');
+  if (pname) {
+    const prefix = pname.slice(0, -'palette'.length);
+    const list = named(prefix + 'colors'), one = named(prefix + 'color');
+    const colors = Array.isArray(list) ? list : one !== undefined ? [one] : [];
+    const strip = paletteStrip(S, named(pname), prefix ? prefix.slice(0, -1).split('.').pop() : effectId, colors);
+    if (strip) return strip;
   }
-  const cs = Array.isArray(colors) ? colors : def('colors');
+  const ck = key('colors');
+  const cs = ck && Array.isArray(v[ck]) ? v[ck] : def('colors');
   if (Array.isArray(cs) && cs.length) {
     const shown = cs.filter((c) => c !== '#000000');
-    const list = (shown.length ? shown : cs).map(displayColor);
-    return list.length === 1 ? list[0] : `linear-gradient(90deg, ${list.join(', ')})`;
+    return blend((shown.length ? shown : cs).map(displayColor));
   }
   const one = [key('color'), key('background')].filter(Boolean).map((k) => v[k]);
   if (!one.length && def('color')) one.push(def('color'));
