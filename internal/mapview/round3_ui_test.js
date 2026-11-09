@@ -378,3 +378,28 @@ test('Refinement 1: preset actions are readable at rest, the same words at 390 a
   assert.match(css, /\.preset-menu \{ position: absolute; z-index: 4; top: calc\(100% \+ 4px\); right: 0;/);
   assert.match(css, /\.preset-menu\.up \{ top: auto; bottom: calc\(100% \+ 4px\); \}/);
 });
+
+test('Refinement 2: Status leads with what needs action; one explanation in one place', async () => {
+  const { leadsWithWarnings, headline, SENDING_NOTE, LATE_NOTE } = await import('./static/panel/status.js');
+  // With at least one warning, the summary and the warnings come first; with none, the tiles lead.
+  assert.equal(leadsWithWarnings({ cls: '' }, 0), false, 'nothing lit, nothing wrong: the tiles lead');
+  assert.equal(leadsWithWarnings({ cls: 'ok' }, 0), false);
+  assert.equal(leadsWithWarnings({ cls: 'warn' }, 0), true, 'a dark verdict is itself the warning');
+  assert.equal(leadsWithWarnings({ cls: 'bad' }, 0), true, 'a controller fault');
+  assert.equal(leadsWithWarnings({ cls: 'ok' }, 2), true, 'warning cards under a good verdict');
+  assert.equal(leadsWithWarnings(headline({ cls: 'ok', text: 'Lit' }, '', 1), 1), true);
+  const status = read('panel/status.js');
+  // One element, moved (never copied), and only when its place changes.
+  assert.match(status, /const tiles = \$\$\('#stTiles'\), before = warned \? \$\$\('#stBody'\) : \$\$\('#stVerdict'\);/);
+  assert.match(status, /if \(tiles\.nextElementSibling !== before\) root\.insertBefore\(tiles, before\);/);
+  assert.match(status, /placeTiles\(leadsWithWarnings\(head, issues\.length\)\);/);
+  assert.equal(status.match(/id="stTiles"/g).length, 1);
+  // The Controllers note explains "Sending" and does not repeat what the headline says about dark lights.
+  assert.doesNotMatch(SENDING_NOTE, /dark|Nothing is lit/i);
+  assert.match(SENDING_NOTE, /^Sending means /);
+  assert.doesNotMatch(status, /so those frames are dark/);
+  // Late frames: one line, under Diagnostics.
+  assert.match(LATE_NOTE, /^A late frame took longer to draw than the frame rate allows/);
+  assert.ok(LATE_NOTE.length <= 95, 'one line at the panel\'s width');
+  assert.match(status, /<details id="stDiag" class="section-disclosure"><summary>Diagnostics<\/summary><div class="stats" id="stDiagStats"><\/div><p class="muted small" id="stLateNote">\$\{LATE_NOTE\}<\/p><\/details>/);
+});

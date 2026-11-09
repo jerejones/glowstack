@@ -1415,7 +1415,13 @@ desk.
   needs attention (lights a look covers are dark at 0%, frames are late,
   power is being dimmed). Red has failed (a controller can't be reached).
   The same number is never two colors unless the states differ. The power
-  tile is a link to the Power section.
+  tile is a link to the Power section. Status leads with what needs
+  action: with a controller fault, a dark or partly dark verdict, or any
+  warning, the amber or red summary and the warnings come first and the
+  tiles follow them; with nothing to act on, the tiles are the first thing
+  under the heading. Each thing is explained once: the headline says why
+  the lights are dark, the Controllers note only says what "Sending"
+  means, and Diagnostics has one line on what a late frame is.
 - **Preview or live.** Each viewer picks what its map shows: the preview
   (preview layers over the house; the house's own frames when nothing is
   previewed) or live, what the lights show, even while someone

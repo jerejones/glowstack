@@ -906,6 +906,9 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 /* Status's headline tiles: four across on the panel, two by two on a phone; the figure takes the
  * state's color, the words stay muted. The power tile is a button to the Power section. */
 .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 6px; margin: 0 0 10px; }
+/* With something to act on, the summary and its warnings lead and the tiles follow them (status.js placeTiles). */
+.warn-first > .tiles { margin-top: 2px; }
+#stLateNote { margin: 6px 0 0; }
 .tiles .stat.ok b { color: var(--house); }
 .tiles .stat.bad b { color: #fca5a5; }
 .tiles .stat.warn b { color: var(--warn); }

@@ -190,6 +190,22 @@ export function headline(lit, fault, warnings = 0) {
   return { cls: 'warn', text: toCheck, second: lit.text };
 }
 
+// leadsWithWarnings says Status opens on what needs action: with a fault,
+// a dark or partly dark verdict, or any warning card, the amber (or red)
+// summary and the warnings come first and the tiles follow them. With
+// nothing to act on, the four calm numbers lead.
+export function leadsWithWarnings(head, issues) {
+  return head.cls === 'warn' || head.cls === 'bad' || issues > 0;
+}
+
+// SENDING_NOTE explains the one word on the controllers' heading that could
+// read as "lit" when nothing is: said here, and only here. The headline
+// already says the lights are dark and why; this note does not say it again.
+export const SENDING_NOTE = 'Sending means Glowstack is sending frames to the controller, whether or not anything is lit.';
+
+// LATE_NOTE is the one line that explains the late-frames figure, under Diagnostics.
+export const LATE_NOTE = 'A late frame took longer to draw than the frame rate allows, so the lights got it late.';
+
 // statusIssues is the one list of warning cards, most urgent first. The
 // headline counts it and renderIssues draws it, so the two can't disagree.
 export const statusIssues = (dark, list) => groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null, darkZones: true }] : []), ...list]);
@@ -307,14 +323,14 @@ export function createStatus(S, root) {
     <div id="stHealth" class="health" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
-    <h2 class="status-head">Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
+    <h2 class="status-head">Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>${SENDING_NOTE}</p><ul class="list-rows" id="stCtl"></ul>
     <div id="stRunsBox"><h2 class="status-head">Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
     <details id="stRunsMore"><summary></summary><ul class="list-rows run-rows" id="stRunsRest"></ul></details></div>
     <h2 class="status-head">Power <small id="stPowerHint">estimate before limiting</small></h2><div id="stPower"></div>
     <p class="meta-line" id="stStats"></p>
-    <details id="stDiag" class="section-disclosure"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div></details>
+    <details id="stDiag" class="section-disclosure"><summary>Diagnostics</summary><div class="stats" id="stDiagStats"></div><p class="muted small" id="stLateNote">${LATE_NOTE}</p></details>
     </div>`;
   const $$ = (s) => root.querySelector(s);
   let last = null, lastAt = 0, shownFailure = false, staleSince = false, lastPower = null;
@@ -424,6 +440,16 @@ export function createStatus(S, root) {
     };
   }
 
+  // placeTiles puts the tile row after the warnings when there is something
+  // to act on, and first under the heading when there is not. It moves the
+  // one element (never a copy), and only when its place changes, so a poll
+  // does not disturb a press or the reading order.
+  function placeTiles(warned) {
+    const tiles = $$('#stTiles'), before = warned ? $$('#stBody') : $$('#stVerdict');
+    root.classList.toggle('warn-first', warned);
+    if (tiles.nextElementSibling !== before) root.insertBefore(tiles, before);
+  }
+
   function render(st) {
     const perf = S.perf();
     const health = verdict(g.controllers.map((c) => c.id), st.health);
@@ -517,6 +543,7 @@ export function createStatus(S, root) {
     markOffline();
 
     renderIssues(issues, zero.map((z) => z.id), zeroNames);
+    placeTiles(leadsWithWarnings(head, issues.length));
     S.refreshBadge?.();
   }
 
