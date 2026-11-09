@@ -11,7 +11,7 @@
 // a laptop share it; a session already running opens this mode. The
 // screen is kept awake while a session runs. createSession is the
 // session logic without the page, for tests.
-import { esc, plural, humanize, NOT_RESPONDING } from '../util.js';
+import { esc, plural, humanize, failure } from '../util.js';
 import { icon } from '../icons.js';
 import { upgradeSelects } from '../picker.js';
 import { stateHTML, warningHTML } from '../states.js';
@@ -33,7 +33,7 @@ const DOING = {
 // when the state or error changed. storage keeps the confirm-and-next
 // choice across the reload that confirming causes.
 export function createSession({ fetch, storage, onState }) {
-  const C = { st: null, error: '', details: [], next: true, lost: false };
+  const C = { st: null, error: '', details: [], next: true, lost: false, failed: null };
   try { C.next = storage.getItem('calNext') !== 'false'; } catch (_) { /* no storage */ }
   let actions = Promise.resolve(), pending = 0, seq = 0, last = '';
 
@@ -57,18 +57,27 @@ export function createSession({ fetch, storage, onState }) {
       try { j = JSON.parse(text); } catch (_) { /* reported below */ }
       if (!r.ok || j === null) {
         // A poll's own error clears with the next good poll; an action's
-        // stays until the next action.
-        C.error = j?.error || text || r.statusText; C.details = j?.errors || []; C.lost = C.lost || polling;
+        // stays until the next action. A reply with no message of ours, like
+        // {} or a proxy's page, is never shown as it came.
+        if (fail(path, body, failure(DOING[path], { status: r.status, message: j?.error, unreadable: !j?.error }), j?.errors || [])) return;
       } else {
         if (polling && text === last && !C.lost) return;
         last = text; C.st = j;
-        if (!polling || C.lost) { C.error = ''; C.details = []; C.lost = false; }
+        if (!polling || C.lost) { C.error = ''; C.details = []; C.lost = false; C.failed = null; }
       }
     } catch (e) {
       if (polling && my !== seq) return;
-      C.error = `Could not ${DOING[path]}. ${NOT_RESPONDING}`; C.details = []; C.lost = polling;
+      if (fail(path, body, failure(DOING[path], { network: true }), [])) return;
     }
     onState(C);
+  }
+
+  // fail records a failure for Retry. It says true when a poll only repeats
+  // the failure already on screen, which isn't redrawn under a tap on Retry.
+  function fail(path, body, error, details) {
+    const polling = body === undefined, same = polling && C.lost && C.error === error;
+    C.error = error; C.details = details; C.lost = polling || C.lost; C.failed = { path, body };
+    return same;
   }
 
   return {
@@ -88,6 +97,13 @@ export function createSession({ fetch, storage, onState }) {
       try { storage.setItem('calNext', String(v)); } catch (_) { /* no storage */ }
     },
     pending: () => pending > 0,
+    // retry repeats what failed, going back to a clean screen meanwhile.
+    retry() {
+      const f = C.failed || { path: '' };
+      C.error = ''; C.details = []; C.failed = null;
+      onState(C);
+      return call(f.path, f.body);
+    },
   };
 }
 
@@ -471,7 +487,8 @@ export function createCalibrate(S, root) {
       $$('#caWhy').hidden = !why;
       $$('#caNext').checked = C.next;
     }
-    if (C.error && !loading) parts.push(`<div class="error">${esc(C.error)}${C.details.map((d) => `<div class="small">${esc(d)}</div>`).join('')}</div>`);
+    // At the top, where a failure is seen from the nudge dock too.
+    if (C.error && !loading) parts.unshift(stateHTML({ kind: 'error', title: C.error, detail: C.details.join(' '), retry: true }));
 
     // A tapped pixel: calibrate there.
     if (tapped >= 0) {
@@ -547,7 +564,7 @@ export function createCalibrate(S, root) {
     }
     shownStep = stepKey;
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); acts[+el.dataset.a](); };
-    for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => { C.error = ''; render(); session.poll(); };
+    for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => session.retry();
     for (const f of body.querySelectorAll('form[data-form]')) {
       f.onsubmit = (e) => {
         e.preventDefault();

@@ -363,7 +363,7 @@ test('an error from a poll clears when polling recovers', async () => {
   await s.poll();
   fail = true;
   await s.poll();
-  assert.equal(s.C.error, 'upstream down');
+  assert.match(s.C.error, /^Could not read the calibration state\./);
   fail = false;
   await s.poll();
   assert.equal(s.C.error, '', 'the same state as before must still clear the error');

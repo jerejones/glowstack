@@ -1627,3 +1627,36 @@ test('B94: the key\'s rows scroll on their own, with Hide key outside them', () 
   assert.match(/^\.legend \{[^}]*\}/m.exec(css)[0], /max-height: 45%/, 'its height is capped');
   assert.match(css, /max-height: 124px/, 'and on a phone');
 });
+
+test('B97: a failed calibration read or action is said in words, with Retry that repeats it', async () => {
+  const { createSession } = await import('./static/panel/calibrate.js');
+  const reply = (status, body) => async () => ({ ok: status < 400, status, statusText: 'x', text: async () => body });
+  const storage = { getItem: () => null, setItem() {} };
+  for (const body of ['{}', 'upstream exploded', '<html>Bad gateway</html>']) {
+    const states = [];
+    const s = createSession({ fetch: reply(503, body), storage, onState: (C) => states.push(C.error) });
+    await s.poll();
+    assert.match(s.C.error, /^Could not read the calibration state\. Glowstack answered with an error/, body);
+    assert.ok(!s.C.error.includes(body), 'never the raw body');
+    await s.poll();
+    assert.equal(states.length, 1, 'a repeat of the same failure is not redrawn');
+  }
+  // A failed action names itself, Retry repeats the action.
+  const sent = [];
+  let status = 500;
+  const s = createSession({ storage, onState() {}, fetch: async (url, o) => { sent.push([url, o.body]); return { ok: status < 400, status, text: async () => (status < 400 ? '{"active":true}' : 'nope') }; } });
+  await s.nudge(10);
+  assert.match(s.C.error, /^Could not move the test pixel\./);
+  status = 200;
+  await s.retry();
+  assert.equal(s.C.error, '');
+  assert.deepEqual(sent.at(-1), ['/api/v1/calibration/nudge', '{"by":10}']);
+  // The server's own message is kept when there is one.
+  const told = createSession({ storage, onState() {}, fetch: reply(400, '{"error":"pixel 900 is past the end"}') });
+  await told.set(900);
+  assert.equal(told.C.error, 'pixel 900 is past the end');
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /stateHTML\(\{ kind: 'error', title: C\.error/);
+  assert.doesNotMatch(cal, /<div class="error">/);
+  assert.doesNotMatch(cal, /text \|\| r\.statusText/);
+});
