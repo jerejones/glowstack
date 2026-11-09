@@ -2057,6 +2057,23 @@ test('B122: every Tweak slider takes its name from its row, and color channels k
   assert.match(form, /slider\.setAttribute\('aria-label', name\)/);
 });
 
+test('B123: output names in a tight cluster hide and are counted, never overlap', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  const measure = (l) => l.text.length * 6;
+  // Eight outputs on one spot, every place around them already marked.
+  const queued = Array.from({ length: 8 }, (_, i) => ({ text: `Board output ${i + 1}`, x: 100, y: 100, color: '#fff', rank: 2, budget: true, clear: true }));
+  const placed = placeLabels(queued, { marks: [{ x0: 0, x1: 300, y0: 0, y1: 90 }], width: 1000, height: 800, measure });
+  for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+    const a = placed[i], b = placed[j];
+    assert.ok(!(a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1), `${a.text} overlaps ${b.text}`);
+  }
+  assert.ok(placed.every((l) => !(l.x0 < 300 && l.y0 < 90)), 'none sits on a mark');
+  assert.equal(placed.length + placed.hidden, 8, 'the rest are counted for the no-room note');
+  assert.ok(placed.hidden > 0);
+  const overlay = read('overlay.js');
+  assert.match(overlay, /outputName\(o\)\}`, q\[0\] \+ 10, q\[1\] - 8, `rgb\(\$\{o\.color\}\)`, MAJOR, true, true\)/);
+});
+
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
   assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 500px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);

@@ -78,6 +78,7 @@ const MIN_MAP_ROOM = 150;
 // of them when it can, and on top of one only if nothing else is free.
 // solid(box) says a box lies across the model's lights. No label goes there,
 // except the point being measured or pointed at, and only if nothing else is free.
+// A clear label is never placed on a mark: without room it is hidden and counted.
 export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, height = Infinity, measure, clipTop = true, solid = () => false }) {
   const placed = [];
   // What a full-width sheet along the bottom leaves of the map.
@@ -95,7 +96,7 @@ export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, 
     const most = width < PHONE_WIDTH ? PHONE_LENGTH : raw.rank >= FOCUS ? FOCUS_LENGTH : NAME_LENGTH;
     const l = !target && raw.text.length > most ? { ...raw, text: shortLabel(raw.text, most) } : raw;
     const w = measure(l);
-    const passes = [...(marks.length ? [[true, true]] : []), [false, true], ...(raw.rank >= FOCUS ? [[false, false]] : [])];
+    const passes = [...(marks.length ? [[true, true]] : []), ...(raw.clear && marks.length ? [] : [[false, true]]), ...(raw.rank >= FOCUS ? [[false, false]] : [])];
     let done = false;
     // Only a label the model blocks moves far: neighbors don't push one away.
     let blocked = false;
@@ -275,7 +276,7 @@ export function createOverlay(S) {
   let queued = [], lastPlaced = [], marks = [], hiddenShown = -1;
   // mark notes a point drawn on the map, for the labels to keep clear of.
   const mark = (q, r) => { marks.push({ x0: q[0] - r, x1: q[0] + r, y0: q[1] - r, y1: q[1] + r }); };
-  const label = (text, x, y, color, rank = 1, budget = false) => { queued.push({ text, x, y, color, rank, budget }); };
+  const label = (text, x, y, color, rank = 1, budget = false, clear = false) => { queued.push({ text, x, y, color, rank, budget, clear }); };
   // modelCells is which cells of a coarse screen grid the visible lights
   // cross, redone only when the view moves. Far-apart pixels are joined, so
   // a zoomed-in strip stays solid between its samples.
@@ -416,8 +417,9 @@ export function createOverlay(S) {
       ctx.fillText(String(o.output), q[0], q[1]);
       ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
       // The phone's map strip is short: the panel's legend has the rest.
-      if (S.panel?.layout() === 'sheet') label(`${controllerName(g, o.controller)} ${o.output}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true);
-      else label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR);
+      // In a tight cluster a name is hidden, and counted, rather than crowded in.
+      if (S.panel?.layout() === 'sheet') label(`${controllerName(g, o.controller)} ${o.output}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true, true);
+      else label(`${controllerName(g, o.controller)} ${outputName(o)}`, q[0] + 10, q[1] - 8, `rgb(${o.color})`, MAJOR, true, true);
     }
   }
 
