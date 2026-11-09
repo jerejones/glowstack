@@ -51,7 +51,7 @@
   --panel-space: var(--panel-w);
   --peek: 68px;
   --handle: 24px;
-  --strip: 200px;        /* the map above a full sheet: STRIP in sheet.js */
+  --strip: 200px;        /* the map above a full sheet: STRIP in sheet.js, or the taller band it asks for */
   --sheet-visible: var(--peek);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --layout: wide;

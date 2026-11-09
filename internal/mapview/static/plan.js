@@ -269,6 +269,12 @@ export function openPlan(canvas, plan, planIndex, opts) {
       const pad = 0.5;
       fitBox(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad);
     },
+    frameTight(ids) {
+      const b = bbox(ids);
+      if (!b) return;
+      auto = false;
+      fitBox(b[0], b[1], b[2], b[3]);
+    },
   };
   return api;
 }

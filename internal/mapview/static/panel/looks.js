@@ -23,6 +23,7 @@ const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it st
 const CLOCK = 'glowstack.clock.open';
 const TARGET = 'glowstack.looks.target';
 const FILTER = 'glowstack.looks.filter';
+const PREVIEW_BAND = 260; // the map above a full sheet while previewing, so the lit runs stay readable
 
 // effectKind says what an effect takes its colors from, for its card.
 export function effectKind(e) {
@@ -653,6 +654,14 @@ export function createLooks(S, root) {
     showState(box, opts.kind === 'error' ? { ...opts, retry: () => { box.dataset.key = ''; return S.refresh(); } } : opts);
   }
 
+  // risePreview opens the sheet at full when there's a preview to work on: at
+  // half, the stage and the bar fill it and the library is out of reach. Only
+  // a half sheet rises: a peek stays down, as the person left it.
+  function risePreview() {
+    if (S.panel.layout() === 'sheet' && S.panel.tab() === 'looks' && S.panel.detent() === 'half' && S.preview?.layers.length) S.panel.setDetent('full');
+  }
+  let previewRead = false; // the first reading of the preview, for the sheet on load
+
   // Apply renders only once it's all done: promoting empties the preview a
   // moment before the lights' list has the new rows, and in between the rows
   // would vanish and the panel's scroll with them.
@@ -662,6 +671,7 @@ export function createLooks(S, root) {
     const prev = S.preview ? S.preview.layers : [];
     const house = S.house.filter((l) => !l.ephemeral);
     renderRows(prev, house);
+    if (S.preview && !previewRead) { previewRead = true; risePreview(); }
     const stale = S.houseStatus !== 'available' && S.houseRead;
     $$('#lkStageTitle').textContent = stageTitle({ live: house.length, preview: prev.length, read: !!S.houseRead, status: S.houseStatus });
     $$('#lkStageSub').textContent = stageSub({ rows: prev.length + house.length, stale, word, read: !!S.houseRead, status: S.houseStatus });
@@ -723,6 +733,7 @@ export function createLooks(S, root) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
     syncBarInset();
+    S.panel.keepBand(prev.length && S.panel.tab() === 'looks' ? PREVIEW_BAND : 0);
     if (!prev.length) { mode = 'replace'; plan = null; return; }
     const house = S.house.filter((x) => !x.ephemeral);
     const updates = prev.some((x) => copies[x.id]);
@@ -918,7 +929,7 @@ export function createLooks(S, root) {
     if (cut) reveal(cut, true);
   }
   S.on('detent', clearBar);
-  S.on('tab', () => { syncBarInset(); fitNote(); });
+  S.on('tab', () => { syncBarInset(); fitNote(); S.panel.keepBand(S.preview?.layers.length && S.panel.tab() === 'looks' ? PREVIEW_BAND : 0); risePreview(); });
   S.on('layout', fitNote);
   S.on('status', renderStage); // a zone's brightness changed the warning
   $$('#lkPlay').innerHTML = `${icon('pause')}<span>Pause</span>`;

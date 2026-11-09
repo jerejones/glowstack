@@ -242,7 +242,7 @@ function select(node, chain) {
   renderCrumbs();
   applySelection();
   S.emit('select', S.sel);
-  if (S.panel.detent() === 'full') frameSelection();
+  if (S.panel.detent() === 'full') frameFull();
 }
 S.select = select;
 
@@ -274,11 +274,21 @@ function applySelection() {
   S.view.setSelection(S.sel ? S.sel.node.ranges : null);
 }
 
-function frameSelection() {
-  if (!S.sel) return;
+const previewRanges = () => (S.preview?.layers || []).flatMap((l) => targetRanges(S.geo, S.tree, l.target) || []);
+const rangeIds = (ranges) => {
   const ids = [];
-  for (const [a, b] of S.sel.node.ranges) for (let p = a; p <= b; p++) ids.push(p);
-  S.view.frameIds(ids);
+  for (const [a, b] of ranges) for (let p = a; p <= b; p++) ids.push(p);
+  return ids;
+};
+
+// frameFull points the camera for a full sheet's short band of map: at what's
+// selected, else at the runs the preview lights. With neither it goes back to
+// the device's camera, and holds that for when the sheet comes down.
+function frameFull() {
+  if (S.sel) S.view.frameIds(rangeIds(S.sel.node.ranges));
+  else if (previewRanges().length) S.view.frameTight(rangeIds(previewRanges()));
+  else if (fullHold) { S.view.release(fullHold); fullHold = S.view.hold(); }
+  framedPreview = JSON.stringify(previewRanges());
 }
 
 // ---------- input on the map ----------
@@ -685,22 +695,31 @@ function onLayout() {
   S.emit('layout', S.panel.layout());
 }
 
-let fullHold = null;
+let fullHold = null, framedPreview = '';
 function onDetent(d) {
   if (!S.view) return; // still loading
   placeCrumbs(); // setInsets reads where the crumbs are
   if (d === 'full' && !fullHold) {
     fullHold = S.view.hold();
     setInsets();
-    frameSelection();
+    frameFull();
   } else if (d !== 'full' && fullHold) {
     const h = fullHold;
     fullHold = null;
     setInsets();
     S.view.release(h);
-  } else setInsets();
+  } else {
+    setInsets();
+    if (d === 'full') frameFull(); // the band changed height
+  }
   markDirty();
   S.emit('detent', d);
+}
+// While full, a change in what's previewed moves the camera with it.
+function refitPreview() {
+  if (!S.view || S.panel?.detent() !== 'full' || S.sel) return;
+  if (!fullHold) { onDetent('full'); return; } // opened full: this is the first it can frame
+  if (JSON.stringify(previewRanges()) !== framedPreview) frameFull();
 }
 
 // ---------- boot ----------
@@ -776,6 +795,7 @@ async function main() {
   S.presetLibrary = createPresets(S, $('tab-presets'));
   S.setup = createSetup(S, $('tab-setup'));
   S.status = createStatus(S, $('tab-status'));
+  S.on('preview', refitPreview);
   bindChrome();
   bindMap();
   bootStep = 'draw the map';

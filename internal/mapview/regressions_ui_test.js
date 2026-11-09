@@ -2262,3 +2262,20 @@ test('the library scope is a quiet line; a row\'s Goes on is the only button-sty
   assert.match(looks, /className: 'place icon-btn'/, 'per-layer Goes on stays a button');
   assert.match(looks, /Goes on<\/span>/);
 });
+
+test('phone previewing: a full sheet leaves a readable band of map, and the library in reach', async () => {
+  const { fullStrip } = await import('./static/sheet.js');
+  assert.equal(fullStrip(0, 844), 200, 'the usual strip when nothing asks for more');
+  assert.equal(fullStrip(260, 844), 260, 'previewing keeps 260 px of map');
+  assert.equal(fullStrip(260, 568), 224, 'a short phone keeps a full sheet at least the half detent');
+  assert.equal(fullStrip(260, 400), 200, 'never below the strip');
+  const looks = read('panel/looks.js'), app = read('app.js');
+  assert.match(looks, /S\.panel\.keepBand\(prev\.length && S\.panel\.tab\(\) === 'looks' \? PREVIEW_BAND : 0\)/);
+  assert.match(looks, /S\.panel\.detent\(\) === 'half' && S\.preview\?\.layers\.length\) S\.panel\.setDetent\('full'\)/, 'a preview opens at full; only a half sheet rises');
+  assert.match(app, /else if \(previewRanges\(\)\.length\) S\.view\.frameTight\(rangeIds\(previewRanges\(\)\)\)/, 'the camera frames the lit runs in the band');
+  assert.match(read('scene.js'), /frameTight\(ids\) \{/);
+  assert.match(read('plan.js'), /frameTight\(ids\) \{/, 'the flat map answers the same call');
+  assert.match(app, /fullHold = S\.view\.hold\(\);\n\s+setInsets\(\);\n\s+frameFull\(\);/, 'the device camera is held first');
+  assert.match(app, /S\.view\.release\(h\);/, 'and comes back when the band grows');
+  assert.match(css, /scroll-padding-bottom: calc\(var\(--look-bar, 0px\) \+ 8px\)/, 'the last library row clears the bar');
+});

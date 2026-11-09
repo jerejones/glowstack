@@ -21,6 +21,11 @@ const TALL_HALF = 0.68; // the list tabs: their rows need the room
 const TALL_TABS = new Set(['presets', 'status']);
 const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
+// fullStrip is the map band above a full sheet: at least STRIP, band when
+// something asks for more, and never so much the full sheet is shorter than
+// the half one. sb is the bottom safe area.
+export const fullStrip = (band, h, sb = 0) => Math.max(STRIP, Math.min(band, h - HALF_MIN - sb));
+
 // guardSelection stops text selection while dragging() says so.
 export function guardSelection(doc, dragging) {
   doc.addEventListener('selectstart', (e) => { if (dragging()) e.preventDefault(); });
@@ -41,13 +46,13 @@ export function createPanel(hooks) {
   let tab = routeTab() || load(TAB, 'looks');
   if (!tabs.some((b) => b.dataset.tab === tab)) tab = 'looks';
   let rail = !!load(RAIL, false);
-  let visible = PEEK;
+  let visible = PEEK, band = 0; // the map band a full sheet leaves, when more than STRIP
   const panelApi = {};
 
   const safeBottom = () => parseFloat(getComputedStyle(panel).paddingBottom) || 0;
   const heights = () => {
     const h = innerHeight, sb = safeBottom();
-    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * (TALL_TABS.has(tab) ? TALL_HALF : HALF))), full: h - STRIP };
+    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * (TALL_TABS.has(tab) ? TALL_HALF : HALF))), full: h - fullStrip(band, h, sb) };
   };
   function setVisible(px) {
     visible = px;
@@ -81,6 +86,7 @@ export function createPanel(hooks) {
     detent = d;
     save(DETENT, d);
     document.body.dataset.detent = d;
+    root.style.setProperty('--strip', fullStrip(band, innerHeight, safeBottom()) + 'px');
     setVisible(heights()[d]);
     if (d === 'peek') $('content').scrollTop = 0;
     showRail();
@@ -227,6 +233,12 @@ export function createPanel(hooks) {
     },
     // covered is how much of the map's bottom edge the sheet hides.
     covered: () => (layout === 'sheet' ? visible : 0),
+    // keepBand asks a full sheet to leave px of map above it (0: the usual).
+    keepBand(px) {
+      if (px === band) return;
+      band = px;
+      if (layout === 'sheet') setDetent(detent);
+    },
     // collapsed reports a peeking sheet or an icon rail: the panel's
     // contents can't be seen.
     collapsed: () => (layout === 'sheet' ? detent === 'peek' : layout === 'side' && rail),

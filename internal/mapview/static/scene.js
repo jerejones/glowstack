@@ -373,6 +373,22 @@ export async function open(glCanvas, input, opts) {
     changed();
   }
 
+  // centerOn moves target so points fill the free area evenly from dir, and
+  // returns the distance that fits them. Perspective makes the middle move as
+  // the distance does, so this settles over a few passes.
+  function centerOn(dir, target, points, minDist = 0) {
+    const fit = () => Math.max(fitDistance(dir, target, points), minDist);
+    const { r, u, f } = axes(dir);
+    let d = fit();
+    const rel = new THREE.Vector3();
+    for (let i = 0; i < 6; i++) {
+      const [sx, sy] = centerShift(points.map((q) => { rel.subVectors(q, target); return [rel.dot(r), rel.dot(u), -rel.dot(f)]; }), d);
+      target.addScaledVector(r, sx).addScaledVector(u, sy);
+      d = fit();
+    }
+    return d;
+  }
+
   // frame applies cam (the site's view or Fit) for the current viewport.
   function frame() {
     project();
@@ -382,17 +398,7 @@ export async function open(glCanvas, input, opts) {
     // camera someone placed stays where they put it. Perspective makes the
     // middle move as the distance does, so this settles over a few passes.
     const lights = cam.auto ? litPoints() : [];
-    if (lights.length) {
-      const fit = () => Math.max(fitDistance(cam.dir, target, lights), cam.minDist);
-      const { r, u, f } = axes(cam.dir);
-      d = fit();
-      const rel = new THREE.Vector3();
-      for (let i = 0; i < 6; i++) {
-        const [sx, sy] = centerShift(lights.map((q) => { rel.subVectors(q, target); return [rel.dot(r), rel.dot(u), -rel.dot(f)]; }), d);
-        target.addScaledVector(r, sx).addScaledVector(u, sy);
-        d = fit();
-      }
-    }
+    if (lights.length) d = centerOn(cam.dir, target, lights, cam.minDist);
     place(cam.dir, target, d);
   }
 
@@ -696,6 +702,19 @@ export async function open(glCanvas, input, opts) {
       project();
       cam.auto = false;
       place(dir, t, fitDistance(dir, t, pts));
+    },
+    // frameTight frames the given pixels from the current direction as closely
+    // as the opening view frames the lights: to the pixels themselves.
+    frameTight(ids) {
+      const step = Math.max(1, Math.floor(ids.length / 1500)), pts = [];
+      for (let i = 0; i < ids.length; i += step) if (flags[ids[i]] < 4) pts.push(new THREE.Vector3(pos[3 * ids[i]], pos[3 * ids[i] + 1], pos[3 * ids[i] + 2]));
+      if (!pts.length) return;
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      const t = new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
+      project();
+      cam.auto = false;
+      const d = centerOn(dir, t, pts);
+      place(dir, t, d);
     },
     // view is the camera as glowstack.yaml `map:` (meters, Z up), in the
     // direction form, so it frames itself on any screen.
