@@ -416,7 +416,7 @@ test('B30: unknown outputs read as unknown or partial, by name', async () => {
   const partial = powerSummary({ estimate: [known, bare(1), bare(2)], controllers: [{ ma: 1500, known: true }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
   assert.equal(partial.limiting, 'None needed on the outputs with a current set');
   assert.equal(partial.overall, 'At least 1.50 A');
-  assert.match(partial.notSet, /B outputs 1 and 2/);
+  assert.match(partial.notSetDetail, /B outputs 1 and 2/);
   const none = powerSummary({ estimate: [bare(1)], controllers: [{ ma: 0, known: false }], stage: { scale: 1 } }, name);
   assert.equal(none.limiting, 'Unknown');
   assert.equal(none.overall, 'Unknown');
@@ -2648,17 +2648,30 @@ test("Refinement 6: Calibrate's weight on Setup", () => {
   assert.match(css, /\.setup-cal\.started #suCal \{ flex: none; \}/, 'then it is its own width');
 });
 
-test('Refinement 7: the Power copy names who is affected and where the current is set', async () => {
-  const { powerSummary, SET_CURRENT } = await import('./static/panel/status.js');
+test('Refinement 7 (round 1) and 2 (round 2): the Power note is plain; the key and controllers are one disclosure away', async () => {
+  const { powerSummary, SET_CURRENT, CURRENT_KEY } = await import('./static/panel/status.js');
   const name = (id) => id.toUpperCase();
   const bare = (controller, output) => ({ controller, output, known: false });
+  const sentences = (s) => s.split(/(?<=\.)\s+/).length;
   const none = powerSummary({ estimate: [bare('a', 1), bare('b', 1), bare('b', 2)], controllers: [{ ma: 0, known: false }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
-  assert.match(none.notSet, /^No LED current is set for any output on A and B, so/, 'names the controllers');
-  assert.match(none.notSet, /max_ma/, 'and the field that sets it');
-  assert.match(SET_CURRENT, /^Set max_ma on each output in the controllers config/);
+  assert.equal(none.notSet, `Power estimate unavailable: no LED current is set for any output. ${SET_CURRENT}`);
+  assert.equal(SET_CURRENT, "Set each output's LED current in the site config; Glowstack has no screen for it yet.");
+  assert.doesNotMatch(none.notSet, /led_ma|max_ma|\bA\b|\bB\b/, 'the note names no config key and no controller');
+  assert.equal(sentences(none.notSet), 2, 'at most two sentences');
+  assert.equal(CURRENT_KEY, 'power.led_ma', 'the key is the one in the controllers config');
+  assert.match(none.notSetDetail, /power\.led_ma/, 'the detail names the key');
+  assert.match(none.notSetDetail, /Missing for A output 1 and B outputs 1 and 2\.$/, 'and lists the controllers and outputs');
   const partial = powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }, bare('b', 1)], controllers: [{ ma: 1500, known: true }, { ma: 0, known: false }], stage: { scale: 1 } }, name);
-  assert.match(partial.notSet, /B output 1, so its draw[^.]*\. Set max_ma/);
-  assert.equal(powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }], controllers: [{ ma: 1, known: true }], stage: { scale: 1 } }).notSet, '');
+  assert.equal(partial.notSet, `Power estimate is partial: 1 output has no LED current set. ${SET_CURRENT}`);
+  assert.doesNotMatch(partial.notSet, /\bB\b|led_ma/);
+  assert.match(partial.notSetDetail, /Missing for B output 1\.$/);
+  const full = powerSummary({ estimate: [{ controller: 'a', output: 1, known: true }], controllers: [{ ma: 1, known: true }], stage: { scale: 1 } });
+  assert.equal(full.notSet, '');
+  assert.equal(full.notSetDetail, '');
+  const src = read('panel/status.js');
+  assert.match(src, /const notSetDetails = \(sum\) => sum\.notSetDetail \? `<details><summary>Details<\/summary><p class="plain">\$\{esc\(sum\.notSetDetail\)\}<\/p><\/details>` : ''/, 'the detail sits under a Details disclosure like the warning cards');
+  assert.equal((src.match(/\$\{notSetDetails\(sum\)\}/g) || []).length, 2, 'in both the nothing-known and the partial branches');
+  assert.doesNotMatch(src, /max_ma on each output/, 'the old sentence naming the wrong key is gone');
 });
 
 test('B138: the compact state card never cuts its own words', async () => {

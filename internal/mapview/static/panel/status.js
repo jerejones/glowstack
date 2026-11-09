@@ -135,8 +135,11 @@ export const statusIssues = (dark, list) => groupIssues([...(dark ? [{ summary: 
 // controller. An output with no LED current is unknown, never zero, and
 // that carries through the totals and the limiting line.
 // SET_CURRENT is where the current is set: nothing in this UI does, so the
-// sentence names the config field.
-export const SET_CURRENT = 'Set max_ma on each output in the controllers config to get one.';
+// note says so in plain words. The config key and the controllers it is
+// missing from are a disclosure away (notSetDetail), not in the note.
+export const SET_CURRENT = "Set each output's LED current in the site config; Glowstack has no screen for it yet.";
+// CURRENT_KEY is the config key, named only in the detail.
+export const CURRENT_KEY = 'power.led_ma';
 
 export function powerSummary(pw, name = (id) => id) {
   const unknown = pw.estimate.filter((o) => !o.known);
@@ -153,12 +156,17 @@ export function powerSummary(pw, name = (id) => id) {
     : 'None needed';
   const knownMA = pw.controllers.filter((c) => c.known !== false).reduce((sum, c) => sum + c.ma, 0);
   const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
+  // The visible note: two sentences at most, no config key, no controller.
+  const notSet = !anyKnown && unknown.length ? `Power estimate unavailable: no LED current is set for any output. ${SET_CURRENT}`
+    : unknown.length ? `Power estimate is partial: ${plural(unknown.length, 'output')} ${unknown.length === 1 ? 'has' : 'have'} no LED current set. ${SET_CURRENT}` : '';
+  // The detail under its disclosure: the key, and which outputs lack it.
+  const notSetDetail = unknown.length ? `The current is ${CURRENT_KEY} under each controller in the controllers config (per pixel, in mA). Missing for ${joined(groups)}.` : '';
   return {
     limiting,
     overall: !anyKnown ? 'Unknown' : unknown.length ? `At least ${amps(knownMA)}` : amps(knownMA),
     partial: anyKnown && unknown.length > 0,
-    notSet: !anyKnown && unknown.length ? `No LED current is set for any output on ${joined([...byCtl.keys()].map(name))}, so the draw and any power limiting can't be estimated. ${SET_CURRENT}`
-      : groups.length ? `No LED current is set for ${joined(groups)}, so ${unknown.length === 1 ? 'its' : 'their'} draw and any power limiting can't be estimated. ${SET_CURRENT}` : '',
+    notSet,
+    notSetDetail,
   };
 }
 
@@ -421,6 +429,11 @@ export function createStatus(S, root) {
   }
 
   let shownPower = false;
+  // notSetDetails is the Details disclosure under the not-set note: the
+  // config key and the outputs it is missing for, in the same shape the
+  // warning cards use.
+  const notSetDetails = (sum) => sum.notSetDetail ? `<details><summary>Details</summary><p class="plain">${esc(sum.notSetDetail)}</p></details>` : '';
+
   async function power() {
     let pw;
     const box = $$('#stPower');
@@ -435,7 +448,10 @@ export function createStatus(S, root) {
     const known = pw.estimate.filter((o) => o.known);
     if (!known.length && pw.controllers.every((c) => c.known === false)) {
       // Nothing known: a table of Unknown says less than the sentence.
-      box.innerHTML = `<p class="muted">${esc(powerSummary(pw, (id) => controllerName(g, id)).notSet || "Glowstack can't estimate the power yet.")}</p>`;
+      const sum = powerSummary(pw, (id) => controllerName(g, id));
+      const wasOpen = box.querySelector('details')?.open;
+      box.innerHTML = `<p class="muted">${esc(sum.notSet || "Glowstack can't estimate the power yet.")}</p>${notSetDetails(sum)}`;
+      if (wasOpen && box.querySelector('details')) box.querySelector('details').open = true;
       return;
     }
     const rows = known.map((o) => {
@@ -452,7 +468,7 @@ export function createStatus(S, root) {
     const wasOpen = box.querySelector('details')?.open;
     box.innerHTML = `<div class="nv"><span class="name muted">Power limiting</span><span class="value">${esc(sum.limiting)}</span></div>
       <table class="power"><thead><tr><th>Output</th><th>Draw</th><th>Limit</th></tr></thead><tbody>${overall}${pw.controllers.map(ctlRow).join('')}${rows}</tbody></table>
-      ${sum.notSet ? `<p class="muted small">${esc(sum.notSet)}</p>` : ''}${stage}`;
+      ${sum.notSet ? `<p class="muted small">${esc(sum.notSet)}</p>${notSetDetails(sum)}` : ''}${stage}`;
     if (wasOpen && box.querySelector('details')) box.querySelector('details').open = true;
   }
 
