@@ -2114,10 +2114,10 @@ test('polish: apply and stop have their own icons, Calibrate no longer looks lik
   assert.match(read('panel/looks.js'), /in-badge">\$\{icon\('eye'\)\}/, 'Previewing reads the same on Looks and Presets');
 });
 
-test('unused palette colors fold into one line', () => {
+test('unused palette colors fold into one line per layer, which names them', () => {
   const form = read('form.js');
-  assert.match(form, /'This effect takes its colors from the palette\.'/, 'says why');
-  assert.match(form, /line\.title = `Not used: \$\{names\.join/, 'the colors it means stay in the tooltip');
+  assert.match(form, /takes its colors from the palette\./, 'says why');
+  assert.match(form, /const names = g\.colors\.filter\(\(c\) => c\.ignored\(\)\)\.map\(\(c\) => c\.label\)/, 'the colors it means are in the line');
   assert.match(form, /c\.row\.hidden = c\.ignored\(\)/);
 });
 
@@ -2487,4 +2487,19 @@ test('B136: a configured camera distance never holds the lights small in the map
   assert.match(scene, /let d = fitDistance\(cam\.dir, target, corners\(\)\);/);
   assert.match(scene, /if \(lights\.length\) d = centerOn\(cam\.dir, target, lights\);/);
   assert.match(read('../../../docs/design.md'), /it gives the angle, and the\s+distance is worked out the same way/);
+});
+
+test('B137: the palette note names the colors it replaces, by the layer that ignores them', async () => {
+  const { unusedNote } = await import('./static/form.js');
+  assert.equal(unusedNote(['Gradient color 1', 'Gradient color 2'], 'gradient'), 'Gradient color 1 and 2 are not used: the gradient takes its colors from the palette.');
+  assert.equal(unusedNote(['Color 1', 'Color 2', 'Color 3'], ''), 'Color 1 to 3 are not used: this effect takes its colors from the palette.');
+  assert.equal(unusedNote(['Color 1', 'Color 3'], ''), 'Color 1 and 3 are not used: this effect takes its colors from the palette.');
+  assert.equal(unusedNote(['Color 2'], ''), 'Color 2 is not used: this effect takes its colors from the palette.');
+  assert.equal(unusedNote([], ''), '');
+  const form = read('form.js');
+  // One line per layer, in the place of the colors it stands in for: never
+  // under another layer's control that is in use.
+  assert.match(form, /for \(const g of groups\.values\(\)\) g\.colors\[g\.colors\.length - 1\]\.row\.after\(g\.line\)/);
+  assert.match(form, /g\.line\.textContent = unusedNote\(names, owner\)/);
+  assert.doesNotMatch(form, /'This effect takes its colors from the palette\.'/);
 });

@@ -315,6 +315,25 @@ export function paramLabel(name) {
   return humanize(name.replace(/(^|\.)span$/, '$1repeat_length'));
 }
 
+// unusedNote words the line that stands in for hidden color controls: it
+// names them, and says which part of the look draws from the palette
+// instead. owner is the layer's name in a composite ("gradient") or ''
+// for the effect itself. "Color 1 to 3 are not used: this effect takes its
+// colors from the palette."
+export function unusedNote(labels, owner) {
+  if (!labels.length) return '';
+  const nums = labels.map((l) => /^(.*?)\s*(\d+)$/.exec(l));
+  const stem = nums.every((m) => m && m[1] === nums[0][1]) ? nums[0][1] : null;
+  let names;
+  if (stem && labels.length > 1) {
+    const ns = nums.map((m) => +m[2]);
+    const run = ns.every((n, i) => i === 0 || n === ns[i - 1] + 1);
+    names = run && ns.length > 2 ? `${stem} ${ns[0]} to ${ns[ns.length - 1]}` : `${stem} ${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}`;
+  } else names = labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}` : labels[0];
+  const who = owner ? `the ${humanize(owner).toLowerCase()}` : 'this effect';
+  return `${names} ${labels.length > 1 ? 'are' : 'is'} not used: ${who} takes its colors from the palette.`;
+}
+
 // boundEntries counts the entries at the start of list or colors param p
 // that WLED controls already edit in full.
 function boundEntries(p, bindings) {
@@ -499,8 +518,9 @@ export function createForm(ctx) {
       if (lf.type === 'color') {
         const ignored = () => ignoredColor(S, schema, vals, b.param, effect.id);
         const row = field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
-        // A color the palette doesn't draw with leaves its row for the one line below.
-        unusedColors.push({ row, label, ignored });
+        // A color the palette doesn't draw with leaves its row for a line
+        // in its place, one per layer of the look, naming what it replaces.
+        unusedColors.push({ row, label, ignored, owner: (/^(.*?)\.?(?:colors\.\d+|color)$/.exec(b.param) || [])[1] || '' });
       } else if (lf.type === 'palette' || b.slider === 'pal') {
         field(wled, label, paletteSelect(() => lf.get(vals), (v) => apply(lf.set(vals, v)), layerPrefix(b.param)), null, title);
       } else if (lf.type === 'bool') {
@@ -512,14 +532,19 @@ export function createForm(ctx) {
       }
     }
     if (unusedColors.length) {
-      const line = Object.assign(document.createElement('p'), { className: 'muted small unused-note' });
-      wled.append(line);
+      const groups = new Map(); // owner → its colors and the line in their place
+      for (const c of unusedColors) {
+        if (!groups.has(c.owner)) groups.set(c.owner, { colors: [], line: Object.assign(document.createElement('p'), { className: 'muted small unused-note' }) });
+        groups.get(c.owner).colors.push(c);
+      }
+      for (const g of groups.values()) g.colors[g.colors.length - 1].row.after(g.line);
       const sync = () => {
         for (const c of unusedColors) c.row.hidden = c.ignored();
-        const names = unusedColors.filter((c) => c.ignored()).map((c) => c.label);
-        line.hidden = !names.length;
-        line.textContent = 'This effect takes its colors from the palette.';
-        line.title = `Not used: ${names.join(', ')}`;
+        for (const [owner, g] of groups) {
+          const names = g.colors.filter((c) => c.ignored()).map((c) => c.label);
+          g.line.hidden = !names.length;
+          g.line.textContent = unusedNote(names, owner);
+        }
       };
       sync();
       noted.push(sync);
