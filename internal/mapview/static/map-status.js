@@ -13,7 +13,8 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // mapStatus takes the page's state: connected, show ('' or 'house'),
 // preview (the /api/map/preview state, or null before the first read),
 // target (the map is drawing a calibration target), measuring (the kind of
-// any other calibration step on the real lights, or ''), mode (the Setup
+// any other calibration step on the real lights, or ''), calActive (a
+// calibration session is running), mode (the Setup
 // color mode, 'live' when the map shows real colors), lit (lightOutcome for
 // the looks on the lights), mapless (the map couldn't be loaded or drawn;
 // the page still answers), connecting (no socket result yet: a first
@@ -21,7 +22,7 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // lights came back; a failed or missing one can't vouch for them). The chip follows one rule, on every tab and with
 // the sheet open or shut: nothing lit never reads as the lights showing, and
 // the tab says why, once.
-export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', mode = 'live', lit = null, mapless = false, fresh = true }) {
+export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
@@ -31,7 +32,7 @@ export function mapStatus({ connected, connecting = false, show, preview, target
   if (!connected) return { ...toggle, text: 'Offline', detail: '', cls: 'off', title: 'Not connected to Glowstack. The map may be out of date.' };
   if (mapless) return { ...toggle, text: 'Map unavailable', detail: '', cls: 'off', title: "The map couldn't be loaded. Status and presets still work; use Retry on the map." };
   if (target) return { ...toggle, text: 'Target pattern', detail: '', cls: 'preview', title: 'Fixed reference: adjust the real lights to match' };
-  if (measuring) return { ...toggle, text: MEASURING[measuring] || 'Calibrating', detail: '', cls: 'mode', title: 'The map shows what calibration has put on the lights' };
+  if (measuring) return { ...toggle, text: MEASURING[measuring] || (calActive ? 'Calibrating' : 'Calibration'), detail: '', cls: 'mode', title: 'The map shows what calibration has put on the lights' };
   const colored = MODES.find(([id]) => id === mode && id !== 'live');
   if (colored) return { ...toggle, text: `Colored by ${colored[1]}`, detail: '', cls: 'mode', title: colored[2] };
   if (showing === 'preview') {

@@ -2238,3 +2238,18 @@ test('B125: a row\'s Goes on list never scrolls the row\'s name away', async () 
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks.slice(looks.indexOf('function fitRowPicker'), looks.indexOf('escapeCloses(el, () => !picker.hidden')), /scrollIntoView/, 'the place is worked out, not left to scrollIntoView');
 });
+
+test('B126: Calibrating is said only during an active session', async () => {
+  const { calLabel, loadState } = await import('./static/panel/calibrate.js');
+  assert.equal(calLabel(undefined), 'Calibration', 'loading');
+  assert.equal(loadState({ st: null, error: '' }).kind, 'loading');
+  assert.equal(calLabel(null), 'Calibration', 'failed');
+  assert.equal(loadState({ st: null, error: 'x' }).kind, 'error');
+  assert.equal(calLabel({ active: false }), 'Calibration', 'idle');
+  assert.equal(calLabel({ active: true }), 'Calibrating', 'running');
+  assert.match(read('panel/calibrate.js'), /\$\$\('#caLabel'\)\.textContent = calLabel\(st\)/);
+  const { mapStatus } = await import('./static/map-status.js');
+  assert.equal(mapStatus({ connected: true, measuring: 'other' }).text, 'Calibration', 'the pill has the same rule');
+  assert.equal(mapStatus({ connected: true, measuring: 'other', calActive: true }).text, 'Calibrating');
+  assert.equal(mapStatus({ connected: true, measuring: 'bands', calActive: true }).text, 'Test bands');
+});

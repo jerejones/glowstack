@@ -147,6 +147,10 @@ export function restoreFields(body, saved) {
   }
 }
 
+// calLabel is the screen's header: the mode's name, and the doing word only
+// while a session is actually running.
+export const calLabel = (st) => (st?.active ? 'Calibrating' : 'Calibration');
+
 // loadState is the screen's state before the first reading: loading, or
 // the failure with Retry. null once there is a session state to draw.
 export function loadState(C) {
@@ -445,7 +449,7 @@ export function createCalibrate(S, root) {
     $$('#caStop').hidden = !active;
     $$('#caClose').hidden = !!active;
     $$('#caDock').hidden = !active;
-    $$('#caLabel').textContent = 'Calibrating';
+    $$('#caLabel').textContent = calLabel(st);
     const count = st ? calCount(st) : null;
     $$('#caCount').textContent = count ? count.text : '';
     $$('#caCount').title = count ? count.title : '';
