@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import { normRanges } from './util.js';
+import { normRanges, covers } from './util.js';
 
 const overlaps = (a, b) => normRanges(a).some(([lo, hi]) => normRanges(b).some(([x, y]) => lo <= y && x <= hi));
 
@@ -23,6 +23,19 @@ export const joined = (names) => (names.length < 2 ? names.join('') : `${names.s
 export function darkMessage(names) {
   if (!names.length) return '';
   return `${joined(names)} ${names.length === 1 ? 'is' : 'are'} at 0% brightness, so nothing shows there. Raise the brightness in Home Assistant.`;
+}
+
+// lightOutcome says whether looks on the given pixel ranges can be seen.
+// layers holds one list of ranges per look. dark is 'none' (nothing shows),
+// 'part' (some of it can't) or '' (all fine); zones names what's at 0%.
+export function lightOutcome(geo, brightness, layers) {
+  if (!brightness || !layers.length) return { dark: '', zones: [], message: '' };
+  if (brightness.master === 0) return { dark: 'none', zones: [], message: 'Brightness is at 0%, so nothing shows. Raise it in Home Assistant.' };
+  const zones = [...new Set(layers.flatMap((r) => darkZones(geo, brightness, r || [])))];
+  if (!zones.length) return { dark: '', zones, message: '' };
+  const off = normRanges(geo.zones.filter((z) => brightness.zones?.[z.id] === 0).flatMap((z) => geo.areas.find((a) => a.id === z.area)?.ranges || []));
+  const none = layers.every((r) => r && covers(off, normRanges(r)));
+  return { dark: none ? 'none' : 'part', zones, message: darkMessage(zones) };
 }
 
 // Keep an unsuccessful read distinct from a confirmed empty live stack.

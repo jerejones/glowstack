@@ -50,7 +50,7 @@ test('a zone at 0 brightness is named where a look was applied, and only that zo
   assert.equal(darkMessage([]), '');
   const status = read('panel/status.js');
   assert.match(status, /darkMessage\(darkZones\(/);
-  assert.match(read('panel/looks.js'), /S\.toast\(dark/);
+  assert.match(read('panel/looks.js'), /applyToast\(S, what, outcome\)/);
 });
 
 test('sticky bars never cover what scrolls into view', () => {
@@ -339,7 +339,7 @@ test('B34: picker lists show whole rows, and Show on has no scroll of its own', 
 
 test('B35: a warning toast is the warning color', () => {
   assert.match(css, /\.toast\.warn \{ border-left-color: var\(--warn\)/);
-  assert.match(read('panel/looks.js'), /S\.toast\(dark, \{ ms: 9000, warn: true \}\)/);
+  assert.match(read('panel/looks.js'), /return S\.toast\(r\.text, r\.warn \? \{ ms: 9000, warn: true \} : \{\}\)/);
   assert.match(read('app.js'), /opts\.warn \? ' warn'/);
 });
 
@@ -630,7 +630,7 @@ test('plain words: model parts, effect subtitles, and numbers with commas', asyn
 
 test('the brightness warning is said once per screen, and its toast leaves with the tab', () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /else if \(dark\) darkToast = S\.toast\(dark/, 'a toast only when the lane can\'t be read');
+  assert.match(looks, /darkToast = applyToast\(S, what, outcome\)/, 'the result of Apply, once');
   assert.match(looks, /S\.on\('tab', \(\) => \{ darkToast\?\.remove\(\)/);
   assert.doesNotMatch(looks, /note\.className = orig \? 'note copy-note' : dark/, 'not on every card as well');
   const status = read('panel/status.js');
@@ -779,6 +779,28 @@ test('B69: beside the map the progress list fills the panel', () => {
 
 test('B68: Preview holds one width, so Pin and More do not shift', () => {
   assert.match(css, /\.preset-actions \[data-act=try\] \{ width: 7em; padding: 0; \}/);
+});
+
+test('B64: Apply reports what really happened, and the chip says so too', async () => {
+  const { lightOutcome } = await import('./static/house-status.js');
+  const { applyResult } = await import('./static/panel/looks.js');
+  const { mapStatus } = await import('./static/map-status.js');
+  const geo = { areas: [{ id: 'a', ranges: [[0, 9]] }, { id: 'b', ranges: [[10, 19]] }], zones: [{ id: 'yard', name: 'Yard', area: 'a' }, { id: 'porch', name: 'Porch', area: 'b' }] };
+  const dark = { master: 1, zones: { yard: 0, porch: 1 } };
+  const none = lightOutcome(geo, dark, [[[0, 9]]]);
+  assert.equal(none.dark, 'none');
+  assert.equal(lightOutcome(geo, dark, [[[0, 19]]]).dark, 'part');
+  assert.equal(lightOutcome(geo, dark, [[[10, 19]]]).dark, '');
+  assert.equal(lightOutcome(geo, { master: 0, zones: {} }, [[[10, 19]]]).dark, 'none', 'the master at 0 is dark too');
+  assert.equal(applyResult('the look to the lights', { dark: '' }).warn, false);
+  const r = applyResult('the look to the lights', none);
+  assert.equal(r.warn, true);
+  assert.match(r.text, /but nothing shows\. Yard is at 0% brightness/);
+  const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
+  assert.equal(chip.text, 'Nothing is lit');
+  assert.equal(chip.detail, ' · Yard at 0%');
+  assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: false, lit: none }).text, 'Showing your preview', 'a preview on the map is still a preview');
+  assert.doesNotMatch(read('panel/looks.js'), /S\.toast\(`Applied \$\{list/, 'no success toast before the brightness is known');
 });
 
 test('B56: Previous and Next are placed before the instructions', () => {

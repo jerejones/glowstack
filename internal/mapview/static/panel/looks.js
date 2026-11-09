@@ -12,7 +12,7 @@
 // is a line at the bottom that opens to its controls.
 import { post, del, esc, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
-import { houseStatusMessage, darkZones, darkMessage } from '../house-status.js';
+import { houseStatusMessage, darkZones, darkMessage, lightOutcome } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState } from '../states.js';
 import { icon } from '../icons.js';
@@ -113,6 +113,18 @@ export function replacedBy(house, preview, rangesOf, originals = new Set()) {
     return rs && rs.length && rs.every((r) => covers(over, r));
   });
 }
+
+// applyResult is what Apply reports: plain success only when the look can
+// be seen. outcome is lightOutcome for the applied looks.
+export function applyResult(what, outcome) {
+  if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
+  const lead = outcome.dark === 'none' ? `Applied ${what}, but nothing shows.` : `Applied ${what}, but part of it can't show.`;
+  return { text: `${lead} ${outcome.message}`, warn: true };
+}
+const applyToast = (S, what, outcome) => {
+  const r = applyResult(what, outcome);
+  return S.toast(r.text, r.warn ? { ms: 9000, warn: true } : {});
+};
 
 export function createLooks(S, root) {
   const g = S.geo;
@@ -585,6 +597,8 @@ export function createLooks(S, root) {
   // then removes the lights layers the promoted copies stand in for.
   async function apply(ids, replace = []) {
     const list = ids.length ? ids : (S.preview ? S.preview.layers.map((l) => l.id) : []);
+    // Read before promoting: a poll can empty the preview at any moment after.
+    const applied = (S.preview ? S.preview.layers : []).filter((l) => list.includes(l.id)).map((l) => targetRanges(g, S.tree, l.target));
     try {
       await post('/api/map/preview/promote', ids.length ? { ids } : {});
     } catch (e) { S.fail('apply the look', e); await S.refresh(); return; }
@@ -598,15 +612,15 @@ export function createLooks(S, root) {
     for (const orig of replaceIds) {
       try { await del('/api/v1/layers/' + encodeURIComponent(orig)); replaced.push(orig); } catch (e) { if (e.status !== 404) S.fail('remove the look it replaces', e); }
     }
-    const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
-    S.toast(`Applied ${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}.`);
     await S.refresh();
-    // The status poll's brightness can be seconds old: read it now.
+    // The status poll's brightness can be seconds old: read it now, so the
+    // result can say what really happened.
     await S.status?.poll();
-    const dark = darkMessage([...new Set(S.house.flatMap((l) => darkZones(g, S.statusData?.brightness, targetRanges(g, S.tree, l.target))))]);
-    // Shown once: on the lane where it can be read, as a toast only when it can't.
-    if (dark && !S.panel.collapsed()) $$('#lkDark').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    else if (dark) darkToast = S.toast(dark, { ms: 9000, warn: true });
+    const orig = replaced.length === 1 ? 'the original' : replaced.length + ' originals';
+    const what = `${list.length === 1 ? 'the look' : list.length + ' looks'} to the lights${replaced.length ? ', in place of ' + orig : ''}`;
+    const outcome = lightOutcome(g, S.statusData?.brightness, applied);
+    darkToast = applyToast(S, what, outcome);
+    if (outcome.dark && !S.panel.collapsed()) $$('#lkDark').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   $$('#lkPushAll').onclick = () => apply([], hidden);
   $$('#lkAdd').onclick = () => apply([]);

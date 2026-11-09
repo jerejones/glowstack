@@ -6,6 +6,7 @@
 // Preview/Lights toggle both come from here, so they can't disagree.
 import { esc } from './util.js';
 import { MODES } from './overlay.js';
+import { joined } from './house-status.js';
 
 // What the chip calls a calibration step that isn't a target pattern.
 const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuring a gap', dead: 'Marking dead pixels' };
@@ -14,8 +15,9 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // preview (the /api/map/preview state, or null before the first read),
 // target (the map is drawing a calibration target), measuring (the kind of
 // any other calibration step on the real lights, or ''), mode (the Setup
-// color mode, 'live' when the map shows real colors).
-export function mapStatus({ connected, show, preview, target, measuring = '', mode = 'live' }) {
+// color mode, 'live' when the map shows real colors), lit (lightOutcome for
+// the looks on the lights).
+export function mapStatus({ connected, show, preview, target, measuring = '', mode = 'live', lit = null }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
@@ -28,6 +30,7 @@ export function mapStatus({ connected, show, preview, target, measuring = '', mo
   if (showing === 'preview') {
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }
+  if (lit?.dark) return { ...toggle, text: lit.dark === 'none' ? 'Nothing is lit' : 'Partly lit', detail: lit.zones.length ? ` · ${joined(lit.zones)} at 0%` : ' · brightness at 0%', cls: 'dim', title: lit.message };
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
 }
 

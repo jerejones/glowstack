@@ -12,7 +12,7 @@
 import { $, api, esc, outputName, fmt, load, save, press, failure } from './util.js';
 import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
-import { buildTree, nodeName, nodeKinds, targetName } from './select.js';
+import { buildTree, nodeName, nodeKinds, targetName, targetRanges } from './select.js';
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
@@ -21,7 +21,7 @@ import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
-import { createHousePoll } from './house-status.js';
+import { createHousePoll, lightOutcome } from './house-status.js';
 import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
@@ -537,6 +537,8 @@ S.labelAvoid = () => {
   if (S.panel.layout() === 'sheet' && !S.calibrating) rects.push({ x0: 0, x1: stage.width, y0: stage.height - S.panel.covered(), y1: stage.height });
   return rects;
 };
+// litNow says whether what's on the lights can be seen, for the chip.
+const litNow = () => lightOutcome(S.geo, S.statusData?.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(S.geo, S.tree, l.target)));
 S.refreshBadge = badge;
 let badgeShown = false;
 // badge shows what the map is showing, on the chip and on the toggle.
@@ -544,7 +546,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.calibrating ? 'live' : S.overlay?.st.mode });
+  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.calibrating ? 'live' : S.overlay?.st.mode, lit: litNow() });
   const b = $('badge');
   b.innerHTML = badgeHTML(m);
   b.className = 'badge ' + m.cls;
@@ -682,6 +684,8 @@ async function main() {
   S.calib = createCalibrate(S, $('calibrate'));
   setShow(S.show);
   connect();
+  S.on('status', badge);
+  S.on('house', badge);
   await S.refresh();
   setInterval(pollPreview, 1000);
   setInterval(pollHouse, 2000);
