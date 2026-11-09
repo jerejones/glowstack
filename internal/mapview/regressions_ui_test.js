@@ -896,7 +896,7 @@ test('B62: test bands and gaps bring their step back into view, and a gap asks o
   const cal = read('panel/calibrate.js');
   assert.match(cal, /stepKey !== shownStep/, 'the step comes back into view when it changes');
   assert.match(cal, /if \(!isGap\) parts\.push\(`<div class="cal-read">/, 'a gap has no pixel to have moved');
-  assert.match(cal, /isGap \? NO_CURSOR_HOW\.gap/);
+  assert.match(cal, /if \(isGap\) parts\.push\(`<p class="cal-how">\$\{NO_CURSOR_HOW\.gap\}/);
 });
 
 test('B56: Previous and Next are placed before the instructions', () => {
@@ -1870,7 +1870,8 @@ test('calibration says what is unmeasured and gives one instruction', async () =
   assert.equal(stepPlace({ done: true, target: { kind: 'anchor' } }), 'Done');
   assert.match(MOVE_HOW, /−\/\+ to move the lit pixel along the real strip until it matches the circled point/);
   const cal = read('panel/calibrate.js');
-  assert.equal((cal.match(/MOVE_HOW\}/g) || []).length, 2, 'used at the intro and on the step');
+  assert.equal((cal.match(/MOVE_HOW\}/g) || []).length, 1, 'said at the intro; on a step, once, beside the buttons');
+  assert.match(cal, /id="caHow">Use −\/\+ until it matches the circled point/);
   assert.doesNotMatch(cal, /Move the white pixel onto/);
 });
 

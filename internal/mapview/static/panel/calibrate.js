@@ -319,7 +319,7 @@ export function createCalibrate(S, root) {
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
       <p class="cal-why" id="caWhy" hidden></p>
-      <p class="cal-nudge-how" id="caHow">+ moves it away from the strip's start, − back toward it.</p>
+      <p class="cal-nudge-how" id="caHow">Use −/+ until it matches the circled point: + moves it away from the strip's start, − back toward it.</p>
       <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}">${n > 0 ? '+' : '−'}${Math.abs(n)}</button>`).join('')}</div>
       <div class="cal-confirm"><button type="button" class="go icon-btn" id="caConfirm" title="Save this pixel as the measured position">${icon('check')}Confirm</button>
         <label class="check small"><input type="checkbox" id="caNext"> Go to next after</label></div>
@@ -479,7 +479,7 @@ export function createCalibrate(S, root) {
         const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
         if (!isGap) parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout puts it` : 'Not moved yet: still where the layout puts it'}</span></div>`);
         parts.push(nav());
-        parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : MOVE_HOW}</p>`);
+        if (isGap) parts.push(`<p class="cal-how">${NO_CURSOR_HOW.gap}</p>`); // a pixel's −/+ is explained at its buttons
         const was = $$('#caBody details.tech'), wasIds = $$('#caBody details.ids');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Test pixel</th><td>${c.index < 0 ? '—' : `Pixel ${c.index} on ${esc(controllerName(g, c.controller))}`}</td></tr>
