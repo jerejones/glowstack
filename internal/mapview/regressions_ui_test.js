@@ -1310,7 +1310,7 @@ test('B85: without the map a warning offers Retry, and controllers keep their na
   assert.equal(controllerName(g, 'shed-north'), 'Shed north');
   assert.equal(controllerName(g, 'unnamed-box'), 'Unnamed box', 'derived the same way when the API sends no name');
   const status = read('panel/status.js');
-  assert.match(status, /<b title="\$\{esc\(c\.id\)\}">\$\{esc\(controllerName\(g, c\.id\)\)\}/);
+  assert.match(status, /<b title="\$\{esc\(titled\)\}">\$\{esc\(controllerName\(g, c\.id\)\)\}/);
   assert.match(status, /fix\.retry \? location\.reload\(\)/);
 });
 
@@ -1700,4 +1700,22 @@ test('wording: one phrase for scope, a calm empty list, amber real-lights warnin
   assert.match(cal, /\$\$\('#caHow'\)\.hidden = nudgeOff/);
   assert.match(cal, /A calibration is still running on the lights/);
   assert.match(read('app.js'), /setItem\(OWN_RELOAD, '1'\); location\.reload\(\)/);
+});
+
+test('polish: disabled segment, labeled color buttons, nothing to clear, quieter controllers', async () => {
+  assert.match(css, /\.seg > button\[aria-disabled=true\]:not\(\.on\) \{[^}]*opacity: \.5/);
+  assert.match(css, /\.form \.color-picker > summary::before \{ order: 2; \}/);
+  const form = read('form.js');
+  assert.match(form, /\$\{icon\('plus'\)\}Add color/);
+  assert.match(form, /\$\{icon\('minus'\)\}Remove/);
+  assert.match(read('panel/calibrate.js'), /'quiet', !forgettable,/);
+  const { sharedFact } = await import('./static/panel/status.js');
+  const ok = { text: 'Sending', cls: 'ok' }, bad = { text: 'Unreachable', cls: 'bad' };
+  assert.equal(sharedFact([ok, ok]), 'Sending');
+  assert.equal(sharedFact([ok, bad]), '', 'a difference stays on its row');
+  assert.equal(sharedFact([bad, bad]), '', 'bad news stays on each row');
+  assert.equal(sharedFact([ok]), '');
+  const status = read('panel/status.js');
+  assert.match(status, /h\.lastSeen && !\(h\.reachable === true && h\.sending === true\)/, 'a healthy row skips Last answered');
+  assert.doesNotMatch(status, /kit\.push\(nb\('version/, 'the version moved to the name tooltip');
 });

@@ -59,6 +59,12 @@ export function controllerFact(h, nothingLit = false) {
   return h.reachable === true ? { text: 'Reachable', cls: 'ok' } : { text: 'Not checked', cls: '' };
 }
 
+// sharedFact is what every controller's row would say, when that's good or
+// neutral news: said once on the heading, not on each row.
+export function sharedFact(facts) {
+  return facts.length > 1 && facts.every((f) => f.text === facts[0].text) && facts[0].cls !== 'bad' ? facts[0].text : '';
+}
+
 // LENGTH_WARN is how far a run's total length may be from its drawing
 // before Status flags it.
 export const LENGTH_WARN = 0.05;
@@ -190,7 +196,7 @@ export function createStatus(S, root) {
     <div id="stIssues"></div>
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
-    <h2>Controllers</h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
+    <h2>Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
     <div id="stRunsBox"><h2>Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
@@ -300,22 +306,25 @@ export function createStatus(S, root) {
       stat(`${fmt(perf.draw.p50, 2)} ms`, 'to draw the map', `this device; median of the last ${perf.draw.n} draws, p95 ${fmt(perf.draw.p95, 2)} ms`),
     ].join('');
 
+    const shared = sharedFact(g.controllers.map((c) => controllerFact(healthOf(st.health, c.id), nothingLit)));
+    $$('#stCtlShared').textContent = shared ? `all ${shared.toLowerCase()}` : '';
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
       const h = healthOf(st.health, c.id);
       let dot = 'idle', line = '';
       const fact = controllerFact(h, nothingLit);
       const kit = [nb(plural(c.pixels, 'light')), nb(plural(c.outputs.length, 'output'))];
+      const titled = h?.version ? `${c.id} · version ${h.version}` : c.id;
       if (h) {
         dot = h.reachable === true && !nothingLit ? 'ok' : h.reachable === false ? 'bad' : 'idle';
-        if (h.lastSeen) line = nb('Last answered ' + ago(h.lastSeen));
-        if (h.version) kit.push(nb('version ' + esc(h.version)));
+        // Only worth saying when it isn't simply working.
+        if (h.lastSeen && !(h.reachable === true && h.sending === true)) line = nb('Last answered ' + ago(h.lastSeen));
         const faults = [];
         if (h.errors) faults.push(`${h.errors} send error${h.errors === 1 ? '' : 's'}`);
         if (h.reboots) faults.push(`${h.reboots} reboot${h.reboots === 1 ? '' : 's'}`);
         if (faults.length) line += `${line ? '<br>' : ''}${faults.join(' · ')}`;
         if (h.error) line += `${line ? '<br>' : ''}<span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(c.id)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span><span class="fact ${fact.cls}">${fact.text}</span></li>`;
+      return `<li><span class="dotc ${dot}"></span><span class="what"><b title="${esc(titled)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span>${shared ? '' : `<span class="fact ${fact.cls}">${fact.text}</span>`}</li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));

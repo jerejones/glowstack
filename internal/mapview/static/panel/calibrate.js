@@ -483,7 +483,9 @@ export function createCalibrate(S, root) {
         parts.push(nav());
       }
       const bands = st.target?.kind === 'bands';
-      const utilities = [bands ? btn('Leave test bands', leaveBands, 'on', false, 'Back to the step you were on') : tr ? btn('Show test bands', () => showBands({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''].join('');
+      const item = i >= 0 ? st.progress[i] : null;
+      const forgettable = item?.done || item?.source === 'partial' || !!(c && c.index !== c.estimate);
+      const utilities = [bands ? btn('Leave test bands', leaveBands, 'on', false, 'Back to the step you were on') : tr ? btn('Show test bands', () => showBands({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', !forgettable, forgettable ? 'Forget what was measured for this point' : 'Nothing to forget: this point has not been measured or moved') : ''].join('');
       if (utilities) parts.push(`<div class="cal-nav cal-util">${utilities}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(humanText(g, st.message))}</div>`);
       for (const w of st.checks || []) parts.push(warningHTML(humanText(g, w)));
