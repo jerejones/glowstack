@@ -11,7 +11,7 @@
 // unreachable is drawn gray while the map shows the lights.
 import { api, esc, fmt, plural, count, humanize, covers, normRanges } from '../util.js';
 import { showState, stateHTML } from '../states.js';
-import { darkZones, darkMessage, joined } from '../house-status.js';
+import { darkZones, darkMessage, joined, BRIGHTNESS_RULE } from '../house-status.js';
 import { targetRanges } from '../select.js';
 import { runName, controllerName, warningSummary } from '../names.js';
 import { icon } from '../icons.js';
@@ -277,7 +277,7 @@ export function createStatus(S, root) {
     const nothingLit = lit.text.startsWith('Nothing is lit');
     $$('#stCtlNote').hidden = !nothingLit;
     if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
-    $$('#stVerdict').innerHTML = `<span>${esc(lit.text)}</span>${isDark ? '<small>Raise the brightness in Home Assistant.</small>' : ''}`;
+    $$('#stVerdict').innerHTML = `<span>${esc(lit.text)}</span>${isDark ? `<small>Raise the brightness in Home Assistant. ${esc(BRIGHTNESS_RULE)}</small>` : ''}`;
     // Health is the second line, in plain text unless something is wrong.
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;

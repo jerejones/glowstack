@@ -700,7 +700,7 @@ test('B53: a failed refresh keeps the last state on Looks and says so', async ()
   assert.equal(some.main, 'On the lights: Dusk');
   assert.match(some.sub, /last known/);
   assert.equal(nowLine({ ...base, house: [], status: 'available', read: true }).stale, false);
-  assert.match(css, /\.now:not\(\.idle\):not\(\.stale\):not\(\.dark\) small \{ display: none; \}/, 'the phone half sheet keeps the notice');
+  assert.match(css, /\.now:not\(\.idle\):not\(\.stale\) small/, 'the phone half sheet keeps the notice');
 });
 
 test('a failed action names what failed, and a stray error page is not shown as text', async () => {
@@ -810,7 +810,7 @@ test('B64: Apply reports what really happened, and the chip says so too', async 
   assert.match(r.text, /but they stay dark\. Yard is at 0% brightness/);
   const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
   assert.equal(chip.text, 'Lights: nothing lit');
-  assert.equal(chip.detail, ' · Yard at 0%');
+  assert.equal(chip.detail, '');
   assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: false, lit: none }).text, 'Showing your preview', 'a preview on the map is still a preview');
   assert.doesNotMatch(read('panel/looks.js'), /S\.toast\(`Applied \$\{list/, 'no success toast before the brightness is known');
 });
@@ -1141,7 +1141,7 @@ test('B75: the dark warning is said once on a screen', async () => {
   const shown = applyResult('the look to the lights', dark, true);
   assert.equal(shown.warn, false);
   assert.equal(shown.neutral, true);
-  assert.doesNotMatch(shown.text, /0%|dark/);
+  assert.equal(shown.text, 'Applied the look to the lights.');
   // No card on screen (a collapsed panel): the toast is the warning.
   const hidden = applyResult('the look to the lights', dark, false);
   assert.equal(hidden.warn, true);
@@ -1276,7 +1276,7 @@ test('B83: the chip says nothing is lit the same way everywhere, quietly, and ne
   assert.equal(atZero.text, 'Lights: nothing lit');
   assert.equal(atZero.cls, 'unlit', 'neutral: the panel has the warning');
   assert.notEqual(atZero.cls, 'house');
-  assert.equal(atZero.detail, ' · Yard at 0%');
+  assert.equal(atZero.detail, '', 'the chip is quiet about which zones: the tab says that once');
   // Partly lit, and nothing on the lights at all.
   assert.equal(mapStatus({ ...base, lit: lightOutcome(geo, dark, [[[0, 4]], [[20, 29]]], true) }).text, 'Lights: partly lit');
   const empty = mapStatus({ ...base, lit: lightOutcome(geo, { master: 1, zones: { a: 1, b: 1 } }, [], true) });
@@ -1284,11 +1284,8 @@ test('B83: the chip says nothing is lit the same way everywhere, quietly, and ne
   assert.equal(empty.detail, ' · no looks on them');
   // Before the first reading the chip doesn't claim either way.
   assert.equal(mapStatus({ ...base, lit: lightOutcome(geo, dark, [], false) }).text, 'Showing the lights');
-  // The phone keeps the detail, as a second line.
-  assert.match(badgeHTML(atZero, true), /class="stack".*class="detail">Yard at 0%</);
-  const many = { ...lightOutcome(geo, dark, [[[0, 4]]], true), zones: ['A', 'B', 'C', 'D'] };
-  assert.match(badgeHTML(mapStatus({ ...base, lit: many }), true), />4 zones at 0%</, 'a long list is a count on a phone');
-  assert.equal(badgeHTML(atZero), '<span>Lights: nothing lit<span class="detail"> · Yard at 0%</span></span>', 'desktop reads it on one line');
+  assert.match(badgeHTML(empty, true), /class="detail">no looks on them</, 'a phone stacks what detail there is');
+  assert.equal(badgeHTML(atZero), '<span>Lights: nothing lit<span class="detail"></span></span>');
   assert.doesNotMatch(css, /\.brand, \.badge \.detail \{ display: none/, 'the detail isn\'t hidden on a phone');
 });
 
@@ -1372,10 +1369,8 @@ test('Looks folds the long grids once something previews, and a preview on an em
   assert.match(looks, /clock-hint/, 'the clock says what it is for while closed');
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Yard'], message: 'x' };
-  assert.match(applyResult('the look to the lights', dark, true).text, /nothing lights up/, 'not a plain success');
   assert.equal(applyResult('the look to the lights', dark, true).neutral, true, 'and not a third warning');
   assert.equal(applyResult('the look to the lights', dark, true).warn, false);
-  assert.match(applyResult('x', { dark: 'part', zones: [], message: '' }, true).text, /part of it stays dark/);
   assert.equal(applyResult('x', { dark: '' }, true).text, 'Applied x.');
 });
 
@@ -1499,23 +1494,10 @@ test('Stop and Close return to the tab Calibrate was opened from, also across a 
 });
 
 test('0%: a layer over dark zones says so, and Status stops calling Sending good news', async () => {
-  const { effectiveNote, lightOutcome } = await import('./static/house-status.js');
-  const geo = { zones: [{ id: 'a', name: 'Porch', area: 'p' }, { id: 'b', name: 'Yard', area: 'y' }], areas: [{ id: 'p', ranges: [[0, 9]] }, { id: 'y', ranges: [[10, 19]] }] };
-  const dark = { master: 1, zones: { a: 0, b: 0.5 } };
-  assert.equal(effectiveNote(lightOutcome(geo, dark, [[[0, 9]]]), 100), '100%, but its zones are at 0%');
-  assert.equal(effectiveNote(lightOutcome(geo, dark, [[[0, 19]]]), 80), '80%, but Porch is at 0%');
-  assert.equal(effectiveNote(lightOutcome(geo, dark, [[[10, 19]]]), 100), '', 'a lit zone needs no note');
-  assert.equal(effectiveNote(lightOutcome(geo, { master: 0, zones: {} }, [[[0, 9]]]), 100), '100%, but brightness is at 0%');
   const { controllerFact, lightsVerdict } = await import('./static/panel/status.js');
   assert.deepEqual(controllerFact({ reachable: true, sending: true }, true), { text: 'Sending', cls: '' }, 'Sending stays, not green');
   assert.equal(controllerFact({ reachable: false, sending: true }, true).cls, 'bad', 'a real fault stays red');
   assert.match(lightsVerdict({ zones: [], areas: [] }, { brightness: { master: 0 }, layers: 1 }, null).text, /^Nothing is lit/);
-  const { nowLine } = await import('./static/panel/looks.js');
-  const base = { previewing: false, status: 'available', read: true, word: 'Tap', nameOf: () => 'Dusk', house: [{}] };
-  const line = nowLine({ ...base, lit: lightOutcome(geo, dark, [[[0, 9]]]) });
-  assert.equal(line.sub, 'Not lit: its zones are at 0%');
-  assert.equal(line.dark, true);
-  assert.equal(nowLine({ ...base, lit: lightOutcome(geo, dark, [[[10, 19]]]) }).dark, false);
 });
 
 test('essential metadata is 14px and a phone heading qualifier gets its own line', () => {
@@ -1659,4 +1641,18 @@ test('B97: a failed calibration read or action is said in words, with Retry that
   assert.match(cal, /stateHTML\(\{ kind: 'error', title: C\.error/);
   assert.doesNotMatch(cal, /<div class="error">/);
   assert.doesNotMatch(cal, /text \|\| r\.statusText/);
+});
+
+test('the 0% warning is said once on a screen, with how the brightnesses combine', async () => {
+  const { nowLine } = await import('./static/panel/looks.js');
+  const { BRIGHTNESS_RULE, darkMessage } = await import('./static/house-status.js');
+  const line = nowLine({ previewing: false, status: 'available', read: true, word: 'Tap', nameOf: () => 'Dusk', house: [{}] });
+  assert.equal(line.sub, '', 'the summary row keeps to what is on the lights');
+  assert.match(BRIGHTNESS_RULE, /multiplied by its zone's/);
+  assert.match(darkMessage(['Porch']), /Porch is at 0% brightness/);
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /bri-note/, 'no second note on each card');
+  assert.match(looks, /\$\{lit\.message\} \$\{BRIGHTNESS_RULE\}/);
+  assert.match(read('panel/status.js'), /BRIGHTNESS_RULE/);
+  assert.doesNotMatch(read('map-status.js'), /at 0%`/);
 });

@@ -25,6 +25,9 @@ export function darkMessage(names) {
   return `${joined(names)} ${names.length === 1 ? 'is' : 'are'} at 0% brightness, so nothing shows there. Raise the brightness in Home Assistant.`;
 }
 
+// BRIGHTNESS_RULE says how the two brightnesses combine, as render.Compositor does.
+export const BRIGHTNESS_RULE = "A look's brightness is multiplied by its zone's, so a look at 100% in a zone at 0% stays dark.";
+
 // lightOutcome says whether looks on the given pixel ranges can be seen.
 // layers holds one list of ranges per look. dark is 'none' (nothing shows),
 // 'part' (some of it can't) or '' (all fine); zones names what's at 0%.
@@ -38,15 +41,6 @@ export function lightOutcome(geo, brightness, layers, read = false) {
   const off = normRanges(geo.zones.filter((z) => brightness.zones?.[z.id] === 0).flatMap((z) => geo.areas.find((a) => a.id === z.area)?.ranges || []));
   const none = layers.every((r) => r && covers(off, normRanges(r)));
   return { dark: none ? 'none' : 'part', zones, message: darkMessage(zones) };
-}
-
-// effectiveNote is what a layer's own brightness is worth once the zones
-// have their say: '' when it shows as set. outcome is lightOutcome for the
-// layer, percent its slider's value.
-export function effectiveNote(outcome, percent) {
-  if (!outcome.dark || outcome.empty) return '';
-  if (outcome.dark === 'none') return `${percent}%, but ${outcome.zones.length ? 'its zones are' : 'brightness is'} at 0%`;
-  return `${percent}%, but ${joined(outcome.zones)} ${outcome.zones.length === 1 ? 'is' : 'are'} at 0%`;
 }
 
 // Keep an unsuccessful read distinct from a confirmed empty live stack.

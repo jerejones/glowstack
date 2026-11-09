@@ -6,7 +6,6 @@
 // Preview/Lights toggle both come from here, so they can't disagree.
 import { esc } from './util.js';
 import { MODES } from './overlay.js';
-import { joined } from './house-status.js';
 
 // What the chip calls a calibration step that isn't a target pattern.
 const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuring a gap', dead: 'Marking dead pixels' };
@@ -19,7 +18,8 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // the looks on the lights), mapless (the map couldn't be loaded or drawn;
 // the page still answers), connecting (no socket result yet: a first
 // connection hasn't opened or failed). The chip follows one rule, on every tab and with
-// the sheet open or shut: nothing lit never reads as the lights showing.
+// the sheet open or shut: nothing lit never reads as the lights showing, and
+// the tab says why, once.
 export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', mode = 'live', lit = null, mapless = false }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
@@ -36,22 +36,14 @@ export function mapStatus({ connected, connecting = false, show, preview, target
   if (showing === 'preview') {
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }
-  if (lit?.dark) return { ...toggle, text: lit.dark === 'none' ? 'Lights: nothing lit' : 'Lights: partly lit', ...darkDetail(lit), cls: 'unlit', title: lit.message };
+  if (lit?.dark) return { ...toggle, text: lit.dark === 'none' ? 'Lights: nothing lit' : 'Lights: partly lit', detail: lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message };
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
-}
-
-// darkDetail says why, in the chip's words. A long list of zones is a count
-// on a phone's narrow chip; the title and the tab name them.
-function darkDetail(lit) {
-  if (lit.empty) return { detail: ' · no looks on them' };
-  if (!lit.zones.length) return { detail: ' · brightness at 0%' };
-  return { detail: ` · ${joined(lit.zones)} at 0%`, compact: lit.zones.length > 2 ? `${lit.zones.length} zones at 0%` : '' };
 }
 
 // badgeHTML is the chip's content. One element holds both parts: the chip
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.
 export function badgeHTML(m, stacked = false) {
-  if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.compact || m.detail.replace(/^ · /, ''))}</span></span>`;
+  if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^ · /, ''))}</span></span>`;
   return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }

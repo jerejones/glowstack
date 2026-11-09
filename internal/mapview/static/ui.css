@@ -390,7 +390,7 @@ input[type=checkbox]:checked::after {
   body[data-detent=half] .tab .looks-head { margin: 8px 0 4px; }
   body[data-detent=half] .catalog-head { margin: 6px 0 4px; }
   body[data-detent=half] .now { margin-bottom: 0; }
-  body[data-detent=half] .now:not(.idle):not(.stale):not(.dark) small { display: none; }
+  body[data-detent=half] .now:not(.idle):not(.stale) small { display: none; }
   .look-bar { padding-top: 4px; padding-bottom: 4px; }
   /* One action leads on the phone: the rest are quiet beside it. */
   .look-acts .go { flex: 1; }
@@ -442,7 +442,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .now .what { min-width: 0; flex: 1; display: grid; line-height: 1.25; }
 .now small { color: var(--muted); font-size: var(--t-meta); }
 .now .now-go { flex: none; font-size: var(--t-meta); }
-.now.stale small, .now.dark small { color: var(--warn); }
+.now.stale small { color: var(--warn); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
 .preset {
   display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left; padding: 8px;
@@ -481,7 +481,6 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-meta); }
 .crumbs .sep { display: inline-flex; }
 .layer .bri output { width: 3.2em; text-align: right; color: var(--muted); }
-.layer .bri-note { color: var(--warn); font-size: var(--t-meta); margin-top: 2px; }
 .layer .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 .layer .acts:empty { display: none; }
 .layer [data-a=remove]:hover { color: #fecaca; border-color: #7f1d1d; }
