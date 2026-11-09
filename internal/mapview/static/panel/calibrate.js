@@ -364,6 +364,7 @@ export function createCalibrate(S, root) {
     return `<button type="button" class="${cls}" data-a="${acts.length - 1}"${disabled ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
   };
 
+  let shownJump = '';
   function render() {
     S.cal = C.st;
     const running = !!(C.st && C.st.active);
@@ -410,9 +411,10 @@ export function createCalibrate(S, root) {
       parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i], st.progress.length))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
       if (c) {
         const moved = c.index - c.estimate;
-        parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout puts it` : 'Not moved yet: still where the layout puts it'}</span></div>`);
+        const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
+        if (!isGap) parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout puts it` : 'Not moved yet: still where the layout puts it'}</span></div>`);
         parts.push(nav());
-        parts.push('<p class="cal-how">Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.</p>');
+        parts.push(`<p class="cal-how">${isGap ? NO_CURSOR_HOW.gap : 'Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.'}</p>`);
         const was = $$('#caBody details.tech');
         parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
@@ -503,7 +505,11 @@ export function createCalibrate(S, root) {
     upgradeSelects(body);
     restoreFields(body, fields);
     if (!active && S.offline) for (const b of body.querySelectorAll('button.go')) b.disabled = true;
-    body.scrollTop = top;
+    // Test bands and gaps are often reached from far down: the step, and the
+    // way out or the length to type, come back into view.
+    const jump = ['bands', 'gap'].includes(st?.target?.kind) ? JSON.stringify(st.target) : '';
+    body.scrollTop = jump && jump !== shownJump ? 0 : top;
+    shownJump = jump;
     const list = body.querySelector('.cal-prog');
     if (list) {
       list.scrollTop = listTop;

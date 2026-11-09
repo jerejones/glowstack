@@ -890,6 +890,13 @@ test('the last polish: pin glyph, type sizes, contrast and the Preview reason', 
   assert.match(read('overlay.js'), /MAJOR, S\.panel\?\.layout\?\.\(\) === 'sheet'\)/, 'controller labels thin on the small map');
 });
 
+test('B62: test bands and gaps bring their step back into view, and a gap asks only for a length', () => {
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /body\.scrollTop = jump && jump !== shownJump \? 0 : top/);
+  assert.match(cal, /if \(!isGap\) parts\.push\(`<div class="cal-read">/, 'a gap has no pixel to have moved');
+  assert.match(cal, /isGap \? NO_CURSOR_HOW\.gap/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));
