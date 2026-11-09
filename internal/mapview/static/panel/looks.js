@@ -118,7 +118,7 @@ export function replacedBy(house, preview, rangesOf, originals = new Set()) {
 // be seen. outcome is lightOutcome for the applied looks.
 export function applyResult(what, outcome) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
-  const lead = outcome.dark === 'none' ? `Applied ${what}, but nothing shows.` : `Applied ${what}, but part of it can't show.`;
+  const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
   return { text: `${lead} ${outcome.message}`, warn: true };
 }
 const applyToast = (S, what, outcome) => {

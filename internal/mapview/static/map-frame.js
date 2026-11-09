@@ -23,7 +23,8 @@ export function toastBottom({ height, layout, calibrating, calTop, floats }) {
 export function frameInsets({ height, chips, crumbs, controls, layout, covered, calibrating, calTop, floats }) {
   // On a phone the chip, the toggle and the crumbs are all at the top.
   let top = layout === 'sheet' && !calibrating ? Math.max(chips, controls, crumbs ?? 0) : chips;
-  let bottom = covered;
+  // On a phone the color key sits above the sheet: floats counts it.
+  let bottom = layout === 'sheet' ? Math.max(covered, floats ?? 0) : covered;
   if (calibrating) {
     if (layout === 'sheet') {
       top = Math.max(top, controls);

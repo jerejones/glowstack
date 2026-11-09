@@ -327,7 +327,7 @@ test('B33: toasts sit above the map toggle and legend, and over the phone calibr
   assert.equal(toastBottom({ height: 900, layout: 'wide', calibrating: false, calTop: 0, floats: 120 }), 128);
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: false, calTop: 354, floats: 450 }), 458, 'above the sheet and its toggle');
   assert.equal(toastBottom({ height: 844, layout: 'sheet', calibrating: true, calTop: 354, floats: 800 }), 498);
-  assert.match(read('app.js'), /\.filter\(\(r\) => r\.height/, 'a legend hidden by CSS has no top');
+  assert.match(read('app.js'), /\.filter\(\(\[r, keep\]\) => r\.height && keep\(r\)\)/, 'a legend hidden by CSS has no top');
 });
 
 test('B34: picker lists show whole rows, and Show on has no scroll of its own', () => {
@@ -795,12 +795,20 @@ test('B64: Apply reports what really happened, and the chip says so too', async 
   assert.equal(applyResult('the look to the lights', { dark: '' }).warn, false);
   const r = applyResult('the look to the lights', none);
   assert.equal(r.warn, true);
-  assert.match(r.text, /but nothing shows\. Yard is at 0% brightness/);
+  assert.match(r.text, /but they stay dark\. Yard is at 0% brightness/);
   const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
   assert.equal(chip.text, 'Nothing is lit');
   assert.equal(chip.detail, ' · Yard at 0%');
   assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: false, lit: none }).text, 'Showing your preview', 'a preview on the map is still a preview');
   assert.doesNotMatch(read('panel/looks.js'), /S\.toast\(`Applied \$\{list/, 'no success toast before the brightness is known');
+});
+
+test('B65: the phone keeps a color key above the sheet, not at the toggle', async () => {
+  assert.match(css, /body\[data-detent=peek\]:not\(\.calibrating\) \.legend[^{]*\{ display: flex; \}/);
+  assert.match(css, /\.legend \{ display: none; left: 8px; right: 8px; bottom: calc\(var\(--sheet-visible\) \+ 8px\)/);
+  const { frameInsets } = await import('./static/map-frame.js');
+  const f = frameInsets({ height: 844, chips: 52, crumbs: null, controls: 52, layout: 'sheet', covered: 68, calibrating: false, calTop: 0, floats: 160 });
+  assert.equal(f.bottom, 166, 'framing keeps the house above the key');
 });
 
 test('B56: Previous and Next are placed before the instructions', () => {

@@ -100,6 +100,7 @@ export function createSetup(S, root) {
     let html = '';
     try { html = await ov.apply(); } catch (e) { S.fail('draw that overlay', e); }
     for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = html; el.hidden = !html; }
+    S.setInsets(); // the key takes room from the map on a phone
     S.markDirty();
   }
   S.refreshLegend = refreshLegend;

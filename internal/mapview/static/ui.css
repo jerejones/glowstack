@@ -343,7 +343,11 @@ input[type=checkbox]:checked::after {
   .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .crumbs::-webkit-scrollbar { display: none; }
   .crumbs > * { flex: none; }
-  .legend { display: none; }
+  /* The key stays on the map above the sheet, compact, away from the toggle
+   * at the top. Setup's half sheet has its own copy; a full sheet has no room. */
+  .legend { display: none; left: 8px; right: 8px; bottom: calc(var(--sheet-visible) + 8px); max-width: none; max-height: 92px; overflow-y: auto; overscroll-behavior: contain; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
+  .legend > .ramp, .legend > .row, .legend > .key, .legend > div:first-child { flex: 0 0 100%; }
+  body[data-detent=peek]:not(.calibrating) .legend, :root:not([data-tab=setup]) body[data-detent=half]:not(.calibrating) .legend { display: flex; }
   /* The sheet's half detent is short: the looks come first. */
   .tab h1.title, .tab .looks-head, .tab .library-heading { margin-top: 16px; }
   body[data-detent=half] .tab .looks-head { margin: 8px 0 4px; }

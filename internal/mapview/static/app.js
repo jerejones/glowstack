@@ -181,9 +181,10 @@ S.setInsets = setInsets;
 // floatsBottom is how much of the map's bottom edge the side-layout toggle
 // and legend take up.
 function floatsBottom(stage) {
-  // Height 0 is a legend ui.css hides on phones. A full sheet takes the
-  // toggle to the top of the map, where it doesn't count.
-  const tops = [$('mapControls'), $('legend')].map((el) => el.getBoundingClientRect()).filter((r) => r.height && r.top - stage.top > stage.height / 2).map((r) => r.top);
+  // Height 0 is a legend ui.css hides. The toggle at the top of a phone's
+  // map doesn't count; the key above its sheet does.
+  const low = (r) => r.top - stage.top > stage.height / 2;
+  const tops = [[$('mapControls'), low], [$('legend'), () => true]].map(([el, keep]) => [el.getBoundingClientRect(), keep]).filter(([r, keep]) => r.height && keep(r)).map(([r]) => r.top);
   return Math.max(S.panel.layout() === 'sheet' ? S.panel.covered() : 0, stage.bottom - Math.min(stage.bottom, ...tops));
 }
 S.resize = resize;
