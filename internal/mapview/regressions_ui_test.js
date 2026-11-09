@@ -646,7 +646,7 @@ test('Everything is the one term, and the Runs group says why runs are missing',
   assert.match(looks, /A run that is a whole area or zone is listed there instead\./);
   assert.match(looks, /\$\$\('#lkLive'\)\.disabled = st\.following/, 'Now is an action, not a toggle');
   assert.doesNotMatch(looks, /press\(\$\$\('#lkLive'\)/);
-  assert.match(looks, /<details class="clock-box" id="lkClockBox" hidden><summary>Preview clock/);
+  assert.match(looks, /<details class="clock-box" id="lkClockBox" data-quiet-open hidden><summary>Preview clock/);
   assert.match(looks, /\$\$\('#lkClockBox'\)\.hidden = !prev\.length/);
   assert.match(looks, /bri-label[^>]*>\$\{icon\('sun'\)\}<span class="bri-word">Brightness/);
 });
@@ -2392,4 +2392,13 @@ test('B130: a disclosure is never larger than its container heading', () => {
   assert.match(css, /\.form-disclosure > summary \{ font-size: var\(--t-h3\); font-weight: 600;/);
   assert.match(css, /\.layer \.name-line b \{[^}]*font-size: var\(--t-h3\)/, "a layer card's title is at least its More settings");
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
+});
+
+test('opening the Preview clock leaves an open Tweak form where it is', async () => {
+  const { keepsPlace } = await import('./static/sheet.js');
+  const box = (form) => ({ querySelector: () => (form ? {} : null) });
+  assert.equal(keepsPlace({ dataset: { quietOpen: '' } }, box(true)), true);
+  assert.equal(keepsPlace({ dataset: { quietOpen: '' } }, box(false)), false, 'nothing to protect: it reveals itself');
+  assert.equal(keepsPlace({ dataset: {} }, box(true)), false);
+  assert.match(read('panel/looks.js'), /id="lkClockBox" data-quiet-open/);
 });

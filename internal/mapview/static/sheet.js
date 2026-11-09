@@ -26,6 +26,10 @@ const HALF_MIN = 344; // room for a look card above the Apply bar on a short pho
 // the half one. sb is the bottom safe area.
 export const fullStrip = (band, h, sb = 0) => Math.max(STRIP, Math.min(band, h - HALF_MIN - sb));
 
+// keepsPlace says opening el must not scroll the panel: it asks not to
+// (data-quiet-open), and a form it would push away is open in the panel.
+export const keepsPlace = (el, content) => 'quietOpen' in el.dataset && !!content.querySelector('.form');
+
 // guardSelection stops text selection while dragging() says so.
 export function guardSelection(doc, dragging) {
   doc.addEventListener('selectstart', (e) => { if (dragging()) e.preventDefault(); });
@@ -204,7 +208,8 @@ export function createPanel(hooks) {
       const content = $('content'), room = content.clientHeight - (parseFloat(getComputedStyle(content).scrollPaddingBottom) || 0);
       // Too tall for half a sheet: it needs the room, not half of itself.
       if (layout === 'sheet' && detent === 'half' && e.target.offsetHeight > room) setDetent('full');
-      e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // A quiet disclosure opens where it is while a Tweak form is being worked on.
+      if (!keepsPlace(e.target, content)) e.target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
     opening = null;
   }, true);

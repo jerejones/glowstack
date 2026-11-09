@@ -264,7 +264,7 @@ export function createLooks(S, root) {
       <div class="cards" id="lkPresets"></div>
       <details class="words" id="lkWords"><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>
     </section>
-    <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="clock-hint muted">Pause or scrub the preview</span><span class="t" id="lkClockText"></span></summary>
+    <details class="clock-box" id="lkClockBox" data-quiet-open hidden><summary>Preview clock <span class="clock-hint muted">Pause or scrub the preview</span><span class="t" id="lkClockText"></span></summary>
     <div class="muted small">Pause, slow or scrub the preview to look at one moment. The lights keep running.</div>
     <div class="clock" id="lkClock">
       <button type="button" id="lkPlay" class="icon-btn" title="Pause or resume the preview clock (space)" aria-label="Pause the preview clock"></button>
