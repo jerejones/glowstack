@@ -1118,7 +1118,7 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   // The control sits with what it governs: the catalog, above the cards.
   const head = /<div class="catalog-head"[\s\S]*?<div class="cards" id="lkPresets">/.exec(src);
   assert.ok(head, 'the Goes on control is in the catalog heading');
-  assert.match(head[0], />New previews go on</);
+  assert.match(head[0], />New previews go on </);
   // A preview layer's place is a control of its own, on its own card.
   assert.match(src, /className: 'place icon-btn'/);
   assert.match(src, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
@@ -1861,7 +1861,7 @@ test('action buttons lead with an icon; the header says it sets new previews', (
   assert.match(setup, /icon\('target'\)\}\$\{running/);
   assert.match(status, /\$\{icon\('target'\)\}Calibrate/);
   assert.match(cal, /id="caConfirm"[^>]*>\$\{icon\('check'\)\}Confirm/);
-  assert.match(looks, /class="muted">New previews go on</);
+  assert.match(looks, /class="scope-line muted">New previews go on </);
   assert.match(looks, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}/, "the card's own control keeps its name");
 });
 
@@ -2252,4 +2252,13 @@ test('B126: Calibrating is said only during an active session', async () => {
   assert.equal(mapStatus({ connected: true, measuring: 'other' }).text, 'Calibration', 'the pill has the same rule');
   assert.equal(mapStatus({ connected: true, measuring: 'other', calActive: true }).text, 'Calibrating');
   assert.equal(mapStatus({ connected: true, measuring: 'bands', calActive: true }).text, 'Test bands');
+});
+
+test('the library scope is a quiet line; a row\'s Goes on is the only button-styled scope control', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /<p class="scope-line muted">New previews go on <button type="button" class="target-btn" id="lkTarget"/);
+  assert.doesNotMatch(/<p class="scope-line[\s\S]*?<\/p>/.exec(looks)[0], /icon\(|icon-btn/, 'no glyph, no button chrome');
+  assert.match(/^button\.target-btn \{[^}]*\}/m.exec(css)[0], /border: 0; background: transparent; color: var\(--accent\); text-decoration: underline/);
+  assert.match(looks, /className: 'place icon-btn'/, 'per-layer Goes on stays a button');
+  assert.match(looks, /Goes on<\/span>/);
 });

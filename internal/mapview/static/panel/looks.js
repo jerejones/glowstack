@@ -230,7 +230,7 @@ export function createLooks(S, root) {
     <section class="library" aria-label="Presets and effects">
       <div class="catalog-head" id="lkCatalogHead">
         <h2 class="group-head">Library</h2>
-        <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their rows." aria-haspopup="dialog"><span class="muted">New previews go on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
+        <p class="scope-line muted">New previews go on <button type="button" class="target-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their rows." aria-haspopup="dialog"><b id="lkTargetName"></b></button></p>
         <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
           <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
           ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
@@ -286,7 +286,9 @@ export function createLooks(S, root) {
   const sameTarget = (a, b) => a === b || targetKey(a) === targetKey(b);
   function fillTargets() {
     const t = currentTarget();
-    $$('#lkTargetName').textContent = S.sel ? nodeName(S.sel.node) : targetName(g, t);
+    const where = S.sel ? nodeName(S.sel.node) : targetName(g, t);
+    $$('#lkTargetName').textContent = where;
+    targetBtn.setAttribute('aria-label', `New previews go on ${where}. Change`);
     if (picker.hidden) return;
     const value = pickFor ? pickFor.layer.target : t;
     const groups = targetGroups(S.tree, { query: search.value, visibleRuns: S.visibility.runs });

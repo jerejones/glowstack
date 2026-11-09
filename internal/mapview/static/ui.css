@@ -437,10 +437,12 @@ details[open] > summary::before { transform: rotate(90deg); }
 button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: transparent; }
 .place .muted { flex: none; white-space: nowrap; }
 .place b { font-weight: 500; min-width: 0; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
-.target-btn { min-width: 0; flex: 0 1 auto; padding-top: 3px; padding-bottom: 3px; }
-.target-btn > .muted { flex: none; white-space: nowrap; }
-/* A long name takes a second line rather than being cut off. */
-.target-btn b { min-width: 0; overflow-wrap: anywhere; text-align: left; }
+/* The library's scope is a setting, in a line of words: only a row's Goes on
+ * is button-styled. A long name wraps here rather than being cut off. */
+.scope-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 5px; margin: 0; font-size: var(--t-help); }
+button.target-btn { min-width: 0; padding: 0 1px; border: 0; background: transparent; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
+button.target-btn:hover { text-decoration-thickness: 2px; }
+.target-btn b { font-weight: 500; min-width: 0; overflow-wrap: anywhere; text-align: left; }
 .target-picker { position: absolute; z-index: 4; top: calc(100% + 4px); left: 0; right: 0; display: grid; gap: 6px; padding: 8px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
 .target-picker.up { top: auto; bottom: calc(100% + 4px); }
 .target-list { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
