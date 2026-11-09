@@ -67,18 +67,18 @@ export async function turnOnZones(S, api, ids, names) {
   } catch (e) { S.fail(names.length === 1 ? `turn on ${names[0]}` : 'turn on those zones', e); }
 }
 
-// zoneWarning says where the one 0% message on Looks goes and what it says,
-// given lightOutcome for the lights and for the preview. On a phone with a
-// preview the banner would be scrolled away, so it's the Apply bar's.
-export function zoneWarning(lit, landing, { previewing, sheet }) {
+// zoneWarning is the one 0% line in the stage, given lightOutcome for the
+// lights and for the preview: short enough for one line beside Turn on, with
+// the whole sentence kept for its tooltip.
+export function zoneWarning(lit, landing, { previewing }) {
   const dark = [lit, previewing ? landing : null].filter((o) => o?.dark);
   if (!dark.length) return null;
   const pairs = [...new Map(dark.flatMap((o) => o.ids.map((id, i) => [id, o.zones[i]])))];
   const ids = pairs.map((p) => p[0]), names = pairs.map((p) => p[1]);
-  const message = names.length ? darkMessage(names) : dark[0].message;
-  if (!previewing || (lit.dark && !sheet)) return { where: 'banner', ids, names, text: message };
-  const how = names.length ? `${names.length === 1 ? 'zone' : 'zones'} at 0%` : 'brightness at 0%';
-  return { where: 'bar', ids, names, text: `${landing.dark === 'part' ? 'Part of this stays' : 'This stays'} dark: ${how}` };
+  const detail = names.length ? darkMessage(names) : dark[0].message;
+  if (!names.length) return { ids, names, text: 'Brightness is at 0%', detail };
+  const who = names.length === 1 ? names[0] : `${names.length} zones`;
+  return { ids, names, text: `${dark.every((o) => o.dark === 'part') ? 'Partly dark' : 'Stays dark'}: ${who} at 0%`, detail };
 }
 
 // Keep an unsuccessful read distinct from a confirmed empty live stack.

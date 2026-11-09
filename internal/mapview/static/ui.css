@@ -6,7 +6,8 @@
  * (portrait phones) the map is full-bleed under a floating chip bar and
  * the panel is a bottom sheet; from 700 px, and on phones held
  * landscape, the panel sits at the side (300 px, collapsing to an icon
- * rail); from 1100 px it is 400 px, and 500 px from 1280 px, on every tab and always open. --layout tells
+ * rail); from 1100 px it is 400 px, and from 1280 px 500 px (640 px on the
+ * list-heavy Presets and Status tabs: --panel-w per tab), always open. --layout tells
  * app.js which one applies. Calibration mode is at the end. */
 
 :root {
@@ -62,7 +63,11 @@
 /* ?pointer=coarse: touch sizing with a mouse, for testing */
 html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; --t-h2: 20px; --t-xl: 26px; --picker-rows: 4; }
 
-@media (min-width: 1280px) { :root { --panel-w: 500px; } }
+@media (min-width: 1280px) {
+  :root { --panel-w: 500px; }
+  :root[data-tab=presets], :root[data-tab=status] { --panel-w: 640px; }
+  body.calibrating { --panel-w: 500px; } /* Calibrate's own width, whichever tab opened it */
+}
 @media (max-width: 1099.98px) {
   :root { --layout: side; --panel-w: 300px; }
 }
@@ -340,7 +345,8 @@ input[type=checkbox]:checked::after {
 .tabs button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 .tabs .ico { display: inline-flex; opacity: 0.85; }
 .tabs .rail-toggle { flex: none; display: none; }
-.content { --content-bottom: calc(16px + var(--safe-b)); flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px var(--content-bottom); -webkit-overflow-scrolling: touch; scroll-padding-bottom: calc(var(--look-bar, 0px) + 8px); }
+/* overflow-anchor: a row swapped in place must not make the browser re-scroll. */
+.content { overflow-anchor: none; --content-bottom: calc(16px + var(--safe-b)); flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px var(--content-bottom); -webkit-overflow-scrolling: touch; scroll-padding-bottom: calc(var(--look-bar, 0px) + 8px); }
 
 /* side panel, collapsible to an icon rail */
 @media (max-width: 1099.98px) {
@@ -356,15 +362,15 @@ input[type=checkbox]:checked::after {
 
 /* bottom sheet */
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  /* Expand lives on the handle, leaving the tab bar to the tabs. The ::after
-   * reaches up over the map so the target is a full tap tall. */
+  /* Expand lives on the handle, leaving the tab bar to the tabs. Its box reaches
+   * up over the map, so the target is a full tap tall. */
   .tabs .rail-toggle {
-    display: inline-flex; flex-direction: row; gap: 2px; position: absolute; top: 0; right: 8px;
-    height: var(--handle); min-height: 0; padding: 0 6px; border: 0; background: transparent;
+    display: inline-flex; flex-direction: row; align-items: flex-end; gap: 2px; position: absolute; top: calc(var(--handle) - var(--tap)); right: 8px;
+    height: var(--tap); min-height: 0; min-width: 72px; padding: 0 6px 4px; border: 0; background: transparent;
     color: var(--muted); font-size: var(--t-s);
   }
-  .tabs .rail-toggle::after { content: ''; position: absolute; inset: calc(var(--handle) - var(--tap)) -8px 0; }
   .tabs button:not(.rail-toggle) .ico svg { width: 20px; height: 20px; }
+  body:not([data-detent]) .panel { visibility: hidden; } /* never drawn before it has its height */
   .panel {
     position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: auto;
     height: calc(100% - var(--strip)); border-left: 0; border-top: 1px solid var(--line);
@@ -398,16 +404,7 @@ input[type=checkbox]:checked::after {
   .legend-rows { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
   .legend-rows > .ramp, .legend-rows > .row, .legend-rows > .key, .legend-rows > .key-row, .legend-rows > .label-note, .legend-rows > div:first-child { flex: 0 0 100%; }
   body[data-detent=peek]:not(.calibrating) .legend, :root:not([data-tab=setup]) body[data-detent=half]:not(.calibrating) .legend { display: flex; }
-  /* The sheet's half detent is short: the looks come first. */
-  .tab h1.title, .tab .looks-head, .tab .library-heading { margin-top: 16px; }
-  body[data-detent=half] .tab .looks-head { margin: 8px 0 4px; }
-  body[data-detent=half] .catalog-head { margin: 6px 0 4px; }
-  body[data-detent=half] .now { margin-bottom: 0; }
-  body[data-detent=half] .now:not(.idle):not(.stale) small { display: none; }
-  .look-bar { padding-top: 4px; padding-bottom: 4px; }
-  /* One action leads on the phone: the rest are quiet beside it. */
-  .look-acts { flex-wrap: nowrap; }
-  .look-acts .go { flex: 1; }
+  .tab h1.title, .tab .library-heading { margin-top: 16px; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }
@@ -435,11 +432,11 @@ details[open] > summary::before { transform: rotate(90deg); }
 .looks-head { position: relative; }
 .catalog-head { position: relative; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; margin: 10px 0 6px; }
 .catalog-head .group-head { margin: 0; }
-.place-row { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
-.place-row .meta { color: var(--muted); font-size: var(--t-meta); }
-.place-row .meta:empty { display: none; }
-button.place { min-width: 0; padding: 2px 8px; background: transparent; }
-.place b { font-weight: 500; overflow-wrap: anywhere; text-align: left; }
+.place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 41%; }
+.place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: transparent; }
+.place .muted { flex: none; white-space: nowrap; }
+.place b { font-weight: 500; min-width: 0; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
 .target-btn { min-width: 0; flex: 0 1 auto; padding-top: 3px; padding-bottom: 3px; }
 .target-btn > .muted { flex: none; white-space: nowrap; }
 /* A long name takes a second line rather than being cut off. */
@@ -457,32 +454,27 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .target-group { padding: 8px 0; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
 .target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
-.looks-slot { display: flow-root; }
-.looks-slot .lane { margin: 6px 0 8px; }
-/* The wide panel has room for a card's place beside its name, so a preview
- * moves the grid under the pointer as little as possible. */
-@media (min-width: 1280px) {
-  .looks-slot .layer { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; column-gap: 8px; }
-  .looks-slot .layer .top { display: contents; }
-  .looks-slot .layer .top .what { grid-row: 1; grid-column: 1; }
-  .looks-slot .layer .place-row { grid-row: 1; grid-column: 2; position: static; }
-  .looks-slot .layer .tweak { grid-row: 1; grid-column: 3; }
-  .looks-slot .layer [data-a=remove] { grid-row: 1; grid-column: 4; }
-  .looks-slot .layer > :not(.top):not(.place-row) { grid-column: 1 / -1; }
-  .looks-slot .layer .acts, .looks-slot .layer .note:empty, .looks-slot .layer .slot:empty { display: none; }
-  .looks-slot .layer .acts:not(:empty) { display: flex; }
-}
-.now { display: flex; align-items: center; gap: 8px; min-height: var(--tap); padding: 4px 8px; margin: 0 0 8px; border: 1px solid var(--line); border-radius: var(--radius); }
-/* While previewing with nothing on the lights: a line of status, not a card. */
-.now.plain { min-height: 0; padding: 0 2px; margin: 0 0 4px; border: 0; }
-.now.plain b { font-weight: 400; color: var(--muted); }
-.lane-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 0; }
-.now .strip { width: 24px; height: 24px; flex: none; border-radius: 6px; border: 1px solid var(--rim); }
-.now .what { min-width: 0; flex: 1; display: grid; line-height: 1.25; }
-.now small { color: var(--muted); font-size: var(--t-meta); }
-.now .now-go { flex: none; font-size: var(--t-meta); }
-.now.stale small { color: var(--warn); }
+.stage { margin: 0 0 12px; padding: 8px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.stage-head { display: grid; gap: 1px; padding: 2px 4px; }
+.stage-head h2 { margin: 0; font-size: var(--t-h3); }
+.stage-head small { color: var(--muted); font-size: var(--t-meta); }
+.stage-head small:empty, #lkStageState:empty { display: none; }
+.stage.stale .stage-head small { color: var(--warn); }
+.stage-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 4px; }
+/* The stage's one 0% line. */
+.stage-warn { display: flex; align-items: center; gap: 8px; padding: 2px 8px; margin: 6px 0 0; color: #fcd9a5; background: #2a2110; border: 1px solid #6b4b16; border-radius: 8px; }
+.stage-warn > .icon { color: var(--warn); }
+.stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-warn button { flex: none; white-space: nowrap; }
+.library { margin-top: 4px; }
+.lib-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 0 0 8px; }
+.lib-filters .seg { flex: none; width: auto; }
+.lib-filters .field { flex: 1 1 120px; margin: 0; min-width: 0; gap: 0; }
+.lib-filters .field input { width: 100%; }
+#lkWords { margin-top: 12px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+/* Four pins fill one row at the wide panel, so none is left alone on a second. */
+@media (min-width: 1280px) { .cards:has(> .preset:nth-child(4):last-child) { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .preset {
   display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left; padding: 8px;
   min-height: calc(var(--tap) + 26px); background: var(--card); border-radius: var(--radius); border-color: var(--line);
@@ -494,47 +486,51 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .preset.in-preview .in-badge, .preset.elsewhere .in-badge { display: inline-flex; }
 .preset.in-preview .sub, .preset.elsewhere .sub { display: none; }
 .preset .strip { height: 12px; border-radius: 4px; border: 1px solid var(--rim); }
-/* The name the largest: the type line and "Previewing" share a slot. A row's
- * cards share its height, and no card holds room for a line it doesn't have. */
-.preset .name { font-size: var(--t-h3); font-weight: 600; }
+/* Every card is the same height: the name always holds two lines, the type
+ * line and "Previewing" share one fixed row. */
+.preset .name { font-size: var(--t-h3); font-weight: 600; height: 2.6em; line-height: 1.3; }
 .preset .name, .preset .sub, .preset .in-badge { min-width: 0; }
 /* What someone chooses by wraps, up to two lines, rather than being cut. */
-.preset .name, .preset .sub, .preset .in-badge span, .now b, .layer .top .what b {
+.preset .name, .layer .name-line b {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
-.preset .sub, .preset .in-badge { min-height: 1.4em; font-size: var(--t-meta); line-height: 1.4; }
+.preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
-.lane { margin: 14px 0; }
-.lane > .row:first-child { justify-content: space-between; }
-.lane h2 { margin: 0; }
 .layer {
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px 8px 14px;
-  margin: 8px 0; position: relative;
+  padding: 6px 4px 6px 12px; margin-top: 6px; position: relative; border-radius: 8px;
 }
+.layer + .layer { border-top: 1px solid var(--line); }
 .layer::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 5px; border-radius: 0 4px 4px 0; background: var(--acc, #888); }
-.layer.sel { border-color: var(--acc, #888); box-shadow: 0 0 0 1px var(--acc, #888) inset; }
-.layer .top { display: flex; align-items: center; gap: 8px; }
-.layer .top .what { flex: 1; min-width: 0; }
-.layer .strip { height: 8px; border-radius: 3px; margin: 6px 0 2px; border: 1px solid var(--rim); }
-.layer .bri { display: flex; align-items: center; gap: 8px; }
+.layer.sel { box-shadow: 0 0 0 1px var(--acc, #888) inset; }
+.layer .name-line { display: flex; align-items: center; gap: 8px; }
+.layer .name-line b { flex: 1; min-width: 0; }
+.layer .name-line .strip { width: 28px; height: 8px; flex: none; border-radius: 3px; border: 1px solid var(--rim); }
+.layer .kind { flex: none; color: var(--acc, var(--muted)); font-size: var(--t-meta); }
+/* A row's controls never take room from its name: they have their own line. */
+.layer .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.layer .controls > button { flex: none; white-space: nowrap; }
+.layer .bri { display: flex; flex: 1 1 110px; align-items: center; gap: 6px; min-width: 100px; }
+/* A bare trash can, so every control fits one line; "Remove here" keeps its word. */
+.layer [data-a=remove]:not(.worded) span { display: none; }
+.layer .bri output { min-width: 3em; }
+.bri-word { display: none; }
 .bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-meta); }
 .crumbs .sep { display: inline-flex; }
-.layer .acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-.layer .acts:empty { display: none; }
+.apply-one { margin-bottom: 6px; }
 .layer [data-a=remove]:hover { color: #fecaca; border-color: #7f1d1d; }
 .layer .copy-note { font-size: var(--t-help); color: var(--preview); margin-top: 4px; }
 .look-bar {
   /* The scrollport's padding counts against sticky: reach the panel's edge. */
-  position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-items: center;
+  position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; align-items: center;
   margin: 12px -12px 0; padding: 8px 12px; background: #111317; border-top: 1px solid var(--line); box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.35);
 }
+.bar-main { display: flex; gap: 8px; align-items: center; }
+.bar-main .seg { flex: none; width: auto; }
+.bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; }
 .group-head { margin: 10px 0 6px; }
 .bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-help); white-space: nowrap; overflow: hidden; }
-.bar-note.warn { color: #fcd9a5; }
-.look-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
-.look-acts #lkClear { margin-right: auto; }
-.look-acts button, .bar-line button { flex: none; white-space: nowrap; }
+.bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-line button { flex: none; white-space: nowrap; margin-left: auto; }
 .clock-box { margin: 10px 0; }
 .clock-box:not([open]) .t, .clock-box[open] .clock-hint { display: none; }
 .clock-hint { margin-left: auto; font-size: var(--t-meta); }
@@ -544,6 +540,25 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .step-pair .muted { margin-left: 4px; }
 .clock-box .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 .clock-more { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; margin: 6px 0; padding: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+
+@media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
+  /* The tab bar names the tab: on a phone the stage is the sheet's first content. */
+  .tab .looks-head { display: none; }
+  .stage { margin-top: 8px; }
+  /* On a phone place, Tweak and Remove share a line; brightness has the next. */
+  .layer .controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; }
+  .layer .place-row { grid-column: 1; grid-row: 1; }
+  .layer .tweak { grid-column: 2; grid-row: 1; }
+  .layer [data-a=remove] { grid-column: 3; grid-row: 1; }
+  .layer .bri { grid-column: 1 / -1; grid-row: 2; }
+  /* The primary action takes the width; the choice, the note and Clear share a line. */
+  .look-bar { padding-top: 4px; padding-bottom: 4px; }
+  .look-bar { grid-template-columns: auto minmax(0, 1fr); column-gap: 0; }
+  .bar-main { display: contents; }
+  .bar-main .go { grid-column: 1 / -1; grid-row: 1; }
+  .bar-main .seg { grid-column: 1; grid-row: 2; margin-right: 8px; }
+  .bar-line { grid-column: 2; grid-row: 2; }
+}
 
 /* the Tweak form */
 .form { background: var(--card2); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; }

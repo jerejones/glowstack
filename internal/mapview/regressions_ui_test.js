@@ -266,11 +266,10 @@ test('pinned is one symbol, a pin, so the bookmark means only Presets', () => {
   assert.doesNotMatch(read('panel/presets.js'), /presetsFilled/);
 });
 
-test('Remove looks the same in both lanes, and layer bars follow the lane', () => {
+test('Remove looks the same in live and preview rows, and a row\'s edge says which it is', () => {
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /class="danger" data-a="remove"/);
   assert.match(looks, /c\.lane === 'preview' \? 'var\(--preview\)' : 'var\(--house\)'/);
-  assert.match(looks, /and \$\{ls\.length - 1\} more/);
 });
 
 test('a look in preview somewhere else stays marked', () => {
@@ -649,7 +648,7 @@ test('Everything is the one term, and the Runs group says why runs are missing',
   assert.doesNotMatch(looks, /press\(\$\$\('#lkLive'\)/);
   assert.match(looks, /<details class="clock-box" id="lkClockBox" hidden><summary>Preview clock/);
   assert.match(looks, /\$\$\('#lkClockBox'\)\.hidden = !prev\.length/);
-  assert.match(looks, /bri-label[^>]*>\$\{icon\('sun'\)\}Brightness/);
+  assert.match(looks, /bri-label[^>]*>\$\{icon\('sun'\)\}<span class="bri-word">Brightness/);
 });
 
 test('a real type scale: h2 and h3 differ, and body text is larger on desktop', () => {
@@ -689,18 +688,15 @@ test('the map model is dim so the lights lead', () => {
 });
 
 test('B53: a failed refresh keeps the last state on Looks and says so', async () => {
-  const { nowLine } = await import('./static/panel/looks.js');
-  const base = { previewing: false, word: 'Tap', nameOf: (ls) => ls[0].name };
-  assert.equal(nowLine({ ...base, house: [], status: 'loading', read: false }), null, 'no reading yet: nothing to say');
-  const empty = nowLine({ ...base, house: [], status: 'unavailable', read: true });
-  assert.equal(empty.main, 'Nothing on the lights', 'the empty row stays');
-  assert.match(empty.sub, /Couldn't refresh/);
-  assert.equal(empty.stale, true);
-  const some = nowLine({ ...base, house: [{ name: 'Dusk' }], status: 'unavailable', read: true });
-  assert.equal(some.main, 'On the lights: Dusk');
-  assert.match(some.sub, /last known/);
-  assert.equal(nowLine({ ...base, house: [], status: 'available', read: true }).stale, false);
-  assert.match(css, /\.now:not\(\.idle\):not\(\.stale\) small/, 'the phone half sheet keeps the notice');
+  const { stageSub, stageTitle } = await import('./static/panel/looks.js');
+  assert.match(stageSub({ rows: 2, stale: true, word: 'Tap' }), /last known/);
+  assert.equal(stageTitle({ live: 1, preview: 0, read: true, status: 'unavailable' }), 'On the lights', 'the last reading stays named');
+  assert.equal(stageTitle({ live: 0, preview: 0, read: true, status: 'unavailable' }), 'Nothing on the lights', 'the empty stage stays');
+  assert.match(stageTitle({ live: 0, preview: 0, read: false, status: 'loading' }), /Checking/, 'no reading yet: nothing claimed');
+  assert.match(stageTitle({ live: 0, preview: 0, read: false, status: 'unavailable' }), /Couldn't read/);
+  assert.equal(stageSub({ rows: 0, stale: false, word: 'Tap' }), "Tap a look below to preview it on the map; the lights don't change.");
+  assert.equal(stageSub({ rows: 1, stale: false, word: 'Tap' }), '');
+  assert.match(css, /\.stage\.stale \.stage-head small \{ color: var\(--warn\)/);
 });
 
 test('a failed action names what failed, and a stray error page is not shown as text', async () => {
@@ -832,16 +828,27 @@ test('B70: a failed map load keeps the navigation and the preset library', () =>
   assert.match(read('index.html'), /id="mapError"/);
 });
 
-test('the footer holds actions, and clearing reads apart from removing', async () => {
-  const { clearLabel, replaceNote } = await import('./static/panel/looks.js');
+test('the action bar holds one button, a choice and a way out', async () => {
+  const { applyPlan, replaceNote } = await import('./static/panel/looks.js');
   const looks = read('panel/looks.js');
-  assert.doesNotMatch(looks, /lkBarName|lkBarStrip/, 'the look shows on its card, not again in the footer');
-  assert.equal(clearLabel(1), 'Clear preview');
-  assert.equal(clearLabel(2), 'Clear all');
-  assert.match(looks, /\[data-a=remove\]'\)\.hidden = prev\.length < 2 && !removeScope/);
+  assert.doesNotMatch(looks, /lkBarName|lkBarStrip/, 'the look shows on its row, not again in the footer');
+  assert.doesNotMatch(looks, /Add to lights/, 'Add is a choice beside the button, not a second one');
+  assert.equal(applyPlan({ n: 2, house: 0, hidden: [], mode: 'replace' }).label, 'Put 2 looks on the lights');
+  assert.equal(applyPlan({ n: 1, house: 1, hidden: [], mode: 'replace' }).label, 'Add 1 look on top');
+  assert.equal(applyPlan({ n: 1, house: 1, hidden: [], mode: 'replace' }).choice, false, 'nothing covered: nothing to choose');
+  const covered = applyPlan({ n: 2, house: 1, hidden: ['Dusk'], mode: 'replace' });
+  assert.equal(covered.label, "Replace what's on the lights with 2 looks");
+  assert.equal(covered.choice, true);
+  assert.equal(covered.replace, true);
+  assert.equal(covered.note, 'Replaces Dusk');
+  assert.equal(applyPlan({ n: 2, house: 3, hidden: ['Dusk'], mode: 'replace' }).note, 'Replaces Dusk · 2 more stay');
+  const added = applyPlan({ n: 2, house: 1, hidden: ['Dusk'], mode: 'add' });
+  assert.equal(added.label, 'Add 2 looks on top');
+  assert.equal(added.replace, false);
+  assert.match(applyPlan({ n: 1, updates: true, house: 1, hidden: [], mode: 'replace' }).label, /^Update 1 look/);
   assert.equal(replaceNote([]), '');
   assert.equal(replaceNote(['Glitter']), 'Replaces Glitter');
-  assert.match(css, /\.look-acts \.go \{ flex: 1; \}/, 'one primary action on the phone footer');
+  assert.match(looks, /Clear preview/, 'clearing reads apart from a row\'s Remove');
 });
 
 test('the target control is a popover, and a long place name is not cut off', () => {
@@ -856,7 +863,6 @@ test('every panel warns with the same card, in the same nouns', async () => {
   assert.match(warningHTML('Porch is at 0%'), /class="issue solo"[\s\S]*Porch is at 0%/);
   assert.doesNotMatch(css, /dark-note|cal-warn/);
   assert.doesNotMatch(read('panel/calibrate.js'), /cal-warn/);
-  assert.match(read('panel/looks.js'), /class="issue solo">\$\{warningBody\(banner\.text\)\}/);
   assert.doesNotMatch(read('panel/looks.js'), /Could not load your looks|Take this layer|'Layer brightness|"Layer brightness/);
 });
 
@@ -920,7 +926,7 @@ test('B58: the phone preset form is placed on purpose, with Save pinned', () => 
 });
 
 test('B59: swatches carry a light rim, and a color palette with only black colors is not a black bar', async () => {
-  for (const rule of [/^\.preset \.strip \{[^}]*\}/m, /^\.layer \.strip \{[^}]*\}/m, /^\.now \.strip \{[^}]*\}/m, /^\.picker-swatch \{[^}]*\}/m, /^\.inspect \.chip-color \{[^}]*\}/m]) {
+  for (const rule of [/^\.preset \.strip \{[^}]*\}/m, /^\.layer \.name-line \.strip \{[^}]*\}/m, /^\.picker-swatch \{[^}]*\}/m, /^\.inspect \.chip-color \{[^}]*\}/m]) {
     assert.match(rule.exec(css)[0], /var\(--rim\)/, String(rule));
   }
   assert.doesNotMatch(css, /solid #000?[67]/);
@@ -1020,8 +1026,8 @@ test('one word for previewing, in purple, and stacking is said out loud', () => 
   assert.match(presets, /'Previewing' : 'Preview'/);
   assert.doesNotMatch(presets, /Trying/);
   assert.match(css, /\[data-act=try\]\[aria-pressed=true\] \{ color: var\(--preview\)/);
-  assert.match(looks, /Looks stack\. The top one in this list is in front wherever they overlap\./);
-  assert.match(looks, /layers\.length > 1 && l === layers\[0\]/);
+  assert.match(looks, /front = rows\.length > 1 && l === rows\[0\]\[1\]/);
+  assert.match(looks, /' · in front'/, 'the top row says it is in front');
 });
 
 test('Status splits what matters from diagnostics, and repeats no amber', async () => {
@@ -1040,8 +1046,8 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
 
 test('the phone sheet keeps Expand on the handle and tabs to themselves', () => {
   const sheet = /\/\* bottom sheet \*\/[\s\S]*?\.panel \{/.exec(css)[0];
-  assert.match(sheet, /\.rail-toggle \{[^}]*position: absolute; top: 0/);
-  assert.match(sheet, /\.rail-toggle::after \{[^}]*calc\(var\(--handle\) - var\(--tap\)\)/, 'a full tap tall');
+  assert.match(sheet, /\.rail-toggle \{[^}]*position: absolute; top: calc\(var\(--handle\) - var\(--tap\)\)/);
+  assert.match(sheet, /\.rail-toggle \{[^}]*height: var\(--tap\)/, 'a full tap tall box, not a pseudo-element');
   assert.match(sheet, /\.ico svg \{ width: 20px; height: 20px; \}/);
   assert.match(css, /--peek: 68px/);
   assert.match(read('sheet.js'), /const PEEK = 68;/);
@@ -1151,7 +1157,7 @@ test('B75: the dark warning is said once on a screen', async () => {
   const status = read('panel/status.js');
   assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
   // A failed refresh: the now-line says so; the lane doesn't say it again.
-  assert.match(read('panel/looks.js'), /S\.houseStatus === 'unavailable' && S\.houseRead \? null : houseState/);
+  assert.match(read('panel/looks.js'), /S\.houseStatus === 'available' \|\| S\.houseRead \? null : houseState/);
 });
 
 test('B74: without the map Status still works, and the error names the real cause', async () => {
@@ -1396,7 +1402,7 @@ test('B93: a preset card has no reserved row, and its name is the largest text',
   assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\)/, 'the name takes the heading size');
   assert.match(css, /--t-meta: 14px/);
   assert.match(css, /--t-h3: 15px/, 'above the type line on desktop as well');
-  assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ min-height: 1\.4em;/, 'Previewing takes the type line\'s slot');
+  assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ height: 1\.4em;/, 'Previewing takes the type line\'s slot');
 });
 
 test('B90: the chip says connecting until the first socket result, with status data already in', async () => {
@@ -1493,7 +1499,7 @@ test('0%: a layer over dark zones says so, and Status stops calling Sending good
 
 test('essential metadata is 14px and a phone heading qualifier gets its own line', () => {
   assert.match(css, /--t-meta: 14px/);
-  for (const sel of ['.place-row .meta', '.now small', '.bri-label', '.stat span', '.list-rows li .what small', '.run-rows .len small', '.cal-step small', '.cal-prog li .value']) {
+  for (const sel of ['.place-row .meta', '.stage-head small', '.bri-label', '.stat span', '.list-rows li .what small', '.run-rows .len small', '.cal-step small', '.cal-prog li .value']) {
     assert.match(css, new RegExp(`${sel.replace(/[.]/g, '\\.')} \\{[^}]*font-size: var\\(--t-meta\\)`), sel);
   }
   assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block; margin-left: 0;/);
@@ -1503,7 +1509,7 @@ test('every secondary action on a card or row has its icon and word, and categor
   const looks = read('panel/looks.js'), presets = read('panel/presets.js'), overlay = read('overlay.js');
   assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
   assert.match(presets, /\$\{icon\('more'\)\}More/);
-  assert.match(looks, /\$\{icon\('setup'\)\}Tweak/);
+  assert.match(looks, /\$\{icon\('tweak'\)\}Tweak/);
   assert.match(looks, /\$\{icon\('trash'\)\}<span>Remove/);
   assert.match(looks, /\$\{icon\('apply'\)\}Apply only this/);
   for (const m of overlay.matchAll(/<span class="(sw[^"]*)" style="background:rgb/g)) assert.equal(m[1], 'sw', 'categories are the plain swatch');
@@ -1553,7 +1559,7 @@ test('default framing centers the lights in the visible area, and leaves a place
 
 test('B95: names on cards wrap to two lines instead of being cut, and rows set their own height', async () => {
   const css = read('ui.css');
-  const wrap = /\.preset \.name, \.preset \.sub, \.preset \.in-badge span, \.now b, \.layer \.top \.what b \{[^}]*\}/.exec(css)[0];
+  const wrap = /\.preset \.name, \.layer \.name-line b \{[^}]*\}/.exec(css)[0];
   assert.match(wrap, /-webkit-line-clamp: 2/);
   assert.doesNotMatch(wrap, /nowrap|ellipsis/);
   assert.doesNotMatch(/^\.cards \{[^}]*\}/m.exec(css)[0], /grid-auto-rows/, 'a tall row must not stretch every other row');
@@ -1574,13 +1580,11 @@ test('B96: revealing a lane\'s first card brings the lane\'s heading, not a sliv
   assert.doesNotMatch(read('panel/looks.js'), /el\.scrollIntoView\(\{ block: 'nearest', behavior: 'smooth' \}\)/, 'cards go through reveal');
 });
 
-test('B98: the row above the catalog says what its button does, and pressing it always shows something', () => {
+test('B98: the stage is the one home for layers', () => {
   const looks = read('panel/looks.js');
-  assert.doesNotMatch(looks, /Manage|now-go[^\n]*chevron/, 'no menu chevron on a button that opens no menu');
-  assert.match(looks, /id="lkNowGo"[^>]*>\$\{icon\('eye'\)\}View<\/button>/);
-  assert.match(looks, /lkNowGo'\)\.hidden = !house\.length/, 'with nothing on the lights there is nothing to go to');
-  assert.match(looks, /for \(const el of list\.querySelectorAll\('\.layer'\)\) flash\(el\)/, 'visible when the cards are already on screen');
-  assert.match(/<div class="now" id="lkNow"[^\n]*/.exec(looks)[0], /div/, 'the row itself is no longer a dead button');
+  assert.doesNotMatch(looks, /lkNow|lkSlot|id="lkHouse"|id="lkPreview"/, 'no banner, lane or second section');
+  assert.match(looks, /section class="stage" id="lkStage"/);
+  assert.match(looks, /\[\.\.\.prev\.map\(\(l\) => \['preview', l\]\), \.\.\.house\.map\(\(l\) => \['house', l\]\)\]/, 'one list, the preview in front');
 });
 
 test('B94: the key\'s rows scroll on their own, with Hide key outside them', () => {
@@ -1633,10 +1637,7 @@ test('each tab says it is loading until its own code draws it', () => {
 });
 
 test('the 0% warning is said once on a screen, with how the brightnesses combine', async () => {
-  const { nowLine } = await import('./static/panel/looks.js');
   const { BRIGHTNESS_RULE, darkMessage } = await import('./static/house-status.js');
-  const line = nowLine({ previewing: false, status: 'available', read: true, word: 'Tap', nameOf: () => 'Dusk', house: [{}] });
-  assert.equal(line.sub, '', 'the summary row keeps to what is on the lights');
   assert.match(BRIGHTNESS_RULE, /multiplied by its zone's/);
   assert.match(darkMessage(['Porch']), /Porch is at 0% brightness/);
   const looks = read('panel/looks.js');
@@ -1646,15 +1647,15 @@ test('the 0% warning is said once on a screen, with how the brightnesses combine
   assert.doesNotMatch(read('map-status.js'), /at 0%`/);
 });
 
-test('while previewing, "nothing on the lights" is a status line under it, and a hidden preview says so', async () => {
-  const { nowTrails } = await import('./static/panel/looks.js');
-  assert.equal(nowTrails(0, 1), true);
-  assert.equal(nowTrails(1, 1), false, 'a look on the lights keeps its row at the top');
-  assert.equal(nowTrails(0, 0), false, 'idle: the row is the hint');
+test('a preview over an empty house is titled by what it is, and a hidden preview says so', async () => {
+  const { stageTitle } = await import('./static/panel/looks.js');
+  assert.equal(stageTitle({ live: 0, preview: 1 }), 'Previewing');
+  assert.equal(stageTitle({ live: 2, preview: 1 }), "Previewing over what's on the lights");
+  assert.equal(stageTitle({ live: 2, preview: 0 }), 'On the lights');
+  assert.equal(stageTitle({ live: 0, preview: 0 }), 'Nothing on the lights');
   const looks = read('panel/looks.js');
   assert.match(looks, /lkMapNote'\)\.hidden = !\(prev\.length && S\.show === 'house'\)/);
   assert.match(looks, /if \(S\.show === 'house'\) \{ S\.setShow\(''\)/, 'opening a preview switches the map to it');
-  assert.match(css, /\.now\.plain \{[^}]*border: 0/);
 });
 
 test('a zoomed-out run has one label, and a map strip too small to read has none', async () => {
@@ -1820,10 +1821,10 @@ test('Applying into a 0% zone never reports plain success alone', async () => {
   assert.equal(applyResult('the look', { dark: '' }).text, 'Applied the look.');
 });
 
-test('the dark reason sits right under the line naming what is on the lights', () => {
+test('the stage says why it is dark, once, inside the stage', () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /\[now\]\), \$\$\('#lkDark'\)/);
-  assert.doesNotMatch(/id="lkHouse"[\s\S]*?<\/div>\s*<\/div>/.exec(looks)[0], /lkDark/);
+  assert.ok(looks.indexOf('id="lkDark"') > looks.indexOf('id="lkStage"') && looks.indexOf('id="lkDark"') < looks.indexOf('section class="library"'));
+  assert.equal([...looks.matchAll(/id="lkDark"/g)].length, 1);
 });
 
 test('Status: the verdict leads, the counts are a line, healthy is a check', async () => {
@@ -1849,9 +1850,8 @@ test('one control language: one slider, one selected fill, one readout', () => {
 
 test('action buttons lead with an icon; the header says it sets new previews', () => {
   const looks = read('panel/looks.js'), setup = read('panel/setup.js'), status = read('panel/status.js'), presets = read('panel/presets.js'), cal = read('panel/calibrate.js');
-  assert.match(looks, /id="lkAdd"[^>]*>\$\{icon\('plus'\)\}/);
-  assert.match(looks, /innerHTML = `\$\{icon\('apply'\)\}\$\{updates/);
-  assert.match(looks, /\$\{icon\('close'\)\}\$\{clearLabel/);
+  assert.match(looks, /html = `\$\{icon\('apply'\)\}<span>\$\{esc\(plan\.label\)\}/);
+  assert.match(looks, /\$\{icon\('close'\)\}Clear preview/);
   assert.match(presets, /id="prNew" class="icon-btn">\$\{icon\('plus'\)\}/);
   assert.match(setup, /icon\('target'\)\}\$\{running/);
   assert.match(status, /\$\{icon\('target'\)\}Calibrate/);
@@ -1864,7 +1864,6 @@ test('vocabulary: the words are explained once, and Adjust is not a second Tweak
   const looks = read('panel/looks.js');
   for (const w of ['look', 'preset', 'effect', 'zone', 'area', 'run']) assert.match(/id="lkWords"[\s\S]*?<p[^>]*>([^<]*)</.exec(looks)[1], new RegExp(w));
   assert.doesNotMatch(looks, /Adjust/);
-  assert.match(looks, /\$\{icon\('eye'\)\}View/);
   assert.match(read('panel/setup.js'), /a run is one strip of lights/);
 });
 
@@ -1901,10 +1900,12 @@ test('polish: no orphaned last word, brand on phones, state icons, a short wirin
   assert.doesNotMatch(overlay, /\$\{count\(o\.count\)\} lights<\/div>/, 'one line per controller, not per output');
 });
 
-test('Desktop: with the grids open the preview stays one press away', () => {
+test('the library is one grid with a filter row, not three disclosures', () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /id="lkToPreview"[^>]*hidden/);
-  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' \|\| !\(\$\$\('#lkEffects'\)\.open/);
+  assert.doesNotMatch(looks, /lkOtherPresets|lkEffects|lkToPreview/);
+  for (const f of ['pinned', 'presets', 'effects']) assert.match(looks, new RegExp(`data-filter="${f}"`));
+  assert.match(looks, /id: 'lkFind', type: 'search'/);
+  assert.match(looks, /\.\.\.lookCards\[which === 'effects' \? 'effects' : 'presets'\]\(named\)/);
 });
 
 test('a place that reads Everything is everything, even when one zone holds every light', async () => {
@@ -1981,43 +1982,39 @@ test('the one-press fix only ever raises zones at 0% that are blocking a look', 
   assert.doesNotMatch(sources, /JSON\.stringify\(\{ master/, 'no master brightness control');
 });
 
-test('one 0% message: the banner beside the map, the Apply bar on a phone with a preview', async () => {
+test('one 0% line in the stage, short enough for one row beside Turn on', async () => {
   const { zoneWarning } = await import('./static/house-status.js');
   const yard = { dark: 'none', zones: ['Yard'], ids: ['yard'], message: 'Yard is dark.' }, porch = { dark: 'part', zones: ['Porch'], ids: ['porch'], message: 'Porch is dark.' };
   const none = { dark: '', zones: [], ids: [], message: '' };
-  assert.equal(zoneWarning(none, none, { previewing: true, sheet: false }), null);
-  assert.equal(zoneWarning(yard, none, { previewing: false, sheet: true }).where, 'banner');
-  const landing = zoneWarning(none, porch, { previewing: true, sheet: false });
-  assert.equal(landing.where, 'bar');
-  assert.equal(landing.text, 'Part of this stays dark: zone at 0%');
-  const both = zoneWarning(yard, porch, { previewing: true, sheet: false });
-  assert.equal(both.where, 'banner');
+  assert.equal(zoneWarning(none, none, { previewing: true }), null);
+  assert.equal(zoneWarning(yard, none, { previewing: false }).text, 'Stays dark: Yard at 0%');
+  const landing = zoneWarning(none, porch, { previewing: true });
+  assert.equal(landing.text, 'Partly dark: Porch at 0%');
+  const both = zoneWarning(yard, porch, { previewing: true });
   assert.deepEqual(both.ids, ['yard', 'porch'], 'one button covers both');
-  assert.equal(zoneWarning(yard, porch, { previewing: true, sheet: true }).where, 'bar', 'the banner would be scrolled off');
+  assert.equal(both.text, 'Stays dark: 2 zones at 0%');
+  assert.match(both.detail, /Yard and Porch are at 0%/);
   const master = { dark: 'none', zones: [], ids: [], message: 'Brightness is at 0%, so nothing shows. Raise it in Home Assistant.' };
-  assert.deepEqual(zoneWarning(master, none, { previewing: false, sheet: false }).ids, [], 'no button for the master level');
+  assert.deepEqual(zoneWarning(master, none, { previewing: false }).ids, [], 'no button for that level');
 });
 
-test('B109: footer labels never wrap and the phone row has room for all three', async () => {
-  const { clearLabel, replaceNote } = await import('./static/panel/looks.js');
-  assert.match(css, /\.look-acts button, \.bar-line button \{ flex: none; white-space: nowrap; \}/);
-  assert.equal(clearLabel(1, true), 'Clear', 'beside Add and Replace');
-  assert.equal(replaceNote(['A', 'B', 'C']), 'Replaces 3 looks', 'a long list is a count, so the note stays one line');
-  assert.equal(replaceNote(['A long name for the first look', 'And a long name for the second']), 'Replaces 2 looks');
+test('B109: the bar\'s secondary controls never wrap, and its note stays on one line', () => {
+  assert.match(css, /\.bar-line button \{ flex: none; white-space: nowrap;/);
   assert.match(css, /\.bar-note \{[^}]*white-space: nowrap/);
 });
 
-test('B108, B106: the slot above the grid holds the preview, and Apply leaves the grid and the heading', () => {
+test('B106, B108, B112: nothing is reserved for what is gone, and Apply leaves the panel where it was', () => {
   const looks = read('panel/looks.js');
-  const slot = /id="lkSlot">[\s\S]*?id="lkCatalogHead"/.exec(looks)[0];
-  for (const id of ['lkNow', 'lkDark', 'lkPreview', 'lkWords']) assert.match(slot, new RegExp(`id="${id}"`), `${id} sits above the grid`);
-  assert.match(looks, /heldSlot = S\.panel\.layout\(\) === 'sheet' \? 0 : slotBefore/, 'Apply keeps the height the preview had');
-  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' && !S\.panel\.collapsed\(\) && cards\.has\('preview:' \+ added\.id\)/, 'beside the map a click does not scroll the grid');
-  assert.match(looks, /if \(!S\.panel\.collapsed\(\)\) root\.parentElement\.scrollTo\(\{ top: 0/, 'Apply shows the heading');
+  assert.doesNotMatch(looks, /heldSlot|slotBefore|minHeight/, 'B112: no fixed slot');
+  assert.doesNotMatch(css, /looks-slot/);
+  assert.doesNotMatch(/async function apply[\s\S]*?\n  \}\n/.exec(looks)[0], /scrollTo/, 'B106: the scroll stays');
+  assert.match(looks, /if \(applying\) return;/, 'B106: rows are not dropped and re-added mid-Apply');
+  assert.match(css, /\.content \{ overflow-anchor: none;/, 'B106: the browser does not re-scroll for a swapped row');
+  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' && S\.panel\.tab\(\) === 'looks' && !S\.panel\.collapsed\(\)/, 'B108: beside the map a click does not scroll the grid');
 });
 
 test('the desktop panel is wider from 1280 px, and the phone is unchanged', () => {
-  assert.match(css, /@media \(min-width: 1280px\) \{ :root \{ --panel-w: 500px; \} \}/);
+  assert.match(css, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 500px; \}/);
   assert.match(css, /--layout: sheet; --panel-space: 0px/);
 });
 
@@ -2046,10 +2043,14 @@ test('the card picker opens under its own button, even with the Tweak form open'
   assert.match(read('panel/looks.js'), /picker\.style\.top = pickFor\.el\.querySelector\('\.place-row'\)\.getBoundingClientRect\(\)\.bottom/);
 });
 
-test('Apply from an open Tweak form or a stack leaves no hole above the grid', () => {
+test('B111: a row\'s name has its own line, above the controls', () => {
   const looks = read('panel/looks.js');
-  assert.match(looks, /lane\.slice\(1\)\.reduce/);
-  assert.match(looks, /c\.form \? c\.form\.el\.offsetHeight : 0/);
+  const row = /el\.innerHTML = `\s*<div class="name-line">[\s\S]*?<div class="slot">/.exec(looks)[0];
+  assert.ok(row.indexOf('class="name-line"') < row.indexOf('class="controls"'), 'name first');
+  assert.doesNotMatch(/<div class="name-line">.*?<\/div>/.exec(row)[0], /<button|<input/, 'no control shares its line');
+  for (const c of ['place-row', 'bri', 'tweak', 'data-a="remove"']) assert.ok(row.indexOf(c) > row.indexOf('class="controls"'), c);
+  assert.match(css, /\.layer \.controls \{ display: flex; flex-wrap: wrap;/);
+  assert.doesNotMatch(/^\.layer \.name-line b \{[^}]*\}/m.exec(css)[0], /nowrap|ellipsis/);
 });
 
 test('wiring marks: the output number has a dark disc to sit on, and the chip close icon is centered', () => {
@@ -2057,3 +2058,26 @@ test('wiring marks: the output number has a dark disc to sit on, and the chip cl
   assert.match(read('overlay.js'), /600 13px/);
   assert.match(css, /\.crumbs \.x \{ display: inline-flex; align-items: center; justify-content: center;/);
 });
+
+test('B114: library cards are one height, with the name in two lines and the subtitle on a fixed row', () => {
+  assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\); font-weight: 600; height: 2\.6em;/);
+  assert.match(css, /-webkit-line-clamp: 2/);
+  assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ height: 1\.4em;[^}]*white-space: nowrap/);
+  assert.match(css, /\.cards:has\(> \.preset:nth-child\(4\):last-child\)/, 'four pins fill one row at the wide panel');
+});
+
+test('Tweak has its own icon, not the Setup tab\'s sliders', () => {
+  const icons = read('icons.js'), path = (n) => new RegExp(`\\b${n}: '([^']+)'`).exec(icons)[1];
+  assert.notEqual(path('tweak'), path('setup'));
+  assert.notEqual(path('tweak'), path('edit'));
+});
+
+test('a phone: the stage is the first content, and the sheet rises for a preview or Tweak', () => {
+  const looks = read('panel/looks.js');
+  assert.match(css, /\.tab \.looks-head \{ display: none; \}/);
+  assert.match(looks, /S\.panel\.setDetent\('full'\);\n\s+if \(cards\.has\('preview:' \+ added\.id\)\)/);
+  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' && S\.panel\.detent\(\) !== 'full'/);
+  assert.match(css, /body:not\(\[data-detent\]\) \.panel \{ visibility: hidden; \}/, 'the sheet is not drawn before its height');
+  assert.match(read('sheet.js'), /panel\.classList\.add\('dragging'\);\n\s+refresh\(true\)/, 'no rise from the peek on load');
+});
+

@@ -200,7 +200,10 @@ export function createPanel(hooks) {
     opening = null;
   }, true);
 
+  // The first paint is already at the right height: no rise from the peek.
+  panel.classList.add('dragging');
   refresh(true);
+  requestAnimationFrame(() => requestAnimationFrame(() => panel.classList.remove('dragging')));
   showTab(tab, 'replace');
   window.addEventListener('popstate', () => {
     if (layout === 'side' && rail) setRail(false);
