@@ -2167,8 +2167,8 @@ test('B113: the Status count comes from the same list as the cards', async () =>
   assert.match(status, /renderIssues\(issues, /, 'drawn from the list the headline counted');
 });
 
-test('B114: library cards are one height, with the name in two lines and the subtitle on a fixed row', () => {
-  assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\); font-weight: 600; height: 2\.6em;/);
+test('B114: library cards clamp the name to two lines and keep the subtitle on a fixed row', () => {
+  assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\); font-weight: 600; line-height: 1\.3; \}/);
   assert.match(css, /-webkit-line-clamp: 2/);
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ height: 1\.4em;[^}]*white-space: nowrap/);
 });
@@ -2297,4 +2297,12 @@ test('Remove takes a layer off with an X and says so on a phone; Delete keeps th
   assert.doesNotMatch(read('panel/looks.js'), /icon\('trash'\)/);
   assert.match(read('panel/presets.js'), /icon\('trash'\)\}Delete/);
   assert.match(css, /\.layer \[data-a=remove\]:not\(\.worded\) span \{ display: inline; \}/);
+});
+
+test('library card rows reserve no second line for names that fit one', () => {
+  const name = /^\.preset \.name \{ font-size[^}]*\}/m.exec(css)[0];
+  assert.doesNotMatch(name, /(^|\s|;)height:/, 'no fixed two-line height');
+  assert.match(css, /-webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere/, 'a long name still clamps to two lines');
+  assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ margin-top: auto; \}/, 'even bottoms within a row');
+  assert.match(/^\.cards \{[^}]*\}/m.exec(css)[0], /display: grid/, 'a grid row takes its tallest card');
 });

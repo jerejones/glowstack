@@ -488,9 +488,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .preset.in-preview .in-badge, .preset.elsewhere .in-badge { display: inline-flex; }
 .preset.in-preview .sub, .preset.elsewhere .sub { display: none; }
 .preset .strip { height: 12px; border-radius: 4px; border: 1px solid var(--rim); }
-/* Every card is the same height: the name always holds two lines, the type
- * line and "Previewing" share one fixed row. */
-.preset .name { font-size: var(--t-h3); font-weight: 600; height: 2.6em; line-height: 1.3; }
+/* A row of cards is as tall as its tallest name, up to two lines, with even
+ * bottoms: no line is reserved for a name that fits one. The type line and
+ * "Previewing" share one fixed row at the card's foot. */
+.preset .name { font-size: var(--t-h3); font-weight: 600; line-height: 1.3; }
+.preset .sub, .preset .in-badge { margin-top: auto; }
 .preset .name, .preset .sub, .preset .in-badge { min-width: 0; }
 /* What someone chooses by wraps, up to two lines, rather than being cut. */
 .preset .name {

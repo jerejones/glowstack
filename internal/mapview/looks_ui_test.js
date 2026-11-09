@@ -196,6 +196,5 @@ test('library cards: three columns of one-line names, two lines only as the fall
   assert.match(css, /@media \(min-width: 1280px\) \{ \.cards \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \} \}/);
   assert.match(css, /\.cards \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(132px, 1fr\)\)/);
   // A name like "Breathe the layers below" needs the second line and gets it.
-  assert.match(css, /\.preset \.name \{[^}]*height: 2\.6em/);
   assert.match(css, /\.preset \.name \{\s*display: -webkit-box;[^}]*-webkit-line-clamp: 2/);
 });
