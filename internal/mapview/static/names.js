@@ -52,14 +52,27 @@ export function humanText(g, text) {
   return out;
 }
 
+// Where a warning came from, for someone who has never opened these files.
+const FILES = {
+  'anchors.yaml': 'The saved measurements', 'layout.yaml': 'The layout', 'areas.yaml': 'The areas', 'controllers.yaml': 'The controller list',
+  'mappings.yaml': 'The wiring', 'palettes.yaml': 'The palettes', 'presets.yaml': 'The presets', 'glowstack.yaml': 'The settings',
+};
+
+// plainWhere reads "anchors.yaml:22" as words.
+function plainWhere(at) {
+  const [file, line] = at.split(':');
+  return `${FILES[file.split('/').pop()] || 'The configuration'}, line ${line}`;
+}
+
 // warningSummary turns one layout warning into plain words. text is the
-// server's "file:line: message". summary is what to read, detail the
-// original for the disclosure, fix is {label, tab} or {label, run}, or null.
+// server's "file:line: message". summary is what to read, plain the disclosure
+// in words, detail the original behind it, fix is {label, tab} or {label, run}, or null.
 export function warningSummary(g, text) {
   const m = /^(\S+?:\d+): ([\s\S]*)$/.exec(text);
   const body = m ? m[2] : text;
   const run = /^run ([^\s:]+):/.exec(body)?.[1] || (/^(?:scene \S+: )?run "([^"]+)"/.exec(body)?.[1]) || null;
   const known = run && (g.runs || []).some((r) => r.id === run);
+  const plain = `${m ? `${plainWhere(m[1])}: ` : ''}${humanText(g, body)}`;
   const fix = known ? { label: 'Calibrate this run', run } : { label: 'Open Setup', tab: 'setup' };
   let summary;
   const density = /^run \S+: (\S+)–(\S+) has (\d+) pixels where its drawn length implies about (\d+)/.exec(body);
@@ -67,7 +80,7 @@ export function warningSummary(g, text) {
   else if (/^run \S+: drawing (starts|ends) at/.test(body)) summary = `The drawing of ${runName(g, run)} doesn't match where its lights ${/starts/.test(body) ? 'start' : 'end'}.`;
   else if (/measurements? in anchors\.yaml w/.test(body)) summary = `Some saved measurements ${known ? `on ${runName(g, run)} ` : ''}no longer match the layout and need measuring again.`;
   else if (/pixels .* are in no run/.test(body)) summary = `Some lights on ${controllerName(g, /^controller (\S+):/.exec(body)?.[1] || '')} aren't part of any run.`;
-  else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, detail: text, fix: { label: 'Open Setup', tab: 'setup' } };
+  else if (/^scene \S+: run "[^"]+" isn't used/.test(body)) return { summary: `The model draws ${humanize(run)}, but no run uses it.`, plain, detail: text, fix: { label: 'Open Setup', tab: 'setup' } };
   else summary = humanText(g, body.replace(/^flow \S+: /, '')).replace(/^./, (c) => c.toUpperCase());
-  return { summary, detail: text, fix, kind: density ? 'spacing' : undefined };
+  return { summary, plain, detail: text, fix, kind: density ? 'spacing' : undefined };
 }

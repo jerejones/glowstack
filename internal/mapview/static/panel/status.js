@@ -127,6 +127,17 @@ export function loadFailure(e) {
   };
 }
 
+// readableDuration is the server's "3h5m12s" as someone would say it.
+export function readableDuration(text) {
+  const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?$/.exec(text || '');
+  if (!m || !text) return text;
+  const total = Math.floor(+(m[1] || 0) * 3600 + +(m[2] || 0) * 60 + +(m[3] || 0));
+  const days = Math.floor(total / 86400), hours = Math.floor(total / 3600) % 24, mins = Math.floor(total / 60) % 60;
+  if (days) return `${plural(days, 'day')}${hours ? ` ${hours} h` : ''}`;
+  if (hours) return `${hours} h${mins ? ` ${mins} min` : ''}`;
+  return total < 60 ? `${total} s` : `${mins} min`;
+}
+
 // nb keeps a value and its unit on one line.
 const nb = (s) => `<span class="nb">${s}</span>`;
 
@@ -218,7 +229,7 @@ export function createStatus(S, root) {
     const items = groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null }] : []), ...list.map((w) => warningSummary(g, w))]);
     const row = (it, i) => it.group
       ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" data-fix="${i}" data-one="${j}">${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
-      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><code>${esc(it.detail)}</code></details></div>` : ''}</li>`;
+      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" data-fix="${i}">${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
     for (const b of box.querySelectorAll('[data-fix]')) {
@@ -247,7 +258,7 @@ export function createStatus(S, root) {
       stat(count(st.layers), 'on the lights', 'Looks on the lights'),
       stat(count(st.preview_layers), 'in preview', 'Looks in preview'),
       stat(count(st.solve.pixels), 'lights'),
-      stat(esc(st.uptime), 'uptime'),
+      stat(esc(readableDuration(st.uptime)), 'uptime'),
     ].join('');
     $$('#stDiagStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),

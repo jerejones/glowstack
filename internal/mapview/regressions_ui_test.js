@@ -863,6 +863,16 @@ test('every panel warns with the same card, in the same nouns', async () => {
   assert.doesNotMatch(read('panel/looks.js'), /Could not load your looks|Take this layer|'Layer brightness|"Layer brightness/);
 });
 
+test('Status tiles are even, uptime is words, and file names stay out of the way', async () => {
+  const { readableDuration } = await import('./static/panel/status.js');
+  const { warningSummary } = await import('./static/names.js');
+  assert.match(css, /\.stats \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  for (const [raw, said] of [['45s', '45 s'], ['16m2s', '16 min'], ['3h5m12s', '3 h 5 min'], ['2h0m0s', '2 h'], ['51h0m9s', '2 days 3 h'], ['0s', '0 s'], ['not a time', 'not a time']]) assert.equal(readableDuration(raw), said);
+  const w = warningSummary({ runs: [{ id: 'run-a', name: 'Front edge' }], nodes: [], controllers: [] }, 'anchors.yaml:22: run run-a: has a problem');
+  assert.match(w.plain, /^The saved measurements, line 22: /);
+  assert.doesNotMatch(w.plain, /anchors\.yaml|run-a/);
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));
@@ -1007,7 +1017,7 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   const out = groupIssues([{ summary: 'dark', fix: null }, spacing('a'), { summary: 'other', fix: null }, spacing('b')]);
   assert.deepEqual(out.map((x) => x.summary), ['dark', 'The lights are spaced differently than drawn in 2 places.', 'other']);
   assert.equal(out[1].group.length, 2);
-  assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) auto auto; \}/);
+  assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 6\.5em 6\.4em; \}/);
   assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-help\)/, 'controller rows at 13px');
 });
 
