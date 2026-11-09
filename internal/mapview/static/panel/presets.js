@@ -4,7 +4,7 @@
 
 import { api, patch, del, esc, failure, humanize } from '../util.js';
 import { createForm, lookStrip, presetName } from '../form.js';
-import { spriteURL, spriteStyle } from '../tiles.js';
+import { spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 import { createPicker, escapeCloses } from '../picker.js';
 import { effectKind, effectSummary } from './looks.js';
 import { showState, stateHTML } from '../states.js';
@@ -101,7 +101,9 @@ export function createPresets(S, root) {
         <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'pinFilled' : 'pin')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <div class="menu-wrap"><button type="button" data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(`More for ${presetName(p)}`)}">${icon('more')}More</button>
           <div class="preset-menu" role="menu" hidden><button type="button" role="menuitem" data-act="edit">${icon('edit')}Edit</button><button type="button" role="menuitem" data-act="copy">${icon('copy')}Duplicate</button><button type="button" role="menuitem" data-act="delete" class="danger">${icon('trash')}Delete</button></div></div></div>`;
-      row.querySelector('.strip').style.cssText = spriteStyle(spriteURL('preset', p.id, p.params), lookStrip(S, p.effect, p.params));
+      const sprite = spriteURL('preset', p.id, p.params, effect), drawn = lookStrip(S, p.effect, p.params);
+      row.querySelector('.strip').style.cssText = spriteStyle(sprite, drawn);
+      guardSprite(row.querySelector('.strip'), sprite, drawn);
       wireMenu(row);
       row.querySelector('[data-act=try]').dataset.preset = p.id;
       // The card previews, as on Looks; the button is the same for a keyboard.

@@ -35,6 +35,7 @@ type Effect struct {
 	Name     string   `json:"name"`
 	Coords   []string `json:"coords"`
 	Stateful bool     `json:"stateful,omitempty"`
+	Show     bool     `json:"show,omitempty"` // draws on the site's own areas, so it has no strip sprite
 	Params   []Param  `json:"params"`
 	WLED     *WLED    `json:"wled,omitempty"`
 }
@@ -74,7 +75,7 @@ func toParams(ps []render.Param) []Param {
 }
 
 func toEffect(d *render.Def) Effect {
-	e := Effect{ID: d.ID, Name: d.Name, Stateful: d.Stateful, Params: toParams(d.Params), Coords: []string{}}
+	e := Effect{ID: d.ID, Name: d.Name, Stateful: d.Stateful, Show: d.Extra != nil, Params: toParams(d.Params), Coords: []string{}}
 	for _, c := range []struct {
 		bit  render.Coords
 		name string

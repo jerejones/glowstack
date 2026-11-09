@@ -2525,8 +2525,8 @@ test('Move A: the phone sheet opens to the task at the half detent', async () =>
 test('Move B: library tiles show the effect moving, from the renderer\'s own sprite', async () => {
   const { spriteURL, spriteStyle, tileState, hashParams, FRAMES, FPS, MID, createTiles } = await import('./static/tiles.js');
   assert.equal(FRAMES, 30); assert.equal(FPS, 10); assert.equal(MID, 15);
-  assert.equal(spriteURL('effect', 'glitter'), '/api/v1/effects/glitter/strip.png');
-  assert.match(spriteURL('preset', 'warm white', { color: '#fff' }), /^\/api\/v1\/presets\/warm%20white\/strip\.png\?v=[0-9a-z]+$/);
+  assert.equal(spriteURL('effect', 'glitter'), '/api/v1/effects/glitter/strip.png?r=2');
+  assert.match(spriteURL('preset', 'warm white', { color: '#fff' }), /^\/api\/v1\/presets\/warm%20white\/strip\.png\?v=[0-9a-z]+&r=2$/);
   assert.notEqual(hashParams({ color: '#fff' }), hashParams({ color: '#000' }), 'an edited preset gets a new picture');
   // One row of the sprite fills the strip; the drawn strip shows beneath it until it loads, or when there is none.
   const style = spriteStyle('/api/v1/effects/solid/strip.png', 'rgb(255,160,0)');
@@ -2556,7 +2556,7 @@ test('Move B: library tiles show the effect moving, from the renderer\'s own spr
   await new Promise((r) => setTimeout(r, 1000 / FPS * 2.5));
   assert.ok(box.style.vars['--tile-row'] !== MID, 'it stepped');
   S.preview = { layers: [{}] }; handlers.preview(); // stops the timer so the test can end
-  assert.match(read('panel/presets.js'), /spriteStyle\(spriteURL\('preset', p\.id, p\.params\), lookStrip\(S, p\.effect, p\.params\)\)/, 'preset rows use the preset\'s own sprite');
+  assert.match(read('panel/presets.js'), /const sprite = spriteURL\('preset', p\.id, p\.params, effect\), drawn = lookStrip\(S, p\.effect, p\.params\);\s*row\.querySelector\('\.strip'\)\.style\.cssText = spriteStyle\(sprite, drawn\)/, 'preset rows use the preset\'s own sprite');
   assert.match(read('app.js'), /S\.tiles = createTiles\(S\)/);
 });
 
@@ -2693,4 +2693,41 @@ test('B138: the compact state card never cuts its own words', async () => {
   assert.match(phone, /body\[data-detent=half\] \.stage-head\.sub-below > small \{ display: block; flex: 0 0 100%; order: 3; white-space: normal; overflow: visible;/);
   assert.match(phone, /body\[data-detent=half\] \.stage-head\.sub-below > small::before \{ content: none; \}/, 'no dot at the start of its own line');
   assert.match(phone, /body\[data-detent=half\] \.stage-head\.sub-below > small::first-letter \{ text-transform: uppercase; \}/, 'a line of its own starts with a capital');
+});
+
+test('B139: a sprite shows the whole look, a show asks for none, and a dark sprite gives way to the drawn strip', async () => {
+  const { spriteURL, spriteStyle, splitLayers, spriteLit, guardSprite, DARK, SPRITE_REV } = await import('./static/tiles.js');
+  // The catalog marks a show; its tile keeps the drawn strip and never asks for a 404.
+  assert.equal(spriteURL('preset', 'evening-show', {}, { id: 'evening', show: true }), '');
+  assert.equal(spriteURL('effect', 'evening', null, { id: 'evening', show: true }), '');
+  assert.equal(spriteURL('effect', 'chase', null, { id: 'chase' }), '/api/v1/effects/chase/strip.png?r=2');
+  assert.equal(SPRITE_REV, 2, 'the renderer draws strips to fit the look now; old cached sprites are not shown');
+  const bare = spriteStyle('', 'linear-gradient(90deg, red, blue)');
+  assert.match(bare, /^background-image: linear-gradient\(90deg, red, blue\);/);
+  assert.doesNotMatch(bare, /url\(/);
+  // Sparkle's drawn strip is specks over a color. The color is not an image layer (it voided the
+  // whole declaration, a black tile): it is the background color under the layers.
+  const specks = 'linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%), rgb(255,255,255)';
+  const sparkle = spriteStyle('/api/v1/effects/sparkle/strip.png?r=2', specks);
+  assert.match(sparkle, /^background-image: url\(\/api\/v1\/effects\/sparkle\/strip\.png\?r=2\), linear-gradient\(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%\); /);
+  assert.match(sparkle, /; background-color: rgb\(255,255,255\)$/);
+  assert.deepEqual(splitLayers(specks), ['linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%)', 'rgb(255,255,255)']);
+  assert.doesNotMatch(spriteStyle('/x.png', 'rgb(1,2,3)'), /background-color/, 'a strip of one color is a flat layer, as before');
+  assert.equal(DARK, 8);
+  // A black bar is not a picture, nor is a stray dot; a sparse sparkle is.
+  const dark = new Uint8ClampedArray(60 * 30 * 4);
+  assert.equal(spriteLit(dark, 60, 30), false);
+  dark[(5 * 60 + 10) * 4] = 200;
+  assert.equal(spriteLit(dark, 60, 30), false, 'one lit pixel in 30 frames is nothing');
+  for (let k = 0; k < 30; k += 2) dark[(k * 60 + 10) * 4] = 200;
+  assert.equal(spriteLit(dark, 60, 30), true, 'a sparkle every other frame shows');
+  // Without an Image (node), the guard leaves the tile alone; with a sprite URL of none it does nothing.
+  const el = { style: { cssText: 'x' } };
+  guardSprite(el, '', 'red'); guardSprite(el, '/x.png', 'red');
+  assert.equal(el.style.cssText, 'x');
+  const looks = read('panel/looks.js'), presets = read('panel/presets.js');
+  assert.match(looks, /spriteURL\('preset', p\.id, p\.params, e\)/, 'a preset card knows its effect, so a show gets no sprite');
+  assert.match(looks, /spriteURL\('effect', e\.id, null, e\)/);
+  assert.match(looks, /guardSprite\(b\.querySelector\('\.strip'\), sprite, strip\)/);
+  assert.match(presets, /guardSprite\(row\.querySelector\('\.strip'\), sprite, drawn\)/);
 });

@@ -18,7 +18,7 @@ import { showState, stateHTML } from '../states.js';
 import { icon } from '../icons.js';
 import { textField } from '../field.js';
 import { escapeCloses } from '../picker.js';
-import { effectMotion, spriteURL, spriteStyle } from '../tiles.js';
+import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const CLOCK = 'glowstack.clock.open';
@@ -471,6 +471,7 @@ export function createLooks(S, root) {
     b.className = 'preset';
     b.title = title || name;
     b.innerHTML = `<span class="strip sprite" style="${esc(spriteStyle(sprite, strip))}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="live-badge"><span></span></span><span class="in-badge">${icon('eye')}<span>Previewing</span></span>`;
+    guardSprite(b.querySelector('.strip'), sprite, strip);
     b.dataset.look = look;
     b.onclick = onclick;
     return b;
@@ -481,9 +482,9 @@ export function createLooks(S, root) {
   const lookCards = {
     presets: (list) => list.map((p) => {
       const name = presetName(p), e = effectFor(S, { preset: p.id });
-      return card(name, e ? cardSummary(name, e) : humanize(p.effect), lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${name} here`, spriteURL('preset', p.id, p.params));
+      return card(name, e ? cardSummary(name, e) : humanize(p.effect), lookStrip(S, p.effect, p.params), 'preset:' + p.id, () => push({ preset: p.id }), `Preview ${name} here`, spriteURL('preset', p.id, p.params, e));
     }),
-    effects: (list) => list.map((e) => card(e.name || e.id, effectMotion(e, effectKind), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }), undefined, spriteURL('effect', e.id))),
+    effects: (list) => list.map((e) => card(e.name || e.id, effectMotion(e, effectKind), lookStrip(S, e.id, {}), 'effect:' + e.id, () => push({ effect: e.id }), undefined, spriteURL('effect', e.id, null, e))),
   };
   function renderCatalog() {
     const grid = $$('#lkPresets');
