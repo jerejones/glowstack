@@ -32,6 +32,31 @@ export function overlayShown(st, { calibrating = false, tab = 'setup' } = {}) {
   return tab === 'setup' ? st : { ...st, mode: 'live', nodes: false, labels: false, controllers: false };
 }
 
+// CHROME is what floats over the map: the header chip and brand, the
+// Preview/Lights toggle, the tap hint, the breadcrumb's buttons, the key,
+// the inspect card and the calibration panel. Each is an occupied rectangle
+// for the label placer at every viewport (B144): a label that would touch
+// one moves or is hidden and counted. The bars that hold the chips and the
+// crumbs are as wide as the map; their children are what is drawn.
+export const CHROME = ['#chips > *', '#mapControls', '#mapHint', '#crumbs > *', '#legend', '#inspectCard', '#calibrate'];
+export const CHROME_GAP = 4; // px of clear space a label keeps from any of them
+
+// occupiedRects measures CHROME in doc, in px from the stage's corner (stage
+// is its bounding rect), each grown by gap. sheetTop, when given, is where a
+// phone's sheet will rest: the sheet is occupied from there down, wherever
+// its animation has got to.
+export function occupiedRects(doc, stage, { sheetTop = null, gap = CHROME_GAP } = {}) {
+  const out = [];
+  for (const el of CHROME.flatMap((sel) => [...doc.querySelectorAll(sel)])) {
+    if (el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) continue; // display: none
+    out.push({ x0: r.left - stage.left - gap, x1: r.right - stage.left + gap, y0: r.top - stage.top - gap, y1: r.bottom - stage.top + gap });
+  }
+  if (sheetTop != null) out.push({ x0: 0, x1: stage.width, y0: sheetTop - gap, y1: stage.height });
+  return out;
+}
+
 const hit = (a, b, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap;
 // Nearest first; the far ones get a leader line back to their point.
 const NEAR_SPOTS = 8;

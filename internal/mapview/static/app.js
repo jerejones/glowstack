@@ -11,7 +11,7 @@
 // step.
 import { $, api, esc, outputName, fmt, load, save, press, failure } from './util.js';
 import { createPanel } from './sheet.js';
-import { createOverlay } from './overlay.js';
+import { createOverlay, occupiedRects } from './overlay.js';
 import { buildTree, nodeName, nodeKinds, targetName, targetRanges } from './select.js';
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
@@ -690,16 +690,9 @@ S.subscribe = subscribe;
 S.setRate = (fps) => { S.fps = fps; save(RATE, fps); subscribe(); };
 S.streamRate = streamRate;
 
-S.labelAvoid = () => {
-  const stage = $('stage').getBoundingClientRect();
-  const rects = ['legend', 'mapControls', 'chips', 'crumbs', 'inspectCard', 'calibrate'].filter((id) => !$(id).hidden).map((id) => {
-    const r = $(id).getBoundingClientRect();
-    return { x0: r.left - stage.left, x1: r.right - stage.left, y0: r.top - stage.top, y1: r.bottom - stage.top };
-  });
-  // Where the sheet ends up, not where its animation has got to.
-  if (S.panel.layout() === 'sheet' && !S.calibrating) rects.push({ x0: 0, x1: stage.width, y0: stage.height - S.panel.covered(), y1: stage.height });
-  return rects;
-};
+// What the labels keep clear of: the chrome over the map, and a phone's sheet
+// where it ends up, not where its animation has got to.
+S.labelAvoid = () => occupiedRects(document, $('stage').getBoundingClientRect(), { sheetTop: S.panel.layout() === 'sheet' && !S.calibrating ? $('stage').getBoundingClientRect().height - S.panel.covered() : null });
 // litNow says whether what's on the lights can be seen, for the chip.
 const litNow = () => lightOutcome(S.geo, S.statusData?.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(S.geo, S.tree, l.target)), S.houseStatus === 'available');
 S.refreshBadge = badge;
