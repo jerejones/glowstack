@@ -333,6 +333,34 @@ export function moreParams(schema, bindings, outside = []) {
     .map((p) => ({ p, from: p.type === 'colors' || p.type === 'list' ? boundEntries(p, bindings) : 0 }));
 }
 
+// What each ungrouped setting affects, in the order they read.
+const GROUPS = [
+  ['Color', /^(colors?|palette|background|accent|white|bands)$/],
+  ['Timing', /^(speed|rate|life(time)?|decay|fade_in|fade_out|smooth|length|loop|at|for|phase)$/],
+  ['Shape', /^(width|spacing|span|scale|tail|spill_tail|edge|min|max|scatter|centers|glow|level|space|density|origin_[xyz])$/],
+  ['Placement', /^(mapping|reverse|offset|mode)$/],
+  ['Layering', /^(blend|opacity|overlay|seed)$/],
+];
+const GROUP_FROM = 7; // fewer rows than this stay one list
+
+// groupParams sorts More's rows by what they affect: a layered effect's by its
+// layer, the rest by GROUPS. Few rows, or only one kind, stay one list:
+// a single group's name would add nothing.
+export function groupParams(rows) {
+  if (rows.length < GROUP_FROM) return [{ label: '', rows }];
+  const groups = new Map(), order = [];
+  const add = (label, row) => { if (!groups.has(label)) { groups.set(label, []); order.push(label); } groups.get(label).push(row); };
+  const later = [];
+  for (const row of rows) {
+    const dot = row.p.name.indexOf('.');
+    if (dot > 0) add(humanize(row.p.name.slice(0, dot)), row);
+    else later.push(row);
+  }
+  for (const [label, test] of GROUPS) for (const row of later) if (test.test(row.p.name)) add(label, row);
+  for (const row of later) if (!GROUPS.some(([, test]) => test.test(row.p.name))) add('Other', row);
+  return order.length < 2 ? [{ label: '', rows }] : order.map((label) => ({ label, rows: groups.get(label) }));
+}
+
 // createForm builds the Tweak form for a layer. ctx: S, layer (kept
 // current with update), pitch (meters per pixel, for px), send(params)
 // and replace(params) to edit the layer, outside (param names the page
@@ -355,8 +383,10 @@ export function createForm(ctx) {
     ctx.send(changes);
   }
 
-  // field adds a labeled row; body is a node; doc a hint under it.
-  function field(parent, label, body, doc, title) {
+  // field adds a labeled row; body is a node; doc a hint under it. hinted
+  // keeps the hint out of the way until the row is focused or its info
+  // button is pressed.
+  function field(parent, label, body, doc, title, hinted = false) {
     const f = document.createElement('div');
     // A long name takes its own line, rather than two ragged ones in a narrow column.
     f.className = label.length > 16 ? 'f stack' : 'f';
@@ -369,7 +399,20 @@ export function createForm(ctx) {
     // A slider has no <label> tied to it: its row's label is its name.
     for (const r of c.querySelectorAll('input[type=range]:not([aria-label])')) r.setAttribute('aria-label', label);
     f.append(lab, c);
-    if (doc) { const d = document.createElement('div'); d.className = 'doc'; d.textContent = doc; f.append(d); }
+    if (doc) {
+      const d = document.createElement('div');
+      d.className = 'doc';
+      d.textContent = doc;
+      f.append(d);
+      if (hinted) {
+        f.classList.add('hinted');
+        const info = Object.assign(document.createElement('button'), { type: 'button', className: 'hint-btn', title: doc, innerHTML: icon('info') });
+        info.setAttribute('aria-label', `About ${label}`);
+        info.setAttribute('aria-expanded', 'false');
+        info.onclick = () => info.setAttribute('aria-expanded', String(f.classList.toggle('show-doc')));
+        lab.append(info);
+      }
+    }
     f.append(Object.assign(document.createElement('span'), { className: 'field-err', role: 'alert' }));
     parent.append(f);
     return f;
@@ -668,16 +711,25 @@ export function createForm(ctx) {
   const rest = moreParams(schema, (effect.wled && effect.wled.bindings) || [], ctx.outside);
   const more = document.createElement('details');
   more.innerHTML = `<summary>More settings <span class="muted">(${rest.length})</span></summary>`;
-  for (const { p, from } of rest) {
-    const get = () => (vals[p.name] !== undefined ? vals[p.name] : p.default);
-    const set = (v) => apply({ [p.name]: v });
-    const c = control(p, get, set, from);
-    const label = from ? `More ${paramLabel(p.name).toLowerCase()}` : paramLabel(p.name);
-    if (p.type === 'list') {
-      const f = field(more, label, [], p.doc, p.name);
-      f.querySelector('.ctl').remove();
-      f.append(c);
-    } else field(more, label, c, p.doc, p.name);
+  for (const { label: groupLabel, rows } of groupParams(rest)) {
+    let parent = more;
+    if (groupLabel) {
+      parent = document.createElement('details');
+      parent.className = 'more-group';
+      parent.innerHTML = `<summary>${esc(groupLabel)} <span class="muted">(${rows.length})</span></summary>`;
+      more.append(parent);
+    }
+    for (const { p, from } of rows) {
+      const get = () => (vals[p.name] !== undefined ? vals[p.name] : p.default);
+      const set = (v) => apply({ [p.name]: v });
+      const c = control(p, get, set, from);
+      const label = from ? `More ${paramLabel(p.name).toLowerCase()}` : paramLabel(p.name);
+      if (p.type === 'list') {
+        const f = field(parent, label, [], p.doc, p.name, true);
+        f.querySelector('.ctl').remove();
+        f.append(c);
+      } else field(parent, label, c, p.doc, p.name, true);
+    }
   }
 
   // ---- every setting as YAML, under More ----

@@ -2103,7 +2103,7 @@ test('one word for taking a layer off, Pin matches the Presets tab, and the empt
 });
 
 test('More settings keeps controls in one right column with help on one line of the row', () => {
-  assert.match(css, /\.form > details > \.f, \.form > details > \.f\.stack \{ grid-template-columns: minmax\(0, 8\.5em\) minmax\(0, 1fr\)/);
+  assert.match(css, /\.form details > \.f, \.form details > \.f\.stack \{ grid-template-columns: minmax\(0, 8\.5em\) minmax\(0, 1fr\)/);
   assert.match(css, /\.form \.f \.doc \{ grid-column: 1 \/ -1;/);
 });
 
@@ -2317,4 +2317,23 @@ test('a failed light status read says so on the pill and on Apply, and never blo
   assert.equal(applyTitle({ label: 'L', note: 'N' }, false), 'N');
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks.slice(looks.indexOf('function renderBar'), looks.indexOf('function fitNote')), /\.disabled/, 'Apply is never disabled for this');
+});
+
+test('More settings group by what they affect, and help waits to be wanted', async () => {
+  const { groupParams } = await import('./static/form.js');
+  const row = (name) => ({ p: { name }, from: 0 });
+  const few = groupParams(['speed', 'blend'].map(row));
+  assert.deepEqual(few.map((g) => g.label), [''], 'a short list stays one list');
+  const plain = groupParams(['lifetime', 'seed', 'mapping', 'reverse', 'offset', 'opacity', 'blend', 'white', 'smooth', 'fade_in', 'fade_out'].map(row));
+  assert.deepEqual(plain.map((g) => g.label), ['Color', 'Timing', 'Placement', 'Layering']);
+  assert.deepEqual(plain.find((g) => g.label === 'Timing').rows.map((r) => r.p.name), ['lifetime', 'smooth', 'fade_in', 'fade_out']);
+  const layered = groupParams(['gradient.blend', 'gradient.span', 'sparkle.decay', 'sparkle.seed', 'mapping', 'reverse', 'opacity'].map(row));
+  assert.deepEqual(layered.map((g) => g.label), ['Gradient', 'Sparkle', 'Placement', 'Layering']);
+  const one = groupParams(['a.b', 'a.c', 'a.d', 'a.e', 'a.f', 'a.g', 'a.h'].map(row));
+  assert.deepEqual(one.map((g) => g.label), [''], 'one kind adds nothing');
+  assert.equal(groupParams(['unheard_of', 'b', 'c', 'd', 'e', 'f', 'speed'].map(row)).at(-1).label, 'Other');
+  assert.match(css, /\.form \.f\.hinted > \.doc \{ display: none; \}/);
+  assert.match(css, /\.form \.f\.hinted\.show-doc > \.doc, \.form \.f\.hinted > \.ctl:focus-within ~ \.doc \{ display: block; \}/);
+  const form = read('form.js');
+  assert.match(form, /field\(wled, label, bindingSlider\(b, lf\), null, title\)/, 'the WLED controls above More do not change');
 });

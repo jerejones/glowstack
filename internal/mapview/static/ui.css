@@ -582,8 +582,14 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .form .f.stack { grid-template-columns: minmax(0, 1fr); }
 /* More settings: one label column, one right column of controls, a long label
  * wraps in its column, and the help has the row's one full-width line below. */
-.form > details > .f, .form > details > .f.stack { grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); align-items: start; }
-.form > details > .f > label { min-height: var(--tap); display: flex; align-items: center; overflow: visible; overflow-wrap: anywhere; }
+.form details > .f, .form details > .f.stack { grid-template-columns: minmax(0, 8.5em) minmax(0, 1fr); align-items: start; }
+.form details > .f > label { min-height: var(--tap); display: flex; align-items: center; gap: 2px; overflow: visible; overflow-wrap: anywhere; }
+/* More's groups, collapsed to their headings; a row's help waits to be wanted. */
+.form details.more-group { margin-top: 2px; }
+.form .f.hinted > .doc { display: none; }
+.form .f.hinted.show-doc > .doc, .form .f.hinted > .ctl:focus-within ~ .doc { display: block; }
+button.hint-btn { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: var(--tap); padding: 0; border: 0; background: transparent; color: var(--muted); }
+button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .f > label { color: #cbd5e1; overflow: hidden; text-overflow: ellipsis; }
 .form .f .ctl { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .form .f .ctl input[type=text], .form .f .ctl input:not([type]) { flex: 1; min-width: 0; }
