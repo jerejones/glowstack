@@ -7,17 +7,22 @@
 import { esc } from './util.js';
 import { MODES } from './overlay.js';
 
+// What the chip calls a calibration step that isn't a target pattern.
+const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuring a gap', dead: 'Marking dead pixels' };
+
 // mapStatus takes the page's state: connected, show ('' or 'house'),
 // preview (the /api/map/preview state, or null before the first read),
-// target (the map is drawing a calibration target), mode (the Setup color
-// mode, 'live' when the map shows real colors).
-export function mapStatus({ connected, show, preview, target, mode = 'live' }) {
+// target (the map is drawing a calibration target), measuring (the kind of
+// any other calibration step on the real lights, or ''), mode (the Setup
+// color mode, 'live' when the map shows real colors).
+export function mapStatus({ connected, show, preview, target, measuring = '', mode = 'live' }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
-  const showing = target ? 'target' : previewing && show !== 'house' ? 'preview' : 'lights';
+  const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
   const toggle = { showing, canPreview: previewing };
   if (!connected) return { ...toggle, text: 'Offline', detail: '', cls: 'off', title: 'Not connected to Glowstack. The map may be out of date.' };
   if (target) return { ...toggle, text: 'Target pattern', detail: '', cls: 'preview', title: 'Fixed reference: adjust the real lights to match' };
+  if (measuring) return { ...toggle, text: MEASURING[measuring] || 'Calibrating', detail: '', cls: 'mode', title: 'The map shows what calibration has put on the lights' };
   const colored = MODES.find(([id]) => id === mode && id !== 'live');
   if (colored) return { ...toggle, text: `Colored by ${colored[1]}`, detail: '', cls: 'mode', title: colored[2] };
   if (showing === 'preview') {

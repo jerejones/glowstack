@@ -203,6 +203,23 @@ export function stepTitle(st, nodeLabel = humanize, runLabel = humanize) {
   return { title: st.label ? humanize(st.label) : 'Pick a point to measure', on: '' };
 }
 
+// NO_CURSOR_HOW says what to do on a step with no test pixel to move.
+const NO_CURSOR_HOW = {
+  bands: 'The lights show 100-pixel blocks, orange then blue, with every 10th pixel white. Check along the strip that no block is missing or out of place.',
+  gap: 'Measure the real gap between the two ends, then type its length below.',
+  dead: 'The marked pixels stay dark. Confirm to save them.',
+};
+
+// dockReason says why the dock's controls are off on this step, in the
+// dock, where the disabled buttons are. '' when they work.
+export function dockReason(target, cursor) {
+  if (target?.kind === 'bands') return 'Nudge and Confirm are off while the test bands show. Leave test bands to keep measuring.';
+  if (target?.kind === 'gap') return 'This step has no pixel to move. Type the length above and use Confirm length.';
+  if (cursor?.fixed) return "This side is fixed, so it can't be nudged.";
+  if (cursor && cursor.index < 0) return 'This run has no pixel here to move.';
+  return '';
+}
+
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
@@ -216,12 +233,29 @@ export function createCalibrate(S, root) {
   const remember = (v) => { try { sessionStorage.setItem('calLeft', String(v)); } catch (_) { /* no storage */ } };
   let left = false;
   try { left = sessionStorage.getItem('calLeft') === 'true'; } catch (_) { /* no storage */ }
+  // Where Leave test bands goes back to, kept across a reload.
+  let beforeBands = null;
+  try { beforeBands = JSON.parse(sessionStorage.getItem('calBeforeBands')); } catch (_) { /* none yet */ }
+  const rememberBands = (t) => {
+    beforeBands = t;
+    try { sessionStorage.setItem('calBeforeBands', JSON.stringify(t)); } catch (_) { /* no storage */ }
+  };
+  const showBands = (t) => {
+    if (C.st?.target && C.st.target.kind !== 'bands') rememberBands(C.st.target);
+    return session.target(t);
+  };
+  const leaveBands = () => {
+    const to = beforeBands || C.st?.progress?.[0]?.target;
+    rememberBands(null);
+    return to ? session.target(to) : session.next();
+  };
 
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small></span>
       <button type="button" id="caStop" class="danger" title="End calibration and return the lights to normal">Stop</button><button type="button" id="caClose" title="Back to the map">Close</button></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
+      <p class="cal-why" id="caWhy" hidden></p>
       <div class="nudges">${[-10, -1, 1, 10].map((n) => `<button type="button" data-by="${n}">${n > 0 ? '+' : '−'}${Math.abs(n)}</button>`).join('')}</div>
       <div class="cal-confirm"><button type="button" class="go" id="caConfirm" title="Save this pixel as the measured position">Confirm</button>
         <label class="check small"><input type="checkbox" id="caNext"> Go to next after</label></div>
@@ -246,6 +280,7 @@ export function createCalibrate(S, root) {
     root.hidden = !on;
     document.body.classList.toggle('calibrating', on);
     S.calibrating = on;
+    S.subscribe?.();
     if (on) hold = S.view.hold();
     else { framed = ''; tapped = -1; shownHere = ''; }
     S.refreshLegend?.();
@@ -321,7 +356,7 @@ export function createCalibrate(S, root) {
     const running = !!(C.st && C.st.active);
     if (!running && left) { left = false; remember(false); }
     if (running && !open && !left) show(true);
-    if (running !== wasActive) { wasActive = running; S.emit('calibration', running); }
+    if (running !== wasActive) { wasActive = running; S.subscribe?.(); S.emit('calibration', running); }
     S.emit('calprogress', C.st);
     if (!open) { S.markDirty(); return; }
     const st = C.st;
@@ -356,11 +391,12 @@ export function createCalibrate(S, root) {
       const cs = st.cursors || [];
       if (cs.length > 1) parts.push(`<div class="cal-sides">${cs.map((c, i) => btn(esc(nodeLabel(c.label)) + (c.fixed ? ' (fixed)' : ''), () => session.side(i), i === st.side ? 'on' : '')).join('')}</div>`);
       const c = cs[st.side];
+      // Every step keeps its heading, with a cursor to move or without.
+      const step = stepTitle(st, nodeLabel, runLabel);
+      const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
+      parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i], st.progress.length))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
       if (c) {
         const moved = c.index - c.estimate;
-        const step = stepTitle(st, nodeLabel, runLabel);
-        const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
-        parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i], st.progress.length))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from where the layout expects it` : 'Where the layout expects it'}</span></div>`);
         parts.push(nav());
         parts.push('<p class="cal-how">Move the real white pixel onto the circled corner. The + buttons move it away from where the strip starts, the − buttons back toward it.</p>');
@@ -375,8 +411,12 @@ export function createCalibrate(S, root) {
         parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9" placeholder="2.5 m"></label><button type="submit">Confirm length</button></form>`);
       }
       const tr = st.target && (st.target.run || (c && c.run));
-      if (!c) parts.push(nav());
-      const utilities = [tr ? btn('Show test bands', () => session.target({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''].join('');
+      if (!c) {
+        if (NO_CURSOR_HOW[st.target?.kind]) parts.push(`<p class="cal-how">${esc(NO_CURSOR_HOW[st.target.kind])}</p>`);
+        parts.push(nav());
+      }
+      const bands = st.target?.kind === 'bands';
+      const utilities = [bands ? btn('Leave test bands', leaveBands, 'on', false, 'Back to the step you were on') : tr ? btn('Show test bands', () => showBands({ kind: 'bands', run: tr }), '', false, 'Light numbered bands along this run to check the whole strip') : '', st.target && st.target.kind !== 'bands' ? btn('Clear measurement', () => session.forget(), 'quiet', false, 'Forget what was measured for this point') : ''].join('');
       if (utilities) parts.push(`<div class="cal-nav cal-util">${utilities}</div>`);
       if (st.message && st.message !== 'calibrating ' + st.label) parts.push(`<div class="muted">${esc(humanText(g, st.message))}</div>`);
       for (const w of st.checks || []) parts.push(`<div class="cal-warn">${esc(humanText(g, w))}</div>`);
@@ -384,6 +424,9 @@ export function createCalibrate(S, root) {
       for (const b of root.querySelectorAll('[data-by]')) b.disabled = nudgeOff;
       const confirmable = st.target && st.target.kind !== 'bands' && st.target.kind !== 'gap';
       $$('#caConfirm').disabled = !confirmable;
+      const why = dockReason(st.target, c);
+      $$('#caWhy').textContent = why;
+      $$('#caWhy').hidden = !why;
       $$('#caNext').checked = C.next;
     }
     if (C.error && !loading) parts.push(`<div class="error">${esc(C.error)}${C.details.map((d) => `<div class="small">${esc(d)}</div>`).join('')}</div>`);
@@ -400,7 +443,7 @@ export function createCalibrate(S, root) {
         if (near) tb.push(btn(`Line up ${esc(nodeLabel(g.nodes[near.node].id))}`, () => (active ? session.target : (t) => session.start(t))({ kind: 'anchor', run: r.id, node: g.nodes[near.node].id })));
         const end = Math.abs(px.index[p] - r.first) <= Math.abs(px.index[p] - r.last) ? 'first' : 'last';
         if (active) tb.push(btn(`${end === 'first' ? 'First' : 'Last'} end`, () => session.target({ kind: 'end', run: r.id, end })));
-        if (active) tb.push(btn('Bands', () => session.target({ kind: 'bands', run: r.id })));
+        if (active) tb.push(btn('Bands', () => showBands({ kind: 'bands', run: r.id })));
       }
       if (active) tb.push(btn('Mark as dead', () => session.target({ kind: 'dead', controller: ctl.id, indices: [px.index[p]] })));
       parts.push(`<div class="cal-tap"><div>Tapped <b>pixel ${px.index[p]}</b>${r ? ' on ' + esc(runLabel(r.id)) : ' on ' + esc(controllerName(g, ctl.id))}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
@@ -435,8 +478,8 @@ export function createCalibrate(S, root) {
         <div class="row"><select name="run" aria-label="Run">${runs}</select>
           ${btn('First end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'first' }))}
           ${btn('Last end', () => session.target({ kind: 'end', run: $$('[name=run]').value, end: 'last' }))}
-          ${btn('Bands', () => session.target({ kind: 'bands', run: $$('[name=run]').value }))}</div>
-        <div class="row"><select name="ctl" aria-label="Controller">${ctls}</select>${btn('Bands on controller', () => session.target({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
+          ${btn('Bands', () => showBands({ kind: 'bands', run: $$('[name=run]').value }))}</div>
+        <div class="row"><select name="ctl" aria-label="Controller">${ctls}</select>${btn('Bands on controller', () => showBands({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
         <form class="row" data-form="dead"><input type="number" name="a" placeholder="First" style="width:6em"><input type="number" name="b" placeholder="Last" style="width:6em"><button type="submit">Mark as dead</button></form>
       </details>`);
     }

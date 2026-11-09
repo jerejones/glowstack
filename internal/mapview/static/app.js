@@ -520,7 +520,8 @@ function streamRate() {
 }
 function subscribe() {
   if (!ws || ws.readyState !== 1) return;
-  ws.send(JSON.stringify({ fps: streamRate(), show: S.show }));
+  // A running calibration is on the real lights, whatever is in preview.
+  ws.send(JSON.stringify({ fps: streamRate(), show: S.calibrating && S.cal?.active ? 'house' : S.show }));
 }
 S.subscribe = subscribe;
 S.setRate = (fps) => { S.fps = fps; save(RATE, fps); subscribe(); };
@@ -541,14 +542,15 @@ let badgeShown = false;
 // badge shows what the map is showing, on the chip and on the toggle.
 function badge() {
   badgeShown = true;
-  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target: S.calibrating && S.cal?.active && ['anchor', 'end'].includes(S.cal.target?.kind), mode: S.calibrating ? 'live' : S.overlay?.st.mode });
+  const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
+  const target = ['anchor', 'end'].includes(step);
+  const m = mapStatus({ connected: S.connected, show: S.show, preview: S.preview, target, measuring: target ? '' : step, mode: S.calibrating ? 'live' : S.overlay?.st.mode });
   const b = $('badge');
   b.innerHTML = badgeHTML(m);
   b.className = 'badge ' + m.cls;
   b.title = m.title;
-  // A target pattern is neither choice: the control says what is showing.
-  $('showTarget').hidden = m.showing !== 'target';
-  $('showSeg').hidden = m.showing === 'target';
+  // A calibration step is neither choice, and the chip says which it is.
+  $('showSeg').hidden = m.showing === 'target' || m.showing === 'calibration';
   for (const t of $('showSeg').querySelectorAll('button')) {
     press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
     if (t.dataset.show === '') {

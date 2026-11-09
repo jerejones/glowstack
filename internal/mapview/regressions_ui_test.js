@@ -721,12 +721,38 @@ test('B60: each status verdict says what it measured', async () => {
   assert.equal(warningSummary(g, 'other').kind, undefined);
 });
 
-test('B55: during a target pattern the map control says so and neither choice is on', async () => {
+test('B55: during a target pattern neither choice of the map control is on', async () => {
   const { mapStatus } = await import('./static/map-status.js');
   assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: true }).showing, 'target');
   assert.equal(mapStatus({ connected: true, show: 'house', preview: null, target: true }).showing, 'target');
-  assert.match(read('index.html'), /id="showTarget"[^>]*hidden>Showing the target pattern/);
-  assert.match(read('app.js'), /\$\('showTarget'\)\.hidden = m\.showing !== 'target'/);
+});
+
+test('B63: the chip is the one signal for a target pattern, at every width', () => {
+  assert.doesNotMatch(read('index.html'), /showTarget|Showing the target pattern/);
+  assert.doesNotMatch(css, /map-note/);
+  assert.match(read('app.js'), /\$\('showSeg'\)\.hidden = m\.showing === 'target' \|\| m\.showing === 'calibration'/);
+});
+
+test('B62: test bands is a named calibration state on the chip, over a preview too', async () => {
+  const { mapStatus } = await import('./static/map-status.js');
+  const m = mapStatus({ connected: true, show: '', preview: { previewing: true }, target: false, measuring: 'bands' });
+  assert.equal(m.text, 'Test bands');
+  assert.equal(m.showing, 'calibration');
+  assert.equal(mapStatus({ connected: false, show: '', preview: null, target: false, measuring: 'bands' }).text, 'Offline');
+  assert.match(read('app.js'), /S\.calibrating && S\.cal\?\.active \? 'house' : S\.show/, 'the map streams the lights while calibrating');
+});
+
+test('B62: test bands keeps its heading and instructions, says how to leave, and why the dock is off', async () => {
+  const { dockReason, stepTitle } = await import('./static/panel/calibrate.js');
+  assert.equal(stepTitle({ target: { kind: 'bands', run: 'eave' } }).title, 'Check the test bands');
+  assert.match(dockReason({ kind: 'bands', run: 'eave' }, undefined), /off while the test bands show\. Leave test bands/);
+  assert.match(dockReason({ kind: 'gap' }, undefined), /Confirm length/);
+  assert.match(dockReason({ kind: 'anchor' }, { fixed: true, index: 3 }), /fixed/);
+  assert.equal(dockReason({ kind: 'anchor' }, { fixed: false, index: 3 }), '');
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /bands \? btn\('Leave test bands', leaveBands/);
+  // The heading is built before, and outside of, the cursor branch.
+  assert.ok(cal.indexOf('class="cal-step"') < cal.indexOf('const moved = c.index - c.estimate'));
 });
 
 test('B56: Previous and Next are placed before the instructions', () => {
