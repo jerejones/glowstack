@@ -504,7 +504,9 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .layer .name-line { display: flex; align-items: center; gap: 8px; }
 .layer .name-line b { flex: 1; min-width: 0; }
 .layer .name-line .strip { width: 28px; height: 8px; flex: none; border-radius: 3px; border: 1px solid var(--rim); }
-.layer .kind { flex: none; color: var(--acc, var(--muted)); font-size: var(--t-meta); }
+.layer .kind { flex: none; padding: 0 7px; border: 1px solid var(--acc, var(--line-strong)); border-radius: 999px; color: var(--acc, var(--muted)); font-size: var(--t-note); font-weight: 600; line-height: 1.5; }
+.layer .front { flex: none; color: var(--muted); font-size: var(--t-meta); }
+.layer .front:empty { display: none; }
 /* A row's controls never take room from its name: they have their own line. */
 .layer .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .layer .controls > button { flex: none; white-space: nowrap; }

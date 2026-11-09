@@ -1027,7 +1027,8 @@ test('one word for previewing, in purple, and stacking is said out loud', () => 
   assert.doesNotMatch(presets, /Trying/);
   assert.match(css, /\[data-act=try\]\[aria-pressed=true\] \{ color: var\(--preview\)/);
   assert.match(looks, /front = rows\.length > 1 && l === rows\[0\]\[1\]/);
-  assert.match(looks, /' · in front'/, 'the top row says it is in front');
+  assert.match(looks, /front \? 'In front' : ''/, 'the top row says it is in front');
+  assert.match(looks, /name-line"><small class="kind"><\/small><span class="strip">/, 'the chip leads the row');
 });
 
 test('Status splits what matters from diagnostics, and repeats no amber', async () => {

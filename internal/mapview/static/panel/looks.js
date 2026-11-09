@@ -518,7 +518,7 @@ export function createLooks(S, root) {
     const el = document.createElement('div');
     el.className = `layer ${lane}`;
     el.innerHTML = `
-      <div class="name-line"><span class="strip"></span><b></b><small class="kind"></small></div>
+      <div class="name-line"><small class="kind"></small><span class="strip"></span><b></b><small class="front"></small></div>
       <div class="controls">
         <div class="place-row"></div>
         <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}<span class="bri-word">Brightness</span></span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
@@ -549,7 +549,8 @@ export function createLooks(S, root) {
     const el = c.el;
     el.style.setProperty('--acc', c.lane === 'preview' ? 'var(--preview)' : 'var(--house)');
     el.querySelector('.name-line b').textContent = noOrphan(layerName(S, l));
-    el.querySelector('.kind').textContent = `${c.lane === 'preview' ? 'Preview' : 'Live'}${front ? ' · in front' : ''}`;
+    el.querySelector('.kind').textContent = c.lane === 'preview' ? 'Preview' : 'Live';
+    el.querySelector('.front').textContent = front ? 'In front' : '';
     // A preview layer's place is a control; on the lights it's a fact.
     const placeName = targetName(g, l.target), placeBtn = el.querySelector('.place');
     if (placeBtn) {
