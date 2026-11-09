@@ -998,7 +998,7 @@ test('jargon is gone or explained', async () => {
   const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
   assert.doesNotMatch(setup, />Even runs too</);
   assert.doesNotMatch(setup, />Copy view</);
-  assert.match(looks, />Adds to</);
+  assert.match(looks, />Goes on</);
   assert.doesNotMatch(looks, />Apply to</);
   assert.doesNotMatch(looks, /Next look on/);
   assert.match(looks, /The lights keep running/);
@@ -1020,7 +1020,7 @@ test('one spinner at boot, and error bodies are all regular weight', () => {
 test('preset row actions sit on the card edge, and More is a real menu', () => {
   assert.doesNotMatch(/^\.preset-actions \{[^}]*\}/m.exec(css)[0], /margin-left: -/);
   const src = read('panel/presets.js');
-  for (const piece of ["icon('more')", "icon('edit')", "icon('copy')", "icon('trash')", 'ArrowDown', "escapeCloses(row.querySelector('.menu-wrap')"]) assert.ok(src.includes(piece), piece);
+  for (const piece of ["icon('edit')", "icon('copy')", "icon('trash')", 'ArrowDown', "escapeCloses(row.querySelector('.menu-wrap')"]) assert.ok(src.includes(piece), piece);
 });
 
 test('one word for previewing, in purple, and stacking is said out loud', () => {
@@ -1120,8 +1120,8 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   const src = read('panel/looks.js');
   // The control sits with what it governs: the catalog, above the cards.
   const head = /<div class="catalog-head"[\s\S]*?<div class="cards" id="lkPresets">/.exec(src);
-  assert.ok(head, 'the Adds to control is in the catalog heading');
-  assert.match(head[0], />Adds to</);
+  assert.ok(head, 'the Goes on control is in the catalog heading');
+  assert.match(head[0], />Goes on</);
   // A preview layer's place is a control of its own, on its own card.
   assert.match(src, /className: 'place icon-btn'/);
   assert.match(src, /<span class="muted">On<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
@@ -1372,4 +1372,18 @@ test('B87: opening Tweak shows the first control above the bar, and the form as 
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /form\.el\.scrollIntoView/, 'not a smooth scroll that the rising sheet can interrupt');
   assert.match(looks, /revealing \|\| S\.panel\.tab\(\)/, 'the rising sheet does not scroll somewhere else first');
+});
+
+test('Looks folds the long grids once something previews, and a preview on an empty house says so', async () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /if \(prev\.length && !hadPreview\) \$\$\('#lkEffects'\)\.open = \$\$\('#lkOtherPresets'\)\.open = false/);
+  assert.match(looks, /class="muted">Goes on</, 'where the look goes, in words');
+  assert.match(looks, /clock-hint/, 'the clock says what it is for while closed');
+  const { applyResult } = await import('./static/panel/looks.js');
+  const dark = { dark: 'none', zones: ['Yard'], message: 'x' };
+  assert.match(applyResult('the look to the lights', dark, true).text, /nothing lights up/, 'not a plain success');
+  assert.equal(applyResult('the look to the lights', dark, true).neutral, true, 'and not a third warning');
+  assert.equal(applyResult('the look to the lights', dark, true).warn, false);
+  assert.match(applyResult('x', { dark: 'part', zones: [], message: '' }, true).text, /part of it stays dark/);
+  assert.equal(applyResult('x', { dark: '' }, true).text, 'Applied x.');
 });

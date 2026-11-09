@@ -128,8 +128,8 @@ export function replaceNote(names) {
 // be seen. outcome is lightOutcome for the applied looks.
 export function applyResult(what, outcome, cardShown = false) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
-  // The card in the lane says why, once: this just confirms it was applied.
-  if (cardShown) return { text: `Applied ${what}.`, warn: false, neutral: true };
+  // The card in the lane says why, once: this says it didn't light up, and no more.
+  if (cardShown) return { text: outcome.dark === 'none' ? `Applied ${what}, but nothing lights up.` : `Applied ${what}; part of it stays dark.`, warn: false, neutral: true };
   const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
   return { text: `${lead} ${outcome.message}`, warn: true };
 }
@@ -160,7 +160,7 @@ export function createLooks(S, root) {
     <button type="button" class="now quiet" id="lkNow" hidden><span class="strip" id="lkNowStrip"></span><span class="what"><b id="lkNowMain"></b><small id="lkNowSub"></small></span></button>
     <div class="catalog-head" id="lkCatalogHead">
       <h2 class="group-head" id="lkPresetsHead">Presets</h2>
-      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Adds to</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
+      <button type="button" class="target-btn icon-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where a preset or effect goes when you pick one. Looks already added keep their own place." aria-haspopup="dialog"><span class="muted">Goes on</span><b id="lkTargetName"></b>${icon('chevronDown')}</button>
       <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
         ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
         <div class="muted small" id="lkPickHint">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
@@ -180,7 +180,7 @@ export function createLooks(S, root) {
       <div id="lkDark" data-dark hidden></div>
       <div class="list"></div>
     </div>
-    <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="t" id="lkClockText"></span></summary>
+    <details class="clock-box" id="lkClockBox" hidden><summary>Preview clock <span class="clock-hint muted">Pause or scrub the preview</span><span class="t" id="lkClockText"></span></summary>
     <div class="muted small">Pause, slow or scrub the preview to look at one moment. The lights keep running.</div>
     <div class="clock" id="lkClock">
       <button type="button" id="lkPlay" class="icon-btn" title="Pause or resume the preview clock (space)" aria-label="Pause the preview clock"></button>
@@ -216,7 +216,7 @@ export function createLooks(S, root) {
   }
   let shownDark = '';
   const picker = $$('#lkPicker'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch'), head = $$('#lkCatalogHead');
-  // The one list of places serves the Adds to button, and, inside a preview
+  // The one list of places serves the Goes on button, and, inside a preview
   // card, that layer's own place. pickFor is the card it is open for.
   let pickFor = null, opener = targetBtn;
   const targetKey = (t) => JSON.stringify(targetRanges(g, S.tree, t));
@@ -289,7 +289,7 @@ export function createLooks(S, root) {
   }
   for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { const back = opener; openPicker(false); back.focus(); });
   // moveLayer gives one preview layer a new place. Where the next look goes
-  // doesn't change: that is the Adds to button's.
+  // doesn't change: that is the Goes on button's.
   async function moveLayer(c, value) {
     const back = opener;
     openPicker(false);
@@ -549,6 +549,10 @@ export function createLooks(S, root) {
     // An empty lane says nothing the current-state line doesn't.
     $$('#lkPreview').hidden = !prev.length && (!previewNote || previewNote.kind === 'empty');
     $$('#lkStack').hidden = prev.length < 2;
+    // Once something is previewing it's the thing being worked on: the long
+    // grids fold away so its card sits close to the heading.
+    if (prev.length && !hadPreview) $$('#lkEffects').open = $$('#lkOtherPresets').open = false;
+    hadPreview = prev.length > 0;
     for (const c of cards.values()) {
       if (c.lane !== 'preview') continue;
       c.el.querySelector('[data-a=apply]').hidden = prev.length < 2;
@@ -615,7 +619,7 @@ export function createLooks(S, root) {
       else content.style.setProperty('--look-bar', bar.offsetHeight + 'px');
     });
   }
-  let prevBar = false;
+  let prevBar = false, hadPreview = false;
   function renderBar(prev) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;

@@ -474,6 +474,8 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .look-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .look-acts #lkClear { margin-right: auto; }
 .clock-box { margin: 10px 0; }
+.clock-box:not([open]) .t, .clock-box[open] .clock-hint { display: none; }
+.clock-hint { margin-left: auto; font-size: var(--t-s); }
 .clock-box > summary .t { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
 .clock { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
 .step-pair { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; }
