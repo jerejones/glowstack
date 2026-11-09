@@ -473,6 +473,8 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .lib-filters .field input { width: 100%; }
 #lkWords { margin-top: 12px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+/* Three columns at the wide panel: room for a long name on one line. */
+@media (min-width: 1280px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .preset {
   display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left; padding: 8px;
   min-height: calc(var(--tap) + 26px); background: var(--card); border-radius: var(--radius); border-color: var(--line);

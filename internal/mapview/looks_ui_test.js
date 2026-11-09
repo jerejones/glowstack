@@ -193,6 +193,7 @@ test('library cards: three columns of one-line names, two lines only as the fall
   const fs = require('node:fs'), path = require('node:path');
   const css = fs.readFileSync(path.join(__dirname, 'static/ui.css'), 'utf8');
   assert.doesNotMatch(css, /\.cards:has\(/, 'no four-column exception: it would narrow every name');
+  assert.match(css, /@media \(min-width: 1280px\) \{ \.cards \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); \} \}/);
   assert.match(css, /\.cards \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(132px, 1fr\)\)/);
   // A name like "Breathe the layers below" needs the second line and gets it.
   assert.match(css, /\.preset \.name \{[^}]*height: 2\.6em/);
