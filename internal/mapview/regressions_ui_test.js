@@ -1723,3 +1723,26 @@ test('polish: disabled segment, labeled color buttons, nothing to clear, quieter
 test('a phone tab opens tall enough to use: Setup reads like Presets and Status', () => {
   assert.match(read('sheet.js'), /READING = new Set\(\['presets', 'setup', 'status'\]\)/);
 });
+
+test('B102: a palette with its own colors says the look colors are unused', async () => {
+  const { colorsUsed, ignoredColor } = await import('./static/form.js');
+  const S = { palettes: [
+    { id: 'default', name: 'Default', stops: [] }, { id: 'rainbow', name: 'Rainbow', stops: [[0, '#ff0000']] },
+    { id: 'color-1', name: '* Color 1', stops: [] }, { id: 'colors-1-2', name: '* Colors 1&2', stops: [] }, { id: 'color-gradient', name: '* Color Gradient', stops: [] },
+  ] };
+  const schema = [{ name: 'palette', type: 'palette', default: 'Default' }, { name: 'colors', type: 'colors', default: ['#ffa000', '#000000', '#000000'] }];
+  const inline = [[0, '#ff8000'], [1, '#ffff00']];
+  assert.equal(colorsUsed(S, inline, 'gradient'), 0);
+  for (const i of [0, 1, 2]) assert.equal(ignoredColor(S, schema, { palette: inline }, `colors.${i}`, 'gradient'), true);
+  // Default on a gradient is Rainbow, which has colors of its own.
+  assert.equal(ignoredColor(S, schema, {}, 'colors.0', 'gradient'), true);
+  // Built from the look's colors: as many as the palette reads are in use.
+  assert.equal(ignoredColor(S, schema, { palette: 'color-1' }, 'colors.0', 'gradient'), false);
+  assert.equal(ignoredColor(S, schema, { palette: 'color-1' }, 'colors.1', 'gradient'), true);
+  assert.equal(ignoredColor(S, schema, { palette: 'colors-1-2' }, 'colors.1', 'gradient'), false);
+  assert.equal(ignoredColor(S, schema, { palette: 'color-gradient' }, 'colors.2', 'gradient'), false);
+  // A color with no palette beside it always counts; so does a Default we can't read.
+  assert.equal(ignoredColor(S, schema, {}, 'background', 'gradient'), false);
+  const member = [{ name: 'sparks.palette', type: 'palette', default: 'Default' }];
+  assert.equal(ignoredColor(S, member, {}, 'sparks.color', 'ember-glitter'), false);
+});

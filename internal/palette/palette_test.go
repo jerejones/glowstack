@@ -96,3 +96,17 @@ func TestRandomPaletteCacheIndependentOfRenderHistory(t *testing.T) {
 		}
 	}
 }
+
+// A palette with its own stops never reads the look's colors, and the color
+// palettes read only the ones they use: what the Tweak form says about each.
+func TestResolveUsesTheLookColorsOnlyWhenBuiltFromThem(t *testing.T) {
+	red, green := color.Color{R: 1, A: 1}, color.Color{G: 1, A: 1}
+	inline := New("inline", "Inline", []Stop{{0, units.Color{R: 255, G: 128}}, {1, units.Color{R: 255, G: 255}}}, false, true)
+	if got := inline.Resolve([]color.Color{red, green}, 0, nil); got != inline {
+		t.Fatalf("inline palette resolved to a different palette: %v", got)
+	}
+	first := &Palette{Special: SpecialColor1}
+	if got, other := first.Resolve([]color.Color{red, green}, 0, nil).At(0.5), first.Resolve([]color.Color{red, red}, 0, nil).At(0.5); got != other {
+		t.Fatalf("Color 1 depended on Color 2: %v vs %v", got, other)
+	}
+}

@@ -124,6 +124,29 @@ export function choiceStrip(S, id, owner, colors) {
   return COLOR_BASED.has(resolved) && colors.every(isBlack) ? NO_COLORS : paletteStrip(S, id, owner, colors);
 }
 
+// colorsUsed is how many of a look's colors a palette draws with, as
+// Palette.Resolve does; a palette with colors of its own uses none. owner is
+// the effect the palette belongs to. A Default whose meaning isn't known here
+// counts as using them all, so a control isn't called unused by a guess.
+export function colorsUsed(S, value, owner) {
+  if (Array.isArray(value)) return 0;
+  const p = palette(S, value);
+  if (!p) return 0;
+  if (p.id === 'default' && !DEFAULT_PALETTE[owner]) return Infinity;
+  return { 'color-1': 1, 'colors-1-2': 2, 'color-gradient': 3, 'colors-only': 3 }[p.id === 'default' ? DEFAULT_PALETTE[owner] : p.id] ?? 0;
+}
+
+// ignoredColor says the look's palette doesn't draw with the color at param
+// ("colors.1", "sparkle.color"), so its control has no effect on the lights.
+export function ignoredColor(S, schema, vals, param, effectId) {
+  const m = /^(.*\.)?(?:colors\.(\d+)|color)$/.exec(param);
+  if (!m) return false;
+  const prefix = m[1] || '', name = `${prefix}palette`, p = schema.find((q) => q.name === name);
+  if (!p) return false;
+  const owner = prefix ? prefix.slice(0, -1).split('.').pop() : effectId;
+  return +(m[2] || 0) >= colorsUsed(S, vals[name] !== undefined ? vals[name] : p.default, owner);
+}
+
 // A dark layer with gaps, over the colors: sparkles are specks, not a bar.
 const SPECKS = 'linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 22%, transparent 22% 24%, #0b0d10 24% 37%, transparent 37% 38.5%, #0b0d10 38.5% 55%, transparent 55% 57%, #0b0d10 57% 66%, transparent 66% 67.5%, #0b0d10 67.5% 84%, transparent 84% 86%, #0b0d10 86% 100%)';
 
@@ -325,8 +348,10 @@ export function createForm(ctx) {
   const ctrls = []; // { sync() } refreshed from the layer when not being edited
   const id = (s) => `f${++uid}-${s}`;
 
+  const noted = []; // refreshed whenever a value changes: what a color row says
   function apply(changes) {
     Object.assign(vals, changes);
+    for (const n of noted) n();
     ctx.send(changes);
   }
 
@@ -350,7 +375,8 @@ export function createForm(ctx) {
 
   // One color is four independent channels. Every track previews the mix
   // along that channel while holding the other three at their current values.
-  function colorInput(get, set) {
+  // ignored says the look doesn't draw with this color; the row says so.
+  function colorInput(get, set, ignored = () => false) {
     const box = document.createElement('details');
     box.className = 'color-picker';
     const summary = document.createElement('summary');
@@ -358,7 +384,9 @@ export function createForm(ctx) {
     swatch.className = 'color-swatch';
     swatch.setAttribute('aria-hidden', 'true');
     const title = document.createElement('span');
-    title.textContent = 'Edit color';
+    const say = () => { title.textContent = ignored() ? 'Not used by this palette' : get() == null ? 'Not set' : 'Edit color'; };
+    say();
+    noted.push(say);
     summary.append(swatch, title);
     const panel = document.createElement('div');
     panel.className = 'color-mixer';
@@ -421,7 +449,11 @@ export function createForm(ctx) {
       const title = `${SLIDERS[b.slider] || b.slider} in WLED · ${b.param}`;
       const label = paramLabel(b.param);
       if (lf.type === 'color') {
-        field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
+        const ignored = () => ignoredColor(S, schema, vals, b.param, effect.id);
+        const row = field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v)), ignored), null, title);
+        const dim = () => row.classList.toggle('unused', ignored());
+        dim();
+        noted.push(dim);
       } else if (lf.type === 'palette' || b.slider === 'pal') {
         field(wled, label, paletteSelect(() => lf.get(vals), (v) => apply(lf.set(vals, v)), layerPrefix(b.param)), null, title);
       } else if (lf.type === 'bool') {
@@ -465,7 +497,7 @@ export function createForm(ctx) {
       const list = value(`${prefix}colors`), one = value(`${prefix}color`);
       return Array.isArray(list) ? list : one !== undefined ? [one] : [];
     };
-    const choices = () => (S.palettes || []).map((p) => { const swatch = choiceStrip(S, p.id, effect.id, colors()); return { value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch, note: swatch === NO_COLORS ? "uses the look's colors" : undefined }; });
+    const choices = () => (S.palettes || []).map((p) => { const swatch = choiceStrip(S, p.id, prefix ? prefix.slice(0, -1).split('.').pop() : effect.id, colors()); return { value: p.id, label: p.name.replace(/^\*\s*/, ''), swatch, note: swatch === NO_COLORS ? "uses the look's colors" : undefined }; });
     const s = createPicker(choices());
     const sync = () => {
       if (s.isOpen) return;
@@ -672,6 +704,7 @@ export function createForm(ctx) {
     update(l) {
       layer = l;
       vals = valuesFor(S, l);
+      for (const n of noted) n();
       for (const c of ctrls) c.sync();
       syncYaml();
     },
