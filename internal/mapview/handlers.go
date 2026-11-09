@@ -30,14 +30,29 @@ func (m *Map) Register(mux interface{ Handle(string, http.Handler) }) {
 	h := func(fn http.HandlerFunc) http.Handler { return fn }
 	// Section URLs serve the same shell; navigation preserves the live map.
 	page, _ := fs.ReadFile(static, "index.html")
-	for _, section := range []string{"looks", "setup", "status"} {
-		servePage := h(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-cache")
-			w.Write(page)
+	servePage := h(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Write(page)
+	})
+	redirect := func(path string) http.Handler {
+		return h(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.RawQuery != "" {
+				pathWithQuery := path + "?" + r.URL.RawQuery
+				http.Redirect(w, r, pathWithQuery, http.StatusPermanentRedirect)
+				return
+			}
+			http.Redirect(w, r, path, http.StatusPermanentRedirect)
 		})
-		mux.Handle("GET /map/"+section+"/{$}", servePage)
-		mux.Handle("GET /map/"+section, servePage)
+	}
+	mux.Handle("GET /{$}", servePage)
+	mux.Handle("GET /map", redirect("/"))
+	mux.Handle("GET /map/{$}", redirect("/"))
+	for _, section := range []string{"looks", "setup", "status"} {
+		mux.Handle("GET /"+section, servePage)
+		mux.Handle("GET /"+section+"/{$}", redirect("/"+section))
+		mux.Handle("GET /map/"+section, redirect("/"+section))
+		mux.Handle("GET /map/"+section+"/{$}", redirect("/"+section))
 	}
 	mux.Handle("GET /map/", http.StripPrefix("/map/", http.FileServerFS(static)))
 	mux.Handle("GET /api/map/geometry", h(m.handleGeometry))

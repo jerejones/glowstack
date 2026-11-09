@@ -12,7 +12,7 @@ import { $, load, save, clamp } from './util.js';
 const TAB = 'glowstack.tab';
 const RAIL = 'glowstack.rail';
 const DETENT = 'glowstack.sheet.detent';
-const routeTab = () => /^\/map\/(looks|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
+const routeTab = () => /^\/(looks|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
 const PEEK = 56;   // handle and tab bar
 const STRIP = 120; // the map above a full sheet
 const HALF = 0.45; // of the window's height
@@ -48,7 +48,7 @@ export function createPanel(hooks) {
     if (!tabs.some((b) => b.dataset.tab === name)) return;
     tab = name;
     const url = new URL(location.href);
-    url.pathname = '/map/' + name;
+    url.pathname = '/' + name;
     if (navigation !== 'none' && url.pathname !== location.pathname) {
       history[navigation === 'replace' ? 'replaceState' : 'pushState'](null, '', url);
     }
