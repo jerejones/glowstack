@@ -2574,3 +2574,19 @@ test('Refinement 1: one toggle vocabulary', () => {
   assert.match(css, /details > summary \{[^}]*font-weight: 600; \}/);
   assert.equal((css.match(/details > summary::before \{/g) || []).length, 1, 'one chevron for every tier');
 });
+
+test('Refinement 2: sticky bars never clip', () => {
+  const app = read('app.js');
+  // Scrolling into view lands a tab bar's height below the top edge and an action bar's height above the bottom.
+  assert.match(css, /\.content \{ scroll-padding-top: var\(--tabs-h, 44px\); \}/);
+  assert.match(app, /style\.setProperty\('--tabs-h', document\.querySelector\('\.tabs'\)\.offsetHeight \+ 'px'\)/);
+  assert.match(css, /scroll-padding-bottom: calc\(var\(--look-bar, 0px\) \+ 8px\)/);
+  // A short fade at the top edge, stuck in place, so a heading scrolled under it reads as scrolled rather than cut.
+  const fade = /\.content::before \{([^}]*)\}/.exec(css)[1];
+  assert.match(fade, /position: sticky; top: 0;/);
+  assert.match(fade, /height: 14px; margin: 0 -12px -14px/, 'the fade takes no room of its own');
+  assert.match(fade, /linear-gradient\(var\(--panel-bg\), transparent\)/);
+  assert.match(fade, /pointer-events: none/);
+  // The connection banner stays above the fade.
+  assert.match(css, /\.offline-banner \{ position: sticky; top: 0; z-index: 3;/);
+});

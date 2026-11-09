@@ -175,8 +175,15 @@ function resize() {
   S.view.resize(r.width, r.height, dpr);
   placeCrumbs();
   setInsets();
+  syncTabsInset();
   placeToasts();
   markDirty();
+}
+
+// syncTabsInset keeps scrolling into view a tab bar's height clear of the
+// content's top edge, whatever the bar's height at this width.
+function syncTabsInset() {
+  $('content').style.setProperty('--tabs-h', document.querySelector('.tabs').offsetHeight + 'px');
 }
 
 // setInsets keeps framing to the map the chip bar and sheet leave free.

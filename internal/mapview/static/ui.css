@@ -15,6 +15,7 @@
   --field: #0f1115; --field-line: #6b7480; --title-row: 44px;
   --control-line: #6b7480; /* a control's edge: 3:1 on every surface it sits on */
   --bg: #0d0e10;
+  --panel-bg: #111317;
   --fg: #e6e8eb;
   --muted: #8b93a1;
   --muted-raised: #c7ced9; /* --muted on a pressed or raised surface */
@@ -335,7 +336,7 @@ input[type=checkbox]:checked::after {
 /* ---------- the panel ---------- */
 .panel {
   position: absolute; z-index: 5; top: 0; right: 0; bottom: 0; width: var(--panel-w);
-  display: flex; flex-direction: column; background: #111317; border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; background: var(--panel-bg); border-left: 1px solid var(--line);
 }
 .handle { display: none; }
 .handle, .tabs { user-select: none; -webkit-user-select: none; }
@@ -347,6 +348,16 @@ input[type=checkbox]:checked::after {
 .tabs .rail-toggle { flex: none; display: none; }
 /* overflow-anchor: a row swapped in place must not make the browser re-scroll. */
 .content { overflow-anchor: none; --content-bottom: calc(16px + var(--safe-b)); flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 12px var(--content-bottom); -webkit-overflow-scrolling: touch; scroll-padding-bottom: calc(var(--look-bar, 0px) + 8px); }
+/* Sticky bars never clip. What scrolls under the content's top edge fades
+ * out over a short band, so a heading half past the tab bar reads as
+ * scrolled, not cut off. Scrolling into view keeps the target a tab bar's
+ * height clear of that edge (--tabs-h, set by app.js) and an action bar's
+ * height clear of the bottom (--look-bar, above). */
+.content { scroll-padding-top: var(--tabs-h, 44px); }
+.content::before {
+  content: ''; position: sticky; top: 0; z-index: 2; display: block; height: 14px; margin: 0 -12px -14px;
+  background: linear-gradient(var(--panel-bg), transparent); pointer-events: none;
+}
 
 /* side panel, collapsible to an icon rail */
 @media (max-width: 1099.98px) {
