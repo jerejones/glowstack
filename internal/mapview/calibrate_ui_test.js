@@ -120,7 +120,7 @@ test('calibration target ring stays on the model node while the pixel is nudged'
   cursor.index = 15;
   overlay.draw(ctx);
   assert.deepEqual(rings, [[30, 60], [30, 60]]);
-  assert.deepEqual(labels, ['corner', 'corner']);
+  assert.deepEqual(labels, ['Corner', 'Corner']);
 });
 
 

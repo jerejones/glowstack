@@ -189,6 +189,12 @@ export function openPlan(canvas, plan, planIndex, opts) {
         continue;
       }
       let cr = col[3 * p], cg = col[3 * p + 1], cb = col[3 * p + 2];
+      if (!(cr | cg | cb) && !gray.has(px.controller[p])) {
+        // Unlit: a dim outline, so off doesn't read as missing.
+        ctx.strokeStyle = '#333a44'; ctx.lineWidth = 1;
+        ctx.strokeRect(x - s / 2, y - s / 2, s, s);
+        continue;
+      }
       if (gray.has(px.controller[p])) { const l = Math.round(56 + 0.25 * (0.3 * cr + 0.59 * cg + 0.11 * cb)); cr = cg = cb = l; }
       ctx.fillStyle = `rgb(${cr},${cg},${cb})`;
       ctx.fillRect(x - s / 2, y - s / 2, s, s);

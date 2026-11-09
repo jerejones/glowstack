@@ -9,10 +9,10 @@
 // double-tap), the selection with its breadcrumb and halo, the
 // inspect card, toasts and the keyboard. Plain JS modules, no build
 // step.
-import { $, api, esc, outputName, fmt, load, save, press, failure } from './util.js';
+import { $, api, esc, outputName, fmt, load, save, press, failure, humanize } from './util.js';
 import { createPanel } from './sheet.js';
 import { createOverlay } from './overlay.js';
-import { buildTree, nodeName, nodeKinds } from './select.js';
+import { buildTree, nodeName, nodeKinds, targetName } from './select.js';
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
@@ -50,6 +50,7 @@ const S = {
   stream: null,        // the last "subscribed" message
   fps: load(RATE, 0),  // stream rate asked for; 0 is the server's cap
   preview: null,       // /api/map/preview
+  previewStatus: 'loading',
   house: [],           // /api/v1/layers
   houseStatus: 'loading',
   catalog: null,       // /api/v1/effects
@@ -394,21 +395,21 @@ function renderInspect() {
   const r = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
   const o = S.overlay.outputOf(d.id);
   const sh = d.showing;
-  const layer = sh ? `${esc(sh.layer)}${sh.preview ? ' (preview)' : ''}${sh.effect ? ' · ' + esc(sh.effect) : ''}${sh.preset ? ' · preset ' + esc(sh.preset) : ''}${sh.target ? ' on ' + esc(sh.target) : ''}` : '<span class="muted">Nothing</span>';
+  const layer = sh ? `${esc(sh.layer)}${sh.preview ? ' (preview)' : ''}${sh.effect ? ' · ' + esc(sh.effect) : ''}${sh.preset ? ' · preset ' + esc(sh.preset) : ''}${sh.target ? ' on ' + esc(targetName(S.geo, sh.target)) : ''}` : '<span class="muted">Nothing</span>';
   const maps = d.mappings.map((m) => r(esc(m.id), `${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`)).join('');
   const html = `<div class="head"><b>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</b>${pinned ? `<button type="button" class="quiet" data-unpin aria-label="Unpin" title="Unpin">${icon('close')}</button>` : ''}</div>
     <table>
     ${r('Color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
     ${r('Showing', layer)}
-    ${r('Run', d.run ? esc(d.run) : '<span class="muted">None</span>')}
+    ${r('Run', d.run ? esc(humanize(d.run)) : '<span class="muted">None</span>')}
     ${r('Output', o ? `${esc(o.controller)} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
     </table>
     <details class="more"${inspectMore ? ' open' : ''}><summary>Details</summary><table>
     ${r('Controller pixel', `${esc(d.controller)}:${d.index}`)}
     ${d.run ? r('Pixel on run', d.run_pixel) : ''}
     ${o ? r('LED on output', `${d.id - o.first + 1} of ${o.count}`) : ''}
-    ${r('Areas', esc(d.areas.join(', ') || '—'))}
-    ${r('Zones', esc(d.zones.join(', ') || '—'))}
+    ${r('Areas', esc(d.areas.map(humanize).join(', ') || '—'))}
+    ${r('Zones', esc(d.zones.map((id) => { const z = S.geo.zones.find((x) => x.id === id); return (z && z.name) || humanize(id); }).join(', ') || '—'))}
     ${r('Segment', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}
     ${r('Pixel size', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
     ${S.view.kind === '3d' ? r('Position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`) : r('Plan position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
@@ -520,7 +521,7 @@ function badge() {
     press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
     if (t.dataset.show === '') {
       t.disabled = !m.canPreview;
-      t.title = m.canPreview ? 'Your preview layers, on the map only' : 'Nothing in preview. Tap a look to try one.';
+      t.title = m.canPreview ? 'Your preview layers, on the map only' : `Nothing in preview. ${S.coarse ? 'Tap' : 'Click'} a look to try one.`;
     }
   }
 }
@@ -543,9 +544,13 @@ async function pollPreview() {
   try {
     const st = await api('/api/map/preview');
     S.preview = st;
+    S.previewStatus = 'ready';
     S.emit('preview', st);
     badge();
-  } catch (e) { /* offline: the badge says so */ }
+  } catch (e) {
+    // Offline, the badge says so. Before a first reading the lane does too.
+    if (!S.preview) { S.previewStatus = 'failed'; S.emit('preview', null); }
+  }
 }
 const pollHouse = createHousePoll(S, api);
 // refresh reloads the stacks now, after a change.

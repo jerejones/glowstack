@@ -37,7 +37,7 @@ const zUp = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0
 
 // Pixels: a dot sized by its pitch and distance (3–21 CSS px). flags:
 // 1 dead (a gray ring), 2 gray (its controller is unreachable), 4 not
-// drawn. An unlit pixel is black, like the LED.
+// drawn. An unlit pixel is a dim ring, so off doesn't read as missing.
 const PIXEL_VS = `
 attribute vec3 rgb;
 attribute float dl;
@@ -69,6 +69,10 @@ void main() {
   if (mod(f, 2.0) > 0.5) {
     if (r < 0.4) discard;
     col = vec3(0.42);
+  }
+  else if (dot(col, col) < 0.0004) {
+    if (r < 0.45) discard;
+    col = vec3(0.2);
   }
   if (gray) col = vec3(0.22 + 0.25 * dot(col, vec3(0.3, 0.59, 0.11)));
   gl_FragColor = vec4(col, uAlpha);

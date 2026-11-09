@@ -9,7 +9,7 @@
 // /api/v1/status: health.controllers[id] when the server reports it,
 // else the older map keyed by controller id. A controller known to be
 // unreachable is drawn gray while the map shows the lights.
-import { api, esc, fmt, plural } from '../util.js';
+import { api, esc, fmt, plural, humanize } from '../util.js';
 import { showState, stateHTML } from '../states.js';
 
 // healthOf normalizes a controller's health report; null if there is
@@ -42,6 +42,16 @@ export function verdict(ids, health) {
   if (!known) return { cls: '', text: 'No controller health reported yet' };
   if (known < ids.length) return { cls: '', text: `${known} healthy, ${ids.length - known} not checked` };
   return { cls: 'ok', text: ids.length === 1 ? 'The controller is healthy' : `All ${ids.length} controllers healthy` };
+}
+
+// nb keeps a value and its unit on one line.
+const nb = (s) => `<span class="nb">${s}</span>`;
+
+// runLabel is how a run reads: its name in words. A run named unassigned-*
+// isn't wired into a zone yet, which is a state, not a fault.
+export function runLabel(id) {
+  const m = /^unassigned[-_.](.+)$/.exec(id);
+  return m ? { name: humanize(m[1]), unassigned: true } : { name: humanize(id), unassigned: false };
 }
 
 const ago = (t) => {
@@ -98,10 +108,10 @@ export function createStatus(S, root) {
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     $$('#stStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
-      stat(`${fmt(st.frame_ms, 2)} ms`, `frame (max ${fmt(st.max_frame_ms, 1)})`),
+      stat(`${fmt(st.frame_ms, 2)} ms`, `frame, max ${fmt(st.max_frame_ms, 1)}`),
       stat(st.late_frames, st.late_frames === 1 ? 'late frame' : 'late frames'),
-      stat(st.layers, st.layers === 1 ? 'layer on the lights' : 'layers on the lights'),
-      stat(st.preview_layers, st.preview_layers === 1 ? 'preview layer' : 'preview layers'),
+      stat(st.layers, 'on the lights', 'Layers on the lights'),
+      stat(st.preview_layers, 'in preview', 'Layers in preview'),
       stat(esc(st.uptime), 'uptime'),
       stat(st.solve.pixels, 'pixels'),
       // The median: the first draws compile shaders and would swamp a mean.
@@ -117,24 +127,27 @@ export function createStatus(S, root) {
         bits.push(h.reachable === true ? 'reachable' : h.reachable === false ? 'unreachable' : 'not checked');
         if (h.sending === false) bits.push('output off');
         else if (h.sending === true) bits.push('sending');
-        if (h.lastSeen) bits.push('seen ' + ago(h.lastSeen));
-        if (h.version) bits.push(esc(h.version));
+        if (h.lastSeen) bits.push(nb('seen ' + ago(h.lastSeen)));
+        if (h.version) bits.push(nb(esc(h.version)));
         if (h.errors) bits.push(`${h.errors} send error${h.errors === 1 ? '' : 's'}`);
         if (h.reboots) bits.push(`${h.reboots} reboot${h.reboots === 1 ? '' : 's'}`);
         line = bits.join(' · ');
         if (h.error) line += `<br><span class="error">${esc(h.error)}</span>`;
       }
-      return `<li><span class="dotc ${dot}"></span><span class="what"><b>${esc(c.id)}</b><small>${c.pixels} px · ${plural(c.outputs.length, 'output')} · ${line}</small></span></li>`;
+      return `<li><span class="dotc ${dot}"></span><span class="what"><b>${esc(c.id)}</b><small>${nb(`${c.pixels} px`)} · ${nb(plural(c.outputs.length, 'output'))} · ${line}</small></span></li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));
     $$('#stRuns').innerHTML = g.runs.map((r) => {
       const s = runs.get(r.id) || {};
-      const mis = s.mismatch || r.length_mismatch || 0;
-      const warn = mis >= 0.05;
+      // Signed: a run can be shorter than drawn as well as longer.
+      const mis = Math.abs(s.mismatch || r.length_mismatch || 0);
+      const label = runLabel(r.id);
+      const warn = mis >= 0.05 && !label.unassigned;
       const a = s.anchors || { measured: 0, estimated: 0 };
       const drawn = s.drawn_m || r.drawn_m;
-      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b>${esc(r.id)}</b><small>${r.count} px · ${fmt(s.length_m ?? r.length, 2)} m${drawn ? ` · drawn ${fmt(drawn, 2)} m` : ''}${mis ? ` · <strong>${(mis * 100).toFixed(1)}% off</strong>` : ''}</small></span>
+      const off = mis && !label.unassigned ? `<strong class="dev">${nb(`${(mis * 100).toFixed(1)}% off`)}</strong> · ` : '';
+      return `<li class="${warn ? 'warn' : ''}"><span class="what"><b>${esc(label.name)}</b><small>${label.unassigned ? 'Not in a zone yet · ' : ''}${off}${nb(`${r.count} px`)} · ${nb(`${fmt(s.length_m ?? r.length, 2)} m`)}${drawn ? ` · ${nb(`drawn ${fmt(drawn, 2)} m`)}` : ''}</small></span>
         <span class="val" title="Points measured">${a.measured}/${a.measured + a.estimated}</span>
         <button type="button" data-run="${esc(r.id)}" title="Calibrate this run">Calibrate</button></li>`;
     }).join('');
@@ -144,13 +157,15 @@ export function createStatus(S, root) {
     $$('#stWarn').innerHTML = w.length ? `<h2>Warnings</h2><ul class="list-rows">${w.map((x) => `<li><span class="what">${esc(x)}</span></li>`).join('')}</ul>` : '';
   }
 
+  let shownPower = false;
   async function power() {
     let pw;
     const box = $$('#stPower');
     try { pw = await api('/api/map/power' + (S.show ? '?show=' + S.show : '')); } catch (e) {
-      if (!box.innerHTML) showState(box, { kind: 'error', title: 'Could not read the power estimate', retry: power });
+      if (!shownPower) showState(box, { kind: 'error', title: 'Could not read the power estimate', retry: power });
       return;
     }
+    shownPower = true;
     if (!pw.frame) { showState(box, { kind: 'loading', title: 'Waiting for the first frame…' }); return; }
     const amps = (ma) => (ma / 1000).toFixed(2) + ' A';
     const limit = (ma) => (ma ? (ma / 1000).toFixed(1) + ' A' : '—');

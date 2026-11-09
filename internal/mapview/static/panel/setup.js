@@ -31,7 +31,7 @@ export function createSetup(S, root) {
     <h2>Color the map by</h2>
     <div class="chips" id="suModes">${MODES.map(([m, label, hint]) => `<button type="button" data-mode="${m}" title="${esc(hint)}">${label}</button>`).join('')}</div>
     <div class="row" id="suMappingRow" hidden><span class="muted">Measured along</span><select id="suMapping">${g.mappings.map((m) => `<option value="${esc(m.id)}">${esc(m.id)} (${esc(m.kind)})</option>`).join('')}</select></div>
-    <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || z.id)}</option>`).join('')}</select></div>
+    <div class="row" id="suZoneRow" hidden><span class="muted">Zone</span><select id="suZone">${g.zones.map((z) => `<option value="${esc(z.id)}">${esc(z.name || humanize(z.id))}</option>`).join('')}</select></div>
     <div class="chips" style="margin-top:6px">
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
@@ -55,14 +55,14 @@ export function createSetup(S, root) {
     <div class="muted small" id="suStream"></div>
     <h2>${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn">${undrawn.length
-    ? undrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('')
+    ? undrawn.map((r) => `<li><span class="what"><b>${esc(humanize(r.id))}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('')
     : '<li class="muted">Every light is on the map.</li>'}</ul>`;
   const $$ = (s) => root.querySelector(s);
 
   function renderRuns() {
     for (const b of $$('#suRuns').children) press(b, (b.dataset.all === 'true') === S.allRuns);
     const shownUndrawn = undrawn.filter((r) => S.visibility.runs[g.runs.indexOf(r)]);
-    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(r.id)}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
+    $$('#suUndrawn').innerHTML = shownUndrawn.length ? shownUndrawn.map((r) => `<li><span class="what"><b>${esc(humanize(r.id))}</b><small>${r.count} lights on ${esc(g.controllers[r.controller].id)}</small></span></li>`).join('') : '<li class="muted">Every light shown is on the map.</li>';
     const count = S.visibility.runs.filter(Boolean).length;
     $$('#suRunsCount').textContent = `${count} of ${plural(g.runs.length, 'run')} shown, based on the condition of each strip`;
   }

@@ -146,7 +146,9 @@ test('setting labels are in words; the key stays in the tooltip', async () => {
   const { humanize } = await import('./static/util.js');
   assert.equal(humanize('sparkle.color'), 'Sparkle color');
   assert.equal(humanize('fade_in'), 'Fade in');
-  assert.equal(humanize('colors.0'), 'Colors 1');
+  assert.equal(humanize('colors.0'), 'Color 1');
+  assert.equal(humanize('shed-sw'), 'Shed SW');
+  assert.equal(humanize('sparkle.colors.1'), 'Sparkle color 2');
 });
 
 test('status gives one verdict', async () => {
@@ -202,6 +204,64 @@ test('a Points setting leaked by an old build is dropped once, not forever', asy
   } finally {
     Object.defineProperty(globalThis, 'localStorage', { configurable: true, writable: true, value: was });
   }
+});
+
+test('calibration progress reads in words, with the part that differs first', async () => {
+  const { partName, progressRow, stepTitle } = await import('./static/panel/calibrate.js');
+  assert.equal(partName('shed-north', 'shed-north-3'), 'Point 3');
+  assert.equal(partName('shed-north', 'shed-n-3'), 'Point 3');
+  assert.equal(partName('shed-eave', 'shed-eave-mid'), 'Mid');
+  assert.equal(partName('tower', 'gate-post'), 'Gate post');
+  const a = progressRow({ target: { kind: 'anchor', run: 'tower', node: 'tower-top' }, label: 'tower · tower-top', index: 344, done: true, source: 'measured' });
+  assert.deepEqual(a, { name: 'Top', value: 'Pixel 344', title: 'Tower: Tower top' });
+  assert.equal(progressRow({ target: { kind: 'anchor', run: 'tower', node: 'tower-top' }, index: 12, done: false }).value, 'About pixel 12');
+  assert.equal(progressRow({ target: { kind: 'gap', from: 'a-1', to: 'b-2' }, length: 1.5, done: false }).value, '1.50 m planned');
+  assert.equal(progressRow({ target: { kind: 'link', from: 'a-1', to: 'b-2' }, done: false, source: 'partial' }).name, 'Link A 1 to B 2');
+  assert.equal(stepTitle({ target: { kind: 'link', from: 'a-1', to: 'b-2' } }).on, 'between A 1 and B 2');
+  assert.equal(stepTitle({ target: { kind: 'anchor', run: 'r', node: 'n' } }, () => 'Label').title, 'Line up Label');
+});
+
+test('runs named unassigned read as a state, not a fault', async () => {
+  const { runLabel } = await import('./static/panel/status.js');
+  assert.deepEqual(runLabel('unassigned-side-yard'), { name: 'Side yard', unassigned: true });
+  assert.deepEqual(runLabel('shed-eave'), { name: 'Shed eave', unassigned: false });
+});
+
+test('a run shorter than drawn warns like one that is longer', () => {
+  const src = fs.readFileSync(path.join(__dirname, 'static/panel/status.js'), 'utf8');
+  assert.match(src, /const mis = Math\.abs\(/);
+});
+
+test('nothing is under the caption size, and small text uses it', () => {
+  assert.match(css, /(^|\n)small \{ font-size: var\(--t-s\); \}/);
+  assert.match(css, /--t-s: 12px/);
+  assert.doesNotMatch(css, /--t-s: (\d|1[01])px/);
+  for (const m of css.matchAll(/font-size: ([^;]+);/g)) assert.match(m[1], /var\(--t-[a-z]+\)/, m[0]);
+});
+
+test('every tab uses one panel width', () => {
+  assert.doesNotMatch(css, /data-tab=[a-z]+\][^{]*\{[^}]*--panel-w/);
+  assert.match(css, /--panel-w: 400px/);
+});
+
+test('a harmless 404 is neutral, not an error', () => {
+  const html = fs.readFileSync(path.join(__dirname, 'static/404.html'), 'utf8');
+  assert.doesNotMatch(html, /state error|role="alert"/);
+});
+
+test('status tiles stay on one line', () => {
+  assert.match(css, /\.stat span \{[^}]*white-space: nowrap/);
+});
+
+test('Retry goes back to loading, then runs the retry', async () => {
+  const { showState } = await import('./static/states.js');
+  let button = null, calls = 0;
+  const el = { innerHTML: '', querySelector: () => button };
+  button = {};
+  showState(el, { kind: 'error', title: 'Bad', retry: () => { calls++; assert.match(el.innerHTML, /state loading/); } });
+  assert.match(el.innerHTML, /state error/);
+  await button.onclick();
+  assert.equal(calls, 1);
 });
 
 test('map labels never pile up', async () => {

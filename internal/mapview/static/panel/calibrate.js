@@ -131,13 +131,40 @@ export function calCount(st) {
   };
 }
 
-// stepTitle says what a target asks of the person, in words.
-export function stepTitle(st) {
+// partName is an anchor's name within its run: the run's name is on the
+// group already, so the part that tells two rows apart comes first.
+export function partName(run, node, label) {
+  if (label) return label;
+  const r = String(run).toLowerCase().split(/[-_.\s]+/).filter(Boolean);
+  const n = String(node).split(/[-_.\s]+/).filter(Boolean);
+  let i = 0;
+  while (i < r.length && i < n.length - 1 && r[i].startsWith(n[i].toLowerCase())) i++;
+  const rest = n.slice(i).join(' ');
+  return i && /^\d+$/.test(rest) ? `Point ${rest}` : humanize(rest);
+}
+
+// progressRow is one progress row in words: name, value and the full
+// label for hover. nodeLabel gives a node id's display name.
+export function progressRow(it, nodeLabel = humanize) {
+  const t = it.target || {};
+  const between = t.from ? `${nodeLabel(t.from)} to ${nodeLabel(t.to)}` : '';
+  if (t.kind === 'link') return { name: `Link ${between}`, value: it.done ? 'Done' : it.source === 'partial' ? 'Partly done' : 'Not yet', title: `Link from ${between}` };
+  if (t.kind === 'gap') return { name: `Gap ${between}`, value: it.length != null ? `${it.length.toFixed(2)} m${it.done ? '' : ' planned'}` : '', title: `Gap from ${between}` };
+  const node = t.node ? nodeLabel(t.node) : it.label;
+  const name = t.node ? partName(t.run, t.node, nodeLabel === humanize || node === humanize(t.node) ? '' : node) : humanize(it.label);
+  return { name, value: it.index == null ? '' : `${it.done ? 'Pixel' : 'About pixel'} ${it.index}`, title: t.run ? `${humanize(t.run)}: ${node}` : node };
+}
+
+// stepTitle says what a target asks of the person, in words. nodeLabel
+// gives a node id's display name.
+export function stepTitle(st, nodeLabel = humanize) {
   const t = st.target || {};
-  const on = t.run ? `on ${humanize(t.run)}` : t.controller ? `on ${humanize(t.controller)}` : '';
+  const between = t.from ? `between ${nodeLabel(t.from)} and ${nodeLabel(t.to)}` : '';
+  const on = t.run ? `on ${humanize(t.run)}` : t.controller ? `on ${humanize(t.controller)}` : between;
   switch (t.kind) {
-    case 'anchor': return { title: `Line up ${humanize(t.node)}`, on };
+    case 'anchor': return { title: `Line up ${nodeLabel(t.node)}`, on };
     case 'end': return { title: `Find the ${t.end} end`, on };
+    case 'link': return { title: 'Line up both sides of the link', on };
     case 'gap': return { title: 'Measure the gap', on };
     case 'bands': return { title: 'Check the test bands', on };
     case 'dead': return { title: 'Mark dead pixels', on };
@@ -148,6 +175,7 @@ export function stepTitle(st) {
 // createCalibrate is the mode's screen in root.
 export function createCalibrate(S, root) {
   const g = S.geo;
+  const nodeLabel = (id) => (g.nodes.find((n) => n.id === id) || {}).label || humanize(id);
   let open = false, run = '', tapped = -1, wake = null, hold = null, framed = '', wasActive = false;
   const session = createSession({ fetch: (...a) => fetch(...a), storage: sessionStorage, onState: render });
   const C = session.C;
@@ -289,17 +317,17 @@ export function createCalibrate(S, root) {
     } else {
       if (st.warning) parts.push(`<div class="cal-warn">${esc(st.warning)}</div>`);
       const cs = st.cursors || [];
-      if (cs.length > 1) parts.push(`<div class="cal-sides">${cs.map((c, i) => btn(esc(c.label) + (c.fixed ? ' (fixed)' : ''), () => session.side(i), i === st.side ? 'on' : '')).join('')}</div>`);
+      if (cs.length > 1) parts.push(`<div class="cal-sides">${cs.map((c, i) => btn(esc(g.nodes.some((n) => n.id === c.label) ? nodeLabel(c.label) : humanize(c.label)) + (c.fixed ? ' (fixed)' : ''), () => session.side(i), i === st.side ? 'on' : '')).join('')}</div>`);
       const c = cs[st.side];
       if (c) {
         const moved = c.index - c.estimate;
-        const step = stepTitle(st);
+        const step = stepTitle(st, nodeLabel);
         const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
         parts.push(`<div class="cal-step">${i >= 0 ? `<small>Step ${i + 1} of ${st.progress.length}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
         parts.push(`<div class="cal-read"><span class="idx">${c.index < 0 ? 'No pixel on this run' : moved ? `Moved ${moved > 0 ? '+' : ''}${moved} from the estimate` : 'At the estimate'}</span></div>`);
-        parts.push('<div class="muted small">Use the buttons until the real white pixel matches the circled corner; + moves toward the end of the run. Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</div>');
+        parts.push('<p class="cal-how">Move the real white pixel onto the circled corner.<br>+ goes toward the end of the run.</p>');
         const was = $$('#caBody details.tech');
-        parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><table class="kv">
+        parts.push(`<details class="tech"${was && was.open ? ' open' : ''}><summary>Details</summary><p class="muted small">Red marks every 10th pixel toward the start, green toward the end. The picture on the map stays fixed.</p><table class="kv">
           <tr><th>Pixel</th><td>${c.index < 0 ? '—' : esc(c.controller) + ':' + c.index}</td></tr>
           <tr><th>Layout position</th><td>${c.estimate}</td></tr><tr><th>Source</th><td>${esc(c.source)}</td></tr></table>
           ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" style="width:8em"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
@@ -328,13 +356,13 @@ export function createCalibrate(S, root) {
       if (c && !c.fixed && c.controller === ctl.id && px.index[p] >= c.min && px.index[p] <= c.max) tb.push(btn('Move cursor here', () => session.set(px.index[p]), 'on'));
       if (r) {
         const near = nearestAnchor(r, px.index[p]);
-        if (near) tb.push(btn(`Line up ${esc(humanize(g.nodes[near.node].id))}`, () => (active ? session.target : (t) => session.start(t))({ kind: 'anchor', run: r.id, node: g.nodes[near.node].id })));
+        if (near) tb.push(btn(`Line up ${esc(nodeLabel(g.nodes[near.node].id))}`, () => (active ? session.target : (t) => session.start(t))({ kind: 'anchor', run: r.id, node: g.nodes[near.node].id })));
         const end = Math.abs(px.index[p] - r.first) <= Math.abs(px.index[p] - r.last) ? 'first' : 'last';
-        if (active) tb.push(btn(`${end} end`, () => session.target({ kind: 'end', run: r.id, end })));
+        if (active) tb.push(btn(`${end === 'first' ? 'First' : 'Last'} end`, () => session.target({ kind: 'end', run: r.id, end })));
         if (active) tb.push(btn('Bands', () => session.target({ kind: 'bands', run: r.id })));
       }
       if (active) tb.push(btn('Mark as dead', () => session.target({ kind: 'dead', controller: ctl.id, indices: [px.index[p]] })));
-      parts.push(`<div class="cal-tap"><div>Tapped <b>${esc(ctl.id)}:${px.index[p]}</b>${r ? ' on ' + esc(r.id) : ''}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
+      parts.push(`<div class="cal-tap"><div>Tapped <b>pixel ${px.index[p]}</b>${r ? ' on ' + esc(humanize(r.id)) : ' on ' + esc(ctl.id)}</div><div class="row">${tb.join('')}${btn(icon('close'), () => { tapped = -1; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div></div>`);
     }
 
     // Progress, grouped by run. Tap one to calibrate it.
@@ -346,18 +374,18 @@ export function createCalibrate(S, root) {
         if (!groups.has(k)) groups.set(k, []);
         groups.get(k).push(it);
       }
-      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k)} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
-        const val = it.index != null ? it.index : it.length != null ? it.length.toFixed(2) + ' m' : '';
+      parts.push(`<h3>Progress</h3><div class="cal-prog">${[...groups].map(([k, items]) => `<div class="group"><div>${esc(k === 'Links and gaps' ? k : humanize(k))} <small class="muted">${items.filter((i) => i.done).length}/${items.length}</small></div><ul>${items.map((it) => {
+        const row = progressRow(it, nodeLabel);
         const here = JSON.stringify(it.target) === cur ? ' here' : '';
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
-        return `<li class="nv ${it.done ? 'done' : ''}${here}" data-a="${acts.length - 1}" title="${esc(it.label)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(it.label)}</span></span><span class="value muted">${val} ${esc(it.source || '')}</span></li>`;
+        return `<li class="nv ${it.done ? 'done' : ''}${here}" data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${esc(row.value)}</span></li>`;
       }).join('')}</ul></div>`).join('')}</div>`);
     }
 
     // Other targets: run ends, bands over a controller, dead ranges.
     if (active) {
-      const runs = g.runs.map((r) => `<option>${esc(r.id)}</option>`).join('');
+      const runs = g.runs.map((r) => `<option value="${esc(r.id)}">${esc(humanize(r.id))}</option>`).join('');
       const ctls = g.controllers.map((c) => `<option>${esc(c.id)}</option>`).join('');
       const was = $$('#caBody details.more');
       parts.push(`<details class="more"${was && was.open ? ' open' : ''}><summary>More places to measure</summary>

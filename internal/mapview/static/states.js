@@ -12,11 +12,16 @@ export function stateHTML({ kind = 'empty', title, detail = '', retry = false })
   return `<div class="state ${esc(kind)}" role="${live}">${kind === 'loading' ? '<span class="spinner" aria-hidden="true"></span>' : ''}<div class="state-text"><b>${esc(title)}</b>${detail ? `<span>${esc(detail)}</span>` : ''}</div>${retry ? '<button type="button" data-retry>Retry</button>' : ''}</div>`;
 }
 
-// showState puts a state in el; opts.retry is what Retry does.
+// showState puts a state in el; opts.retry is what Retry does. Retry goes
+// back to loading first, so every retry reads the same; whoever retries
+// draws the result.
 export function showState(el, opts) {
   el.innerHTML = stateHTML({ ...opts, retry: !!opts.retry });
   const b = el.querySelector('[data-retry]');
-  if (b) b.onclick = opts.retry;
+  if (b) b.onclick = () => {
+    el.innerHTML = stateHTML({ kind: 'loading', title: 'Trying again…' });
+    return opts.retry();
+  };
 }
 
 // bootFailure says in plain words why the page could not start. It never

@@ -17,6 +17,7 @@ const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathn
 const PEEK = 56;   // handle and tab bar
 const STRIP = 120; // the map above a full sheet
 const HALF = 0.45; // of the window's height
+const HALF_MIN = 344; // room for a look card above the Apply bar on a short phone
 
 // guardSelection stops text selection while dragging() says so.
 export function guardSelection(doc, dragging) {
@@ -43,7 +44,7 @@ export function createPanel(hooks) {
   const safeBottom = () => parseFloat(getComputedStyle(panel).paddingBottom) || 0;
   const heights = () => {
     const h = innerHeight, sb = safeBottom();
-    return { peek: PEEK + sb, half: Math.max(PEEK + sb + 120, Math.round(h * HALF)), full: h - STRIP };
+    return { peek: PEEK + sb, half: Math.max(HALF_MIN + sb, Math.round(h * HALF)), full: h - STRIP };
   };
   function setVisible(px) {
     visible = px;

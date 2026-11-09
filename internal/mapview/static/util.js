@@ -21,9 +21,9 @@ export function press(b, on) {
 // plural is a count with its noun: "1 output", "2 outputs".
 export const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 // humanize turns an id or parameter key into words: "sparkle.fade_in" is
-// "Sparkle fade in".
+// "Sparkle fade in"; "colors.0" is "Color 1".
 export function humanize(id) {
-  const s = String(id).replace(/\.(\d+)/g, (_, i) => ` ${+i + 1}`).replace(/[._-]+/g, ' ').trim();
+  const s = String(id).replace(/\.(\d+)/g, (_, i) => ` ${+i + 1}`).replace(/[._-]+/g, ' ').trim().replace(/\bcolors (?=\d)/, 'color ').replace(/\b(ne|nw|se|sw)\b/gi, (c) => c.toUpperCase());
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }
 

@@ -8,7 +8,7 @@
 // nodes, links, anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
-import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE } from './util.js';
+import { api, load, save, esc, outputName, fmt, ramp, stretchColor, nthColor, PALETTE, humanize } from './util.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -112,13 +112,13 @@ export function createOverlay(S) {
       // The zone's segments; bigger areas first so smaller ones stay
       // visible where they overlap.
       const z = g.zones.find((z) => z.id === st.zone);
-      const parts = z ? z.segments.map((s, i) => ({ name: `${i}: ${s.area}`, area: g.areas.find((a) => a.id === s.area) })) : [];
+      const parts = z ? z.segments.map((s, i) => ({ name: humanize(s.area), area: g.areas.find((a) => a.id === s.area) })) : [];
       const order = parts.map((_, i) => i).filter((i) => parts[i].area).sort((a, b) => parts[b].area.count - parts[a].area.count);
       for (const i of order) {
         const c = PALETTE[i % PALETTE.length];
         for (const [a, b] of parts[i].area.ranges) for (let p = a; p <= b; p++) out.set(c, 3 * p);
       }
-      st.legend = z ? `<div>segments of zone <b>${esc(z.name || z.id)}</b></div>` +
+      st.legend = z ? `<div>Parts of <b>${esc(z.name || humanize(z.id))}</b></div>` +
         parts.map((pt, i) => `<div><span class="sw" style="background:rgb(${PALETTE[i % PALETTE.length]})"></span>${esc(pt.name)}</div>`).join('')
         : '<div class="muted">No zones.</div>';
       return out;
@@ -336,7 +336,7 @@ export function createOverlay(S) {
       if (!q) return;
       const on = i === cal.side;
       ring(q, on ? 13 : 10, on ? '#22d3ee' : 'rgba(34,211,238,.5)', on ? 3 : 2);
-      if (on) label(c.node || c.label || `${c.controller}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc');
+      if (on) label(ni >= 0 ? g.nodes[ni].label || humanize(c.node) : c.label ? humanize(c.label) : `${c.controller}:${c.index}`, q[0] + 14, q[1] - 10, '#a5f3fc');
     });
   }
 

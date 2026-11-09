@@ -5,8 +5,8 @@
 // Looks as data: a layer's effect, values, name and color strip, and the
 // Tweak form that edits its params. The form leads with the controls
 // WLED shows for the effect (its bindings: speed, intensity, colors,
-// palette), then every param of the effect's schema under More, then
-// the params as JSON. Edits go out through a patcher: changes made
+// palette), then under More every param of the effect's schema and the
+// params as text. Edits go out through a patcher: changes made
 // within ~80 ms are merged, and one PATCH is in flight at a time.
 import { esc, parseColor, formatColor, displayColor, channelGradient, parseQty, formatQty, showQty, clamp, patch, humanize } from './util.js';
 import { icon } from './icons.js';
@@ -14,6 +14,9 @@ import { icon } from './icons.js';
 // ---------- looks as data ----------
 
 export const presetOf = (S, id) => S.presets.find((p) => p.id === id) || null;
+// presetName is how a preset reads: its name, or its id in words when it
+// has none of its own.
+export const presetName = (p) => (p.name && p.name !== p.id ? p.name : humanize(p.id));
 export function effectFor(S, layer) {
   const id = layer.effect || (presetOf(S, layer.preset) || {}).effect;
   return (S.catalog.effects || []).find((e) => e.id === id) || null;
@@ -25,7 +28,7 @@ export function valuesFor(S, layer) {
 }
 export function layerName(S, layer) {
   if (layer.name) return layer.name;
-  if (layer.preset) { const p = presetOf(S, layer.preset); return (p && p.name) || layer.preset; }
+  if (layer.preset) { const p = presetOf(S, layer.preset); return p ? presetName(p) : humanize(layer.preset); }
   const e = effectFor(S, layer);
   return (e && e.name) || layer.effect || 'layer';
 }
@@ -216,6 +219,11 @@ function leaf(params, path) {
 const QTY = new Set(['length', 'speed', 'duration', 'rate', 'density', 'angle']);
 let uid = 0;
 
+// paramLabel is a parameter's label, in words a person would use.
+export function paramLabel(name) {
+  return humanize(name.replace(/(^|\.)span$/, '$1repeat_length'));
+}
+
 // createForm builds the Tweak form for a layer. ctx: S, layer (kept
 // current with update), pitch (meters per pixel, for px), send(params)
 // and replace(params) to edit the layer.
@@ -321,7 +329,7 @@ export function createForm(ctx) {
       const lf = leaf(schema, b.param);
       if (!lf) continue;
       const title = `${SLIDERS[b.slider] || b.slider} in WLED · ${b.param}`;
-      const label = humanize(b.param);
+      const label = paramLabel(b.param);
       if (lf.type === 'color') {
         field(wled, label, colorInput(() => lf.get(vals), (v) => apply(lf.set(vals, v))), null, title);
       } else if (lf.type === 'palette' || b.slider === 'pal') {
@@ -512,24 +520,24 @@ export function createForm(ctx) {
     const set = (v) => apply({ [p.name]: v });
     const c = control(p, get, set);
     if (p.type === 'list') {
-      const f = field(more, humanize(p.name), [], p.doc, p.name);
+      const f = field(more, paramLabel(p.name), [], p.doc, p.name);
       f.querySelector('.ctl').remove();
       f.append(c);
-    } else field(more, humanize(p.name), c, p.doc, p.name);
+    } else field(more, paramLabel(p.name), c, p.doc, p.name);
   }
 
-  // ---- JSON ----
+  // ---- every setting as text, under More ----
   const json = document.createElement('details');
-  json.innerHTML = `<summary>Edit as JSON</summary>
-    <textarea id="${id('json')}" spellcheck="false"></textarea>
-    <div class="row end"><span class="err grow"></span><button type="button">Replace params</button></div>`;
+  json.innerHTML = `<summary>Edit every setting as text</summary>
+    <textarea id="${id('json')}" spellcheck="false" aria-label="Every setting, written as JSON"></textarea>
+    <div class="row end"><span class="err grow"></span><button type="button">Replace settings</button></div>`;
   const ta = json.querySelector('textarea'), err = json.querySelector('.err');
   const syncJson = () => { if (document.activeElement !== ta) ta.value = JSON.stringify(layer.params || {}, null, 2); };
   json.addEventListener('toggle', syncJson);
   json.querySelector('button').onclick = () => {
     let v;
     try { v = JSON.parse(ta.value || '{}'); } catch (e) { err.textContent = e.message; return; }
-    if (!v || typeof v !== 'object' || Array.isArray(v)) { err.textContent = 'params must be an object'; return; }
+    if (!v || typeof v !== 'object' || Array.isArray(v)) { err.textContent = 'Write the settings as { "name": value }.'; return; }
     err.textContent = '';
     vals = { ...valuesFor(S, { ...layer, params: {} }), ...v };
     ctx.replace(v);
@@ -537,7 +545,8 @@ export function createForm(ctx) {
 
   if (wled.childElementCount) el.append(wled);
   else more.open = true;
-  el.append(more, json);
+  more.append(json);
+  el.append(more);
   return {
     el,
     // update takes the layer as the server has it now.

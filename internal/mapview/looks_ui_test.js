@@ -94,6 +94,65 @@ test('tapping a look already in preview takes it off rather than stacking it', a
   assert.deepEqual(lookAction([layer], 'porch', look, { p1: 'h1' }), { focus: 'p1' }, 'nor is a copy being edited');
 });
 
+test('the clock shows hours and minutes in plain words, and milliseconds only while scrubbing', async () => {
+  const { clockText } = await import('./static/panel/looks.js');
+  const st = { t: 1_700_000_000, paused: false, following: true, speed: 1, offset: 0 };
+  const line = clockText(st);
+  assert.doesNotMatch(line, /\.\d{3}/);
+  assert.match(line, /in step with the lights$/);
+  assert.match(clockText({ ...st, paused: true }), /^Paused · /);
+  assert.match(clockText({ ...st, following: false, offset: 1.5 }), /1\.50 s ahead of the lights$/);
+  assert.match(clockText({ ...st, following: false, offset: -2 }), /2\.00 s behind the lights$/);
+  assert.match(clockText(st, true), /\d{3}/, 'scrubbing shows milliseconds');
+});
+
+test('the lanes use the shared states, including a failed load', async () => {
+  const { previewState, houseState } = await import('./static/panel/looks.js');
+  assert.equal(previewState(null, 'loading').kind, 'loading');
+  assert.equal(previewState(null, 'failed').kind, 'error');
+  assert.equal(previewState({ layers: [] }, 'ready', 'Click').detail, "Click a look to try it on the map; the lights don't change.");
+  assert.equal(previewState({ layers: [{}] }, 'ready'), null);
+  assert.equal(houseState('loading', 0).kind, 'loading');
+  assert.equal(houseState('unavailable', 0).kind, 'error');
+  assert.equal(houseState('available', 0).kind, 'empty');
+  assert.equal(houseState('available', 2), null);
+});
+
+test('places group by name with repeats resolved, and search finds them', async () => {
+  const { buildTree, targetGroups, targetName } = await import('./static/select.js');
+  const geo = {
+    pixels: { count: 6, run: [0, 0, 1, 1, 2, 2] },
+    runs: [{ id: 'shed-eave' }, { id: 'fence-a' }, { id: 'side-gate' }],
+    areas: [{ id: 'shed-eave', ranges: [[0, 1]] }, { id: 'front', ranges: [[0, 3]] }],
+    zones: [{ id: 'z1', name: 'Front yard', area: 'front' }],
+  };
+  const tree = buildTree(geo);
+  const groups = targetGroups(tree);
+  assert.deepEqual(groups.map((g) => g.label), ['Everything', 'Zones', 'Areas', 'Runs']);
+  assert.deepEqual(groups.find((g) => g.label === 'Areas').items, [{ value: 'shed-eave', label: 'Shed eave' }], 'a run that is also an area is one row');
+  assert.deepEqual(groups.find((g) => g.label === 'Zones').items, [{ value: 'front', label: 'Front yard' }]);
+  assert.deepEqual(targetGroups(tree, { query: 'SIDE' }).flatMap((g) => g.items.map((i) => i.label)), ['Side gate']);
+  assert.deepEqual(targetGroups(tree, { query: 'z1' }).flatMap((g) => g.items.map((i) => i.label)), ['Front yard'], 'ids still match');
+  assert.equal(targetGroups(tree, { visibleRuns: [true, false, true] }).find((g) => g.label === 'Runs').items.some((i) => i.label === 'Fence a'), false);
+  assert.equal(targetName(geo, 'front'), 'Front yard');
+  assert.equal(targetName(geo, 'run:side-gate'), 'Side gate');
+  assert.equal(targetName(geo, 'all'), 'Everything');
+});
+
+test('a preset with no name of its own reads in words', async () => {
+  const { presetName } = await form();
+  assert.equal(presetName({ id: 'slow-crawl' }), 'Slow crawl');
+  assert.equal(presetName({ id: 'slow-crawl', name: 'slow-crawl' }), 'Slow crawl');
+  assert.equal(presetName({ id: 'x', name: 'Named' }), 'Named');
+});
+
+test('setting labels say what the setting does', async () => {
+  const { paramLabel } = await form();
+  assert.equal(paramLabel('span'), 'Repeat length');
+  assert.equal(paramLabel('gradient.span'), 'Gradient repeat length');
+  assert.equal(paramLabel('colors.0'), 'Color 1');
+});
+
 test('palettes are in before the first panel renders', async () => {
   const { createLibrary } = await import('./static/library.js');
   const seen = {};

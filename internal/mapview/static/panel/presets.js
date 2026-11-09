@@ -3,7 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 import { api, patch, del, esc, failure } from '../util.js';
-import { createForm, lookStrip } from '../form.js';
+import { createForm, lookStrip, presetName } from '../form.js';
+import { effectKind } from './looks.js';
 import { showState, stateHTML } from '../states.js';
 import { confirmDialog } from '../dialog.js';
 import { icon } from '../icons.js';
@@ -52,17 +53,17 @@ export function createPresets(S, root) {
     }
     $('#prNew').disabled = busy || S.library.catalog === 'failed';
     const query = $('#prSearch').value.toLowerCase().trim();
-    const list = S.presets.filter((p) => `${p.name || p.id} ${p.effect}`.toLowerCase().includes(query));
+    const list = S.presets.filter((p) => `${presetName(p)} ${p.id} ${p.effect}`.toLowerCase().includes(query));
     const box = $('#prList'); box.replaceChildren();
     for (const p of list) {
       const row = document.createElement('article'); row.className = 'preset-entry';
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
-      row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(p.name || p.id)}</b><span class="muted small">${esc(effect?.name || p.effect)}</span></div><div class="preset-actions">
-        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + (p.name || p.id))}"><span class="pin">${icon(p.pinned ? 'starFilled' : 'star')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
+      row.innerHTML = `<span class="strip"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? `${effect.name || effect.id} · ${effectKind(effect)}` : p.effect)}</span></div><div class="preset-actions">
+        <button type="button" data-act="pin" aria-pressed="${!!p.pinned}" aria-label="${esc((p.pinned ? 'Unpin ' : 'Pin ') + presetName(p))}"><span class="pin">${icon(p.pinned ? 'starFilled' : 'star')}${p.pinned ? 'Pinned' : 'Pin'}</span></button>
         <button type="button" data-act="edit">Edit</button><button type="button" data-act="copy">Duplicate</button><button type="button" data-act="delete" class="danger">Delete</button></div>`;
       row.querySelector('.strip').style.background = lookStrip(S, p.effect, p.params);
       row.querySelector('[data-act=edit]').onclick = () => openEditor(p);
-      row.querySelector('[data-act=copy]').onclick = () => openEditor({ ...p, id: '', name: `${p.name || p.id} copy`, pinned: false });
+      row.querySelector('[data-act=copy]').onclick = () => openEditor({ ...p, id: '', name: `${presetName(p)} copy`, pinned: false });
       row.querySelector('[data-act=pin]').onclick = async () => {
         if (busy) return;
         setBusy(true);
@@ -74,7 +75,7 @@ export function createPresets(S, root) {
         } catch (e) { say(failure('pin the preset', e)); } finally { setBusy(false); }
       };
       row.querySelector('[data-act=delete]').onclick = async () => {
-        if (busy || !(await confirmDialog({ title: `Delete “${p.name || p.id}”?`, body: 'Running lights will keep their current look.', confirm: 'Delete', danger: true }))) return;
+        if (busy || !(await confirmDialog({ title: `Delete “${presetName(p)}”?`, body: 'Running lights will keep their current look.', confirm: 'Delete', danger: true }))) return;
         if (draft?.id === p.id && !(await discard())) return;
         setBusy(true);
         try {
@@ -89,6 +90,7 @@ export function createPresets(S, root) {
     if (!list.length) box.innerHTML = stateHTML({ kind: 'empty', title: S.presets.length ? 'No matching presets' : 'No presets yet', detail: S.presets.length ? 'Try a different search.' : 'Create one to get started.' });
     if (busy) setBusy(true);
   }
+  const markName = (bad) => { if (bad) $('#prName').setAttribute('aria-invalid', 'true'); else $('#prName').removeAttribute('aria-invalid'); };
   function closeEditor() { draft = null; dirty = false; $('#prEditor').hidden = true; $('#prEditor').replaceChildren(); }
   async function openEditor(p) {
     if (busy || !(await discard())) return;
@@ -102,9 +104,9 @@ export function createPresets(S, root) {
       <p class="muted small">Changes stay here until you save. Saving does not change running lights.</p>
       <div id="prParams"></div><div class="err" id="prError" role="alert"></div>
       <div class="row"><button type="button" id="prSave" class="go">Save preset</button><button type="button" id="prCancel">Cancel</button></div>`;
-    $('#prName').value = draft.name || draft.id;
+    $('#prName').value = draft.id ? presetName(draft) : draft.name;
     $('#prPinned').checked = !!draft.pinned;
-    $('#prName').oninput = () => { draft.name = $('#prName').value; dirty = true; };
+    $('#prName').oninput = () => { draft.name = $('#prName').value; dirty = true; markName(false); };
     $('#prPinned').onchange = () => { draft.pinned = $('#prPinned').checked; dirty = true; };
     const select = $('#prEffect');
     for (const e of S.catalog.effects || []) select.add(new Option(e.name || e.id, e.id));
@@ -134,7 +136,7 @@ export function createPresets(S, root) {
   async function saveDraft() {
     if (busy || !draft) return;
     const name = $('#prName').value.trim();
-    if (!name) { $('#prError').textContent = 'Give the preset a name.'; $('#prName').focus(); return; }
+    if (!name) { $('#prError').textContent = 'Give the preset a name.'; markName(true); $('#prName').focus(); return; }
     if ($('#prParams .bad')) { $('#prError').textContent = 'Check the highlighted settings before saving.'; return; }
     if (!$('#prEffect').value) { $('#prError').textContent = 'Choose an effect.'; return; }
     const id = draft.id || presetSlug(name, S.presets);

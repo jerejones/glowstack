@@ -9,7 +9,7 @@
 // (areas[].includes). Above everything is All, every pixel on a run.
 // Tapping a run again climbs: run → area → larger area → zone → All →
 // back to the run. Also: the pixel set of a layer target.
-import { normRanges, countRanges, covers } from './util.js';
+import { normRanges, countRanges, covers, humanize } from './util.js';
 
 const RANK = { run: 0, area: 1, zone: 2, all: 3 };
 
@@ -109,7 +109,36 @@ function isAncestor(a, b) {
 // name is how a node reads: its biggest member, with the others after.
 export function nodeName(nd) {
   const top = nd.members[nd.members.length - 1];
-  return (top.kind === 'zone' || top.kind === 'all') && top.name ? top.name : top.id;
+  return (top.kind === 'zone' || top.kind === 'all') && top.name ? top.name : humanize(top.id);
+}
+
+// targetName says a layer target in words: the zone's name for its area,
+// otherwise the id made readable.
+export function targetName(geo, target) {
+  if (target === ALL) return 'Everything';
+  const i = target.indexOf(':');
+  if (i > 0) return humanize(target.slice(i + 1));
+  const zone = geo.zones.find((z) => z.area === target);
+  return zone ? zone.name || humanize(zone.id) : humanize(target);
+}
+
+// targetGroups is the list of places a look can go, by kind and by name.
+// Runs, areas and zones with the same pixels are one row, under the
+// biggest kind. query matches any of a row's ids and names; visibleRuns
+// (a run index → shown array) drops runs the map isn't showing.
+export function targetGroups(tree, { query = '', visibleRuns = null } = {}) {
+  const want = query.trim().toLowerCase();
+  const groups = [['all', 'Everything'], ['zone', 'Zones'], ['area', 'Areas'], ['run', 'Runs']].map(([kind, label]) => ({ kind, label, items: [] }));
+  for (const nd of tree.nodes) {
+    const top = nd.members[nd.members.length - 1];
+    if (top.kind === 'run' && visibleRuns && !visibleRuns[top.index]) continue;
+    const label = nodeName(nd);
+    const terms = [label, ...nd.members.flatMap((m) => [m.id, m.name || ''])].join(' ').toLowerCase();
+    if (want && !terms.includes(want)) continue;
+    groups.find((g) => g.kind === top.kind).items.push({ value: nodeTarget(nd), label });
+  }
+  for (const g of groups) g.items.sort((a, b) => a.label.localeCompare(b.label));
+  return groups.filter((g) => g.items.length);
 }
 export function nodeKinds(nd) {
   return [...new Set(nd.members.map((m) => m.kind))].join(' · ');
