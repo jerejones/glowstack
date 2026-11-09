@@ -49,7 +49,7 @@ test('a zone at 0 brightness is named where a look was applied, and only that zo
   assert.match(darkMessage(['Yard', 'Porch', 'Shed']), /^Yard, Porch and Shed are at/);
   assert.equal(darkMessage([]), '');
   const status = read('panel/status.js');
-  assert.match(status, /darkMessage\(darkZones\(/);
+  assert.match(status, /darkMessage\(zeroNames\)/);
   assert.match(read('panel/looks.js'), /applyToast\(S, what, outcome,/);
 });
 
@@ -399,12 +399,12 @@ test('B31: the Status headline says whether anything is lit, before controller h
   assert.deepEqual(v(zones(1, 1), 0, []), { cls: '', text: 'Nothing is lit: no looks are on the lights' });
   assert.deepEqual(v(zones(1, 1), 2, [[[0, 4]], [[10, 12]]]), { cls: 'ok', text: 'Lit: 2 looks on the lights' });
   assert.equal(v(zones(0, 0), 1, [[[0, 19]]]).cls, 'warn');
-  assert.match(v(zones(0, 0), 1, [[[0, 19]]]).text, /^Nothing is lit/);
-  assert.match(v(zones(0, 1), 1, [[[0, 4]]]).text, /^Nothing is lit/, 'its only layer is in the dark zone');
+  assert.equal(v(zones(0, 0), 1, [[[0, 19]]]).text, 'Lights are dark: 2 zones at 0%');
+  assert.equal(v(zones(0, 1), 1, [[[0, 4]]]).text, 'Lights are dark: 1 zone at 0%', 'its only layer is in the dark zone');
   assert.equal(v(zones(0, 1), 1, [[[0, 19]]]).text, 'Partly lit: Yard at 0%');
   assert.equal(v(zones(0, 1), 1, [[[10, 12]]]).cls, 'ok', 'a dark zone with nothing on it costs nothing');
   assert.equal(v({ master: 0, zones: { yard: 1 } }, 1, [[[0, 4]]]).text, 'Nothing is lit: brightness is at 0%');
-  assert.match(v(zones(0, 0), 1, null).text, /every zone/, 'layers not read yet');
+  assert.match(v(zones(0, 0), 1, null).text, /Lights are dark: 2 zones/, 'layers not read yet');
   const status = read('panel/status.js');
   assert.ok(status.indexOf('id="stVerdict"') < status.indexOf('id="stHealth"'), 'lit first, health second');
 });
@@ -636,7 +636,7 @@ test('the brightness warning is said once per screen, and its toast leaves with 
   assert.doesNotMatch(looks, /note\.className = orig \? 'note copy-note' : dark/, 'not on every card as well');
   const status = read('panel/status.js');
   assert.doesNotMatch(status, /stDark/, 'one issues list on Status');
-  assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
+  assert.match(status, /statusIssues\(lit\.cls === 'warn' \? '' : darkMessage\(zeroNames\)/, 'a dark verdict is its own card');
 });
 
 test('Everything is the one term, and the Runs group says why runs are missing', async () => {
@@ -805,8 +805,8 @@ test('B64: Apply reports what really happened, and the chip says so too', async 
   assert.equal(r.warn, true);
   assert.match(r.text, /but they stay dark\. Yard is at 0% brightness/);
   const chip = mapStatus({ connected: true, show: 'house', preview: { previewing: false }, target: false, lit: none });
-  assert.equal(chip.text, 'Lights: nothing lit');
-  assert.equal(chip.detail, '');
+  assert.equal(chip.text, 'Lights: dark');
+  assert.equal(chip.detail, ', zones at 0%');
   assert.equal(mapStatus({ connected: true, show: '', preview: { previewing: true }, target: false, lit: none }).text, 'Showing your preview', 'a preview on the map is still a preview');
   assert.doesNotMatch(read('panel/looks.js'), /S\.toast\(`Applied \$\{list/, 'no success toast before the brightness is known');
 });
@@ -1155,7 +1155,7 @@ test('B75: the dark warning is said once on a screen', async () => {
   assert.doesNotMatch(read('app.js'), /darkInPanel/, 'the chip says the same with or without the tab\'s warning');
   // Status: the verdict carries the fix instead of a card repeating it.
   const status = read('panel/status.js');
-  assert.match(status, /renderIssues\(st\.solve\.warnings \|\| \[\], isDark \? '' : dark\)/);
+  assert.match(status, /statusIssues\(lit\.cls === 'warn' \? '' : darkMessage\(zeroNames\)/, 'a dark verdict is its own card');
   // A failed refresh: the now-line says so; the lane doesn't say it again.
   assert.match(read('panel/looks.js'), /S\.houseStatus === 'available' \|\| S\.houseRead \? null : houseState/);
 });
@@ -1270,10 +1270,10 @@ test('B83: the chip says nothing is lit the same way everywhere, quietly, and ne
   const base = { connected: true, show: '', target: false, preview: { previewing: false } };
   // Apply at 0%: one layer in a zone at 0.
   const atZero = mapStatus({ ...base, lit: lightOutcome(geo, dark, [[[0, 4]]], true) });
-  assert.equal(atZero.text, 'Lights: nothing lit');
+  assert.equal(atZero.text, 'Lights: dark');
   assert.equal(atZero.cls, 'unlit', 'neutral: the panel has the warning');
   assert.notEqual(atZero.cls, 'house');
-  assert.equal(atZero.detail, '', 'the chip is quiet about which zones: the tab says that once');
+  assert.equal(atZero.detail, ', zones at 0%', 'says why, not which: the tab names them');
   // Partly lit, and nothing on the lights at all.
   assert.equal(mapStatus({ ...base, lit: lightOutcome(geo, dark, [[[0, 4]], [[20, 29]]], true) }).text, 'Lights: partly lit');
   const empty = mapStatus({ ...base, lit: lightOutcome(geo, { master: 1, zones: { a: 1, b: 1 } }, [], true) });
@@ -1282,7 +1282,8 @@ test('B83: the chip says nothing is lit the same way everywhere, quietly, and ne
   // Before the first reading the chip doesn't claim either way.
   assert.equal(mapStatus({ ...base, lit: lightOutcome(geo, dark, [], false) }).text, 'Showing the lights');
   assert.match(badgeHTML(empty, true), /class="detail">no looks on them</, 'a phone stacks what detail there is');
-  assert.equal(badgeHTML(atZero), '<span>Lights: nothing lit<span class="detail"></span></span>');
+  assert.equal(badgeHTML(atZero), '<span>Lights: dark<span class="detail">, zones at 0%</span></span>');
+  assert.match(badgeHTML(atZero, true), /class="detail">zones at 0%</, 'stacked, without the comma');
   assert.doesNotMatch(css, /\.brand, \.badge \.detail \{ display: none/, 'the detail isn\'t hidden on a phone');
 });
 
@@ -1958,7 +1959,8 @@ test('B105: a controller fault leads the verdict, ahead of dark zones and warnin
   assert.equal(faultLine(['a', 'b', 'c', 'd'], { a: down, b: down, c: down, d: down }), '4 controllers unreachable', 'a long list is a count');
   const unlit = { cls: '', text: 'Nothing is lit: no looks are on the lights' }, dark = { cls: 'warn', text: 'Partly lit: porch at 0%' }, lit = { cls: 'ok', text: 'Lit: 1 look on the lights' };
   assert.deepEqual(headline(unlit, '1 controller unreachable: B', 2), { cls: 'bad', text: '1 controller unreachable: B', second: unlit.text });
-  assert.deepEqual(headline(dark, '', 2), { cls: 'warn', text: dark.text, second: '' }, 'dark zones outrank warnings');
+  assert.deepEqual(headline(dark, '', 2), { cls: 'warn', text: dark.text, second: '2 warnings to check below' }, 'dark zones outrank warnings, and the count stays');
+  assert.deepEqual(headline(dark, '', 0), { cls: 'warn', text: dark.text, second: '' });
   assert.deepEqual(headline(lit, '', 2), { cls: 'warn', text: '2 warnings to check below', second: lit.text });
   assert.deepEqual(headline(lit, '', 0), { cls: 'ok', text: lit.text, second: '' });
 });
@@ -2057,6 +2059,19 @@ test('wiring marks: the output number has a dark disc to sit on, and the chip cl
   assert.match(read('overlay.js'), /ring\(q, 11, `rgb\(\$\{o\.color\}\)`, 2, null, 'rgba\(0,0,0,\.8\)'\)/);
   assert.match(read('overlay.js'), /600 13px/);
   assert.match(css, /\.crumbs \.x \{ display: inline-flex; align-items: center; justify-content: center;/);
+});
+
+test('B113: the Status count comes from the same list as the cards', async () => {
+  const { statusIssues, headline } = await import('./static/panel/status.js');
+  const spacing = { summary: 'Run 1 spacing differs', detail: 'x', fix: null };
+  const cards = statusIssues('Porch is at 0% brightness, so nothing shows there.', [spacing]);
+  assert.equal(cards.length, 2, 'two warning cards');
+  assert.equal(headline({ cls: 'ok', text: 'Lit: 1 look on the lights' }, '', cards.length).text, '2 warnings to check below');
+  assert.equal(statusIssues('', [spacing]).length, 1, 'a dark verdict has no card of its own');
+  assert.equal(cards[0].darkZones, true, 'most urgent first');
+  const status = read('panel/status.js');
+  assert.match(status, /id="stTurnOn">\$\{icon\('sun'\)\}\$\{esc\(turnOnLabel\(zeroNames\)\)\}/, 'the brightness card has the Turn on action');
+  assert.match(status, /renderIssues\(issues, /, 'drawn from the list the headline counted');
 });
 
 test('B114: library cards are one height, with the name in two lines and the subtitle on a fixed row', () => {

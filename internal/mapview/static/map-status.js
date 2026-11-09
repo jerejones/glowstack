@@ -38,7 +38,11 @@ export function mapStatus({ connected, connecting = false, show, preview, target
     return { ...toggle, text: 'Showing your preview', detail: preview.paused ? ' · paused' : '', cls: 'preview', title: 'The map shows your preview, not the lights' };
   }
   if (!fresh) return { ...toggle, text: 'Lights: state unknown', detail: '', cls: 'mode', title: "The last reading of the lights failed, so the map may not match them." };
-  if (lit?.dark) return { ...toggle, text: lit.dark === 'none' ? 'Lights: nothing lit' : 'Lights: partly lit', detail: lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message };
+  // Looks are on the lights and dark zones hide them: say that, not "nothing lit".
+  if (lit?.dark) {
+    const zones = !lit.empty && lit.zones.length > 0;
+    return { ...toggle, text: lit.dark === 'none' ? (zones ? 'Lights: dark' : 'Lights: nothing lit') : 'Lights: partly lit', detail: zones ? ', zones at 0%' : lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message };
+  }
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
 }
 
@@ -57,6 +61,6 @@ export function showButton(choice, { ready, failed, canPreview, word }) {
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.
 export function badgeHTML(m, stacked = false) {
-  if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^ · /, ''))}</span></span>`;
+  if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span></span>`;
   return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }

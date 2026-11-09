@@ -92,11 +92,11 @@ export function lightsVerdict(g, st, layers) {
   if (!st.layers) return { cls: '', text: 'Nothing is lit: no looks are on the lights' };
   const zones = g.zones.filter((z) => b.zones?.[z.id] === 0);
   const dark = normRanges(zones.flatMap((z) => g.areas.find((a) => a.id === z.area)?.ranges || []));
-  const look = plural(st.layers, 'look');
+  const look = plural(st.layers, 'look'), darkLine = (n) => `Lights are dark: ${plural(n, 'zone')} at 0%`;
   if (!zones.length) return { cls: 'ok', text: `Lit: ${look} on the lights` };
-  if (!layers) return zones.length === g.zones.length ? { cls: 'warn', text: 'Nothing is lit: every zone is at 0%' } : { cls: 'warn', text: `Partly lit: ${joined(zones.map((z) => z.name || z.id))} at 0%` };
+  if (!layers) return zones.length === g.zones.length ? { cls: 'warn', none: true, text: darkLine(zones.length) } : { cls: 'warn', text: `Partly lit: ${joined(zones.map((z) => z.name || z.id))} at 0%` };
   const shown = layers.filter((r) => !r || !covers(dark, normRanges(r)));
-  if (!shown.length) return { cls: 'warn', text: 'Nothing is lit: the zones in use are at 0%' };
+  if (!shown.length) return { cls: 'warn', none: true, text: darkLine(darkZones(g, b, layers.flatMap((r) => r || [])).length) };
   const hit = darkZones(g, b, layers.flatMap((r) => r || []));
   return hit.length ? { cls: 'warn', text: `Partly lit: ${joined(hit)} at 0%` } : { cls: 'ok', text: `Lit: ${look} on the lights` };
 }
@@ -118,11 +118,18 @@ export function faultLine(ids, health, name = (id) => id) {
 
 // headline is the verdict, ranked: controller faults, then dark zones, then
 // run warnings, then all well. What it outranks becomes the second line.
+// warnings counts the cards below it, the dark zones' own card included.
 export function headline(lit, fault, warnings = 0) {
+  const toCheck = `${plural(warnings, 'warning')} to check below`;
   if (fault) return { cls: 'bad', text: fault, second: lit.text };
-  if (lit.cls === 'warn' || !warnings) return { cls: lit.cls, text: lit.text, second: '' };
-  return { cls: 'warn', text: `${plural(warnings, 'warning')} to check below`, second: lit.text };
+  if (lit.cls === 'warn') return { cls: lit.cls, text: lit.text, second: warnings ? toCheck : '' };
+  if (!warnings) return { cls: lit.cls, text: lit.text, second: '' };
+  return { cls: 'warn', text: toCheck, second: lit.text };
 }
+
+// statusIssues is the one list of warning cards, most urgent first. The
+// headline counts it and renderIssues draws it, so the two can't disagree.
+export const statusIssues = (dark, list) => groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null, darkZones: true }] : []), ...list]);
 
 // powerSummary is the power estimate in words: name(id) reads a
 // controller. An output with no LED current is unknown, never zero, and
@@ -284,17 +291,16 @@ export function createStatus(S, root) {
   // words, each with its fix. It redraws only when they change, so an open
   // disclosure survives the poll.
   let shownIssues = '';
-  function renderIssues(list, dark) {
-    const key = dark + list.join('\n');
+  function renderIssues(items, zeroIds, zeroNames) {
+    const key = JSON.stringify(items.map((it) => [it.summary, it.detail])) + zeroIds.join();
     if (key === shownIssues) return;
     shownIssues = key;
-    // Most urgent first: nothing lit before a run that's a little off.
-    const items = groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null }] : []), ...list.map((w) => warningSummary(g, w))]);
     const row = (it, i) => it.group
       ? `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div><ul class="issue-list">${it.group.map((one, j) => `<li><span>${esc(one.summary)}</span><button type="button" class="icon-btn" data-fix="${i}" data-one="${j}">${one.fix.run ? icon('target') : ''}${esc(one.fix.label)}</button></li>`).join('')}</ul></li>`
-      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
+      : `<li class="issue"><div class="issue-text">${icon('alert')}<span>${esc(it.summary)}</span></div>${it.darkZones && zeroIds.length ? `<div class="issue-acts"><button type="button" class="icon-btn" id="stTurnOn">${icon('sun')}${esc(turnOnLabel(zeroNames))}</button></div>` : ''}${it.fix ? `<div class="issue-acts"><button type="button" class="icon-btn" data-fix="${i}">${it.fix.run ? icon('target') : ''}${esc(it.fix.label)}</button><details><summary>Details</summary><p class="plain" title="${esc(it.detail)}">${esc(it.plain)}</p></details></div>` : ''}</li>`;
     const box = $$('#stIssues');
     box.innerHTML = items.length ? `<ul class="issues">${items.map(row).join('')}</ul>` : '';
+    if (box.querySelector('#stTurnOn')) $$('#stTurnOn').onclick = () => turnOnZones(S, api, zeroIds, zeroNames);
     for (const b of box.querySelectorAll('[data-fix]')) {
       const item = items[+b.dataset.fix];
       const { fix } = item.group ? item.group[+b.dataset.one] : item;
@@ -322,13 +328,16 @@ export function createStatus(S, root) {
     const lit = g.mapless ? maplessVerdict(st) : lightsVerdict(g, st, S.houseStatus === 'available' ? S.house.map((l) => targetRanges(g, S.tree, l.target)) : null);
     $$('#stBody').hidden = false;
     $$('#stRunsBox').hidden = !!g.mapless; // run lengths are the map's
-    const shownWarnings = groupIssues((st.solve.warnings || []).map((w) => warningSummary(g, w))).length;
-    const head = headline(lit, faultLine(g.controllers.map((c) => c.id), st.health, (id) => controllerName(g, id)), shownWarnings);
+    const zero = g.zones.filter((z) => st.brightness?.zones?.[z.id] === 0);
+    const zeroNames = zero.map((z) => z.name || z.id);
+    // A dark verdict says it itself, with its own Turn on: no second card.
+    const issues = statusIssues(lit.cls === 'warn' ? '' : darkMessage(zeroNames), (st.solve.warnings || []).map((w) => warningSummary(g, w)));
+    const head = headline(lit, faultLine(g.controllers.map((c) => c.id), st.health, (id) => controllerName(g, id)), issues.length);
     $$('#stVerdict').className = `verdict ${head.cls}`;
     // The verdict says why and what to do: no second card for the same thing.
     const isDark = lit.cls === 'warn';
     // The effective result comes first; the controllers only say the wire works.
-    const nothingLit = lit.text.startsWith('Nothing is lit');
+    const nothingLit = lit.none || lit.text.startsWith('Nothing is lit');
     $$('#stCtlNote').hidden = !nothingLit;
     if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
     $$('#stVerdict').innerHTML = `<span>${esc(head.text)}</span>${head.second ? `<small>${esc(head.second)}</small>` : ''}`;
@@ -339,7 +348,6 @@ export function createStatus(S, root) {
     $$('#stHealth').title = 'Whether Glowstack can reach each controller over the network';
     const readAt = staleSince ? new Date(lastAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
     $$('#stHealth').innerHTML = `${mark(health.cls === 'ok' && !readAt ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle')}<span>${esc(asOf(health.text, readAt))}</span>`;
-    const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
     // Facts about the installation, once: the verdict above answers the question.
     $$('#stStats').textContent = [`${count(st.solve.pixels)} lights`, `${plural(st.preview_layers, 'look')} in preview`, `Up ${readableDuration(st.uptime)}`].join(' · ');
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
@@ -402,7 +410,7 @@ export function createStatus(S, root) {
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });
     markOffline();
 
-    renderIssues(st.solve.warnings || [], isDark ? '' : dark);
+    renderIssues(issues, zero.map((z) => z.id), zeroNames);
     S.refreshBadge?.();
   }
 
