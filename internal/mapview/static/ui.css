@@ -103,6 +103,8 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* Loading, error and empty, the same on every panel. */
 .state { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; margin: 10px 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+.state > .icon { color: var(--muted); }
+.state.error > .icon { color: var(--bad); }
 .state-text { flex: 1; min-width: 12em; display: grid; gap: 2px; }
 .state-text span { color: var(--muted); font-weight: 400; }
 .verdict .state { font-size: var(--t-m); font-weight: 400; color: var(--fg); }
@@ -288,6 +290,8 @@ input[type=checkbox]:checked::after {
 .sw.diamond { transform: rotate(45deg) scale(0.85); border-radius: 1px; }
 .key { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; }
 .key > span { white-space: nowrap; }
+.key-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.key-row > span { white-space: nowrap; }
 
 .toasts {
   position: absolute; z-index: 6; left: 50%; transform: translateX(-50%); bottom: 12px; /* app.js keeps it above what's on the map's bottom edge */
@@ -382,8 +386,7 @@ input[type=checkbox]:checked::after {
   .map-error { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
   /* Chip and toggle share one row at the top at every detent, so the toggle
    * never moves as the sheet does, and framing keeps the map below it. */
-  .brand { display: none; }
-  .badge { max-width: calc(100% - 160px); }
+  .badge { max-width: calc(100% - 216px); }
   .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .crumbs::-webkit-scrollbar { display: none; }
@@ -392,7 +395,7 @@ input[type=checkbox]:checked::after {
    * at the top. Setup's half sheet has its own copy; a full sheet has no room. */
   .legend { display: none; left: 8px; right: 8px; bottom: calc(var(--sheet-visible) + 8px); max-width: none; max-height: 124px; }
   .legend-rows { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
-  .legend-rows > .ramp, .legend-rows > .row, .legend-rows > .key, .legend-rows > .label-note, .legend-rows > div:first-child { flex: 0 0 100%; }
+  .legend-rows > .ramp, .legend-rows > .row, .legend-rows > .key, .legend-rows > .key-row, .legend-rows > .label-note, .legend-rows > div:first-child { flex: 0 0 100%; }
   body[data-detent=peek]:not(.calibrating) .legend, :root:not([data-tab=setup]) body[data-detent=half]:not(.calibrating) .legend { display: flex; }
   /* The sheet's half detent is short: the looks come first. */
   .tab h1.title, .tab .looks-head, .tab .library-heading { margin-top: 16px; }
@@ -511,7 +514,7 @@ button.place { min-width: 0; padding: 2px 8px; background: transparent; }
 .group-head { margin: 10px 0 6px; }
 .bar-note { margin: 0; color: var(--muted); font-size: var(--t-help); }
 .bar-note.warn { color: #fcd9a5; }
-.look-acts { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
+.look-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
 .look-acts #lkClear { margin-right: auto; }
 .clock-box { margin: 10px 0; }
 .clock-box:not([open]) .t, .clock-box[open] .clock-hint { display: none; }

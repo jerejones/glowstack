@@ -376,3 +376,7 @@ export async function copyText(text) {
   if (!ok) prompt('Copy these camera settings:', text);
   return ok;
 }
+
+// noOrphan joins a long name's last two words, so that when it wraps the last
+// word isn't left alone on a line. Short names are left free to break.
+export const noOrphan = (name) => (/\S \S+ \S+$/.test(name) && name.split(' ').slice(-2).join(' ').length <= 16 ? name.replace(/ (\S+)$/, '\u00a0$1') : name);

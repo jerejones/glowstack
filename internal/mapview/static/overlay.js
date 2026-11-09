@@ -226,13 +226,17 @@ export function createOverlay(S) {
         : '<div class="muted">No zones.</div>';
       return { rgb: out, legend };
     }
-    // outputs
-    let html = '<div class="muted">Rings mark where each output starts</div>', ctrl = '';
+    // outputs: one line per controller, a numbered swatch per output.
+    const byController = new Map();
     for (const o of outputs()) {
       if (S.visibility && !S.visibility.pixels.subarray(o.first, o.last + 1).some(Boolean)) continue;
       for (let p = o.first; p <= o.last; p++) out.set(o.color, 3 * p);
-      if (o.controller !== ctrl) { ctrl = o.controller; html += `<div><b>${esc(controllerName(g, ctrl))}</b></div>`; }
-      html += `<div><span class="sw" style="background:rgb(${o.color})"></span>${esc(outputName(o))}: ${count(o.count)} lights</div>`;
+      byController.set(o.controller, [...(byController.get(o.controller) || []), o]);
+    }
+    let html = '<div class="muted">Rings mark where each output starts</div>';
+    for (const [id, list] of byController) {
+      const name = controllerName(g, id);
+      html += `<div class="key-row"><b>${esc(name)}</b>${list.map((o) => `<span title="${esc(`${name} ${outputName(o)}: ${count(o.count)} lights`)}"><i class="sw" style="background:rgb(${o.color})"></i>${o.output}</span>`).join('')}</div>`;
     }
     return { rgb: out, legend: html };
   }

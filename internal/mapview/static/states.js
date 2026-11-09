@@ -10,7 +10,7 @@ import { icon } from './icons.js';
 
 export function stateHTML({ kind = 'empty', title, detail = '', retry = false, action = null }) {
   const live = kind === 'error' ? 'alert' : 'status';
-  return `<div class="state ${esc(kind)}" role="${live}">${kind === 'loading' ? '<span class="spinner" aria-hidden="true"></span>' : ''}<div class="state-text"><b>${esc(title)}</b>${detail ? `<span>${esc(detail)}</span>` : ''}</div>${action ? `<button type="button" class="go" id="${esc(action.id)}">${esc(action.label)}</button>` : ''}${retry ? '<button type="button" data-retry>Retry</button>' : ''}</div>`;
+  return `<div class="state ${esc(kind)}" role="${live}">${kind === 'loading' ? '<span class="spinner" aria-hidden="true"></span>' : icon(kind === 'error' ? 'alert' : 'info')}<div class="state-text"><b>${esc(title)}</b>${detail ? `<span>${esc(detail)}</span>` : ''}</div>${action ? `<button type="button" class="go" id="${esc(action.id)}">${esc(action.label)}</button>` : ''}${retry ? '<button type="button" data-retry>Retry</button>' : ''}</div>`;
 }
 
 // warningHTML is the one way a panel warns: the same card as Status's list.

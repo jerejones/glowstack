@@ -10,7 +10,7 @@
 // applying the copy promotes it and then removes the original, in that
 // order, so the lights are never without the look. The preview clock
 // is a line at the bottom that opens to its controls.
-import { post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
+import { post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize, noOrphan } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
 import { houseStatusMessage, lightOutcome, BRIGHTNESS_RULE } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
@@ -229,6 +229,7 @@ export function createLooks(S, root) {
       <p class="bar-note" id="lkBarNote" hidden></p>
       <div class="look-acts">
         <button type="button" id="lkClear" class="quiet icon-btn" title="Take everything off the preview; the lights don't change"></button>
+        <button type="button" id="lkToPreview" class="quiet icon-btn" hidden title="Back to the preview's cards">${icon('eye')}Go to preview</button>
         <button type="button" id="lkAdd" class="quiet icon-btn" hidden title="Put this on the lights above what's already there">${icon('plus')}Add on top</button>
         <button type="button" class="go icon-btn" id="lkPushAll">${icon('check')}Apply to lights</button>
       </div>
@@ -360,7 +361,7 @@ export function createLooks(S, root) {
     b.type = 'button';
     b.className = 'preset';
     b.title = title || name;
-    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(name)}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}<span>Previewing</span></span>`;
+    b.innerHTML = `<span class="strip" style="background:${esc(strip)}"></span><span class="name">${esc(noOrphan(name))}</span><span class="sub">${esc(sub)}</span><span class="in-badge">${icon('check')}<span>Previewing</span></span>`;
     b.dataset.look = look;
     b.onclick = onclick;
     return b;
@@ -516,7 +517,7 @@ export function createLooks(S, root) {
     c.layer = l;
     const el = c.el;
     el.style.setProperty('--acc', c.lane === 'preview' ? 'var(--preview)' : 'var(--house)');
-    el.querySelector('.what b').textContent = layerName(S, l);
+    el.querySelector('.what b').textContent = noOrphan(layerName(S, l));
     // A preview layer's place is a control; on the lights it's a fact.
     const placeName = targetName(g, l.target), placeBtn = el.querySelector('.place');
     if (placeBtn) placeBtn.innerHTML = `<span class="muted">Goes on</span><b>${esc(placeName)}</b>${icon('chevronDown')}`;
@@ -693,10 +694,19 @@ export function createLooks(S, root) {
       else content.style.setProperty('--look-bar', bar.offsetHeight + 'px');
     });
   }
+  // syncToPreview offers the way back when the grids have pushed the preview's
+  // cards far down the side panel. A phone's sheet already leads with them.
+  function syncToPreview() {
+    $$('#lkToPreview').hidden = S.panel.layout() === 'sheet' || !($$('#lkEffects').open || $$('#lkOtherPresets').open);
+  }
+  $$('#lkToPreview').onclick = () => { const first = $$('#lkPreview .list .layer'); if (first) { reveal(first, true); flash(first); } };
+  for (const d of [$$('#lkEffects'), $$('#lkOtherPresets')]) d.addEventListener('toggle', syncToPreview);
+  S.on('layout', syncToPreview);
   let prevBar = false, hadPreview = false;
   function renderBar(prev, darkShown = false) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
+    syncToPreview();
     syncBarInset();
     if (bar.hidden !== !prevBar) { prevBar = !bar.hidden; S.panel.refit(); }
     if (!prev.length) return;

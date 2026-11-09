@@ -1901,6 +1901,27 @@ test('server messages read in place names, even for ids with no name', async () 
   assert.equal(warningSummary(g, 'run shed-eave: something else changed').summary, 'Shed eave: something else changed');
 });
 
+test('polish: no orphaned last word, brand on phones, state icons, a short wiring key', async () => {
+  const { noOrphan } = await import('./static/util.js');
+  assert.equal(noOrphan('Candy cane stripes'), 'Candy cane\u00a0stripes');
+  assert.equal(noOrphan('Warm white'), 'Warm white');
+  assert.equal(noOrphan('Very long lantern extravaganza'), 'Very long lantern extravaganza', 'too wide to join');
+  assert.doesNotMatch(css, /max-width: 699\.98px\)[^{]*\{[^}]*\.brand \{ display: none/);
+  const { stateHTML } = await import('./static/states.js');
+  assert.match(stateHTML({ kind: 'error', title: 'x' }), /class="state error"[^>]*><svg/);
+  assert.match(stateHTML({ kind: 'empty', title: 'x' }), /class="state empty"[^>]*><svg/);
+  assert.doesNotMatch(stateHTML({ kind: 'loading', title: 'x' }), /<svg/);
+  const overlay = read('overlay.js');
+  assert.match(overlay, /class="key-row"/);
+  assert.doesNotMatch(overlay, /\$\{count\(o\.count\)\} lights<\/div>/, 'one line per controller, not per output');
+});
+
+test('Desktop: with the grids open the preview stays one press away', () => {
+  const looks = read('panel/looks.js');
+  assert.match(looks, /id="lkToPreview"[^>]*hidden/);
+  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' \|\| !\(\$\$\('#lkEffects'\)\.open/);
+});
+
 test('a place that reads Everything is everything, even when one zone holds every light', async () => {
   const { nodeTarget } = await import('./static/select.js');
   assert.equal(nodeTarget({ members: [{ kind: 'run', id: 'r' }, { kind: 'area', id: 'a' }, { kind: 'zone', area: 'a' }, { kind: 'all' }] }), 'all');
