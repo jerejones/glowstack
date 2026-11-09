@@ -685,7 +685,7 @@ test('fine-detail layers are named, not guessed from the rest', async () => {
 });
 
 test('the map model is dim so the lights lead', () => {
-  assert.match(read('scene.js'), /lines: \{ color: '#cfe3ff', opacity: 0\.2 \}/);
+  assert.match(read('scene.js'), /lines: \{ color: '#d9e8ff', opacity: 0\.28 \}/);
 });
 
 test('B53: a failed refresh keeps the last state on Looks and says so', async () => {
@@ -1195,4 +1195,59 @@ test('calibrate key: each entry is drawn as the map draws it', () => {
   assert.match(src, /sw dot/);
   assert.match(src, /sw diamond/);
   assert.match(src, /ring\(q, 8, measured \? '#5ddc8a' : '#ffb347', 2, measured \? null : \[3, 3\]\)/);
+});
+
+test('Setup leads with Calibrate and the color mode, and tucks the model behind Advanced', () => {
+  const src = read('panel/setup.js');
+  const at = (t) => src.indexOf(t);
+  assert.ok(at('id="suCal"') < at('Color the map by') && at('Color the map by') < at('Which lights to show'), 'the order on the page');
+  const adv = /<details id="suAdvanced">[\s\S]*?<\/details>/.exec(src)[0];
+  assert.match(adv, /id="suModel"/);
+  assert.match(adv, /id="suCamera"/);
+  assert.match(css, /#suLayers > button \{[^}]*white-space: nowrap/, 'chip labels stay on one line');
+});
+
+test('polish 10: at half, the sheet settles between Setup controls', async () => {
+  const { halfSpill } = await import('./static/panel/setup.js');
+  assert.equal(halfSpill([{ top: 0, bottom: 40 }, { top: 50, bottom: 90 }], 45), 0, 'between rows');
+  assert.equal(halfSpill([{ top: 0, bottom: 40 }, { top: 50, bottom: 90 }], 70), 28, 'to the bottom of the cut row, with a margin');
+  assert.equal(halfSpill([{ top: 0, bottom: 300 }], 70), 0, 'a row too tall to settle on is left alone');
+  assert.equal(halfSpill([{ top: 60, bottom: 140 }], 70), -18, 'a far bottom settles above the row instead');
+});
+
+test('polish: plain labels and counts', async () => {
+  const { controllerFact } = await import('./static/panel/status.js');
+  assert.deepEqual(controllerFact({ reachable: true, sending: true }), { text: 'Sending', cls: 'ok' });
+  assert.deepEqual(controllerFact({ reachable: false, sending: true }), { text: 'Unreachable', cls: 'bad' });
+  assert.equal(controllerFact({ reachable: true, sending: false }).text, 'Output off');
+  assert.equal(controllerFact(null).text, 'No report');
+  const status = read('panel/status.js'), cal = read('panel/calibrate.js');
+  assert.match(status, /st\.layers === 1 \? 'look' : 'looks'\} on the lights/);
+  assert.doesNotMatch(status, /'sending'\)/);
+  assert.match(cal, /const BETWEEN = 'Between runs'/);
+  assert.match(cal, /test bands across a whole controller/);
+  assert.match(cal, /Find either end of a run/);
+});
+
+test('polish: type, primary green and wiring colors', async () => {
+  const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const go = /--go: (#[0-9a-f]{6})/.exec(css)[1];
+  assert.ok(1.05 / (lum(go) + 0.05) >= 6, `white on ${go} is at least 6:1`);
+  assert.match(css, /--t-note: 13px/);
+  assert.match(css, /\.error, \.err, \.field-err \{ color: #fca5a5; font-size: var\(--t-note\)/);
+  const { nthColor } = await import('./static/util.js');
+  // No two colors in the first 16 may be close enough to be taken for each other.
+  const near = [];
+  for (let a = 0; a < 16; a++) for (let b = a + 1; b < 16; b++) {
+    const [x, y] = [nthColor(a), nthColor(b)];
+    if (Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) < 40) near.push([a, b]);
+  }
+  assert.deepEqual(near, []);
+});
+
+test('polish: a preset row previews like a Looks card and its icons agree', () => {
+  const src = read('panel/presets.js');
+  assert.match(src, /querySelector\('\.preset-body'\)\.onclick = \(\) => S\.looks\.push/);
+  assert.match(src, /icon\('eye'\)/);
+  assert.match(read('panel/looks.js'), /className = 'target-group'/, 'places are grouped');
 });

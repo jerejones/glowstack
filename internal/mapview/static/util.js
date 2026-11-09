@@ -118,9 +118,15 @@ export function spacingColor(s) {
   if (x < 0) return [Math.round(w + (40 - w) * -x), Math.round(w + (110 - w) * -x), 255];
   return [255, Math.round(w + (60 - w) * x), Math.round(w + (50 - w) * x)];
 }
-export const PALETTE = [[255, 179, 71], [93, 220, 138], [96, 165, 250], [244, 114, 182], [250, 204, 21], [167, 139, 250], [45, 212, 191], [251, 113, 133]];
-// nthColor is the palette, then golden-angle hues past its end.
-export const nthColor = (i) => i < PALETTE.length ? PALETTE[i] : hsl((i * 137.508) % 360, 0.75, 0.6);
+export const PALETTE = [[249, 115, 22], [93, 220, 138], [96, 165, 250], [244, 114, 182], [250, 204, 21], [167, 139, 250], [45, 212, 191], [251, 113, 133]];
+// nthColor is the palette, then golden-angle hues past its end. Those step
+// over the orange-yellow band, where hues are hard to tell apart, and vary in
+// lightness so that a hue coming round again is still a different color.
+export const nthColor = (i) => {
+  if (i < PALETTE.length) return PALETTE[i];
+  const h = (i * 137.508) % 360;
+  return hsl(h >= 15 && h < 70 ? h + 75 : h, 0.75, [0.45, 0.6, 0.72][i % 3]);
+};
 
 // parseColor reads "#rrggbb" or "#rrggbb/ww" (W is the strips' warm
 // white). null if it's neither.

@@ -18,8 +18,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { load, save, clamp, nearestRun } from './util.js';
 
 const DEFAULTS = {
-  lines: { color: '#cfe3ff', opacity: 0.2 }, // quiet: the lights lead
-  surfaces: { color: '#4b6a9a', opacity: 0.04 },
+  lines: { color: '#d9e8ff', opacity: 0.28 }, // quiet: the lights lead
+  surfaces: { color: '#3f5a86', opacity: 0.1 }, // a fill the outlines read against
 };
 const LAYERS = 'glowstack.layers';     // model layer visibility, per device
 const CAMERA = 'glowstack.camera';     // the remembered camera, per device

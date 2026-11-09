@@ -23,9 +23,9 @@
   --card: #15181d;
   --card2: #1c2027;
   --accent: #7cc4ff;     /* interaction; amber is only ever a warning */
-  --go: #15803d;         /* white text: 5.0:1 */
-  --go-hover: #166534;
-  --go-active: #14532d;
+  --go: #147238;         /* white text: 6.0:1 */
+  --go-hover: #116030;
+  --go-active: #0f4f28;
   --bad: #ef4444;
   --warn: #f5a524;
   --preview: #b69cff;
