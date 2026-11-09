@@ -4,7 +4,7 @@
 
 // The Setup tab: how the map is drawn and set up. Calibration (with how
 // many anchors are measured), the overlay chips and their legend, the
-// model's drawing layers, the plan, the camera (named views, Default,
+// model's drawing layers, the plan, the camera (Default,
 // Copy view), the stream rate, and the runs the plan or
 // model doesn't draw.
 import { $, esc, copyText, save, load, press, failure, plural, count, humanize } from '../util.js';
@@ -73,7 +73,7 @@ export function createSetup(S, root) {
       <h3 class="sub">Parts of the model</h3><div class="chips toggles" id="suLayers"></div><div class="muted small help">Turn pieces of the 3-D drawing on or off. They change the map only.</div></div>
     <div id="suPlanRow" hidden><h3 class="sub">Plan</h3><select id="suPlan" aria-label="Plan">${g.plans.map((p, i) => `<option value="${i}">${esc(p.name)} (${esc(p.kind)})</option>`).join('')}</select></div>
     <div id="suCamera" hidden>
-      <h3 class="sub">Camera <small id="suCamMode"></small></h3>
+      <h3 class="sub">Camera</h3>
       <div class="row">
         <button type="button" id="suDefault" title="Forget this device's camera and go back to the site's view">Default</button>
         <button type="button" id="suCopy" class="icon-btn" title="Copy this camera's position as text">${icon('copy')}Copy camera position</button>
@@ -219,9 +219,6 @@ export function createSetup(S, root) {
     const ok = await copyText(S.view.copyView());
     if (ok) { b.lastChild.textContent = 'Copied'; setTimeout(() => { b.lastChild.textContent = 'Copy camera position'; }, 1500); }
   };
-  S.on('camera', (st) => {
-    $$('#suCamMode').textContent = { street: 'street view', overhead: 'overhead', free: 'where you left it', fit: 'fitted' }[st.mode] || '';
-  });
 
   // ---------- stream ----------
   function renderRate() {

@@ -1978,3 +1978,9 @@ test('B105: a controller fault leads the verdict, ahead of dark zones and warnin
   assert.deepEqual(headline(lit, '', 2), { cls: 'warn', text: '2 warnings to check below', second: lit.text });
   assert.deepEqual(headline(lit, '', 0), { cls: 'ok', text: lit.text, second: '' });
 });
+
+test('camera: no Overhead code and no named-view text is left', () => {
+  const scene = read('scene.js');
+  assert.doesNotMatch(scene, /overhead|named view|named\(/i);
+  assert.doesNotMatch(read('panel/setup.js'), /overhead|suCamMode|named views/);
+});

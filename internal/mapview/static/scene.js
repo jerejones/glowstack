@@ -6,7 +6,7 @@
 // the WebGL canvas: the building (see-through lines over faint
 // surfaces), every pixel as one Points object whose color buffer is
 // updated per frame, a translucent halo along the selected pixels,
-// and the camera: computed framing, named views and the camera
+// and the camera: computed framing, the site's view, Fit and the camera
 // remembered per device. Picking is on demand: pixels and runs are
 // projected to the screen only when a tap or hover asks.
 //
@@ -307,9 +307,9 @@ export async function open(glCanvas, input, opts) {
 
   const v = opts.map.view || null;
   const viewFov = (v && v.fov) || 40;
-  // cam is how the camera was set: by a named view or Fit (auto: framed
+  // cam is how the camera was set: the site's view or Fit (auto: framed
   // again whenever the viewport changes) or by the user (free).
-  const cam = { mode: 'street', auto: true, fov: viewFov, ...named('street') };
+  const cam = { mode: 'street', auto: true, fov: viewFov, ...siteView() };
   let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0;
   let version = 0; // bumps when the projection changes
 
@@ -373,12 +373,12 @@ export async function open(glCanvas, input, opts) {
     changed();
   }
 
-  // frame applies cam (a named view or Fit) for the current viewport.
+  // frame applies cam (the site's view or Fit) for the current viewport.
   function frame() {
     project();
     const target = cam.target ? cam.target.clone() : box.getCenter(new THREE.Vector3());
     let d = Math.max(fitDistance(cam.dir, target, corners()), cam.minDist);
-    // A view chosen by name centers the lights in what's left of the map; a
+    // The site's view and Fit center the lights in what's left of the map; a
     // camera someone placed stays where they put it. Perspective makes the
     // middle move as the distance does, so this settles over a few passes.
     const lights = cam.auto ? litPoints() : [];
@@ -396,10 +396,9 @@ export async function open(glCanvas, input, opts) {
     place(cam.dir, target, d);
   }
 
-  // views: the site's configured view (Street), straight down with
-  // north up (Overhead).
-  function named(name) {
-    if (name === 'overhead') return { dir: toThree([0, -0.001, 1]).normalize(), target: null, minDist: 0 };
+  // siteView is the configured angle. frame centers the lights, so a view's
+  // `to` doesn't set the opening view's center.
+  function siteView() {
     if (v && v.direction) return { dir: toThree(v.direction).normalize(), target: v.to ? toThree(v.to) : null, minDist: 0 };
     if (v && v.from && v.to) {
       // The old absolute form: its camera, unless the house wouldn't fit.
@@ -457,19 +456,10 @@ export async function open(glCanvas, input, opts) {
   controls.addEventListener('end', () => { grab = null; });
 
   function setView(name) {
-    if (name === 'free') {
-      const f = load(FREE, null);
-      if (!f) return;
-      cam.mode = 'free'; cam.auto = false; cam.fov = f.fov || viewFov;
-      project();
-      place(toThree(f.from).sub(toThree(f.to)).normalize(), toThree(f.to), toThree(f.from).distanceTo(toThree(f.to)));
-    } else if (name === 'fit') {
+    if (name === 'fit') {
       cam.dir = camera.position.clone().sub(controls.target).normalize();
       cam.target = null; cam.minDist = 0; cam.auto = true;
       if (cam.mode === 'free') cam.mode = 'fit';
-      frame();
-    } else {
-      Object.assign(cam, named(name), { mode: name, auto: true, fov: viewFov });
       frame();
     }
     remember();
@@ -650,7 +640,7 @@ export async function open(glCanvas, input, opts) {
     cameraState() {
       return { mode: cam.mode, auto: cam.auto, hasFree: !!load(FREE, null) };
     },
-    // restore opens on the remembered camera, else Street.
+    // restore opens on the remembered camera, else the site's view.
     restore() {
       const st = load(CAMERA, null);
       restoring = true;
@@ -663,21 +653,18 @@ export async function open(glCanvas, input, opts) {
         } else if (st && st.auto && st.mode === 'fit' && st.dir) {
           Object.assign(cam, { mode: 'fit', auto: true, dir: toThree(st.dir).normalize(), target: null, minDist: 0, fov: st.fov || viewFov });
           frame();
-        } else if (st && st.auto && st.mode === 'overhead') {
-          Object.assign(cam, named('overhead'), { mode: 'overhead', auto: true, fov: viewFov });
-          frame();
         } else {
-          Object.assign(cam, named('street'), { mode: 'street', auto: true, fov: viewFov });
+          Object.assign(cam, siteView(), { mode: 'street', auto: true, fov: viewFov });
           frame();
         }
       } finally { restoring = false; }
       emit();
     },
-    // forget clears the remembered camera and returns to Street.
+    // forget clears the remembered camera and returns to the site's view.
     forget() {
       save(CAMERA, undefined);
       save(FREE, undefined);
-      Object.assign(cam, named('street'), { mode: 'street', auto: true, fov: viewFov });
+      Object.assign(cam, siteView(), { mode: 'street', auto: true, fov: viewFov });
       frame();
       emit();
     },

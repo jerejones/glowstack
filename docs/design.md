@@ -1235,12 +1235,10 @@ desk.
     pitch and distance. An unlit pixel is a black dot, like the LED; a
     dead pixel is a gray ring, and a pixel whose controller can't be
     reached is gray.
-  - Orbit, pan and zoom. Three named views: **Street** (the site's view),
-    **Overhead** (straight down, north up) and **Free** (where you last left
-    the camera, kept per device). **Fit** frames all the pixels from where
-    the camera is looking; **Default** forgets this device's camera. Named
-    views and Fit reframe themselves when the screen or the panel changes
-    size.
+  - Orbit, pan and zoom. The map opens on the site's view until you move
+    the camera, then keeps where you left it, per device. **Default** forgets
+    this device's camera. The site's view reframes itself when the screen or
+    the panel changes size.
   - Nodes, arrows and labels draw through the same camera, and inspect and
     calibration pick the pixel nearest the pointer on screen.
   - Scene layers can be toggled; the choice is kept in the browser. Their
@@ -1259,10 +1257,11 @@ desk.
 
     `direction` points from what the camera looks at toward the camera, and
     the map works out the distance so the model fits whatever the screen's
-    shape. `to` is optional. Either way the framing centers the lights being
-    drawn in the part of the map left visible by the panel or sheet, so a
-    named view keeps its angle but not an exact aim point; a camera placed
-    by hand and saved stays exactly where it was. The older
+    shape. `to` is optional and no longer sets the center of the opening
+    view: the framing centers the lights being drawn in the part of the map
+    left visible by the panel or sheet, so the view keeps its angle but not
+    an exact aim point. A camera placed by hand and saved stays exactly where
+    it was. The older
     `{ from, to, fov }` form still works: its camera is used unless the
     house wouldn't fit. Without a `view`, the map frames the model from an
     elevated three-quarter angle. **Copy camera position** puts the current camera on
