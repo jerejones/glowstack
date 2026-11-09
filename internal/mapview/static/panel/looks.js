@@ -12,7 +12,7 @@
 // is a line at the bottom that opens to its controls.
 import { post, del, patch, esc, save, load, parseQty, press, covers, sameSet, humanize } from '../util.js';
 import { nodeName, nodeTarget, targetName, targetGroups, targetRanges } from '../select.js';
-import { houseStatusMessage, darkZones, darkMessage, lightOutcome } from '../house-status.js';
+import { houseStatusMessage, darkZones, darkMessage, lightOutcome, effectiveNote } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip, presetName } from '../form.js';
 import { showState, warningHTML } from '../states.js';
 import { icon } from '../icons.js';
@@ -70,12 +70,15 @@ export function houseState(status, count) {
 // nowLine is the current-state line above the catalog, as words. house is
 // the lights' layers, nameOf reads them, read says a reading ever came back;
 // status is the latest. A failed refresh keeps the last state and says so.
-export function nowLine({ house, previewing, status, read, word, nameOf }) {
+// lit is the lights' lightOutcome: a look that can't be seen doesn't read
+// as simply being on.
+export function nowLine({ house, previewing, status, read, word, nameOf, lit = null }) {
   if (status !== 'available' && !read) return null;
   const stale = status !== 'available';
   const main = house.length ? `On the lights: ${nameOf(house)}` : 'Nothing on the lights';
-  const sub = stale ? "Couldn't refresh. This is the last known state." : previewing || house.length ? '' : `${word} a preset to preview it on the map; the lights don't change.`;
-  return { main, sub, stale };
+  const dark = !stale && house.length && lit?.dark ? (lit.dark === 'none' ? (lit.zones.length ? 'Not lit: its zones are at 0%' : 'Not lit: brightness is at 0%') : `Partly lit: ${lit.zones.join(', ')} at 0%`) : '';
+  const sub = stale ? "Couldn't refresh. This is the last known state." : dark || (previewing || house.length ? '' : `${word} a preset to preview it on the map; the lights don't change.`);
+  return { main, sub, stale, dark: !!dark };
 }
 
 // lookKey says which look a layer (or a card's look) is.
@@ -450,6 +453,7 @@ export function createLooks(S, root) {
       <div class="place-row"><span class="meta"></span></div>
       <div class="strip"></div>
       <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}Brightness</span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
+      <div class="bri-note" hidden></div>
       <div class="acts"></div>
       <div class="note"></div>
       <div class="slot"></div>`;
@@ -494,6 +498,11 @@ export function createLooks(S, root) {
       bri.value = briOf(l);
       el.querySelector('.bri output').textContent = Math.round(briOf(l) * 100) + '%';
     }
+    // On the lights a zone can undo this slider: the card says so itself.
+    const effective = c.lane === 'house' ? effectiveNote(lightOutcome(g, S.statusData?.brightness, [targetRanges(g, S.tree, l.target)]), Math.round(+bri.value * 100)) : '';
+    const briNote = el.querySelector('.bri-note');
+    briNote.textContent = effective;
+    briNote.hidden = !effective;
     const note = el.querySelector('.note');
     const orig = c.lane === 'preview' ? copies[l.id] : '';
     note.className = orig ? 'note copy-note' : 'note';
@@ -589,7 +598,8 @@ export function createLooks(S, root) {
   // full layer card, and short enough to leave the looks in view.
   function renderNow(prev, house) {
     const names = (ls) => (ls.length > 1 ? `${layerName(S, ls[0])} and ${ls.length - 1} more` : layerName(S, ls[0]));
-    const line = nowLine({ house, previewing: prev.length > 0, status: S.houseStatus, read: S.houseRead, word, nameOf: names });
+    const lit = lightOutcome(g, S.statusData?.brightness, house.map((l) => targetRanges(g, S.tree, l.target)));
+    const line = nowLine({ house, previewing: prev.length > 0, status: S.houseStatus, read: S.houseRead, word, nameOf: names, lit });
     const now = $$('#lkNow');
     // What's in preview says so on its bar, card and map: this line is the lights.
     now.hidden = !line;
@@ -601,6 +611,7 @@ export function createLooks(S, root) {
     $$('#lkNowMain').textContent = line.main;
     $$('#lkNowSub').textContent = line.sub;
     now.classList.toggle('stale', line.stale);
+    now.classList.toggle('dark', line.dark);
     // With nothing listed below there's nowhere for it to go.
     const idle = !house.length;
     now.classList.toggle('idle', idle);

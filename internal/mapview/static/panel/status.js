@@ -49,12 +49,13 @@ export function verdict(ids, health) {
 }
 
 // controllerFact is the one thing to read on a controller's row: whether
-// it is taking frames. h is healthOf's report, or null.
-export function controllerFact(h) {
+// it is taking frames. h is healthOf's report, or null. With nothing lit,
+// Sending is still true but isn't good news.
+export function controllerFact(h, nothingLit = false) {
   if (!h) return { text: 'No report', cls: '' };
   if (h.reachable === false) return { text: 'Unreachable', cls: 'bad' };
   if (h.sending === false) return { text: 'Output off', cls: '' };
-  if (h.sending === true) return { text: 'Sending', cls: 'ok' };
+  if (h.sending === true) return { text: 'Sending', cls: nothingLit ? '' : 'ok' };
   return h.reachable === true ? { text: 'Reachable', cls: 'ok' } : { text: 'Not checked', cls: '' };
 }
 
@@ -189,7 +190,7 @@ export function createStatus(S, root) {
     <div id="stIssues"></div>
     <div id="stBody" hidden>
     <div class="stats" id="stStats"></div>
-    <h2>Controllers</h2><ul class="list-rows" id="stCtl"></ul>
+    <h2>Controllers</h2><p class="muted small" id="stCtlNote" hidden>Sending means the frames are going out. Nothing is lit, so those frames are dark.</p><ul class="list-rows" id="stCtl"></ul>
     <div id="stRunsBox"><h2>Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
@@ -272,13 +273,16 @@ export function createStatus(S, root) {
     $$('#stVerdict').className = `verdict ${lit.cls}`;
     // The verdict says why and what to do: no second card for the same thing.
     const isDark = lit.cls === 'warn';
+    // The effective result comes first; the controllers only say the wire works.
+    const nothingLit = lit.text.startsWith('Nothing is lit');
+    $$('#stCtlNote').hidden = !nothingLit;
     if (isDark) $$('#stVerdict').dataset.dark = ''; else delete $$('#stVerdict').dataset.dark;
     $$('#stVerdict').innerHTML = `<span>${esc(lit.text)}</span>${isDark ? '<small>Raise the brightness in Home Assistant.</small>' : ''}`;
     // Health is the second line, in plain text unless something is wrong.
     $$('#stHealth').hidden = false;
     $$('#stHealth').className = `health ${health.cls === 'bad' ? 'bad' : ''}`;
     $$('#stHealth').title = 'Whether Glowstack can reach each controller over the network';
-    $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
+    $$('#stHealth').innerHTML = `<span class="dotc ${health.cls === 'ok' && !nothingLit ? 'ok' : health.cls === 'bad' ? 'bad' : 'idle'}"></span>${esc(health.text)}`;
     const dark = darkMessage(darkZones(g, st.brightness, g.zones.flatMap((z) => (g.areas.find((a) => a.id === z.area) || { ranges: [] }).ranges)));
     const stat = (v, label, title) => `<div class="stat"${title ? ` title="${esc(title)}"` : ''}><b>${v}</b><span>${label}</span></div>`;
     // What the owner asks; how the renderer is doing is below, in Diagnostics.
@@ -299,10 +303,10 @@ export function createStatus(S, root) {
     $$('#stCtl').innerHTML = g.controllers.map((c) => {
       const h = healthOf(st.health, c.id);
       let dot = 'idle', line = '';
-      const fact = controllerFact(h);
+      const fact = controllerFact(h, nothingLit);
       const kit = [nb(plural(c.pixels, 'light')), nb(plural(c.outputs.length, 'output'))];
       if (h) {
-        dot = h.reachable === true ? 'ok' : h.reachable === false ? 'bad' : 'idle';
+        dot = h.reachable === true && !nothingLit ? 'ok' : h.reachable === false ? 'bad' : 'idle';
         if (h.lastSeen) line = nb('Last answered ' + ago(h.lastSeen));
         if (h.version) kit.push(nb('version ' + esc(h.version)));
         const faults = [];

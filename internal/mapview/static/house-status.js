@@ -40,6 +40,15 @@ export function lightOutcome(geo, brightness, layers, read = false) {
   return { dark: none ? 'none' : 'part', zones, message: darkMessage(zones) };
 }
 
+// effectiveNote is what a layer's own brightness is worth once the zones
+// have their say: '' when it shows as set. outcome is lightOutcome for the
+// layer, percent its slider's value.
+export function effectiveNote(outcome, percent) {
+  if (!outcome.dark || outcome.empty) return '';
+  if (outcome.dark === 'none') return `${percent}%, but ${outcome.zones.length ? 'its zones are' : 'brightness is'} at 0%`;
+  return `${percent}%, but ${joined(outcome.zones)} ${outcome.zones.length === 1 ? 'is' : 'are'} at 0%`;
+}
+
 // Keep an unsuccessful read distinct from a confirmed empty live stack.
 export function houseStatusMessage(status, count) {
   if (status === 'unavailable') return count

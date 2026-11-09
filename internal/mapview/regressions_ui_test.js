@@ -700,7 +700,7 @@ test('B53: a failed refresh keeps the last state on Looks and says so', async ()
   assert.equal(some.main, 'On the lights: Dusk');
   assert.match(some.sub, /last known/);
   assert.equal(nowLine({ ...base, house: [], status: 'available', read: true }).stale, false);
-  assert.match(css, /\.now:not\(\.idle\):not\(\.stale\) small \{ display: none; \}/, 'the phone half sheet keeps the notice');
+  assert.match(css, /\.now:not\(\.idle\):not\(\.stale\):not\(\.dark\) small \{ display: none; \}/, 'the phone half sheet keeps the notice');
 });
 
 test('a failed action names what failed, and a stray error page is not shown as text', async () => {
@@ -1501,4 +1501,24 @@ test('Stop and Close return to the tab Calibrate was opened from, also across a 
   assert.equal(returnTab('status', 'status'), '');
   assert.equal(returnTab('', 'status'), '', 'opened by the server, not from a tab: stay');
   assert.match(read('panel/calibrate.js'), /sessionStorage\.setItem\('calFrom', tab\)/);
+});
+
+test('0%: a layer over dark zones says so, and Status stops calling Sending good news', async () => {
+  const { effectiveNote, lightOutcome } = await import('./static/house-status.js');
+  const geo = { zones: [{ id: 'a', name: 'Porch', area: 'p' }, { id: 'b', name: 'Yard', area: 'y' }], areas: [{ id: 'p', ranges: [[0, 9]] }, { id: 'y', ranges: [[10, 19]] }] };
+  const dark = { master: 1, zones: { a: 0, b: 0.5 } };
+  assert.equal(effectiveNote(lightOutcome(geo, dark, [[[0, 9]]]), 100), '100%, but its zones are at 0%');
+  assert.equal(effectiveNote(lightOutcome(geo, dark, [[[0, 19]]]), 80), '80%, but Porch is at 0%');
+  assert.equal(effectiveNote(lightOutcome(geo, dark, [[[10, 19]]]), 100), '', 'a lit zone needs no note');
+  assert.equal(effectiveNote(lightOutcome(geo, { master: 0, zones: {} }, [[[0, 9]]]), 100), '100%, but brightness is at 0%');
+  const { controllerFact, lightsVerdict } = await import('./static/panel/status.js');
+  assert.deepEqual(controllerFact({ reachable: true, sending: true }, true), { text: 'Sending', cls: '' }, 'Sending stays, not green');
+  assert.equal(controllerFact({ reachable: false, sending: true }, true).cls, 'bad', 'a real fault stays red');
+  assert.match(lightsVerdict({ zones: [], areas: [] }, { brightness: { master: 0 }, layers: 1 }, null).text, /^Nothing is lit/);
+  const { nowLine } = await import('./static/panel/looks.js');
+  const base = { previewing: false, status: 'available', read: true, word: 'Tap', nameOf: () => 'Dusk', house: [{}] };
+  const line = nowLine({ ...base, lit: lightOutcome(geo, dark, [[[0, 9]]]) });
+  assert.equal(line.sub, 'Not lit: its zones are at 0%');
+  assert.equal(line.dark, true);
+  assert.equal(nowLine({ ...base, lit: lightOutcome(geo, dark, [[[10, 19]]]) }).dark, false);
 });
