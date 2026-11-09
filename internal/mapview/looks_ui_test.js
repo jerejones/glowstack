@@ -188,3 +188,13 @@ test('B121: the page passes a real read flag, so unread is never taken for read'
   assert.match(src('panel/looks.js'), /stageTitle\(\{[^}]*read: !!S\.houseRead/);
   assert.match(src('panel/looks.js'), /stageSub\(\{[^}]*read: !!S\.houseRead/);
 });
+
+test('library cards: three columns of one-line names, two lines only as the fallback', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const css = fs.readFileSync(path.join(__dirname, 'static/ui.css'), 'utf8');
+  assert.doesNotMatch(css, /\.cards:has\(/, 'no four-column exception: it would narrow every name');
+  assert.match(css, /\.cards \{ display: grid; grid-template-columns: repeat\(auto-fill, minmax\(132px, 1fr\)\)/);
+  // A name like "Breathe the layers below" needs the second line and gets it.
+  assert.match(css, /\.preset \.name \{[^}]*height: 2\.6em/);
+  assert.match(css, /\.preset \.name \{\s*display: -webkit-box;[^}]*-webkit-line-clamp: 2/);
+});

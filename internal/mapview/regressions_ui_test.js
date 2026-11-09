@@ -2138,7 +2138,6 @@ test('B114: library cards are one height, with the name in two lines and the sub
   assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\); font-weight: 600; height: 2\.6em;/);
   assert.match(css, /-webkit-line-clamp: 2/);
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ height: 1\.4em;[^}]*white-space: nowrap/);
-  assert.match(css, /\.cards:has\(> \.preset:nth-child\(4\):last-child\)/, 'four pins fill one row at the wide panel');
 });
 
 test('B115: icon buttons in the Tweak form keep the icon beside the label', () => {
