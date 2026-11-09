@@ -873,7 +873,7 @@ test('Status tiles are even, uptime is words, and file names stay out of the way
 test('the last polish: pin glyph, type sizes, contrast and the Preview reason', () => {
   assert.match(read('panel/presets.js'), /icon\(p\.pinned \? 'pinFilled' : 'pin'\)/);
   assert.match(css, /--t-help: 14px/);
-  assert.match(css, /--t-num: 13px/);
+  assert.match(css, /--t-meta: 14px/);
   const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
   const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
   const card2 = /--card2: (#[0-9a-f]{6})/.exec(css)[1];
@@ -1035,7 +1035,7 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   assert.deepEqual(out.map((x) => x.summary), ['dark', 'The lights are spaced differently than drawn in 2 places.', 'other']);
   assert.equal(out[1].group.length, 2);
   assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 6\.5em 6\.4em; \}/);
-  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-num\)/, 'controller rows at 13px');
+  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-meta\)/, 'controller rows at 14px');
 });
 
 test('the phone sheet keeps Expand on the handle and tabs to themselves', () => {
@@ -1521,4 +1521,12 @@ test('0%: a layer over dark zones says so, and Status stops calling Sending good
   assert.equal(line.sub, 'Not lit: its zones are at 0%');
   assert.equal(line.dark, true);
   assert.equal(nowLine({ ...base, lit: lightOutcome(geo, dark, [[[10, 19]]]) }).dark, false);
+});
+
+test('essential metadata is 14px and a phone heading qualifier gets its own line', () => {
+  assert.match(css, /--t-meta: 14px/);
+  for (const sel of ['.place-row .meta', '.now small', '.bri-label', '.stat span', '.list-rows li .what small', '.run-rows .len small', '.cal-step small', '.cal-prog li .value']) {
+    assert.match(css, new RegExp(`${sel.replace(/[.]/g, '\\.')} \\{[^}]*font-size: var\\(--t-meta\\)`), sel);
+  }
+  assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block; margin-left: 0;/);
 });
