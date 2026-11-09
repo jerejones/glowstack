@@ -14,6 +14,8 @@ import { showState, stateHTML } from '../states.js';
 import { darkZones, darkMessage, joined, lightOutcome, turnOnLabel, turnOnZones } from '../house-status.js';
 import { targetRanges } from '../select.js';
 import { runName, controllerName, warningSummary } from '../names.js';
+import { controllerRanges } from '../map-control.js';
+import { pointOn } from './looks.js';
 import { icon } from '../icons.js';
 
 // healthOf normalizes a controller's health report; null if there is
@@ -482,7 +484,7 @@ export function createStatus(S, root) {
         if (faults.length) line += `${line ? '<br>' : ''}${faults.join(' · ')}`;
         if (h.error) line += `${line ? '<br>' : ''}<span class="error">${esc(h.error)}</span>`;
       }
-      return `<li>${mark(dot)}<span class="what"><b title="${esc(titled)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span>${shared ? '' : `<span class="fact ${readAt ? '' : fact.cls}">${asOf(fact.text, readAt)}</span>`}</li>`;
+      return `<li data-ctl="${esc(c.id)}" tabindex="0"${pointedCtl === c.id ? ' class="pointing"' : ''}>${mark(dot)}<span class="what"><b title="${esc(titled)}">${esc(controllerName(g, c.id))}</b><small>${line ? `${line}<br>` : ''}${kit.join(' · ')}</small></span>${shared ? '' : `<span class="fact ${readAt ? '' : fact.cls}">${asOf(fact.text, readAt)}</span>`}</li>`;
     }).join('');
 
     const runs = new Map(st.solve.runs.map((r) => [r.id, r]));
@@ -498,7 +500,7 @@ export function createStatus(S, root) {
       const points = a.measured + a.estimated;
       const detail = [label.unassigned ? 'Not in a zone yet' : '', nb(plural(r.count, 'light')), points ? `<span title="Points on this run that have been measured">${nb(`${a.measured} of ${plural(points, 'point')}`)}</span>` : ''].filter(Boolean).join(' · ');
       // Two columns: what the run is, and its length, each figure on one line.
-      return { warn, html: `<li class="${warn ? 'warn' : ''}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${off}${detail}</small></span>
+      return { warn, html: `<li class="${warn ? 'warn' : ''}" data-run-row="${esc(r.id)}"><span class="what"><b title="${esc(r.id)}">${esc(label.name)}</b><small>${off}${detail}</small></span>
         <span class="len">${fmt(s.length_m ?? r.length, 2)} m${drawn ? `<small>drawn ${fmt(drawn, 2)} m</small>` : ''}</span>
         ${points ? `<button type="button" class="icon-btn" data-run="${esc(r.id)}" title="Calibrate this run">${icon('target')}Calibrate</button>` : ''}</li>` };
     });
@@ -564,6 +566,23 @@ export function createStatus(S, root) {
     if (wasOpen && box.querySelector('details')) box.querySelector('details').open = true;
   }
 
+  // The panel points at the map: a controller's row shows its runs with the
+  // soft halo, a run's row that run. Hover and focus with a mouse or keys; a
+  // tap on a phone, where a second tap (or leaving the tab) lets go.
+  let pointedCtl = '';
+  const runRanges = (id) => { const ri = g.runs.findIndex((r) => r.id === id); return ri >= 0 && S.tree ? S.tree.runSets[ri] : null; };
+  if (!g.mapless) {
+    pointOn($$('#stCtl'), 'li[data-ctl]', (el) => controllerRanges(g, el.dataset.ctl), S);
+    for (const box of [$$('#stRuns'), $$('#stRunsRest')]) pointOn(box, 'li[data-run-row]', (el) => runRanges(el.dataset.runRow), S);
+    if (S.coarse) $$('#stCtl').addEventListener('click', (e) => {
+      const li = e.target.closest('li[data-ctl]');
+      if (!li) return;
+      pointedCtl = pointedCtl === li.dataset.ctl ? '' : li.dataset.ctl;
+      for (const row of $$('#stCtl').children) row.classList.toggle('pointing', row.dataset.ctl === pointedCtl);
+      S.pointAt?.(pointedCtl ? controllerRanges(g, pointedCtl) : null);
+    });
+    S.on('tab', (t) => { if (t !== 'status') { pointedCtl = ''; S.pointAt?.(null); } });
+  }
   S.on('tab', (t) => { if (t === 'status') { if (last) render(last); poll(); } });
   S.on('house', () => { if (visible() && last) render(last); });
   S.on('show', gray);

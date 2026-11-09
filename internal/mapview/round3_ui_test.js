@@ -152,3 +152,122 @@ test('B3: a swatch shows the look as a motion trail, wherever a look is a card o
   assert.match(strip, /denserParams\(def, effectRaw, values,/);
   assert.doesNotMatch(read('tiles.js'), /Math\.random/);
 });
+
+test('C: one target control, a button with a border and a chevron, labeled for what it changes', async () => {
+  const { targetControl, placeControl } = await import('./static/panel/looks.js');
+  assert.deepEqual(targetControl('Everything', true), { label: 'Preview on', text: 'Everything', aria: 'Preview on Everything. Change where the next look goes', clear: false });
+  const sel = targetControl('Porch rail', false);
+  assert.equal(sel.text, 'Porch rail', 'a selection on the map is what the control shows');
+  assert.equal(sel.clear, true, 'with a clear (x) back to Everything');
+  // A preview row's own place: the same word and style, labeled for that layer.
+  assert.deepEqual(placeControl('Everything'), { label: 'On:', text: 'Everything', title: 'This look is on Everything. Move it somewhere else.' });
+  const looks = read('panel/looks.js');
+  // Exactly one control sets where the next preview goes.
+  assert.equal(looks.match(/id="lkTarget"/g).length, 1);
+  assert.doesNotMatch(looks, /New previews go on|Goes on</);
+  assert.match(looks, /<button type="button" class="target-select" id="lkTarget"[^>]*aria-haspopup="dialog"><b id="lkTargetName"><\/b>\$\{icon\('chevronDown'\)\}<\/button>/);
+  assert.match(looks, /id="lkTargetClear" aria-label="Preview on Everything again"/);
+  assert.match(css, /^button\.target-select \{[^}]*border: 1px solid var\(--control-line\);/m);
+  // Selecting on the map changes its text in the same task: the select event is synchronous.
+  assert.match(looks, /S\.on\('select', \(\) => \{ fillTargets\(\); renderStage\(\); \}\);/);
+  assert.match(read('app.js'), /applySelection\(\);\s*S\.emit\('select', S\.sel\);/);
+  assert.match(design, /\*\*Preview on\*\*/);
+});
+
+test('C: the tap is taught once per device, in one line', async () => {
+  const { tapHint, showTapHint } = await import('./static/map-control.js');
+  assert.equal(tapHint('Tap'), 'Tap a run on the map to light just that part.');
+  assert.equal(tapHint('Click'), 'Click a run on the map to light just that part.');
+  assert.equal(showTapHint({ seen: false, selected: false }), true, 'first load on this device');
+  assert.equal(showTapHint({ seen: false, selected: true }), false, 'gone with the first selection');
+  assert.equal(showTapHint({ seen: true, selected: false }), false, 'then never again');
+  assert.equal(showTapHint({ seen: false, selected: false, calibrating: true }), false);
+  assert.equal(showTapHint({ seen: false, selected: false, failed: true }), false);
+  const app = read('app.js');
+  assert.match(app, /if \(node\) markHintSeen\(\);/, 'the first selection is remembered');
+  assert.match(read('map-control.js'), /const HINT_SEEN = 'glowstack\.hint\.tap';/, 'per device: localStorage');
+  // The same line in the menu and the empty state; no tour, no modal.
+  const looks = read('panel/looks.js');
+  assert.match(looks, /id="lkPickHint">\$\{tapHint\(word\)\}/);
+  assert.match(looks, /id="lkTip" hidden>\$\{tapHint\(word\)\}<\/p>/);
+  assert.match(looks, /\$\$\('#lkTip'\)\.hidden = !!\(prev\.length \+ house\.length\) \|\| !!S\.sel \|\| !S\.houseRead;/);
+  assert.match(read('index.html'), /<p id="mapHint" class="map-hint" hidden><\/p>/);
+  assert.doesNotMatch(app + looks, /tour|showModal\(\)[^;]*hint/i);
+  assert.match(css, /\.map-hint \{[^}]*pointer-events: none;/, 'a caption: it never takes a tap from the map');
+});
+
+test('C: hovering a run names it and its zone, beside the pointer and never over the run', async () => {
+  const { runAt, runTitle } = await import('./static/map-control.js');
+  const { labelSpot } = await import('./static/card-place.js');
+  const { buildTree } = await import('./static/select.js');
+  const geo = {
+    pixels: { count: 30, run: [...Array(10).fill(0), ...Array(10).fill(1), ...Array(10).fill(-1)] },
+    runs: [{ id: 'porch-rail', name: 'Porch rail' }, { id: 'shed-eave' }],
+    areas: [{ id: 'front', ranges: [[0, 19]] }], zones: [{ id: 'front', area: 'front', name: 'Front' }],
+  };
+  const tree = buildTree(geo);
+  assert.deepEqual(runAt(geo, tree, 3), { index: 0, run: 'Porch rail', zone: 'Front' });
+  assert.equal(runAt(geo, tree, 12).run, 'Shed eave', 'an id reads as words');
+  assert.equal(runAt(geo, tree, 25), null, 'a pixel on no run has no name');
+  assert.equal(runTitle(runAt(geo, tree, 3)), 'Porch rail · Front');
+  assert.equal(runTitle({ run: 'Front', zone: 'Front' }), 'Front');
+  // Three runs, three names.
+  assert.equal(new Set([3, 12].map((p) => runAt(geo, tree, p).run)).size, 2);
+  // Placement: the first corner that is clear of the run's pixels.
+  const base = { x: 200, y: 200, w: 80, h: 30, W: 800, H: 600 };
+  assert.deepEqual(labelSpot({ ...base, points: [] }), [214, 156], 'above and right of the pointer by default');
+  const diag = Array.from({ length: 40 }, (_, i) => [200 + i * 4, 200 - i * 4]); // the run rises to the right, through the default spot
+  const [l, t] = labelSpot({ ...base, points: diag });
+  assert.ok(!diag.some(([px, py]) => px >= l && px <= l + 80 && py >= t && py <= t + 30), 'it moved off the run');
+  // A loop around the pointer: no near corner is clear, a farther spot is.
+  const loop = []; for (let a = 0; a < 360; a += 3) loop.push([200 + 60 * Math.cos(a * Math.PI / 180), 200 + 40 * Math.sin(a * Math.PI / 180)]);
+  const [ll, lt] = labelSpot({ ...base, points: loop });
+  assert.ok(!loop.some(([px, py]) => px >= ll && px <= ll + 80 && py >= lt && py <= lt + 30));
+  // Never off the map, and never under the pointer.
+  const [cl, ct] = labelSpot({ ...base, x: 795, y: 5, points: [] });
+  assert.ok(cl >= 4 && cl + 80 <= 796 && ct >= 4);
+  const app = read('app.js');
+  assert.match(app, /hoverLabel\(p, x, y\);/, 'shown from pointermove itself: no request, no timer');
+  assert.match(app, /const where = d\.run \? runTitle\(/, 'the inspect card leads with the run and its zone');
+});
+
+test('C: the panel points at the map with the soft halo', async () => {
+  const { controllerRanges, restPoint } = await import('./static/map-control.js');
+  const geo = { controllers: [{ id: 'shed', base: 0, pixels: 600 }, { id: 'yard', base: 600, pixels: 480 }, { id: 'spare' }] };
+  assert.deepEqual(controllerRanges(geo, 'yard'), [[600, 1079]], 'that controller\'s pixels and no others');
+  assert.deepEqual(controllerRanges(geo, 'spare'), []);
+  assert.deepEqual(controllerRanges(geo, 'nope'), []);
+  // Touch has no hover: the half Looks sheet with nothing previewing shows the target.
+  const rest = { coarse: true, layout: 'sheet', detent: 'half', tab: 'looks', previewing: false };
+  assert.equal(restPoint(rest), true);
+  for (const off of [{ coarse: false }, { detent: 'full' }, { detent: 'peek' }, { tab: 'status' }, { previewing: true }, { calibrating: true }]) assert.equal(restPoint({ ...rest, ...off }), false, JSON.stringify(off));
+  // pointOn: one listener per list; hover and focus point, leaving clears.
+  const { pointOn } = await import('./static/panel/looks.js');
+  const calls = [], handlers = {};
+  const row = { closest: () => row, contains: (el) => el === row, matches: () => true };
+  const box = { addEventListener: (ev, fn) => { handlers[ev] = fn; }, contains: (el) => el === row };
+  pointOn(box, 'li', () => [[1, 2]], { coarse: false, pointAt: (r) => calls.push(r) });
+  handlers.pointerover({ target: row }); handlers.pointerout({ target: row, relatedTarget: null });
+  handlers.focusin({ target: row }); handlers.focusout({ target: row, relatedTarget: null });
+  assert.deepEqual(calls, [[[1, 2]], null, [[1, 2]], null]);
+  handlers.pointerout({ target: row, relatedTarget: row }); // moving within the row is not leaving
+  assert.equal(calls.length, 4);
+  const touch = {}; pointOn({ addEventListener: (ev) => { touch[ev] = true; } }, 'li', () => null, { coarse: true });
+  assert.ok(!touch.pointerover && touch.focusin, 'no hover listeners on touch');
+  // Wiring: library cards, preset rows, Status controller and run rows.
+  assert.match(read('panel/looks.js'), /pointOn\(\$\$\('#lkPresets'\), '\.preset', here, S\);/);
+  assert.match(read('panel/presets.js'), /pointOn\(\$\('#prList'\), '\.preset-entry',/);
+  const status = read('panel/status.js');
+  assert.match(status, /pointOn\(\$\$\('#stCtl'\), 'li\[data-ctl\]', \(el\) => controllerRanges\(g, el\.dataset\.ctl\), S\);/);
+  assert.match(status, /pointOn\(box, 'li\[data-run-row\]',/);
+  assert.match(status, /if \(S\.coarse\) \$\$\('#stCtl'\)\.addEventListener\('click'/, 'a tap on a phone');
+  // The halo: a fade unless motion is reduced, cleared at once; never doubled over the selection.
+  const app = read('app.js'), scene = read('scene.js');
+  assert.match(app, /S\.view\.setHighlight\(show, !reducedMotion\.matches\);/);
+  assert.match(app, /if \(show && S\.sel && JSON\.stringify\(show\) === JSON\.stringify\(S\.sel\.node\.ranges\)\) show = null;/);
+  assert.match(scene, /u\.value = fade \? 0 : POINT_ALPHA;/);
+  assert.match(scene, /POINT_FADE_MS = 120/);
+  assert.match(read('plan.js'), /setHighlight\(ranges\) \{/);
+  // Owner decisions: no camera buttons, reset-view control or map toolbar came with it.
+  assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"/i);
+});

@@ -16,7 +16,8 @@ import { buildTree, nodeName, nodeKinds, targetName, targetRanges } from './sele
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
-import { cardCorner, createAim, rectGap } from './card-place.js';
+import { cardCorner, createAim, rectGap, labelSpot } from './card-place.js';
+import { tapHint, showTapHint, hintSeen, markHintSeen, runAt, runTitle, restPoint } from './map-control.js';
 import { inspectSentences, inspectTechnical } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
@@ -259,7 +260,9 @@ function cameraChanged(st) {
 // first), by default the node's ancestors.
 function select(node, chain) {
   if (!node) { S.sel = null; } else S.sel = { node, chain: chain || S.tree.chain(node) };
+  if (node) markHintSeen(); // the first selection: the tap has been found
   renderCrumbs();
+  renderHint();
   applySelection();
   S.emit('select', S.sel);
   if (S.panel.detent() === 'full') frameFull();
@@ -285,8 +288,40 @@ function renderCrumbs() {
 
 function placeCrumbs() {
   const stage = $('stage').getBoundingClientRect();
-  $('crumbs').style.top = ($('chips').getBoundingClientRect().bottom - stage.top + 6) + 'px';
+  $('crumbs').style.top = $('mapHint').style.top = ($('chips').getBoundingClientRect().bottom - stage.top + 6) + 'px';
 }
+
+// renderHint shows the one line that teaches the tap, as a quiet caption
+// where the breadcrumb will be, until this device's first selection.
+function renderHint() {
+  const box = $('mapHint');
+  box.hidden = !showTapHint({ seen: hintSeen(), selected: !!S.sel, calibrating: S.calibrating, failed: !!S.mapFailed || !S.view });
+  if (!box.hidden) box.textContent = tapHint(S.coarse ? 'Tap' : 'Click');
+}
+S.renderHint = renderHint;
+
+// ---------- the panel points at the map ----------
+
+// pointAt draws the pointing halo along ranges, or clears it with null: the
+// pixels a hovered card would go on, a controller's runs, one run. What is
+// selected already has its halo, so pointing at the same pixels adds none.
+let pointed = null;
+const reducedMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
+function pointAt(ranges) {
+  pointed = ranges && ranges.length ? ranges : null;
+  applyPoint();
+}
+S.pointAt = pointAt;
+// applyPoint shows what is pointed at; with nothing pointed at, a phone's
+// half Looks sheet shows where the next look goes (restPoint).
+function applyPoint() {
+  if (!S.view || !S.view.setHighlight) return;
+  let show = pointed;
+  if (!show && S.looks?.targetRanges && restPoint({ coarse: S.coarse, layout: S.panel.layout(), detent: S.panel.detent(), tab: S.panel.tab(), previewing: !!S.preview?.layers?.length, calibrating: S.calibrating })) show = S.looks.targetRanges();
+  if (show && S.sel && JSON.stringify(show) === JSON.stringify(S.sel.node.ranges)) show = null;
+  S.view.setHighlight(show, !reducedMotion.matches);
+}
+S.applyPoint = applyPoint;
 
 // applySelection draws the halo along the selected pixels.
 function applySelection() {
@@ -407,8 +442,26 @@ function endHover() {
   armedFor = undefined;
   aim.reset();
   S.hover = -1;
+  $('hoverLabel').hidden = true;
   if (S.pinned < 0 && inspected) inspect(-1);
   markDirty();
+}
+// hoverLabel names the run under the pointer, and its zone, in a small label
+// beside the pointer: at once, from the geometry, for any drawn run, lit or
+// not. It is placed where it covers none of that run's pixels.
+function hoverLabel(p, x, y) {
+  const box = $('hoverLabel');
+  const at = p >= 0 && !S.calibrating ? runAt(S.geo, S.tree, p) : null;
+  box.hidden = !at;
+  if (!at) return;
+  const html = `<b>${esc(at.run)}</b>${at.zone && at.zone !== at.run ? `<span>${esc(at.zone)}</span>` : ''}`;
+  if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+  const { w, h } = S.view.size();
+  const points = [];
+  for (const [a, b] of S.tree.runSets[at.index]) for (let q = a; q <= b; q += Math.max(1, Math.floor((b - a) / 300))) { const s = S.view.screenOf(q); if (s) points.push(s); }
+  const [left, top] = labelSpot({ x, y, w: box.offsetWidth, h: box.offsetHeight, W: w, H: h, points });
+  box.style.left = left + 'px';
+  box.style.top = top + 'px';
 }
 // aiming says the pointer is on its way to the open card, so what it
 // crosses on the way doesn't replace what the card shows.
@@ -421,6 +474,7 @@ function aiming(x, y) {
 function hoverAt(x, y) {
   const p = S.view.pickPixel(x, y, 12);
   if (p !== S.hover) { S.hover = p; markDirty(); }
+  hoverLabel(p, x, y);
   if (S.pinned >= 0) return;
   if (aiming(x, y)) { clearTimeout(hoverTimer); armedFor = undefined; return; }
   if (p === (inspected ? inspected.id : -1) || p === armedFor) return;
@@ -490,7 +544,9 @@ function renderInspect() {
     areas: d.areas.map((id) => areaName(S.geo, id)),
     zones: d.zones.map((id) => zoneName(S.geo, id)),
   });
-  const html = `<div class="head"><b>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</b>${pinButton}</div>
+  // The run and its zone are the card's first line; the pixel's number follows.
+  const where = d.run ? runTitle({ run: runName(S.geo, d.run), zone: d.zones.length ? zoneName(S.geo, d.zones[0]) : '' }) : '';
+  const html = `<div class="head"><b>${where ? `${esc(where)}<small>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</small>` : `Pixel ${d.id}${d.dead ? ' (dead)' : ''}`}</b>${pinButton}</div>
     <table>
     ${r('Color', `<span class="chip-color" data-color-chip></span><span data-color-text></span>`)}
     ${r('Showing', layer)}
@@ -825,6 +881,7 @@ async function main() {
   S.setup = createSetup(S, $('tab-setup'));
   S.status = createStatus(S, $('tab-status'));
   S.on('preview', refitPreview);
+  for (const ev of ['preview', 'select', 'tab', 'detent', 'layout', 'view', 'runVisibility']) S.on(ev, applyPoint);
   bindChrome();
   bindMap();
   bootStep = 'draw the map';
@@ -832,6 +889,7 @@ async function main() {
   if (!(plan >= 0 && plan < S.geo.plans.length)) plan = 0;
   await openView(plan);
   $('bootLoading').remove();
+  renderHint();
   // An active session reopens immediately after Confirm reloads the map.
   // Its camera hold/frame operations require the asynchronous 3-D view.
   S.calib = createCalibrate(S, $('calibrate'));

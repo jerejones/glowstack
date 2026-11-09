@@ -6,7 +6,7 @@ import { api, patch, del, esc, failure, humanize } from '../util.js';
 import { createForm, lookStrip, presetName } from '../form.js';
 import { spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 import { createPicker, escapeCloses } from '../picker.js';
-import { effectKind, effectSummary } from './looks.js';
+import { effectSummary, pointOn } from './looks.js';
 import { showState, stateHTML } from '../states.js';
 import { confirmDialog } from '../dialog.js';
 import { icon } from '../icons.js';
@@ -220,6 +220,8 @@ export function createPresets(S, root) {
   escapeCloses($('#prEditor'), () => !!draft && !busy, cancelEditor);
   $('#prNew').onclick = () => openEditor();
   $('#prSearch').oninput = renderList;
+  // A row points at the map the way a Looks card does: where it would go.
+  pointOn($('#prList'), '.preset-entry', () => S.looks?.targetRanges?.() || null, S);
   // markTry shows which presets are in the preview, as on Looks.
   function markTry() {
     for (const b of root.querySelectorAll('[data-act=try]')) {

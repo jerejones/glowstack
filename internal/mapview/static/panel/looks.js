@@ -19,6 +19,7 @@ import { icon } from '../icons.js';
 import { textField, wireClear } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
+import { tapHint } from '../map-control.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const TARGET = 'glowstack.looks.target';
@@ -174,6 +175,20 @@ export function fitText(el, candidates) {
 export function liveFold({ compact, preview, live, open }) {
   const summary = compact && preview > 0 && live > 0;
   return { summary, folded: summary && !open };
+}
+
+// targetControl is the one control that sets where the next preview goes,
+// in words: its label, the place it shows, its accessible name, and whether
+// it carries a clear (x) back to Everything. where is the current place's
+// name; everything says the place is every light.
+export function targetControl(where, everything) {
+  return { label: 'Preview on', text: where, aria: `Preview on ${where}. Change where the next look goes`, clear: !everything };
+}
+
+// placeControl is a preview row's own place in the same style and the same
+// word, labeled for what it changes: that layer, not the next one.
+export function placeControl(where) {
+  return { label: 'On:', text: where, title: `This look is on ${where}. Move it somewhere else.` };
 }
 
 // previewFold is the same fold for the preview's own rows (B143): on the
@@ -333,6 +348,19 @@ export function pickerPlace({ nameTop, rowTop, rowBottom, viewTop, viewBottom, c
 // the lane's heading with it, so the heading is never left clipped at the top.
 export function laneAim(card, headTop, first) { return first ? { top: headTop, bottom: card.bottom } : card; }
 
+// pointOn makes the rows of a list point at the map: while the pointer is
+// over, or the focus is on, an element matching sel inside box, the map
+// draws the halo along rangesFor(that element); it clears on leaving. One
+// listener per list, so rows redrawn by a poll keep pointing.
+export function pointOn(box, sel, rangesFor, S) {
+  const row = (e) => e.target.closest?.(sel);
+  const on = (e) => { const el = row(e); if (el && box.contains(el)) S.pointAt?.(rangesFor(el)); };
+  const off = (e) => { const el = row(e); if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) S.pointAt?.(null); };
+  if (!S.coarse) { box.addEventListener('pointerover', on); box.addEventListener('pointerout', off); }
+  box.addEventListener('focusin', (e) => { if (e.target.matches?.(':focus-visible')) on(e); });
+  box.addEventListener('focusout', off);
+}
+
 export function createLooks(S, root) {
   const g = S.geo;
   let copies = load(COPIES, {}) || {};
@@ -346,6 +374,7 @@ export function createLooks(S, root) {
     <div class="looks-head"><h1 class="title">Looks</h1></div>
     <section class="stage" id="lkStage" aria-labelledby="lkStageTitle">
       <div class="stage-head"><h2 id="lkStageTitle"></h2><small id="lkStageSub"></small></div>
+      <p class="muted small stage-tip" id="lkTip" hidden>${tapHint(word)}</p>
       <p class="muted small stage-note" id="lkMapNote" hidden>The map is showing the lights, not this preview. <button type="button" id="lkShowPreview">Show preview</button></p>
       <div class="stage-warn" id="lkDark" data-dark hidden></div>
       <div class="list" id="lkRows"><button type="button" class="live-sum prev-sum" id="lkPrevSum" aria-expanded="false" hidden><small class="kind">Preview</small><span class="text"></span>${icon('chevronDown')}</button><button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live</small><span class="text"></span>${icon('chevronDown')}</button></div>
@@ -354,11 +383,11 @@ export function createLooks(S, root) {
     <section class="library" aria-label="Presets and effects">
       <div class="catalog-head" id="lkCatalogHead">
         <h2 class="group-head">Library</h2>
-        <p class="scope-line muted">New previews go on <button type="button" class="target-btn" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their rows." aria-haspopup="dialog"><b id="lkTargetName"></b></button></p>
+        <div class="target-ctl"><span class="muted" id="lkTargetLabel">Preview on</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next preset or effect you pick goes. Looks already added keep their own place, on their rows." aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Preview on Everything again" title="Back to Everything" hidden>${icon('close')}</button></div>
         <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
           <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
           ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
-          <div class="muted small" id="lkPickHint">${word} the map to pick a run; ${word.toLowerCase()} again for the area around it.</div>
+          <div class="muted small" id="lkPickHint">${tapHint(word)} ${word} it again for the area around it.</div>
           <div class="target-list" id="lkTargetList"></div>
         </div>
       </div>
@@ -388,7 +417,7 @@ export function createLooks(S, root) {
     return target && targetRanges(g, S.tree, target) ? target : 'all';
   }
   const picker = $$('#lkPicker'), pickList = $$('#lkTargetList'), targetBtn = $$('#lkTarget'), search = $$('#lkTargetSearch'), head = $$('#lkCatalogHead');
-  // The one list of places serves the Goes on button, and, inside a preview
+  // The one list of places serves the Preview on control, and, inside a preview
   // card, that layer's own place. pickFor is the card it is open for.
   let pickFor = null, opener = targetBtn;
   const targetKey = (t) => JSON.stringify(targetRanges(g, S.tree, t));
@@ -396,8 +425,10 @@ export function createLooks(S, root) {
   function fillTargets() {
     const t = currentTarget();
     const where = S.sel ? nodeName(S.sel.node) : targetName(g, t);
-    $$('#lkTargetName').textContent = where;
-    targetBtn.setAttribute('aria-label', `New previews go on ${where}. Change`);
+    const ctl = targetControl(where, t === 'all');
+    $$('#lkTargetName').textContent = ctl.text;
+    targetBtn.setAttribute('aria-label', ctl.aria);
+    $$('#lkTargetClear').hidden = !ctl.clear;
     if (picker.hidden) return;
     const value = pickFor ? pickFor.layer.target : t;
     const groups = targetGroups(S.tree, { query: search.value, visibleRuns: S.visibility.runs });
@@ -446,7 +477,7 @@ export function createLooks(S, root) {
     const title = pickFor ? 'Where this look goes' : 'Where the next look goes';
     picker.setAttribute('aria-label', title);
     picker.querySelector('#lkPickTitle').textContent = title;
-    picker.querySelector('#lkPickHint').hidden = !!pickFor;
+    picker.querySelector('#lkPickHint').hidden = !!pickFor || !!S.sel;
     document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
     if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus({ preventScroll: true }); }
   }
@@ -486,7 +517,7 @@ export function createLooks(S, root) {
   }
   for (const el of [targetBtn, picker]) escapeCloses(el, () => !picker.hidden, () => { const back = opener; openPicker(false); back.focus(); });
   // moveLayer gives one preview layer a new place. Where the next look goes
-  // doesn't change: that is the Goes on button's.
+  // doesn't change: that is the Preview on control's.
   async function moveLayer(c, value) {
     const back = opener;
     openPicker(false);
@@ -504,9 +535,15 @@ export function createLooks(S, root) {
     openPicker(false);
     targetBtn.focus({ preventScroll: true });
     if (S.sel && value !== nodeTarget(S.sel.node)) S.select(null);
-    else { fillTargets(); markPreviewed(); }
+    else { fillTargets(); markPreviewed(); S.applyPoint?.(); }
   }
   targetBtn.onclick = () => openPicker(picker.hidden);
+  // The clear (x): back to Everything, whether the place came from the map or the list.
+  $$('#lkTargetClear').onclick = () => {
+    target = ''; save(TARGET, target);
+    if (S.sel) S.select(null); else { fillTargets(); markPreviewed(); S.applyPoint?.(); }
+    targetBtn.focus({ preventScroll: true });
+  };
   picker.querySelector('#lkPickClose').onclick = () => { const back = opener; openPicker(false); back.focus({ preventScroll: true }); };
   S.on('layout', () => { if (!picker.hidden) openPicker(false); });
   search.oninput = fillTargets;
@@ -568,6 +605,11 @@ export function createLooks(S, root) {
     markPreviewed();
   }
   for (const b of $$('#lkFilter').children) b.onclick = () => { filter = b.dataset.filter; save(FILTER, filter); renderCatalog(); };
+  // The panel points at the map: hovering or focusing a card shows, with the
+  // soft halo, the pixels it would go on. Touch has no hover; app.js shows
+  // the same halo at rest on a phone's half sheet (restPoint).
+  const here = () => targetRanges(g, S.tree, currentTarget());
+  pointOn($$('#lkPresets'), '.preset', here, S);
   // The search grows to the row while in use on the half sheet (field.js
   // marks it); clearing puts the library back where it was scrolled to.
   wireClear($$('#lkFind'), renderCatalog, document.getElementById('content'));
@@ -690,7 +732,7 @@ export function createLooks(S, root) {
     el.querySelector('.tweak').onclick = () => tweak(c);
     el.querySelector('[data-a=remove]').onclick = () => remove(c, lane === 'preview' ? '/api/map/preview/layers' : '/api/v1/layers');
     if (lane === 'preview') {
-      const place = Object.assign(document.createElement('button'), { type: 'button', className: 'place icon-btn', title: 'Move this look somewhere else' });
+      const place = Object.assign(document.createElement('button'), { type: 'button', className: 'place target-select', title: 'Move this look somewhere else' });
       place.setAttribute('aria-haspopup', 'dialog');
       place.setAttribute('aria-expanded', 'false');
       place.onclick = () => (pickFor === c ? openPicker(false) : openPicker(true, c));
@@ -711,8 +753,9 @@ export function createLooks(S, root) {
     // A preview layer's place is a control; on the lights it's a fact.
     const placeName = targetName(g, l.target), placeBtn = el.querySelector('.place');
     if (placeBtn) {
-      placeBtn.innerHTML = `<span class="muted">Goes on</span><b>${esc(placeName)}</b>${icon('chevronDown')}`;
-      placeBtn.title = `Move this look somewhere else. It goes on ${placeName}.`;
+      const pc = placeControl(placeName);
+      placeBtn.innerHTML = `<span class="muted">${pc.label}</span><b>${esc(pc.text)}</b>${icon('chevronDown')}`;
+      placeBtn.title = pc.title;
     } else {
       const bits = [`On ${placeName}`];
       if (l.owner && l.owner !== 'api' && l.owner !== 'live-map') bits.push(l.owner);
@@ -849,6 +892,8 @@ export function createLooks(S, root) {
     $$('#lkStageTitle').textContent = head.title;
     $$('#lkStageSub').textContent = head.sub;
     $$('#lkStage').classList.toggle('stale', stale);
+    // The empty state carries the one line that teaches the tap, until something is selected.
+    $$('#lkTip').hidden = !!(prev.length + house.length) || !!S.sel || !S.houseRead;
     const notRead = S.houseStatus === 'available' || S.houseRead ? null : houseState(S.houseStatus, S.house.length);
     stageState(previewState(S.preview, S.previewStatus) || notRead);
     // The toggle can be on Lights with a preview open: the stage says so.
@@ -1106,6 +1151,8 @@ export function createLooks(S, root) {
 
   return {
     push,
+    // targetRanges is the pixels the next look would go on, for the map's halo.
+    targetRanges: here,
     // inPreview says a preset is in the preview on the current target.
     inPreview: (preset) => (S.preview ? S.preview.layers : []).some((l) => l.preset === preset && sameTarget(l.target, currentTarget())),
   };

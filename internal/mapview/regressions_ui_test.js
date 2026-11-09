@@ -851,7 +851,7 @@ test('the target control is a popover, and a long place name is not cut off', ()
   const rule = /\.target-picker \{[^}]*\}/.exec(css)[0];
   assert.match(rule, /position: absolute/);
   assert.match(rule, /box-shadow/);
-  assert.doesNotMatch(/\.target-btn b \{[^}]*\}/.exec(css)[0], /ellipsis|nowrap/);
+  assert.doesNotMatch(/\.target-select b \{[^}]*\}/.exec(css)[0], /ellipsis|nowrap/);
 });
 
 test('every panel warns with the same card, in the same nouns', async () => {
@@ -992,7 +992,7 @@ test('jargon is gone or explained', async () => {
   const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
   assert.doesNotMatch(setup, />Even runs too</);
   assert.doesNotMatch(setup, />Copy view</);
-  assert.match(looks, />Goes on</);
+  assert.match(looks, /label: 'On:'/);
   assert.doesNotMatch(looks, />Apply to</);
   assert.doesNotMatch(looks, /Next look on/);
   assert.doesNotMatch(cal, /At the estimate/);
@@ -1111,10 +1111,10 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   // The control sits with what it governs: the catalog, above the cards.
   const head = /<div class="catalog-head"[\s\S]*?<div class="cards" id="lkPresets">/.exec(src);
   assert.ok(head, 'the Goes on control is in the catalog heading');
-  assert.match(head[0], />New previews go on </);
+  assert.match(head[0], /id="lkTargetLabel">Preview on</);
   // A preview layer's place is a control of its own, on its own card.
-  assert.match(src, /className: 'place icon-btn'/);
-  assert.match(src, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}<\/b>/);
+  assert.match(src, /className: 'place target-select'/);
+  assert.match(src, /<span class="muted">\$\{pc\.label\}<\/span><b>\$\{esc\(pc\.text\)\}<\/b>/);
   assert.match(src, /\/api\/v1\/preview\/layers\/.*\{ target: value \}/, 'moving a layer patches only that layer');
   assert.match(src, /escapeCloses\(place, \(\) => pickFor === c/, 'Escape closes it, even with focus left on the button');
   // Choosing for a layer must not change where the next look goes.
@@ -1352,7 +1352,7 @@ test('B87: opening Tweak shows the first control above the bar, and the form as 
 test('Looks leaves the grids alone when something previews, and a preview on an empty house says so', async () => {
   const looks = read('panel/looks.js');
   assert.doesNotMatch(looks, /hadPreview/, 'a preview no longer folds the grid under the pointer');
-  assert.match(looks, /class="muted">Goes on</, 'where the look goes, in words');
+  assert.match(looks, /class="muted">\$\{pc\.label\}</, 'where the look goes, in words');
   const { applyResult } = await import('./static/panel/looks.js');
   const dark = { dark: 'none', zones: ['Yard'], message: 'x' };
   assert.equal(applyResult('x', { dark: '' }, 'y').text, 'Applied x.');
@@ -1845,8 +1845,8 @@ test('action buttons lead with an icon; the header says it sets new previews', (
   assert.match(setup, /icon\('target'\)\}\$\{running/);
   assert.match(status, /\$\{icon\('target'\)\}Calibrate/);
   assert.match(cal, /id="caConfirm"[^>]*>\$\{icon\('check'\)\}Confirm/);
-  assert.match(looks, /class="scope-line muted">New previews go on </);
-  assert.match(looks, /<span class="muted">Goes on<\/span><b>\$\{esc\(placeName\)\}/, "the card's own control keeps its name");
+  assert.match(looks, /id="lkTargetLabel">Preview on</);
+  assert.match(looks, /<span class="muted">\$\{pc\.label\}<\/span><b>\$\{esc\(pc\.text\)\}/, "the card's own control keeps its name");
 });
 
 test('vocabulary: the words are explained once, and Adjust is not a second Tweak', () => {
@@ -2241,13 +2241,12 @@ test('B126: Calibrating is said only during an active session', async () => {
   assert.equal(mapStatus({ connected: true, measuring: 'bands', calActive: true }).text, 'Test bands');
 });
 
-test('the library scope is a quiet line; a row\'s Goes on is the only button-styled scope control', () => {
+test('the library scope and a row\'s place are one kind of control (round 3, move C)', () => {
+  // Round 3 replaced the underlined word in a sentence with a labeled, select-styled button; the row's place uses the same style.
   const looks = read('panel/looks.js');
-  assert.match(looks, /<p class="scope-line muted">New previews go on <button type="button" class="target-btn" id="lkTarget"/);
-  assert.doesNotMatch(/<p class="scope-line[\s\S]*?<\/p>/.exec(looks)[0], /icon\(|icon-btn/, 'no glyph, no button chrome');
-  assert.match(/^button\.target-btn \{[^}]*\}/m.exec(css)[0], /border: 0; background: transparent; color: var\(--accent\); text-decoration: underline/);
-  assert.match(looks, /className: 'place icon-btn'/, 'per-layer Goes on stays a button');
-  assert.match(looks, /Goes on<\/span>/);
+  assert.match(looks, /<span class="muted" id="lkTargetLabel">Preview on<\/span><button type="button" class="target-select" id="lkTarget"/);
+  assert.match(looks, /className: 'place target-select'/);
+  assert.match(/^button\.target-select \{[^}]*\}/m.exec(css)[0], /border: 1px solid var\(--control-line\)/);
 });
 
 test('phone previewing: one map band on every tab, and only the person moves the sheet', () => {

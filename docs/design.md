@@ -1282,11 +1282,41 @@ desk.
   it again climbs to the next larger area, then the zone, then **All**
   (every pixel on a run, the `all` target), then back to the run. An area
   that already covers everything is the same step as All. A breadcrumb over
-  the map shows the chain and jumps along it. The selection is where looks
-  go; a soft white halo marks its pixels on the map.
+  the map shows the chain and jumps along it, with a one-tap clear beside
+  it. The selection is where looks go; a soft white halo marks its pixels
+  on the map. A selection made while a preview is up moves no existing
+  layer: it only sets where the next one goes.
+- **The map is a control, and says so.**
+  - *One target control.* The Library's header has **Preview on** followed
+    by a select-styled button (a border and a chevron) showing where the
+    next preview goes: "Everything", or the selection's name. It opens the
+    list of places (the same chain the breadcrumb offers, searchable). A
+    selection on the map changes its text at once, and a clear (x) beside
+    it returns to Everything. A preview row's own place uses the same
+    control style and the same word, **On:** ("On: Everything"), so each is
+    labeled for what it changes: the next look, or that layer.
+  - *The tap is taught once.* "Tap a run on the map to light just that
+    part." is in the control's list and in the empty Looks state while
+    nothing is selected, and on first load it is a quiet caption on the map
+    where the breadcrumb will be, until this device's first selection and
+    never again. No tour, no modal.
+  - *Hover and tap name things.* With a mouse, a run's name and zone show
+    in a small label beside the pointer as soon as it is over any drawn
+    run, lit or not; the label is placed where it covers none of that run.
+    The inspect card's first line is the same name. On touch, the first
+    tap's selection shows the name in the breadcrumb.
+  - *The panel points at the map.* Hovering or focusing a library card or
+    a preset row draws a quieter soft halo on the pixels it would go on
+    (the current target); a controller's row on Status draws it on that
+    controller's runs, and a run's row there on that run. (Setup lists only
+    the runs the map does not draw, so its rows have nothing to point at.)
+    The halo fades in over 120 ms, at once under reduced motion, and goes
+    when the pointer or focus leaves. Touch has no hover: the halo shows
+    the current target while the Looks sheet is at its half detent with
+    nothing previewing, and a controller's row points on a tap.
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
-  - *Looks*: where looks go, presets first and then effects, the preview
+  - *Looks*: where looks go (**Preview on**), presets first and then effects, the preview
     (a card per layer with its brightness, **Tweak**, **Apply to lights**
     and Remove) and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy

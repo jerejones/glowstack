@@ -286,6 +286,17 @@ export async function open(glCanvas, input, opts) {
   function clearHalo() {
     for (const o of [...haloGroup.children]) { o.geometry.dispose(); o.material.dispose(); haloGroup.remove(o); }
   }
+  // The pointing halo: the same soft halo, quieter, for what the panel is
+  // pointing at (a card's target, a controller's runs, one run). It fades in
+  // unless motion is reduced, and goes at once.
+  const pointGroup = new THREE.Group();
+  scene.add(pointGroup);
+  let pointKey = 'null', pointFade = 0;
+  const POINT_ALPHA = 0.34, POINT_FADE_MS = 120;
+  function clearPoint() {
+    cancelAnimationFrame(pointFade);
+    for (const o of [...pointGroup.children]) { o.geometry.dispose(); o.material.dispose(); pointGroup.remove(o); }
+  }
 
   // ----- camera -----
   const box = new THREE.Box3();
@@ -577,6 +588,9 @@ export async function open(glCanvas, input, opts) {
       this.setGray(grayControllers);
       haloKey = null;
       this.setSelection(currentSelection);
+      const pointed = JSON.parse(pointKey);
+      pointKey = 'stale';
+      this.setHighlight(pointed, false);
     },
     setSelection(selection) {
       currentSelection = selection;
@@ -588,6 +602,30 @@ export async function open(glCanvas, input, opts) {
       for (const o of haloGroup.children) this.sizeHalo(o);
       changed();
     },
+    // setHighlight draws the pointing halo along ranges (or null to clear
+    // it). fade false shows it at once (prefers-reduced-motion).
+    setHighlight(ranges, fade = true) {
+      const key = JSON.stringify(ranges || null);
+      if (key === pointKey) return;
+      pointKey = key;
+      clearPoint();
+      if (ranges && ranges.length) {
+        const o = haloObject(ranges);
+        pointGroup.add(o);
+        this.sizeHalo(o);
+        const u = o.material.uniforms.uAlpha, t0 = performance.now();
+        u.value = fade ? 0 : POINT_ALPHA;
+        const step = () => {
+          const k = Math.min(1, (performance.now() - t0) / POINT_FADE_MS);
+          u.value = POINT_ALPHA * k;
+          changed();
+          if (k < 1) pointFade = requestAnimationFrame(step);
+        };
+        if (fade) pointFade = requestAnimationFrame(step);
+      }
+      changed();
+    },
+    highlight: () => JSON.parse(pointKey),
     sizeHalo(o) {
       const u = o.material.uniforms;
       u.uHalfH.value = H * dpr / 2;
@@ -598,6 +636,7 @@ export async function open(glCanvas, input, opts) {
     render() {
       if (!glDirty) return false;
       for (const o of haloGroup.children) this.sizeHalo(o);
+      for (const o of pointGroup.children) this.sizeHalo(o);
       renderer.render(scene, camera);
       glDirty = false;
       return true;

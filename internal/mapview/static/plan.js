@@ -20,7 +20,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
   let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0;
   const v = { k: 50, tx: 0, ty: 0 };
   let auto = true, version = 0;
-  let colors = null, gray = new Set(), selection = null;
+  let colors = null, gray = new Set(), selection = null, pointed = null;
   let img = null, cache = null;
 
   const drawn = [];
@@ -181,6 +181,12 @@ export function openPlan(canvas, plan, planIndex, opts) {
       ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
       haloPath(ctx, selection); ctx.stroke();
     }
+    // The pointing halo: what the panel is pointing at, quieter than the selection's.
+    if (pointed && pointed.length) {
+      ctx.globalAlpha = 0.34; ctx.strokeStyle = '#fff';
+      ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
+      haloPath(ctx, pointed); ctx.stroke();
+    }
     ctx.globalAlpha = 1;
 
     for (const p of drawn) {
@@ -231,6 +237,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
     frameArrived() {},
     setGray(ctrls) { gray = ctrls; changed(); },
     setSelection(sel) { selection = sel; changed(); },
+    setHighlight(ranges) { pointed = ranges && ranges.length ? ranges : null; changed(); },
+    highlight: () => pointed,
     render,
     tick: () => false,
     toScreen: (x, y) => [x * v.k + v.tx, y * v.k + v.ty, 1],

@@ -304,6 +304,14 @@ input[type=checkbox]:checked::after {
 .crumbs button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 .crumbs .sep { color: var(--muted); }
 .crumbs .x { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); padding: 0; }
+/* The line that teaches the tap, where the breadcrumb will be, until the
+ * first selection on this device (move C). Quiet: a caption, not a control. */
+.map-hint { position: absolute; z-index: 2; left: 10px; right: 10px; margin: 0; color: var(--muted); font-size: var(--t-note); pointer-events: none; text-shadow: 0 1px 2px #000; }
+body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
+/* The name under the pointer: the run and its zone, beside the pointer and never over the run. */
+.hover-label { position: absolute; z-index: 5; display: flex; flex-direction: column; max-width: 240px; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: rgba(21, 24, 29, 0.96); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); pointer-events: none; white-space: nowrap; font-size: var(--t-help); line-height: 1.3; }
+.hover-label[hidden] { display: none; }
+.hover-label span { color: var(--muted); font-size: var(--t-note); }
 
 .legend {
   position: absolute; z-index: 2; left: 8px; bottom: calc(max(8px, var(--safe-b)) + var(--tap) + 10px); max-width: min(260px, 60%); max-height: 45%; display: flex; flex-direction: column;
@@ -355,6 +363,7 @@ input[type=checkbox]:checked::after {
 .inspect td { padding: 2px 0; word-break: break-word; }
 .inspect .head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .inspect .head b { flex: 1; }
+.inspect .head b small { display: block; color: var(--muted); font-weight: 400; font-size: var(--t-note); }
 .inspect .chip-color { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--rim); }
 .inspect.card {
   position: absolute; z-index: 4; width: 280px; pointer-events: auto;
@@ -477,10 +486,13 @@ input[type=checkbox]:checked::after {
   body[data-detent=half] .stage-head > #lkClear { flex: none; margin: -8px 0 -8px auto; padding: 0; align-self: center; }
   body[data-detent=half] .stage-warn { padding: 0 8px; margin-top: 4px; }
   body[data-detent=half] .layer.two-line .name-line { padding: 2px 0; }
-  body[data-detent=half] .catalog-head { margin: 4px 0; flex-wrap: nowrap; }
-  body[data-detent=half] .catalog-head .scope-line { flex-wrap: nowrap; min-width: 0; }
-  /* The scope's link keeps its tap height without making the heading taller. */
-  body[data-detent=half] .catalog-head .target-btn { margin: -8px 0; }
+  body[data-detent=half] .catalog-head { margin: 2px 0; }
+  /* The target control keeps its tap height (the ::after reaches 44 px) without making the heading taller. */
+  body[data-detent=half] .catalog-head .target-select, body[data-detent=half] .catalog-head .target-clear { min-height: 28px; height: 28px; position: relative; }
+  body[data-detent=half] .catalog-head .target-select::after, body[data-detent=half] .catalog-head .target-clear::after { content: ''; position: absolute; inset: -8px 0; }
+  /* The swatch is 18 px taller than the strip it replaced: the card gives the room back from its own gaps, so three rows of effects still fit the half sheet. */
+  body[data-detent=half] .preset { gap: 3px; padding: 5px 6px 4px; }
+  body[data-detent=half] .stage-tip { margin: 0; }
   body[data-detent=half] .lib-filters { flex-wrap: nowrap; margin-bottom: 4px; }
   body[data-detent=half] .lib-filters .field { flex: 1 1 auto; }
   /* The label's words fold out of sight, not out of the input's name. */
@@ -533,15 +545,26 @@ details[open] > summary::before { transform: rotate(90deg); }
 .catalog-head .group-head { margin: 0; }
 .place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
 .place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
-button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: transparent; }
+button.place { min-width: 0; max-width: 100%; }
 .place .muted { flex: none; white-space: nowrap; }
 .place b { font-weight: 500; flex: 1 1 auto; min-width: 8ch; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
-/* The library's scope is a setting, in a line of words: only a row's Goes on
- * is button-styled. A long name wraps here rather than being cut off. */
-.scope-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 5px; margin: 0; font-size: var(--t-help); }
+/* The target control (move C): "Preview on [Everything v]", the one control
+ * that sets where the next preview goes. A select-styled button, with a
+ * border and a chevron, and a clear (x) while it is not Everything. A
+ * preview row's own place ("On: Everything") is the same component. */
+.target-ctl { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--t-help); }
+.target-ctl > .muted { flex: none; white-space: nowrap; }
+button.target-select { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 0 6px 0 9px; border: 1px solid var(--control-line); border-radius: 7px; background: var(--card); color: var(--fg); text-align: left; }
+button.target-select:hover { border-color: var(--accent); }
+button.target-select[aria-expanded=true] { border-color: var(--accent); background: var(--card2); }
+.target-select b { font-weight: 600; min-width: 0; overflow-wrap: anywhere; text-align: left; line-height: 1.2; }
+.target-select > .muted { flex: none; white-space: nowrap; }
+.target-select > .icon { flex: none; color: var(--muted); }
+.target-clear { flex: none; min-width: var(--tap); padding: 0; }
+/* A link-styled button: the phone bar's "Add on top instead". */
 button.target-btn { min-width: 0; padding: 0 1px; border: 0; background: transparent; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; text-align: left; }
 button.target-btn:hover { text-decoration-thickness: 2px; }
-.target-btn b { font-weight: 500; min-width: 0; overflow-wrap: anywhere; text-align: left; }
+.stage-tip { margin: 2px 4px 0; }
 .target-picker { position: absolute; z-index: 4; top: calc(100% + 4px); left: 0; right: 0; display: grid; gap: 6px; padding: 8px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
 .target-picker.up { top: auto; bottom: calc(100% + 4px); }
 .target-list { overflow-y: auto; overscroll-behavior: contain; padding-bottom: 12px; }
@@ -891,6 +914,10 @@ button.stat:hover { border-color: #8b95a3; background: var(--card2); }
 .stat span { display: block; color: var(--muted); font-size: var(--t-meta); }
 .list-rows { list-style: none; margin: 0; padding: 0; }
 .list-rows li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1e2228; min-height: var(--tap); }
+/* A row that points at the map (move C): its controller's or run's lights get the halo while it is hovered, focused or, on a phone, tapped. */
+.list-rows li[data-ctl], .list-rows li[data-run-row] { border-radius: 6px; }
+.list-rows li[data-ctl].pointing { background: var(--card); box-shadow: inset 3px 0 0 var(--accent); }
+@media (hover: hover) { .list-rows li[data-ctl]:hover, .list-rows li[data-run-row]:hover { background: var(--card); } }
 .list-rows li .what { flex: 1; min-width: 0; }
 .list-rows li .what b { display: block; overflow-wrap: anywhere; }
 .list-rows li .fact { font-weight: 600; white-space: nowrap; }
