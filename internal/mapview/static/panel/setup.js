@@ -80,9 +80,9 @@ export function createSetup(S, root) {
       </div>
       <div class="muted small help">Default goes back to the site's view. Copying gives this camera's settings as text, for making it the view every device starts from.</div>
     </div>
-    <h3 class="sub">Map updates</h3>
-    <div class="seg" id="suRate" role="group" aria-label="Map update rate">${[[0, 'Max'], [10, '10/s'], [5, '5/s'], [1, '1/s']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</div>
-    <div class="muted small help" id="suStream"></div>
+    <div id="suRateGroup"><h3 class="sub">Map updates</h3>
+      <div class="seg" id="suRate" role="group" aria-label="Map update rate">${[[0, 'Max'], [10, '10/s'], [5, '5/s'], [1, '1/s']].map(([v, l]) => `<button type="button" data-fps="${v}">${l}</button>`).join('')}</div>
+      <div class="muted small help" id="suStream"></div></div>
     </details>
     <h2 class="sub">${isScene ? 'Lights missing from the model' : 'Lights missing from the plan'}</h2>
     <ul class="list-rows" id="suUndrawn"></ul>`;

@@ -612,7 +612,8 @@ button.place { min-width: 0; max-width: 100%; padding: 2px 8px; background: tran
 .help { margin-top: 6px; }
 #suAdvanced { margin-top: 16px; }
 #suAdvanced > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
-/* Its sections sit under Advanced: indented, and a size below the top-level ones. */
+/* Its sections sit under Advanced: indented, and a size below the top-level
+ * ones. Every section is one wrapper, so a control takes the wrapper's width. */
 #suAdvanced > :not(summary) { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-strong); }
 #suAdvanced h3.sub { font-size: var(--t-m); color: var(--muted-raised); margin-top: 10px; }
 /* One rhythm on Setup: 16 above a heading, 6 to its control, 6 to its help. */

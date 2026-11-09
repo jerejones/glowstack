@@ -2206,3 +2206,10 @@ test('opening the color editor keeps the row side by side', () => {
   assert.doesNotMatch(css, /\.form \.f:has\(\.color-picker\[open\]\) > \.ctl/);
   assert.match(css, /\.color-picker\[open\] > \.color-mixer \{ margin-left:/);
 });
+
+test('B124: Map updates sits in Advanced like its sibling groups', () => {
+  const setup = read('panel/setup.js');
+  const advanced = setup.slice(setup.indexOf('id="suAdvanced"'), setup.indexOf('</details>', setup.indexOf('id="suRate"')));
+  assert.match(advanced, /<div id="suRateGroup"><h3 class="sub">Map updates<\/h3>\s*<div class="seg" id="suRate"/, 'in one wrapper, so .tab .seg fills the wrapper');
+  assert.doesNotMatch(advanced, /\n {4}<div class="seg"/, 'no segmented control is a direct child of the indented block');
+});
