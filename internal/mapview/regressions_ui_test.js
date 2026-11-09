@@ -2414,7 +2414,8 @@ test('a layer row gives the slider the width the place does not use', () => {
 });
 
 test('a phone row gives its name the room the place does not use', () => {
-  assert.match(read('ui.css'), /\.layer \.line-place \{ flex: 0 1 auto; max-width: 30%;/);
+  // The name's column stretches; the place and level are as wide as their words.
+  assert.match(read('ui.css'), /\.layer \.name-line \{ display: grid; grid-template-columns: auto minmax\(0, 1fr\) auto auto var\(--tap\);/);
 });
 
 test('B129: a long slider value never overruns the shared right edge', () => {
@@ -2432,7 +2433,7 @@ test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word f
   // When the two cannot share the line, Remove loses its word, not the name.
   assert.match(phone, /\.layer\.tight \[data-a=remove\] span \{ display: none; \}/);
   assert.match(looks, /function fitControls\(c\)/);
-  assert.match(looks, /box\.scrollWidth > box\.clientWidth \+ 1\) c\.el\.classList\.add\('tight'\)/);
+  assert.match(looks, /box\.scrollWidth > box\.clientWidth \+ 1\) el\.classList\.add\('tight'\)/);
   assert.match(looks, /rm\.setAttribute\('aria-label', part \? 'Remove here' : 'Remove'\)/, 'the icon-only Remove still has its name');
 });
 
@@ -2445,4 +2446,15 @@ test('B133: on a phone a Tweak row stacks, and a slider track gets the card\'s w
   assert.match(css, /\.form \.f\.slider > \.ctl > input\[type=range\] \{ grid-column: 1 \/ -1; grid-row: 2; \}/);
   assert.match(css, /\.form \.channel-row input\[type=range\] \{ grid-column: 1 \/ -1; grid-row: 2; \}/, 'the mixer channels stack the same way');
   assert.match(read('form.js'), /c\.querySelector\(':scope > input\[type=range\]'\) && c\.querySelector\(':scope > output'\)\) f\.classList\.add\('slider'\)/);
+});
+
+test('B134: a collapsed phone row keeps the look\'s name whole; place and level take a second line', () => {
+  const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
+  assert.match(phone, /\.layer\.two-line \.name-line b \{ grid-column: 2 \/ 5; white-space: normal;[^}]*-webkit-line-clamp: 2; \}/);
+  assert.match(phone, /\.layer\.two-line \.line-place \{ grid-column: 2; grid-row: 2;/);
+  assert.match(phone, /\.layer\.two-line \.line-level \{ grid-column: 3; grid-row: 2;/);
+  assert.match(phone, /\.layer\.two-line \.line-level::before \{ content: '· '; \}/, 'Everything · 100%');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /if \(name\.scrollWidth > name\.clientWidth \+ 1\) el\.classList\.add\('two-line'\)/);
+  assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
 });

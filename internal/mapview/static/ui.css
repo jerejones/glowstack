@@ -582,13 +582,23 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
   /* A row is one line until asked: kind, name, where, how bright, a chevron.
    * The Library stays within reach while previewing. */
   .layer { padding: 0 0 0 12px; margin-top: 2px; }
-  .layer .name-line { min-height: var(--tap); gap: 6px; }
-  .layer .row-expand { display: inline-flex; flex: none; width: var(--tap); padding: 0; border: 0; background: transparent; color: var(--muted); }
+  .layer .name-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto var(--tap); min-height: var(--tap); gap: 0 6px; }
+  .layer .row-expand { display: inline-flex; flex: none; width: var(--tap); padding: 0; border: 0; background: transparent; color: var(--muted); grid-column: 5; grid-row: 1; }
   .layer.open .row-expand .icon { transform: rotate(180deg); }
-  .layer .line-place, .layer .line-level { display: inline; flex: none; color: var(--muted); font-size: var(--t-meta); font-variant-numeric: tabular-nums; }
-  .layer .line-place { flex: 0 1 auto; max-width: 30%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+  .layer .line-place, .layer .line-level { display: block; color: var(--muted); font-size: var(--t-meta); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .layer .line-place { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
   .layer .name-line .strip, .layer .front { display: none; }
   .layer .name-line b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The name is whole. When the place and level cannot share its line they
+   * take a second, muted one beneath it; a longer name still may wrap once. */
+  .layer.two-line .name-line b { grid-column: 2 / 5; white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .layer.two-line .name-line { grid-template-columns: auto auto auto minmax(0, 1fr) var(--tap); }
+  .layer.two-line .line-place { grid-column: 2; grid-row: 2; text-align: left; justify-self: start; max-width: 100%; }
+  .layer.two-line .line-level { grid-column: 3; grid-row: 2; justify-self: start; }
+  .layer.two-line .line-level::before { content: '· '; }
+  .layer.two-line .name-line .kind { grid-row: 1; align-self: center; }
+  .layer.two-line .name-line { padding: 6px 0; }
+  .layer.open .name-line b { grid-column: 2 / 5; }
   .layer:not(.open) .controls, .layer:not(.open) .note, .layer:not(.open) .slot { display: none; }
   .layer.open .line-place, .layer.open .line-level { display: none; }
   .stage-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }

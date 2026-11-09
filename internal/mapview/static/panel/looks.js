@@ -659,15 +659,20 @@ export function createLooks(S, root) {
     fitControls(c);
   }
 
-  // fitControls keeps a row's place name readable on a narrow sheet: when
-  // the place and a worded Remove cannot share the line, Remove drops its
-  // word (its aria-label and title still say it) rather than the name
-  // losing letters.
+  // fitControls keeps a row's words whole on a narrow sheet. Collapsed, when
+  // the look's name cannot share its line with the place and level, those
+  // two take a second line beneath it. Open, when the place and a worded
+  // Remove cannot share the line, Remove drops its word (its aria-label and
+  // title still say it) rather than the name losing letters.
   function fitControls(c) {
-    const box = c.el.querySelector('.controls');
-    c.el.classList.remove('tight');
-    if (!c.el.classList.contains('open') || !box.offsetParent) return;
-    if (box.scrollWidth > box.clientWidth + 1) c.el.classList.add('tight');
+    const el = c.el, name = el.querySelector('.name-line b'), box = el.querySelector('.controls');
+    el.classList.remove('tight', 'two-line');
+    if (!name.offsetParent || S.panel.layout() !== 'sheet') return;
+    if (!el.classList.contains('open')) {
+      if (name.scrollWidth > name.clientWidth + 1) el.classList.add('two-line');
+      return;
+    }
+    if (box.scrollWidth > box.clientWidth + 1) el.classList.add('tight');
   }
 
   // openRow shows or hides a phone row's full controls.
@@ -998,6 +1003,8 @@ export function createLooks(S, root) {
   fillTargets();
   renderCatalog();
   S.on('ready', clearBar);
+  // The rows' words are fitted to the width they have, so refit on a resize.
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); }).observe($$('#lkRows'));
 
   return {
     push,
