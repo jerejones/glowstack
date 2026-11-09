@@ -562,7 +562,7 @@ function badge() {
   for (const t of $('showSeg').querySelectorAll('button')) {
     press(t, (t.dataset.show === '' ? 'preview' : 'lights') === m.showing);
     if (t.dataset.show === '') {
-      t.disabled = !m.canPreview;
+      t.setAttribute('aria-disabled', m.canPreview ? 'false' : 'true');
       t.title = m.canPreview ? 'Your preview, on the map only' : `No preview yet. ${S.coarse ? 'Tap' : 'Click'} a preset to preview it.`;
     }
   }
@@ -601,7 +601,7 @@ S.refresh = async () => { await Promise.all([pollPreview(), pollHouse()]); };
 // ---------- chrome ----------
 
 function bindChrome() {
-  for (const b of $('showSeg').querySelectorAll('button')) b.onclick = () => setShow(b.dataset.show);
+  for (const b of $('showSeg').querySelectorAll('button')) b.onclick = () => (b.getAttribute('aria-disabled') === 'true' ? toast(b.title) : setShow(b.dataset.show));
   addEventListener('resize', () => { S.panel.refresh(); resize(); });
   document.addEventListener('visibilitychange', () => {
     subscribe();

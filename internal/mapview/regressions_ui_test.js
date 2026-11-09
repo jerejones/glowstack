@@ -260,9 +260,10 @@ test('single-choice sets are segmented and the show-on-map group has a name', ()
   assert.ok(setup.indexOf('Show on the map') > setup.indexOf('Color the map by'));
 });
 
-test('pinned is one symbol, the Presets bookmark', () => {
+test('pinned is one symbol, a pin, so the bookmark means only Presets', () => {
   assert.doesNotMatch(read('icons.js'), /\bstar\b/);
-  assert.match(read('panel/presets.js'), /presetsFilled/);
+  assert.match(read('panel/presets.js'), /pinFilled/);
+  assert.doesNotMatch(read('panel/presets.js'), /presetsFilled/);
 });
 
 test('Remove looks the same in both lanes, and layer bars follow the lane', () => {
@@ -873,6 +874,22 @@ test('Status tiles are even, uptime is words, and file names stay out of the way
   assert.doesNotMatch(w.plain, /anchors\.yaml|run-a/);
 });
 
+test('the last polish: pin glyph, type sizes, contrast and the Preview reason', () => {
+  assert.match(read('panel/presets.js'), /icon\(p\.pinned \? 'pinFilled' : 'pin'\)/);
+  assert.match(css, /--t-help: 14px/);
+  assert.match(css, /--t-num: 13px/);
+  const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  const card2 = /--card2: (#[0-9a-f]{6})/.exec(css)[1];
+  const strong = /--line-strong: (#[0-9a-f]{6})/.exec(css)[1];
+  assert.ok(ratio(strong, card2) >= 3, `control border ${strong} on a raised card`);
+  assert.ok(ratio(/\.handle i \{[^}]*background: (#[0-9a-f]{6})/.exec(css)[1], card2) >= 3, 'sheet handle');
+  const app = read('app.js');
+  assert.match(app, /aria-disabled/, 'a tap on the unavailable Preview still explains itself');
+  assert.doesNotMatch(app, /t\.disabled = !m\.canPreview/);
+  assert.match(read('overlay.js'), /MAJOR, S\.panel\?\.layout\?\.\(\) === 'sheet'\)/, 'controller labels thin on the small map');
+});
+
 test('B56: Previous and Next are placed before the instructions', () => {
   const src = read('panel/calibrate.js');
   assert.ok(src.indexOf('parts.push(nav());') < src.indexOf('class="cal-how"'));
@@ -1018,7 +1035,7 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   assert.deepEqual(out.map((x) => x.summary), ['dark', 'The lights are spaced differently than drawn in 2 places.', 'other']);
   assert.equal(out[1].group.length, 2);
   assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) 6\.5em 6\.4em; \}/);
-  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-help\)/, 'controller rows at 13px');
+  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-num\)/, 'controller rows at 13px');
 });
 
 test('the phone sheet keeps Expand on the handle and tabs to themselves', () => {

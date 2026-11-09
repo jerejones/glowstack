@@ -335,7 +335,8 @@ export function createOverlay(S) {
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
       const display = controllerName(g, c.id); // a board the config doesn't list has only an id
       const name = st.labels ? controllerLabel(display, c.label) : display;
-      label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR);
+      // On the small map these are names like any other: only those with room.
+      label(name, q[0] + 10, q[1] + 4, cfg ? CTRL : CTRL_OFF, MAJOR, S.panel?.layout?.() === 'sheet');
     }
   }
 

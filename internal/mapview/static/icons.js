@@ -30,12 +30,13 @@ const PATHS = {
   copy: 'M5.5 5.5h7.5v7.5H5.5zM10.5 5.5v-3h-8v8h3',
   trash: 'M3 4.5h10M6.5 4.5v-2h3v2M4.5 4.5l.5 9h6l.5-9',
   minus: 'M3 8h10',
+  pin: 'M9.5 2L14 6.5 12.5 7.5 9.5 11 10 13 9 14 2 7 3 6 5 6.5 8.5 3.5zM5.5 10.5l-3 3',
 };
-const FILLED = new Set(['presetsFilled', 'play']);
+const FILLED = new Set(['pinFilled', 'play']);
 
-// icon is the markup for a named icon. presetsFilled is presets, filled in.
+// icon is the markup for a named icon. fooFilled is foo, filled in.
 export function icon(name) {
-  const d = PATHS[name === 'presetsFilled' ? 'presets' : name];
+  const d = PATHS[name.replace(/Filled$/, '')];
   if (!d) throw new Error('no icon ' + name);
   return `<svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="${FILLED.has(name) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }

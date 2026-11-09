@@ -17,7 +17,7 @@
   --muted: #8b93a1;
   --muted-raised: #c7ced9; /* --muted on a pressed or raised surface */
   --line: #2a2f37;
-  --line-strong: #4a5361; /* a border that says these belong together */
+  --line-strong: #6b7480; /* a border that says these belong together */
   --rim: rgba(255, 255, 255, 0.35); /* around a color swatch, so black shows */
   --on: #2c4a6e;         /* the one fill for a selected chip or segment */
   --card: #15181d;
@@ -33,7 +33,8 @@
   --radius: 10px;
   --tap: 28px;           /* every control's smallest side: 44 px on touch */
   --t-s: 12px;           /* metadata */
-  --t-help: 13px;        /* text that explains */
+  --t-help: 14px;        /* text that explains */
+  --t-num: 13px;         /* figures beside a name */
   --t-m: 14px;           /* body and controls */
   --t-h3: 15px;          /* group headings */
   --t-l: 15px;           /* emphasized values */
@@ -122,7 +123,7 @@ button, .chip {
   padding: 0 10px; cursor: pointer; touch-action: manipulation;
 }
 button:hover { border-color: #8b95a3; }
-button:disabled { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; }
+button:disabled, button[aria-disabled=true] { color: var(--muted); background: transparent; border-style: dashed; cursor: not-allowed; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 /* --muted misses AA on these surfaces; what's inside reads the lighter one. */
@@ -169,6 +170,8 @@ input[type=checkbox]:checked::after {
 .tab .seg.five > button { padding: 0 3px; font-size: var(--t-s); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips > button { border-radius: 999px; }
+#suLayers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#suLayers > button { min-width: 0; overflow-wrap: anywhere; }
 /* Toggle chips show their state both ways; picking a place doesn't need to. */
 .chips.toggles > button::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: -1px; border: 1px solid currentColor; border-radius: 3px; opacity: 0.7; }
 .chips > button.on { background: var(--on); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #fff; }
@@ -332,7 +335,7 @@ input[type=checkbox]:checked::after {
   .panel.dragging { transition: none; }
   body.sheet-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
   .handle { display: flex; justify-content: center; align-items: center; height: var(--handle); flex: none; touch-action: none; cursor: grab; }
-  .handle i { width: 40px; height: 5px; border-radius: 3px; background: #4b5563; }
+  .handle i { width: 40px; height: 5px; border-radius: 3px; background: #6b7480; }
   .tabs { padding: 0 10px; border-bottom: 1px solid var(--line); touch-action: none; height: calc(var(--peek) - var(--handle)); align-items: center; }
   .tabs button { height: var(--tap); }
   .content { flex: none; height: calc(var(--sheet-visible) - var(--peek) - var(--safe-b)); overflow-y: hidden; --content-bottom: 16px; }
@@ -527,11 +530,11 @@ details[open] > summary::before { transform: rotate(90deg); }
 .list-rows li .what { flex: 1; min-width: 0; }
 .list-rows li .what b { display: block; overflow-wrap: anywhere; }
 .list-rows li .val { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
-.list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-help); }
+.list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-num); }
 .run-rows li { display: grid; grid-template-columns: minmax(0, 1fr) 6.5em 6.4em; }
 .run-rows li > button { width: 100%; padding-left: 0; padding-right: 0; }
 .run-rows .len { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.run-rows .len small { display: block; color: var(--muted); font-size: var(--t-help); }
+.run-rows .len small { display: block; color: var(--muted); font-size: var(--t-num); }
 #stDiag { margin-top: 12px; }
 .issue-list { list-style: none; margin: 6px 0 0 24px; padding: 0; display: grid; gap: 6px; color: #fcd9a5; }
 .issue-list li { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
@@ -593,6 +596,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-prog li.nv { align-items: start; }
 .cal-prog li .name { display: flex; align-items: flex-start; gap: 6px; min-width: 0; white-space: normal; overflow: visible; }
 .cal-prog li .name span { min-width: 0; overflow-wrap: break-word; }
+.cal-prog li .value { font-size: var(--t-num); }
 .cal-prog li .icon { width: 12px; height: 12px; margin-top: 4px; }
 .cal-prog li:hover { background: #1a1e24; }
 .cal-prog li.done .icon { color: var(--house); }

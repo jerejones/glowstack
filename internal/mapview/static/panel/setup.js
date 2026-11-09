@@ -41,7 +41,7 @@ export function createSetup(S, root) {
       <button type="button" id="suNodes" title="Corners, links, gaps and calibration points">Points</button>
       <button type="button" id="suLabels" title="Names on points and gaps, descriptions on controllers">Names</button>
       <button type="button" id="suControllers" title="Where the model puts each controller">Controllers</button>
-      <button type="button" id="suEven" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label even runs</button>
+      <button type="button" id="suEven" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label evenly spaced runs</button>
     </div>
     <div class="legend-inline" id="suLegend" hidden></div>
     <div id="suModel" hidden><h3 class="sub">Model detail</h3>
