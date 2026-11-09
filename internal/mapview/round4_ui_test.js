@@ -496,3 +496,27 @@ test('Refinement 2: nested cards step their background; Tweak\'s labels sit on t
   assert.match(looks, /c\.el\.querySelector\('\.slot'\)\.append\(form\.el\);\s*alignForm\(c\);/);
   assert.match(looks, /function fitControls\(c\) \{\s*alignForm\(c\);/, 'kept through a resize');
 });
+
+test('Refinement 3: the phone\'s search opens fully, with the list as a chip that still switches', async () => {
+  const { chipFilter } = await import('./static/panel/looks.js');
+  // A tap on a segment lists it; a tap on the chip beside an open search moves to the next list, around.
+  assert.equal(chipFilter('effects', false), 'effects');
+  assert.equal(chipFilter('pinned', true), 'presets');
+  assert.equal(chipFilter('presets', true), 'effects');
+  assert.equal(chipFilter('effects', true), 'pinned');
+  const looks = read('panel/looks.js');
+  assert.match(looks, /filter = chipFilter\(b\.dataset\.filter, b\.classList\.contains\('on'\) && searchingNow\(\)\);/);
+  assert.match(looks, /\$\$\('#lkFilter'\)\.addEventListener\('mousedown', \(e\) => \{ if \(searchingNow\(\)\) e\.preventDefault\(\); \}\);/, 'the tap does not take the focus, so the row does not fold under the finger');
+  // While searching: the field has the row, the other segments are out of it, the chip is as narrow as its word.
+  const phone = css.slice(css.indexOf('/* The search takes the row while in use'));
+  assert.match(phone, /body\[data-detent\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
+  assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
+  assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button\.on \{ padding: 0 8px; gap: 0; font-size: var\(--t-s\);/);
+  assert.match(css, /\.lib-filters \.seg > button > \.icon \{ display: none; \}/, 'the chip is its word');
+  // The chip names the list, and the search is searching from focus: blur with nothing typed folds it back.
+  const { searching } = await import('./static/field.js');
+  assert.equal(searching(true, ''), true);
+  assert.equal(searching(false, 'glitter'), true);
+  assert.equal(searching(false, ''), false);
+  assert.match(css, /\.lib-filters \{ display: flex; flex-wrap: nowrap;/, 'one line in every state: the results do not move');
+});

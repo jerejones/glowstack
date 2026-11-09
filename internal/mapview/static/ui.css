@@ -542,12 +542,14 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   /* B143: two or more previews fold the same way, so the card shows at most one layer row in full. */
   body[data-detent=half] #lkRows.prev-folded .layer.preview { display: none; }
   body[data-detent=half] .live-sum { display: grid; }
-  /* The search takes the row while in use: the other segments slide out of it and the chosen one stays,
-   * with its icon and word, so what is being searched is always in view. */
+  /* The search takes the row while in use: the other segments slide out of it and the chosen one stays
+   * as a chip at its left, by name, so what is being searched is always in view. The chip is as narrow as
+   * its word, so a 25-character query shows whole at 390 px; a tap on it moves to the next list. */
   body[data-detent] .lib-filters .field.searching { flex: 1 1 100%; }
   body[data-detent] .lib-filters:has(.field.searching) .seg > button:not(.on) { display: none; }
-  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on > .icon { display: block; }
-  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 10px; gap: 4px; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 8px; gap: 0; font-size: var(--t-s); border-radius: 999px; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg { border-radius: 999px; }
+  body[data-detent] .lib-filters .field.searching input { padding-left: 10px; }
 }
 @media (min-width: 700px), (max-height: 499.98px) and (orientation: landscape) {
   .legend-inline { display: none; }

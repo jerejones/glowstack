@@ -100,6 +100,13 @@ export function stageSub({ rows, stale, word, read = true, status = 'available',
 }
 
 const FILTER_WORDS = { pinned: 'Pinned', presets: 'All presets', effects: 'Effects' };
+// chipFilter is the list a tap on a segment shows: that segment's, or, when
+// it is the chip left beside an open search (already the one listed), the
+// next in the bar's order, so the lists can still be switched while searching.
+export function chipFilter(tapped, isChip) {
+  const order = Object.keys(FILTER_WORDS);
+  return isChip ? order[(order.indexOf(tapped) + 1) % order.length] : tapped;
+}
 const FILTER_NOUNS = { pinned: 'pinned presets', presets: 'presets', effects: 'effects' };
 
 // noMatch is the library's empty state for a search: what didn't match, and
@@ -616,7 +623,12 @@ export function createLooks(S, root) {
     }
     markPreviewed();
   }
-  for (const b of $$('#lkFilter').children) b.onclick = () => { filter = b.dataset.filter; save(FILTER, filter); renderCatalog(); };
+  // A tap on a segment lists that segment. While the search has the row the
+  // one segment left is a chip: a tap on it moves to the next list, and the
+  // search keeps the focus (and so the row) through the tap.
+  const searchingNow = () => $$('#lkFind').parentElement.classList.contains('searching');
+  for (const b of $$('#lkFilter').children) b.onclick = () => { filter = chipFilter(b.dataset.filter, b.classList.contains('on') && searchingNow()); save(FILTER, filter); renderCatalog(); };
+  $$('#lkFilter').addEventListener('mousedown', (e) => { if (searchingNow()) e.preventDefault(); });
   // The panel points at the map: hovering or focusing a card shows, with the
   // soft halo, the pixels it would go on. Touch has no hover; app.js shows
   // the same halo at rest on a phone's half sheet (restPoint).

@@ -2954,7 +2954,7 @@ test('A2: the half sheet keeps the Library in reach while previewing; the search
   // Round 3: the same growth at every detent of the sheet, not only the half.
   assert.match(phone, /body\[data-detent\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
   assert.match(phone, /body\[data-detent\] \.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
-  assert.match(phone, /body\[data-detent\] \.lib-filters:has\(\.field\.searching\) \.seg > button\.on > \.icon \{ display: block; \}/);
+  assert.match(phone, /body\[data-detent\] \.lib-filters:has\(\.field\.searching\) \.seg > button\.on \{ padding: 0 8px;/); // the chip is its word, so a long query fits beside it (series 2 round 4)
   assert.match(css, /\.field-clear \{ position: absolute; right: 2px;/);
   assert.match(css, /input\[type=search\]::-webkit-search-cancel-button \{ display: none;/, 'not two clear buttons: the browser\'s is off');
   const field = read('field.js');
