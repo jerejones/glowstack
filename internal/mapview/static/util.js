@@ -128,6 +128,25 @@ export const nthColor = (i) => {
   return hsl(h >= 15 && h < 70 ? h + 75 : h, 0.75, [0.45, 0.6, 0.72][i % 3]);
 };
 
+const luminance = (c) => {
+  const [r, g, b] = c.map((v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+// contrast is the WCAG ratio between two [r, g, b] colors.
+export const contrast = (a, b) => { const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+// LABEL_PLATE is the map label's plate over the brightest pixel behind it.
+export const LABEL_PLATE = [28, 29, 31];
+// readableLabel lifts a label's color toward white, keeping its hue, until
+// it has 4.5:1 on the plate. color is "rgb(r,g,b)" or "#rrggbb".
+export function readableLabel(color) {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color);
+  const c = hex ? [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16)) : (color.match(/\d+/g) || []).slice(0, 3).map(Number);
+  if (c.length < 3) return color;
+  let out = c;
+  for (let t = 0; contrast(out, LABEL_PLATE) < 4.5 && t < 1; t += 0.05) out = c.map((v) => Math.round(v + (255 - v) * (t + 0.05)));
+  return `rgb(${out.join(',')})`;
+}
+
 // parseColor reads "#rrggbb" or "#rrggbb/ww" (W is the strips' warm
 // white). null if it's neither.
 export function parseColor(s) {

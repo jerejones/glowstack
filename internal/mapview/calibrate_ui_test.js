@@ -218,7 +218,7 @@ test('shared sync nodes show distinct run locations and a dotted connector', asy
   const S={geo:g,plan:0,hover:-1,pinned:-1,view:{toScreen:(x,y,z)=>[x,y+z]}};
   const overlay=createOverlay(S);overlay.st.nodes=true;overlay.st.labels=true;overlay.draw(ctx);
   assert.deepEqual(lines,[[[1,5],[1,3],[2,4]]]);
-  assert.deepEqual(labels,['junction · eave','junction · rail / return']);
+  assert.deepEqual(labels,['Junction · Eave','Junction · Rail / Return']);
 });
 
 

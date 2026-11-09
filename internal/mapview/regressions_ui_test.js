@@ -462,7 +462,7 @@ test('Apply offers Replace only for layers the preview would cover completely', 
 
 test('labels never share pixels, and spacing labels at 1.00 stay off by default', async () => {
   const src = read('overlay.js');
-  assert.match(src, /placed\.some\(\(b\) => hit\(box, b, l\.budget \? NAME_ROOM : 1\)\)/);
+  assert.match(src, /placed\.some\(\(b\) => hit\(box, b, l\.budget \? NAME_ROOM : LABEL_GAP\)\)/);
   assert.match(src, /!pct && !st\.evenSpacing/);
   assert.match(src, /evenSpacing: false/);
 });
@@ -1324,4 +1324,37 @@ test('B85: without the map a warning offers Retry, and controllers keep their na
   const status = read('panel/status.js');
   assert.match(status, /<b title="\$\{esc\(c\.id\)\}">\$\{esc\(controllerName\(g, c\.id\)\)\}/);
   assert.match(status, /fix\.retry \? location\.reload\(\)/);
+});
+
+test('B86: no two labels of any kind overprint; what is left out is counted and readable', async () => {
+  const { placeLabels } = await import('./static/overlay.js');
+  const { readableLabel, contrast, LABEL_PLATE, nthColor } = await import('./static/util.js');
+  const measure = (l) => l.text.length * 6;
+  // Every kind at once, piled on one corner of the map: outputs, controllers,
+  // corners, points, gaps and a focused name.
+  const kinds = [[2, false], [2, false], [1.2, true], [1, true], [0, true], [2.5, false]];
+  const labels = Array.from({ length: 240 }, (_, i) => { const [rank, budget] = kinds[i % kinds.length]; return { text: `Label number ${i}`, x: 120 + (i * 13) % 300, y: 120 + (i * 7) % 180, color: '#fff', rank, budget }; });
+  const placed = placeLabels(labels, { width: 900, height: 700, measure });
+  const apart = (a, b) => a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+  placed.forEach((a, i) => placed.slice(i + 1).forEach((b) => assert.ok(apart(a, b), `${a.text} over ${b.text}`)));
+  assert.ok(placed.hidden > 0, 'the crowded ones are left out');
+  assert.equal(placed.hidden, labels.length - placed.length, 'and counted');
+  assert.ok(placed.filter((p) => p.rank >= 2).length >= placed.filter((p) => p.rank < 1).length, 'the lower ranks give way');
+  // A label anchored outside the view is not "hidden".
+  assert.equal(placeLabels([{ text: 'off', x: -50, y: 10, color: '#fff', rank: 1, budget: true }], { width: 200, height: 200, measure, avoid: [{ x0: 0, x1: 200, y0: 0, y1: 200 }] }).hidden, 0);
+  // Marks are kept clear of when there's another spot, but don't hide a label.
+  const marks = [{ x0: 95, x1: 200, y0: 80, y1: 104 }];
+  const near = placeLabels([{ text: 'Name', x: 100, y: 100, color: '#fff', rank: 1, budget: false }], { width: 400, height: 400, marks, measure });
+  assert.ok(near.length === 1 && (near[0].y0 >= 104 || near[0].y1 <= 80 || near[0].x1 <= 95), JSON.stringify(near[0]));
+  const parse = (s) => s.match(/\d+/g).map(Number);
+  for (let i = 0; i < 48; i++) {
+    const c = `rgb(${nthColor(i)})`;
+    assert.ok(contrast(parse(readableLabel(c)), LABEL_PLATE) >= 4.5, c);
+  }
+  assert.ok(contrast(parse(readableLabel('rgb(249,115,22)')), LABEL_PLATE) >= 4.5);
+  assert.equal(readableLabel('#ffffff'), 'rgb(255,255,255)');
+  const overlay = read('overlay.js');
+  assert.match(overlay, /nodeDisplay\(g, nd\.id\)/, 'names, not ids');
+  assert.match(overlay, /runName\(g, id\)/);
+  assert.match(read('panel/setup.js'), /label-note/);
 });

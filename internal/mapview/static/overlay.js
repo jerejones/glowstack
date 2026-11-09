@@ -8,8 +8,8 @@
 // nodes, links, anchors, labels, flow arrows, output starts, the calibration cursors
 // and the hovered and pinned pixels. Pixels themselves are the view's
 // (scene.js or plan.js).
-import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges } from './util.js';
-import { controllerName, controllerLabel, nodeDisplay } from './names.js';
+import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges, readableLabel } from './util.js';
+import { controllerName, controllerLabel, nodeDisplay, runName } from './names.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -36,6 +36,7 @@ const hit = (a, b, gap = 0) => a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < 
 const SPOTS = (w, H) => [[0, 0], [0, H], [0, -H], [-w - 20, 0], [-w - 20, H], [-w - 20, -H], [0, 2 * H], [0, -2 * H]];
 const NAME_ROOM = 10;     // px of clear space around a name label
 const NAME_AREA = 16000;  // px² of free map each name label may have
+const LABEL_GAP = 3;      // px between any two labels
 const NAME_LENGTH = 26;   // longer names are cut short; hovering shows them whole
 
 // shortLabel fits text in max characters on a word boundary: it never ends
@@ -50,33 +51,44 @@ export function shortLabel(text, max = NAME_LENGTH) {
 // first, the first free spot near where it asked to be. A budget label (a
 // name, a percentage) needs room around it too, and is placed only while
 // the free map has space for it: the rest show on hover or tap. measure(l) is the text's width. It returns the placed labels with
-// their boxes and text positions.
-export function placeLabels(queued, { avoid = [], width = Infinity, height = Infinity, measure, clipTop = true }) {
+// their boxes and text positions, and on the array, hidden: how many on the
+// visible map were left out. marks are the map's points: a label goes clear
+// of them when it can, and on top of one only if nothing else is free.
+export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, height = Infinity, measure, clipTop = true }) {
   const placed = [];
   // What a full-width sheet along the bottom leaves of the map.
   const free = Math.min(height, ...avoid.filter((a) => a.x0 <= 0 && a.x1 >= width && a.y1 >= height).map((a) => a.y0));
   const budget = Number.isFinite(width * height) ? Math.floor(width * free / NAME_AREA) : Infinity;
-  let spent = 0, targetBox = null;
+  const inView = (l) => l.x >= 0 && l.x <= width && l.y >= 0 && l.y <= free;
+  let spent = 0, targetBox = null, hidden = 0;
   // The same kind of label, shortest first: it fits where a long one won't.
   const order = [...queued].sort((a, b) => b.rank - a.rank || (a.budget && b.budget ? a.text.length - b.text.length : 0));
   for (const raw of order) {
-    if (raw.budget && spent >= budget) continue;
+    if (raw.budget && spent >= budget) { if (inView(raw)) hidden++; continue; }
     const l = raw.budget && raw.text.length > NAME_LENGTH ? { ...raw, text: shortLabel(raw.text) } : raw;
     const target = l.rank === 3, H = target ? 19 : 15; // the plate's height
     const w = measure(l);
-    for (const [dx, dy] of SPOTS(w, H)) {
-      // A label near the right edge slides in rather than being cut off.
-      const x = Math.max(4, Math.min(l.x + dx, width - w - 4)), y = l.y + dy;
-      const box = { x0: x - 3, x1: x + w + 3, y0: y - H + 3, y1: y + 3 };
-      if (box.y1 > height || (clipTop && box.y0 < 0)) continue;
-      if (avoid.some((a) => hit(box, a, 2)) || placed.some((b) => hit(box, b, l.budget ? NAME_ROOM : 1))) continue;
-      if (!target && targetBox && hit(box, targetBox, 40)) continue;
-      placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank });
-      if (target) targetBox = box;
-      if (l.budget) spent++;
-      break;
+    let done = false;
+    for (const clearMarks of marks.length ? [true, false] : [false]) {
+      for (const [dx, dy] of SPOTS(w, H)) {
+        // A label near the right edge slides in rather than being cut off.
+        const x = Math.max(4, Math.min(l.x + dx, width - w - 4)), y = l.y + dy;
+        const box = { x0: x - 3, x1: x + w + 3, y0: y - H + 3, y1: y + 3 };
+        if (box.y1 > height || (clipTop && box.y0 < 0)) continue;
+        if (avoid.some((a) => hit(box, a, 2)) || placed.some((b) => hit(box, b, l.budget ? NAME_ROOM : LABEL_GAP))) continue;
+        if (clearMarks && marks.some((m) => hit(box, m))) continue;
+        if (!target && targetBox && hit(box, targetBox, 40)) continue;
+        placed.push({ ...box, text: l.text, tx: x, ty: y, color: l.color, rank: l.rank });
+        if (target) targetBox = box;
+        if (l.budget) spent++;
+        done = true;
+        break;
+      }
+      if (done) break;
     }
+    if (!done && inView(raw)) hidden++;
   }
+  placed.hidden = hidden;
   return placed;
 }
 
@@ -224,7 +236,9 @@ export function createOverlay(S) {
   // isn't room: TARGET, the point being calibrated, goes first, stands out
   // and clears its neighbors.
   const TARGET = 3, FOCUS = 2.5, MAJOR = 2, MINOR = 0;
-  let queued = [], lastPlaced = [];
+  let queued = [], lastPlaced = [], marks = [], hiddenShown = -1;
+  // mark notes a point drawn on the map, for the labels to keep clear of.
+  const mark = (q, r) => { marks.push({ x0: q[0] - r, x1: q[0] + r, y0: q[1] - r, y1: q[1] + r }); };
   const label = (text, x, y, color, rank = 1, budget = false) => { queued.push({ text, x, y, color, rank, budget }); };
   function flushLabels() {
     ctx.textBaseline = 'alphabetic';
@@ -232,24 +246,27 @@ export function createOverlay(S) {
     const { w: width, h: height } = S.view.size ? S.view.size() : { w: Infinity, h: Infinity };
     const receding = queued.some((l) => l.rank === TARGET);
     const placed = placeLabels(queued, {
-      avoid, width, height, clipTop: !!S.view.size,
+      avoid, marks, width, height, clipTop: !!S.view.size,
       measure: (l) => { ctx.font = `${l.rank === TARGET ? '600 14px' : '12px'} system-ui, sans-serif`; return ctx.measureText ? ctx.measureText(l.text).width : l.text.length * 6; },
     });
     for (const p of placed) {
       const target = p.rank === TARGET;
       ctx.font = `${target ? '600 14px' : '12px'} system-ui, sans-serif`;
       ctx.globalAlpha = receding && !target ? 0.6 : 1;
-      ctx.fillStyle = 'rgba(13, 14, 16, 0.82)';
+      ctx.fillStyle = 'rgba(13, 14, 16, 0.94)';
       ctx.fillRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0);
       if (target) { ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 1; ctx.strokeRect(p.x0, p.y0, p.x1 - p.x0, p.y1 - p.y0); }
-      ctx.fillStyle = p.color;
+      ctx.fillStyle = readableLabel(p.color);
       ctx.fillText(p.text, p.tx, p.ty);
     }
     ctx.globalAlpha = 1;
     lastPlaced = placed;
     queued = [];
+    marks = [];
+    if (placed.hidden !== hiddenShown) { hiddenShown = placed.hidden; S.refreshLabelNote?.(); }
   }
   function ring(q, r, color, width = 2, dash = null) {
+    mark(q, r * 0.7);
     ctx.strokeStyle = color; ctx.lineWidth = width;
     if (dash) ctx.setLineDash(dash);
     ctx.beginPath(); ctx.arc(q[0], q[1], r, 0, 2 * Math.PI); ctx.stroke();
@@ -349,6 +366,7 @@ export function createOverlay(S) {
       }
       ctx.fillStyle = cfg ? CTRL : CTRL_OFF; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.rect(q[0] - 6, q[1] - 6, 12, 12); ctx.fill(); ctx.stroke();
+      mark(q, 6);
       const display = controllerName(g, c.id); // a board the config doesn't list has only an id
       const name = o.labels ? controllerLabel(display, c.label) : display;
       // On the small map these are names like any other: only those with room.
@@ -402,10 +420,13 @@ export function createOverlay(S) {
         ctx.beginPath();
         if (sync) { ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); } else ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
         ctx.fill();
-        const display = nd.name || nd.id;
-        const name = shared && p.runs.length ? `${display} · ${p.runs.map((id) => g.runs.find((r) => r.id === id)?.name || id).join(' / ')}` : display;
+        mark(p.q, 5);
         if (!o.labels) continue;
+        const display = nodeDisplay(g, nd.id);
+        const whole = shared && p.runs.length ? `${display} · ${p.runs.map((id) => runName(g, id)).join(' / ')}` : display;
         const focused = (near && Math.hypot(near[0] - x, near[1] - y) < 40) || (chosen && p.runs.some((id) => chosen.has(id)));
+        // Which run a shared corner is on is the first thing to give up.
+        const name = focused || whole.length <= NAME_LENGTH ? whole : display;
         // A corner several runs meet at matters most, then the rest by room.
         label(name, x + 8, y - 6, sync ? '#f9a8d4' : '#e5e7eb', focused ? FOCUS : sync ? 1.2 : 1, !focused);
       }

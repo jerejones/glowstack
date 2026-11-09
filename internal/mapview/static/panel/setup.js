@@ -135,13 +135,20 @@ export function createSetup(S, root) {
   S.setOverlayMode = setMode;
   async function refreshLegend() {
     ov.remember();
-    let html = '';
-    try { html = await ov.apply(); } catch (e) { S.fail('draw that overlay', e); }
-    for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = html; el.hidden = !html; }
+    try { legendHTML = await ov.apply(); } catch (e) { legendHTML = ''; S.fail('draw that overlay', e); }
+    paintLegend();
     S.setInsets(); // the key takes room from the map on a phone
     S.markDirty();
   }
   S.refreshLegend = refreshLegend;
+  // paintLegend is the key, and how many labels didn't fit on the map.
+  let legendHTML = '';
+  function paintLegend() {
+    const n = ov.hiddenLabels();
+    const note = n ? `<div class="muted label-note">${plural(n, 'label')} hidden: no room. ${S.coarse ? 'Pinch to zoom in' : 'Hover or zoom in'} to see ${n === 1 ? 'it' : 'them'}.</div>` : '';
+    for (const el of [$('legend'), $$('#suLegend')]) { el.innerHTML = legendHTML + note; el.hidden = !(legendHTML + note); }
+  }
+  S.refreshLabelNote = paintLegend;
   function renderOverlay() {
     ov.remember();
     for (const b of $$('#suModes').children) press(b, b.dataset.mode === ov.st.mode);
