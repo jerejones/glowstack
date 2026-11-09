@@ -633,7 +633,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 /* A name wraps; the row's name and value top-align so a long one reads as a unit. */
 .cal-prog li.nv { align-items: start; }
 .cal-prog li .name { display: flex; align-items: flex-start; gap: 6px; min-width: 0; white-space: normal; overflow: visible; }
-.cal-prog li .name span { min-width: 0; overflow-wrap: break-word; }
+.cal-prog li .name span { min-width: 0; overflow-wrap: break-word; text-wrap: balance; }
 .cal-prog li .value { font-size: var(--t-num); }
 .cal-prog li .icon { width: 12px; height: 12px; margin-top: 4px; }
 .cal-prog li:hover { background: #1a1e24; }
@@ -651,6 +651,8 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
   /* The point key, on the map just above the calibration sheet. */
   body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); }
   .cal-prog { max-height: 220px; }
+  /* One line on a phone, so the title doesn't push the primary action down. */
+  .calibrate h1.title, .cal-step h2 { font-size: var(--t-h2); min-height: 0; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
 }
 

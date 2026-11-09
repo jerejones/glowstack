@@ -378,6 +378,8 @@ export function createOverlay(S) {
   // estimated dashed amber).
   function nodes() {
     const o = shown();
+    // The phone's overview before starting: small enough not to run together.
+    const k = S.calibrating && !S.cal?.active && S.panel?.layout() === 'sheet' ? 0.6 : 1;
     ctx.lineWidth = 1.5;
     for (const e of g.edges) {
       if (e.kind === 'strip') continue;
@@ -398,7 +400,7 @@ export function createOverlay(S) {
         const q = pixelAt(an.pixel);
         if (!q) continue;
         const measured = an.source === 'measured';
-        ring(q, 8, measured ? '#5ddc8a' : '#ffb347', 2, measured ? null : [3, 3]);
+        ring(q, 8 * k, measured ? '#5ddc8a' : '#ffb347', 2, measured ? null : [3, 3]);
       }
     }
     g.nodes.forEach((nd, i) => {
@@ -418,7 +420,8 @@ export function createOverlay(S) {
         const [x, y] = p.q;
         ctx.fillStyle = sync ? '#f472b6' : '#e5e7eb';
         ctx.beginPath();
-        if (sync) { ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath(); } else ctx.arc(x, y, 3.5, 0, 2 * Math.PI);
+        const d = 6 * k;
+        if (sync) { ctx.moveTo(x, y - d); ctx.lineTo(x + d, y); ctx.lineTo(x, y + d); ctx.lineTo(x - d, y); ctx.closePath(); } else ctx.arc(x, y, 3.5 * k, 0, 2 * Math.PI);
         ctx.fill();
         mark(p.q, 5);
         if (!o.labels) continue;

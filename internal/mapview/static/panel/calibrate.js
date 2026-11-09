@@ -140,7 +140,7 @@ export function loadState(C) {
 }
 
 // calCount is the one count on the calibration screen: the steps in the
-// progress list, which is what "Step 3 of 9" counts. It holds links and
+// progress list. It holds links and
 // gaps as well as the points the Setup tab counts, which the title says.
 export function calCount(st) {
   const items = st.progress || [];
@@ -152,11 +152,11 @@ export function calCount(st) {
   };
 }
 
-// stepPlace says where the current step sits in the list, and the list
-// marks the same step. The total is in the count of steps done: steps can
-// be done in any order, so "37 of 109" beside "40 of 109" reads as a mistake.
-export function stepPlace(index, item) {
-  return `Step ${index + 1} · ${item.done ? 'done' : 'not done yet'}`;
+// stepPlace says whether the current step is done. The one number on this
+// screen is the count of steps done: steps can be done in any order, so a
+// step's own number beside it reads as a mistake.
+export function stepPlace(item) {
+  return item.done ? 'Done' : 'Not done yet';
 }
 
 // sourceWords says where a point's position came from.
@@ -414,7 +414,7 @@ export function createCalibrate(S, root) {
       // Every step keeps its heading, with a cursor to move or without.
       const step = stepTitle(st, nodeLabel, runLabel);
       const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
-      parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(i, st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
+      parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
       if (c) {
         const moved = c.index - c.estimate;
         const isGap = st.target?.kind === 'gap'; // its ends are fixed: only a length to type
@@ -486,7 +486,7 @@ export function createCalibrate(S, root) {
         const isHere = JSON.stringify(it.target) === cur, here = isHere ? ' here' : '';
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
-        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? `<span class="here-tag">Step ${st.progress.indexOf(it) + 1}</span>` : ''}${esc(row.value)}</span></li>`;
+        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? '<span class="here-tag">Now</span>' : ''}${esc(row.value)}</span></li>`;
       }).join('')}</ul></div>`).join('')}</div>`);
     }
 

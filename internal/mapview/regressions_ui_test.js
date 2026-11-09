@@ -101,7 +101,7 @@ test('Setup and calibration count the same thing, and a step never reads as a ta
   const { calCount, stepPlace } = await import('./static/panel/calibrate.js');
   const st = { anchors: 2, measured: 1, progress: [{ done: true }, { done: false }, { done: false }] };
   assert.equal(calCount(st).text, '1 of 3 steps done');
-  assert.equal(stepPlace(1, { done: false }), 'Step 2 · not done yet', 'no second total to read against the count');
+  assert.equal(stepPlace({ done: false }), 'Not done yet', 'no step number to read against the count');
   const setup = read('panel/setup.js');
   assert.match(setup, /calCount\(st\)/);
   assert.doesNotMatch(setup, /points? measured/);
@@ -909,7 +909,7 @@ test('B57: the list marks the current step and scrolls to it only when it change
   assert.equal(progCenter(20, 40, 200), 0, 'never above the top');
   const src = read('panel/calibrate.js');
   assert.match(src, /aria-current="step"/);
-  assert.match(src, /here-tag">Step \$\{/);
+  assert.match(src, /here-tag">Now</);
   assert.match(src, /key !== shownHere/);
   assert.match(css, /\.cal-prog \{[^}]*overflow-y: auto/);
 });
@@ -1194,7 +1194,7 @@ test('calibrate key: each entry is drawn as the map draws it', () => {
   assert.match(src, /sw ring dash" style="color:#ffb347"/);
   assert.match(src, /sw dot/);
   assert.match(src, /sw diamond/);
-  assert.match(src, /ring\(q, 8, measured \? '#5ddc8a' : '#ffb347', 2, measured \? null : \[3, 3\]\)/);
+  assert.match(src, /ring\(q, 8 \* k, measured \? '#5ddc8a' : '#ffb347', 2, measured \? null : \[3, 3\]\)/);
 });
 
 test('Setup leads with Calibrate and the color mode, and tucks the model behind Advanced', () => {
