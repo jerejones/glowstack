@@ -44,6 +44,20 @@ const (
 	stripMax          = 20.0 // meters: the gradient slider's longest span
 	stripMinFeaturePx = 2.0  // a pulse or band is at least this wide
 	stripSeconds      = float64(StripFrames) / StripFPS
+	stripFastest      = 0.6 // seconds: nothing crosses the strip faster than this
+)
+
+// A swatch must never look blank. A sparse effect (Sparkle at its defaults
+// lights about 2% of a strip at any instant) is drawn for the sprite with
+// its density raised until at least stripLitTarget of the sprite is lit: a
+// render hint for the picture only, never a change to what goes on the
+// lights. A sprite already above stripLitFloor is drawn as the look is, and
+// one with nothing lit at all (a look that is dark by design) is left dark.
+const (
+	stripLitFloor  = 0.08 // below this the sprite is redrawn denser
+	stripLitTarget = 0.14 // what the denser drawing aims for
+	stripLitPasses = 3    // redraws at most
+	stripLitStep   = 12.0 // the most one redraw multiplies the density by
 )
 
 // stripEpoch is the frame time the sprite starts at: fixed, so a sprite is
@@ -69,16 +83,50 @@ func renderStrip(def *render.Def, raw map[string]any, env render.Env) ([]byte, e
 		return nil, fmt.Errorf("effect %s: %w", def.ID, err)
 	}
 	env.Pitch = length / StripPixels
-	values, err := render.Resolve(def.Params, effectRaw, env)
+	img, values, err := drawStrip(def, effectRaw, env)
 	if err != nil {
 		return nil, fmt.Errorf("effect %s: %w", def.ID, err)
+	}
+	// Too sparse to read at this size: draw it denser, for the picture only.
+	for pass := 0; pass < stripLitPasses; pass++ {
+		lit := litFraction(img)
+		if lit >= stripLitFloor || lit == 0 {
+			break
+		}
+		denser, ok := denserParams(def, effectRaw, values, math.Min(stripLitTarget/lit, stripLitStep))
+		if !ok {
+			break
+		}
+		effectRaw = denser
+		if img, values, err = drawStrip(def, effectRaw, env); err != nil {
+			return nil, fmt.Errorf("effect %s: %w", def.ID, err)
+		}
+	}
+	restFrame(img)
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// drawStrip renders def with raw effect parameters on the virtual strip
+// env.Pitch describes, one frame per row, and returns the picture with the
+// resolved values it drew.
+func drawStrip(def *render.Def, effectRaw map[string]any, env render.Env) (*image.NRGBA, *render.Values, error) {
+	values, err := render.Resolve(def.Params, effectRaw, env)
+	if err != nil {
+		return nil, nil, err
 	}
 	n := StripPixels
 	pitch := env.Pitch
 	pixels, u, x, y, z, dl, stretch, index := make([]int32, n), make([]float32, n), make([]float32, n), make([]float32, n), make([]float32, n), make([]float32, n), make([]float32, n), make([]int32, n)
 	for i := 0; i < n; i++ {
 		pixels[i], index[i] = int32(i), int32(i)
-		u[i], x[i] = float32(float64(i)*pitch), float32(float64(i)*pitch)
+		// u runs from the strip's start; x is centered on the site's origin,
+		// so an effect that spreads from a point in space (Burst) opens from
+		// the middle of the picture, both ways.
+		u[i], x[i] = float32(float64(i)*pitch), float32((float64(i)-float64(n-1)/2)*pitch)
 		dl[i], stretch[i] = float32(pitch), 1
 	}
 	eff := def.New()
@@ -102,12 +150,47 @@ func renderStrip(def *render.Def, raw map[string]any, env render.Env) ([]byte, e
 			img.Pix[o], img.Pix[o+1], img.Pix[o+2], img.Pix[o+3] = color.Encode(r), color.Encode(g), color.Encode(b), 255
 		}
 	}
-	restFrame(img)
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return nil, err
+	return img, values, nil
+}
+
+// stripLitLevel is how far off black (0 to 255, the brightest channel) a
+// sprite pixel must be to count as lit: the same threshold tiles.js uses.
+const stripLitLevel = 8
+
+// litFraction is the share of a sprite's pixels that are lit.
+func litFraction(img *image.NRGBA) float64 {
+	w, h := img.Rect.Dx(), img.Rect.Dy()
+	lit := 0
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			o := img.PixOffset(x, y)
+			if img.Pix[o] > stripLitLevel || img.Pix[o+1] > stripLitLevel || img.Pix[o+2] > stripLitLevel {
+				lit++
+			}
+		}
 	}
-	return buf.Bytes(), nil
+	return float64(lit) / float64(w*h)
+}
+
+// denserParams returns raw with every density parameter of def (a composite's
+// parts included) multiplied by factor, and whether there was one to raise.
+// Density is the one parameter that says how much of the strip a sparse
+// effect lights; an effect without one is drawn as it is.
+func denserParams(def *render.Def, raw map[string]any, values *render.Values, factor float64) (map[string]any, bool) {
+	out, found := map[string]any{}, false
+	for k, v := range raw {
+		out[k] = v
+	}
+	for _, p := range def.Params {
+		if p.Type != render.TDensity {
+			continue
+		}
+		if d := values.Density(p.Name); d > 0 {
+			out[p.Name] = fmt.Sprintf("%.6g /m/s", d*factor)
+			found = true
+		}
+	}
+	return out, found
 }
 
 // StripRest is the row a tile shows at rest: while paused, under reduced
@@ -155,6 +238,9 @@ func restFrame(img *image.NRGBA) {
 // width) thinner than stripMinFeaturePx pixels is widened to that. A speed
 // too slow to cross the strip once in the sprite's stripSeconds is raised
 // so a pulse crosses once; a speed of zero is left still, as the look is.
+// A speed that would cross the strip in under stripFastest seconds (a
+// burst's shell, a few frames end to end) is lowered to that, so the motion
+// draws as a slanted streak a person can read instead of a flat line.
 // Part names of a composite ("gradient.span") are read by their last word.
 func planStrip(def *render.Def, raw map[string]any, env render.Env) (float64, map[string]any, error) {
 	env.Pitch = stripMin / StripPixels
@@ -246,6 +332,8 @@ func planStrip(def *render.Def, raw map[string]any, env render.Env) (float64, ma
 			}
 			if need := length / stripSeconds; math.Abs(v) < need {
 				out[p.Name] = fmt.Sprintf("%.6g m/s", math.Copysign(need, v))
+			} else if most := length / stripFastest; math.Abs(v) > most {
+				out[p.Name] = fmt.Sprintf("%.6g m/s", math.Copysign(most, v))
 			}
 		}
 	}

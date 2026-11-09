@@ -922,7 +922,7 @@ test('B58: the phone preset form is placed on purpose, with Save pinned', () => 
 });
 
 test('B59: swatches carry a light rim, and a color palette with only black colors is not a black bar', async () => {
-  for (const rule of [/^\.preset \.strip \{[^}]*\}/m, /^\.layer \.name-line \.strip \{[^}]*\}/m, /^\.picker-swatch \{[^}]*\}/m, /^\.inspect \.chip-color \{[^}]*\}/m]) {
+  for (const rule of [/^\.swatch \{[^}]*\}/m, /^\.layer \.name-line \.strip \{[^}]*\}/m, /^\.picker-swatch \{[^}]*\}/m, /^\.inspect \.chip-color \{[^}]*\}/m]) {
     assert.match(rule.exec(css)[0], /var\(--rim\)/, String(rule));
   }
   assert.doesNotMatch(css, /solid #000?[67]/);
@@ -2514,15 +2514,15 @@ test('Move A: the phone sheet opens to the task at the half detent', async () =>
 test('Move B: library tiles show the effect moving, from the renderer\'s own sprite', async () => {
   const { spriteURL, spriteStyle, tileState, hashParams, FRAMES, FPS, MID, createTiles } = await import('./static/tiles.js');
   assert.equal(FRAMES, 30); assert.equal(FPS, 10); assert.equal(MID, 15);
-  assert.equal(spriteURL('effect', 'glitter'), '/api/v1/effects/glitter/strip.png?r=2');
-  assert.match(spriteURL('preset', 'warm white', { color: '#fff' }), /^\/api\/v1\/presets\/warm%20white\/strip\.png\?v=[0-9a-z]+&r=2$/);
+  assert.equal(spriteURL('effect', 'glitter'), '/api/v1/effects/glitter/strip.png?r=3');
+  assert.match(spriteURL('preset', 'warm white', { color: '#fff' }), /^\/api\/v1\/presets\/warm%20white\/strip\.png\?v=[0-9a-z]+&r=3$/);
   assert.notEqual(hashParams({ color: '#fff' }), hashParams({ color: '#000' }), 'an edited preset gets a new picture');
-  // One row of the sprite fills the strip; the drawn strip shows beneath it until it loads, or when there is none.
+  // The sprite's trail fills the swatch under the fade (B3); the drawn strip shows beneath it until it loads, or when there is none.
   const style = spriteStyle('/api/v1/effects/solid/strip.png', 'rgb(255,160,0)');
-  assert.match(style, /background-image: url\(\/api\/v1\/effects\/solid\/strip\.png\), linear-gradient\(rgb\(255,160,0\), rgb\(255,160,0\)\)/, 'a plain color is a flat gradient layer, so the declaration holds');
+  assert.match(style, /url\(\/api\/v1\/effects\/solid\/strip\.png\), linear-gradient\(rgb\(255,160,0\), rgb\(255,160,0\)\)/, 'a plain color is a flat gradient layer, so the declaration holds');
   assert.match(spriteStyle('/x.png', 'linear-gradient(90deg, red, blue)'), /url\(\/x\.png\), linear-gradient\(90deg, red, blue\);/);
-  assert.match(style, /background-size: 100% 3000%, auto/);
-  assert.match(style, /background-position: 0 calc\(var\(--tile-row, 15\) \/ 29 \* 100%\), 0 0/);
+  assert.match(style, /background-size: auto, 100% 100%, auto/);
+  assert.match(style, /background-position: 0 0, 0 calc\(var\(--swatch-h, 30px\) \* \(29 - var\(--tile-row, 15\)\) \/ 30\), 0 0/);
   // When the tiles step, hold, or hold the still frame.
   assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: false }), 'running');
   assert.equal(tileState({ reduced: false, hidden: false, visible: true, previewing: true }), 'slow', 'the map is the preview: the tiles step at half rate behind it (B2)');
@@ -2546,7 +2546,7 @@ test('Move B: library tiles show the effect moving, from the renderer\'s own spr
   assert.ok(box.style.vars['--tile-row'] !== MID, 'it stepped');
   doc.hidden = true; handlers.preview(); // pauses: stops the timer so the test can end
   assert.equal(tiles.state(), 'paused');
-  assert.match(read('panel/presets.js'), /const sprite = spriteURL\('preset', p\.id, p\.params, effect\), drawn = lookStrip\(S, p\.effect, p\.params\);\s*row\.querySelector\('\.strip'\)\.style\.cssText = spriteStyle\(sprite, drawn\)/, 'preset rows use the preset\'s own sprite');
+  assert.match(read('panel/presets.js'), /const sprite = spriteURL\('preset', p\.id, p\.params, effect\), drawn = lookStrip\(S, p\.effect, p\.params\);\s*row\.querySelector\('\.swatch'\)\.style\.cssText = spriteStyle\(sprite, drawn\)/, 'preset rows use the preset\'s own sprite');
   assert.match(read('app.js'), /S\.tiles = createTiles\(S\)/);
 });
 
@@ -2859,8 +2859,8 @@ test('B139: a sprite shows the whole look, a show asks for none, and a dark spri
   // The catalog marks a show; its tile keeps the drawn strip and never asks for a 404.
   assert.equal(spriteURL('preset', 'evening-show', {}, { id: 'evening', show: true }), '');
   assert.equal(spriteURL('effect', 'evening', null, { id: 'evening', show: true }), '');
-  assert.equal(spriteURL('effect', 'chase', null, { id: 'chase' }), '/api/v1/effects/chase/strip.png?r=2');
-  assert.equal(SPRITE_REV, 2, 'the renderer draws strips to fit the look now; old cached sprites are not shown');
+  assert.equal(spriteURL('effect', 'chase', null, { id: 'chase' }), '/api/v1/effects/chase/strip.png?r=3');
+  assert.equal(SPRITE_REV, 3, 'the renderer draws a sparse look denser for its swatch now (B3); old cached sprites are not shown');
   const bare = spriteStyle('', 'linear-gradient(90deg, red, blue)');
   assert.match(bare, /^background-image: linear-gradient\(90deg, red, blue\);/);
   assert.doesNotMatch(bare, /url\(/);
@@ -2868,7 +2868,7 @@ test('B139: a sprite shows the whole look, a show asks for none, and a dark spri
   // whole declaration, a black tile): it is the background color under the layers.
   const specks = 'linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%), rgb(255,255,255)';
   const sparkle = spriteStyle('/api/v1/effects/sparkle/strip.png?r=2', specks);
-  assert.match(sparkle, /^background-image: url\(\/api\/v1\/effects\/sparkle\/strip\.png\?r=2\), linear-gradient\(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%\); /);
+  assert.match(sparkle, /^background-image: linear-gradient\(to bottom, [^;]*\), url\(\/api\/v1\/effects\/sparkle\/strip\.png\?r=2\), linear-gradient\(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%\); /);
   assert.match(sparkle, /; background-color: rgb\(255,255,255\)$/);
   assert.deepEqual(splitLayers(specks), ['linear-gradient(90deg, #0b0d10 0 7%, transparent 7% 9%, #0b0d10 9% 100%)', 'rgb(255,255,255)']);
   assert.doesNotMatch(spriteStyle('/x.png', 'rgb(1,2,3)'), /background-color/, 'a strip of one color is a flat layer, as before');
@@ -2887,8 +2887,8 @@ test('B139: a sprite shows the whole look, a show asks for none, and a dark spri
   const looks = read('panel/looks.js'), presets = read('panel/presets.js');
   assert.match(looks, /spriteURL\('preset', p\.id, p\.params, e\)/, 'a preset card knows its effect, so a show gets no sprite');
   assert.match(looks, /spriteURL\('effect', e\.id, null, e\)/);
-  assert.match(looks, /guardSprite\(b\.querySelector\('\.strip'\), sprite, strip\)/);
-  assert.match(presets, /guardSprite\(row\.querySelector\('\.strip'\), sprite, drawn\)/);
+  assert.match(looks, /guardSprite\(b\.querySelector\('\.swatch'\), sprite, strip\)/);
+  assert.match(presets, /guardSprite\(row\.querySelector\('\.swatch'\), sprite, drawn\)/);
 });
 
 test('B140: a preview row and a live row share one layout', () => {
@@ -2962,9 +2962,8 @@ test('A2: the half sheet keeps the Library in reach while previewing; the search
   assert.doesNotMatch(/body\[data-detent=half\] \.tab-intro-compact \{[^}]*\}/.exec(phone)[0], /ellipsis|nowrap/);
 });
 
-test('B2: tiles keep moving behind a preview, rest on a lit frame, and effect cards say Effect', async () => {
+test('B2: tiles keep moving behind a preview and rest on a lit frame', async () => {
   const { tileState, rateOf, createTiles, FPS, SLOW_FPS, MID } = await import('./static/tiles.js');
-  const { kindMark } = await import('./static/panel/looks.js');
   assert.equal(SLOW_FPS, 5);
   assert.equal(rateOf('running'), FPS); assert.equal(rateOf('slow'), SLOW_FPS); assert.equal(rateOf('paused'), 0); assert.equal(rateOf('still'), 0);
   // The full pause is for off-screen tiles and a hidden page; reduced motion holds the resting frame.
@@ -2989,16 +2988,13 @@ test('B2: tiles keep moving behind a preview, rest on a lit frame, and effect ca
   assert.match(strip, /const StripRest = StripFrames \/ 2/);
   assert.match(strip, /restFrame\(img\)/);
   assert.equal(MID, 15);
-  // An effect card's kind is one word at its sub line's start, in the text color.
-  assert.equal(kindMark('Effect'), '<span class="kind-mark">Effect</span> · ');
-  assert.equal(kindMark(''), '');
+  // Round 3 (B3) dropped the "Effect ·" prefix: the swatch and the Effects segment say it.
   const looks = read('panel/looks.js');
-  assert.match(looks, /spriteURL\('effect', e\.id, null, e\), 'Effect'\)\)/, 'effect cards carry the mark');
-  assert.match(looks, /`Preview \$\{name\} here`, spriteURL\('preset', p\.id, p\.params, e\)\)/, 'preset cards carry none: their sub line names the effect');
-  assert.match(css, /\.preset \.sub \.kind-mark \{ color: var\(--text\); font-weight: 600;/);
-  // With the word in front, every motion phrase still fits a 176 px card's sub line whole (measured: 25 characters of these words).
+  assert.doesNotMatch(looks, /kindMark|kind-mark/);
+  assert.match(looks, /`Preview \$\{name\} here`, spriteURL\('preset', p\.id, p\.params, e\)\)/);
+  assert.doesNotMatch(css, /kind-mark/);
   const { MOTION } = await import('./static/tiles.js');
-  for (const [id, words] of Object.entries(MOTION)) assert.ok(`Effect · ${words}`.length <= 25, `${id}: "Effect · ${words}" is cut on a card`);
+  for (const [id, words] of Object.entries(MOTION)) assert.ok(words.length <= 25, `${id}: "${words}" is cut on a card`);
 });
 
 test('D: the preview has no clock controls; the room went to the Library', () => {

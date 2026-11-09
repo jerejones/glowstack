@@ -109,3 +109,46 @@ test('B143: the half sheet folds two or more previews to one line, and the 0% li
   assert.match(looks, /id="lkPrevSum" aria-expanded="false" hidden><small class="kind">Preview<\/small>/);
   assert.match(looks, /if \(prev\.length < 2\) prevOpen = false;/);
 });
+
+test('B3: a swatch shows the look as a motion trail, wherever a look is a card or a row', async () => {
+  const { spriteStyle, trailOffset, trailRows, TRAIL, FRAMES, MID, FADE, FPS, SLOW_FPS, tileState, rateOf } = await import('./static/tiles.js');
+  // The whole picture, position by time, not one row of it.
+  assert.equal(TRAIL, FRAMES, 'the trail is the sprite: 3 s of the look');
+  // The current frame is the bottom row; the frames before it rise above, oldest at the top, round the cycle.
+  const rows = trailRows(MID);
+  assert.equal(rows.length, TRAIL);
+  assert.equal(rows[rows.length - 1], MID, 'the current frame along the bottom edge');
+  assert.equal(rows[rows.length - 2], MID - 1, 'the frame before it just above');
+  assert.equal(rows[0], (MID + 1) % FRAMES, 'the oldest at the top');
+  assert.deepEqual(trailRows(0).slice(-3), [28, 29, 0], 'wraps round the sprite');
+  assert.equal(new Set(trailRows(7)).size, TRAIL);
+  // As CSS: the sprite repeats down the swatch, shifted so that row is at the bottom.
+  // With the swatch 30 px tall and 30 rows, row r's top is at r px; offset (29 - r) px puts its bottom at 30.
+  assert.equal(trailOffset(), 'calc(var(--swatch-h, 30px) * (29 - var(--tile-row, 15)) / 30)');
+  for (const r of [0, 15, 29]) assert.equal((r + (29 - r) + 1), 30, 'row r ends at the swatch bottom');
+  const style = spriteStyle('/s.png', 'rgb(1,2,3)');
+  assert.ok(style.startsWith(`background-image: ${FADE}, url(/s.png), `), 'the fade is over the sprite');
+  assert.match(style, /background-repeat: no-repeat, repeat-y, no-repeat/);
+  assert.match(FADE, /^linear-gradient\(to bottom, rgba\(13, 14, 16, 0\.\d+\), rgba\(13, 14, 16, 0\) \d+%\)$/, 'fading toward the top; full strength at the bottom');
+  // No sprite (a show): the drawn strip fills the block, no fade over nothing.
+  assert.doesNotMatch(spriteStyle('', 'rgb(1,2,3)'), /url\(|rgba\(13/);
+  // Same rates and pause rules as B2.
+  assert.equal(rateOf(tileState({ reduced: false, hidden: false, visible: true, previewing: false })), FPS);
+  assert.equal(rateOf(tileState({ reduced: false, hidden: false, visible: true, previewing: true })), SLOW_FPS);
+  assert.equal(rateOf(tileState({ reduced: false, hidden: false, visible: false, previewing: false })), 0);
+  assert.equal(rateOf(tileState({ reduced: true, hidden: false, visible: true, previewing: false })), 0);
+  // One component, at least 28 px tall on both pointer types, in the cards and the preset rows.
+  assert.match(css, /:root \{ --tile-row: 15; --swatch-h: 30px; \}\s*html:not\(\.coarse\) \{ --swatch-h: 36px; \}/);
+  assert.match(css, /\.swatch \{ display: block; flex: none; height: var\(--swatch-h\);[^}]*image-rendering: pixelated; \}/);
+  assert.doesNotMatch(css, /\.preset \.strip|\.preset-entry \.strip|\.strip\.sprite/, 'the 10 px strips are gone from cards and rows');
+  assert.match(read('panel/looks.js'), /<span class="swatch" style="\$\{esc\(spriteStyle\(sprite, strip\)\)\}"><\/span><span class="name">/);
+  assert.match(read('panel/presets.js'), /<div class="preset-body"[^>]*><span class="swatch"><\/span><div class="preset-title">/, 'the block at the row\'s left, the name and sub beside it');
+  assert.match(css, /\.preset-body \{ display: grid; grid-template-columns: 72px minmax\(0, 1fr\); align-items: center;/);
+  // The layer rows' small chip stays a chip.
+  assert.match(css, /\.layer \.name-line \.strip \{ width: 28px; height: 8px;/);
+  // The lit floor is the server's (a swatch-only render hint): never faked in the client.
+  const strip = fs.readFileSync(path.join(__dirname, '..', 'api', 'strip.go'), 'utf8');
+  assert.match(strip, /stripLitFloor\s+= 0\.08/);
+  assert.match(strip, /denserParams\(def, effectRaw, values,/);
+  assert.doesNotMatch(read('tiles.js'), /Math\.random/);
+});

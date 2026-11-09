@@ -1342,6 +1342,21 @@ desk.
   and looking at the lights. Labels are a verb first in sentence case
   ("Put 1 look on the lights", "Save preset", "Confirm", "Create a
   preset"), never a noun phrase or Title Case.
+- **Swatches.** Wherever a look is a card or a row (the Looks library, the
+  Presets list) it has a swatch: a block 30 px tall on a phone and 36 px
+  beside the map, drawn from the server's sprite of the look
+  (`/api/v1/effects/{id}/strip.png`, position across, one frame per row).
+  The swatch shows the whole sprite as a motion trail: the current frame
+  along the bottom edge at full strength, the frames before it rising
+  above and fading toward the top. A still swatch already tells looks
+  apart (a chase is slanted streaks, sparkle scattered dots, breathe
+  horizontal bands, a gradient steady vertical color, a solid a flat
+  field). It animates by scrolling the trail: 10 fps, 5 fps while a
+  preview is on the map, paused off screen and under reduced motion. A
+  sparse look is never a blank swatch: when under 8% of the sprite would
+  be lit, the server draws the sprite with the effect's density raised.
+  That is a hint for the picture only and never changes what goes on the
+  lights; nothing is faked in the browser. A layer row keeps a small chip.
 - **Status tiles.** Status's four headline tiles (lights lit, controllers,
   late frames, power estimate) are one component: a figure in one size,
   weight and line, tabular numerals, and a one-line label. A word such as

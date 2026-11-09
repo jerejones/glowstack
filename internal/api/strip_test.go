@@ -274,3 +274,52 @@ func TestStripRestsOnALitFrame(t *testing.T) {
 		t.Errorf("the row before the resting row was row 6 (marked 7), got %d", got)
 	}
 }
+
+// litShare is the share of a decoded sprite's pixels that are lit.
+func litShare(rows [][]byte) float64 {
+	lit := 0
+	for _, row := range rows {
+		lit += litPixels(row)
+	}
+	return float64(lit) / float64(len(rows)*StripPixels)
+}
+
+// A swatch is never blank (B3): a sparse effect is drawn denser for its
+// sprite, and only for its sprite.
+func TestStripIsNeverSparse(t *testing.T) {
+	f := newFixture(t, nil)
+	for _, id := range []string{"solid", "bands", "gradient", "sparkle", "chase", "noise", "breathe", "burst"} {
+		_, rows := f.sprite("/api/v1/effects/" + id + "/strip.png")
+		if share := litShare(rows); share < stripLitFloor {
+			t.Errorf("%s: %.1f%% of the sprite is lit, want at least %.0f%%", id, share*100, stripLitFloor*100)
+		}
+	}
+	// Sparkle at its defaults is the sparse one: drawn as it is, it is under
+	// the floor, which is why the sprite raises its density.
+	def, _ := f.app.Effects.Get("sparkle")
+	img, values, err := drawStrip(def, nil, render.Env{Pitch: stripMin / StripPixels, Palettes: f.app.Current().Palettes})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lit := litFraction(img); lit >= stripLitFloor {
+		t.Fatalf("Sparkle as it runs lights %.1f%% of a strip; the test expects it under the floor", lit*100)
+	}
+	denser, ok := denserParams(def, nil, values, 4)
+	if !ok || denser["density"] != "8 /m/s" {
+		t.Errorf("denserParams = %v, %v; want density 8 /m/s", denser, ok)
+	}
+	// The hint never reaches the effect's own defaults: what goes on the
+	// lights is unchanged.
+	if d, _ := f.app.Effects.Get("sparkle"); d.Params[0].Default != "2 /m/s" {
+		t.Errorf("Sparkle's default density is %v", d.Params[0].Default)
+	}
+	// An effect with no density is drawn as it is, and a dark look stays dark.
+	solid, _ := f.app.Effects.Get("solid")
+	if _, ok := denserParams(solid, nil, values, 4); ok {
+		t.Error("Solid has no density to raise")
+	}
+	png, err := renderStrip(solid, map[string]any{"color": "#000000"}, render.Env{Palettes: f.app.Current().Palettes})
+	if err != nil || len(png) == 0 {
+		t.Fatalf("a black Solid still has a sprite: %v", err)
+	}
+}

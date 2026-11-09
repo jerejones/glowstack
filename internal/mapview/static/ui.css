@@ -176,7 +176,7 @@ button.go:disabled { background: transparent; border-color: var(--line); color: 
 button.danger { color: #fecaca; border-color: #7f1d1d; }
 /* Offline the controls are inert, and look it: faded, the banner says why. */
 [inert] button, [inert] .picker-btn, [inert] .chip { opacity: 0.55; cursor: not-allowed; }
-[inert] input, [inert] .preset .strip, [inert] .layer .strip { opacity: 0.45; }
+[inert] input, [inert] .swatch, [inert] .layer .strip { opacity: 0.45; }
 input[type=text], input[type=number], input[type=search], input:not([type]), textarea {
   min-height: var(--tap); background: var(--field); border: 1px solid var(--field-line); border-radius: 8px; padding: 0 8px;
 }
@@ -603,7 +603,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 /* Three columns at the wide panel: room for a long name on one line. */
 @media (min-width: 1280px) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .preset {
-  display: flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: left; padding: 8px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px; text-align: left; padding: 6px 6px 5px;
   min-height: calc(var(--tap) + 26px); background: var(--card); border-radius: var(--radius); border-color: var(--line);
 }
 @media (hover: hover) { .preset:hover { background: var(--card2); border-color: #94a3b8; box-shadow: 0 0 0 1px #94a3b8 inset; } }
@@ -620,10 +620,15 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .preset.live { box-shadow: inset 3px 0 0 var(--house); border-color: #24543a; }
 .preset.live.in-preview { box-shadow: inset 3px 0 0 var(--house), inset 0 0 0 1px var(--preview); border-color: var(--preview); }
 .preset.live .in-badge { margin-top: 0; }
-.preset .strip { height: 12px; border-radius: 4px; border: 1px solid var(--rim); }
-/* A strip that shows the look moving: one row of its sprite (tiles.js). */
-:root { --tile-row: 15; }
-.strip.sprite { image-rendering: pixelated; }
+/* The swatch (B3): a block that shows the look as a motion trail, the
+ * current frame along its bottom edge and the frames before it rising above
+ * (tiles.js). One component wherever a look is a card or a row: 30 px tall
+ * on a phone, 36 px where the card has the room. The rim is an inset shadow,
+ * not a border, so the sprite's rows divide the full height evenly. */
+:root { --tile-row: 15; --swatch-h: 30px; }
+html:not(.coarse) { --swatch-h: 36px; }
+.swatch { display: block; flex: none; height: var(--swatch-h); border-radius: 5px; background-color: #000; box-shadow: inset 0 0 0 1px var(--rim); image-rendering: pixelated; }
+.preset .swatch { margin-bottom: 1px; }
 /* A row of cards is as tall as its tallest name, up to two lines, with even
  * bottoms: no line is reserved for a name that fits one. The type line and
  * "Previewing" share one fixed row at the card's foot. */
@@ -640,8 +645,6 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .preset .live-badge { margin-top: auto; min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .in-badge > span, .preset .live-badge > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
-/* An effect card's kind, one word at the sub line's start, in the text color so it reads from the card alone. */
-.preset .sub .kind-mark { color: var(--text); font-weight: 600; letter-spacing: 0.01em; }
 .layer {
   padding: 6px 4px 6px 12px; margin-top: 6px; position: relative; border-radius: 8px;
 }
@@ -1005,7 +1008,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-entry { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px; margin: 6px 0; background: var(--surface, #16191e); }
 .preset-entry.in-preview { border-color: var(--preview); box-shadow: 0 0 0 1px var(--preview) inset; }
 .preset-body { cursor: pointer; }
-.preset-title { display: grid; gap: 0; margin: 6px 0; overflow-wrap: anywhere; }
+.preset-title { display: grid; gap: 0; margin: 0; overflow-wrap: anywhere; }
 .preset-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .preset-actions button { display: inline-flex; align-items: center; justify-content: center; background: transparent; color: var(--fg); padding: 0 8px; }
 /* Preview, Pin and More are one outline button; Pinned and Previewing color theirs. */
@@ -1021,13 +1024,15 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .preset-menu button { justify-content: flex-start; gap: 8px; border-color: transparent; }
 .preset-menu button.danger { color: #fca5a5; border-color: transparent; }
 .preset-menu button:hover, .preset-menu button:focus-visible { background: var(--card); border-color: var(--line); }
-.preset-entry .strip { display: block; height: 8px; border-radius: 3px; border: 1px solid var(--rim); }
+/* A preset row: the swatch at the left, the name and its line beside it, so the row is no taller for it. */
+.preset-body { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 0 10px; }
+.preset-entry .swatch { width: 72px; }
 /* A fine pointer gets the compact row: the strip, name and type on the left, and Preview, Pin and
  * More as icon buttons with their words for a title, aria-label and screen reader. A coarse pointer
  * (and ?pointer=coarse) keeps the labeled buttons on their own line. */
 @media (pointer: fine) {
   html:not(.coarse) .preset-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 10px; }
-  html:not(.coarse) .preset-title { margin: 4px 0 0; }
+  html:not(.coarse) .preset-title { margin: 0; }
   html:not(.coarse) .preset-actions { flex-wrap: nowrap; gap: 4px; }
   html:not(.coarse) .preset-actions .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   html:not(.coarse) .preset-actions [data-act=try], html:not(.coarse) .preset-actions [data-act=pin], html:not(.coarse) .preset-actions [data-act=more] { width: var(--tap); min-width: var(--tap); padding: 0; gap: 0; }
