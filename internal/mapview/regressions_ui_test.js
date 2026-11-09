@@ -1439,3 +1439,37 @@ test('B90: the chip says connecting until the first socket result, with status d
   assert.match(app, /connected: S\.connected, connecting: S\.connecting/);
   assert.match(app, /ws\.onclose = \(\) => \{ S\.connected = false; S\.connecting = false;/, 'a failed first attempt is Offline');
 });
+
+test('B91: the inspect card stays open under the pointer and keeps still while it is reached', async () => {
+  const { createAim, rectGap, cardCorner } = await import('./static/card-place.js');
+  assert.equal(rectGap({ left: 10, top: 10, right: 20, bottom: 20 }, 15, 15), 0);
+  assert.equal(rectGap({ left: 10, top: 10, right: 20, bottom: 20 }, 25, 10), 5);
+  const aim = createAim(500);
+  assert.equal(aim.step(100, 0), true, 'closing in');
+  assert.equal(aim.step(50, 100), true);
+  assert.equal(aim.step(70, 200), false, 'moving away ends it');
+  assert.equal(aim.step(60, 300), true, 'closing in again');
+  assert.equal(aim.step(10, 900), false, 'a sweep past the hold time inspects again');
+  const base = { w: 1000, h: 700, cw: 240, ch: 100, top: 50 };
+  const prev = cardCorner({ ...base, pixel: [100, 100] });
+  assert.deepEqual(cardCorner({ ...base, pixel: [600, 300], prev }), prev, 'keeps its corner');
+  assert.notDeepEqual(cardCorner({ ...base, pixel: [prev[0] + 10, prev[1] + 10], prev }), prev, 'moves off its own pixel');
+  const app = read('app.js');
+  assert.match(app, /pointerleave', \(e\) => \{ if \(!\$\('inspectCard'\)\.contains\(e\.relatedTarget\)\) endHover\(\)/);
+  assert.match(app, /data-pin title="Keep this card open">\$\{icon\('pin'\)\}Pin</, 'Pin is visible on the card');
+  assert.match(app, /LONG_PRESS/, 'the long press stays a shortcut');
+  assert.match(app, /<summary>Technical details<\/summary>/, 'raw ids are labeled as such');
+});
+
+test('B91: Details reads as sentences, and raw ids stay in the technical rows', async () => {
+  const { inspectSentences, inspectTechnical } = await import('./static/inspect.js');
+  const d = { dead: false, dl: 0.0167, controller: 'shed', index: 12, run: 'eave-run', run_pixel: 12, edge: 'e1', dist: 1.5, x: 1, y: 2, z: 3, mappings: [{ id: 'front-sweep', u: 4.5, kind: 'flow', stretch: 2.3 }] };
+  const text = inspectSentences(d, { run: 'Eave', output: { led: 13, count: 484, name: 'Shed 1' }, areas: ['Front'], zones: ['Porch', 'Yard'] }).join(' ');
+  assert.match(text, /LED 13 of 484 on Shed 1/);
+  assert.match(text, /It is in the Front area\./);
+  assert.match(text, /zones Porch and Yard/);
+  assert.match(text, /16\.7 mm/);
+  assert.doesNotMatch(text, /front-sweep|eave-run/);
+  const rows = inspectTechnical(d, { is3d: true, fmt: (v) => String(v) }).map(([k]) => k);
+  assert.ok(rows.includes('front-sweep') && rows.includes('Controller pixel'));
+});

@@ -16,7 +16,8 @@ import { buildTree, nodeName, nodeKinds, targetName, targetRanges } from './sele
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
-import { cardCorner } from './card-place.js';
+import { cardCorner, createAim, rectGap } from './card-place.js';
+import { inspectSentences, inspectTechnical } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate } from './panel/calibrate.js';
@@ -349,24 +350,50 @@ function bindMap() {
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
-  canvas.addEventListener('pointerleave', () => { if (S.hover >= 0) { S.hover = -1; if (S.pinned < 0) inspect(-1); markDirty(); } });
+  // Moving onto the card isn't leaving: it is what the card is there for.
+  canvas.addEventListener('pointerleave', (e) => { if (!$('inspectCard').contains(e.relatedTarget)) endHover(); });
+  const card = $('inspectCard');
+  card.addEventListener('pointerenter', () => {
+    clearTimeout(hoverTimer);
+    armedFor = undefined;
+    if (inspected && S.pinned < 0) { S.hover = inspected.id; markDirty(); }
+  });
+  card.addEventListener('pointerleave', (e) => { if (e.relatedTarget !== canvas) endHover(); });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-let hoverTimer = 0;
+let hoverTimer = 0, armedFor;
+const aim = createAim();
+function endHover() {
+  clearTimeout(hoverTimer);
+  armedFor = undefined;
+  aim.reset();
+  S.hover = -1;
+  if (S.pinned < 0 && inspected) inspect(-1);
+  markDirty();
+}
+// aiming says the pointer is on its way to the open card, so what it
+// crosses on the way doesn't replace what the card shows.
+function aiming(x, y) {
+  const card = $('inspectCard');
+  if (S.pinned >= 0 || card.hidden || !inspected) { aim.reset(); return false; }
+  const r = card.getBoundingClientRect(), at = canvas.getBoundingClientRect();
+  return aim.step(rectGap({ left: r.left - at.left, top: r.top - at.top, right: r.right - at.left, bottom: r.bottom - at.top }, x, y), performance.now());
+}
 function hoverAt(x, y) {
   const p = S.view.pickPixel(x, y, 12);
-  if (p === S.hover) return;
-  S.hover = p;
-  markDirty();
+  if (p !== S.hover) { S.hover = p; markDirty(); }
   if (S.pinned >= 0) return;
+  if (aiming(x, y)) { clearTimeout(hoverTimer); armedFor = undefined; return; }
+  if (p === (inspected ? inspected.id : -1) || p === armedFor) return;
   clearTimeout(hoverTimer);
-  hoverTimer = setTimeout(() => inspect(p), 60);
+  armedFor = p;
+  hoverTimer = setTimeout(() => { armedFor = undefined; inspect(p); }, 60);
 }
 
 // ---------- inspect ----------
 
-let inspectSeq = 0, inspected = null, inspectMore = false;
+let inspectSeq = 0, inspected = null, inspectMore = false, inspectTech = false, inspectShown = '', cardAt = null;
 const showQ = () => (S.show ? '?show=' + S.show : '');
 
 async function inspect(p) {
@@ -408,37 +435,48 @@ function renderInspect() {
   const sheet = S.panel.layout() === 'sheet';
   const pinned = S.pinned >= 0;
   card.hidden = !d || sheet || S.calibrating;
+  if (card.hidden) cardAt = null;
   row.hidden = !d || !sheet || !pinned || S.calibrating;
   if (!d) return;
   const r = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
+  const el = sheet ? row : card;
   const o = S.overlay.outputOf(d.id);
   const sh = d.showing;
   const layer = sh ? esc(showingLabel(S, sh, sh.target === 'all' ? 'everything' : sh.target ? targetName(S.geo, sh.target) : '')) : '<span class="muted">Nothing</span>';
-  const maps = d.mappings.map((m) => r(esc(m.id), `${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`)).join('');
-  const html = `<div class="head"><b>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</b>${pinned ? `<button type="button" class="quiet" data-unpin aria-label="Unpin" title="Unpin">${icon('close')}</button>` : ''}</div>
+  const pinButton = pinned
+    ? `<button type="button" class="quiet icon-btn" data-unpin aria-label="Unpin this light" title="Stop keeping this card open">${icon('pinFilled')}Pinned</button>`
+    : `<button type="button" class="quiet icon-btn" data-pin title="Keep this card open">${icon('pin')}Pin</button>`;
+  const sentences = inspectSentences(d, {
+    run: d.run ? runName(S.geo, d.run) : '',
+    output: o && { led: d.id - o.first + 1, count: o.count, name: `${controllerName(S.geo, o.controller)} ${outputName(o)}` },
+    areas: d.areas.map((id) => areaName(S.geo, id)),
+    zones: d.zones.map((id) => zoneName(S.geo, id)),
+  });
+  const html = `<div class="head"><b>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</b>${pinButton}</div>
     <table>
-    ${r('Color', `<span class="chip-color" data-color-chip style="background:${liveHex(d.id)}"></span><span data-color-text>${liveHex(d.id)}</span>`)}
+    ${r('Color', `<span class="chip-color" data-color-chip></span><span data-color-text></span>`)}
     ${r('Showing', layer)}
     ${r('Run', d.run ? `<span title="${esc(d.run)}">${esc(runName(S.geo, d.run))}</span>` : '<span class="muted">None</span>')}
     ${r('Output', o ? `${esc(controllerName(S.geo, o.controller))} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
     </table>
-    <details class="more"${inspectMore ? ' open' : ''}><summary>Details</summary><table>
-    ${r('Controller pixel', `${esc(d.controller)}:${d.index}`)}
-    ${d.run ? r('Pixel on run', d.run_pixel) : ''}
-    ${o ? r('LED on output', `${d.id - o.first + 1} of ${o.count}`) : ''}
-    ${r('Areas', esc(d.areas.map((id) => areaName(S.geo, id)).join(', ') || '—'))}
-    ${r('Zones', esc(d.zones.map((id) => zoneName(S.geo, id)).join(', ') || '—'))}
-    ${r('Segment', d.edge ? `${esc(d.edge)} · ${fmt(d.dist, 2)} m` : '—')}
-    ${r('Pixel size', d.dl === null ? '—' : fmt(d.dl * 1000, 1) + ' mm')}
-    ${S.view.kind === '3d' ? r('Position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)}, ${fmt(d.z, 2)} m`) : r('Plan position', d.x === null ? '—' : `${fmt(d.x, 2)}, ${fmt(d.y, 2)} m`)}
-    ${maps}
-    </table></details>`;
-  const el = sheet ? row : card;
+    <details class="more"${inspectMore ? ' open' : ''}><summary>Details</summary>
+    ${sentences.map((t) => `<p>${esc(t)}</p>`).join('')}
+    <details class="tech"${inspectTech ? ' open' : ''}><summary>Technical details</summary><table>
+    ${inspectTechnical(d, { is3d: S.view.kind === '3d', fmt }).map(([k, v]) => r(esc(k), esc(v))).join('')}
+    </table></details></details>`;
+  inspectColor = '';
+  // The second-by-second refresh of a pinned card leaves its buttons alone
+  // unless something changed, so a press isn't lost to a redraw.
+  if (html === inspectShown && el.innerHTML) { refreshInspectColor(); placeCard(); return; }
+  inspectShown = html;
   el.innerHTML = html;
   el.querySelector('details.more').ontoggle = (e) => { inspectMore = e.target.open; placeCard(); };
+  el.querySelector('details.tech').ontoggle = (e) => { inspectTech = e.target.open; placeCard(); };
   const b = el.querySelector('[data-unpin]');
   if (b) b.onclick = unpin;
-  inspectColor = '';
+  const p = el.querySelector('[data-pin]');
+  if (p) p.onclick = () => pin(d.id);
+  refreshInspectColor();
   if (sheet && pinned && !row.hidden) row.scrollIntoView({ block: 'nearest' });
   placeCard();
 }
@@ -452,7 +490,7 @@ function placeCard() {
   const { w, h } = S.view.size();
   const stage = $('stage').getBoundingClientRect();
   const under = (id) => { const el = $(id); return el.hidden ? 0 : el.getBoundingClientRect().bottom - stage.top; };
-  const [x, y] = cardCorner({ w, h, cw: card.offsetWidth, ch: card.offsetHeight, top: Math.max(under('chips'), under('crumbs')), pixel: q });
+  const [x, y] = cardAt = cardCorner({ w, h, cw: card.offsetWidth, ch: card.offsetHeight, top: Math.max(under('chips'), under('crumbs')), pixel: q, prev: cardAt });
   card.style.left = x + 'px';
   card.style.top = y + 'px';
 }

@@ -299,8 +299,11 @@ input[type=checkbox]:checked::after {
 .inspect.card {
   position: absolute; z-index: 4; width: 280px; pointer-events: auto;
   background: rgba(21, 24, 29, 0.95); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); font-size: var(--t-s);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); font-size: var(--t-help); max-height: calc(100% - 16px); overflow-y: auto; overscroll-behavior: contain;
 }
+.inspect .more p { margin: 2px 0 6px; }
+.inspect .tech { font-size: var(--t-note); }
+.inspect .head button { flex: none; }
 .inspect.row { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; margin: 8px 0; }
 
 /* ---------- the panel ---------- */
