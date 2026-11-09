@@ -300,7 +300,8 @@ export function createStatus(S, root) {
     $$('#stRuns').innerHTML = problems.map((r) => r.html).join('');
     $$('#stRunsRest').innerHTML = rest.map((r) => r.html).join('');
     $$('#stRunsFine').hidden = problems.length > 0;
-    $$('#stRunsFine').textContent = runsFine((st.solve.warnings || []).filter((w) => warningSummary(g, w).kind === 'spacing').length);
+    // Counted as the warnings above are: a repeat is one stretch.
+    $$('#stRunsFine').textContent = runsFine(new Set((st.solve.warnings || []).map((w) => warningSummary(g, w)).filter((w) => w.kind === 'spacing').map((w) => w.summary)).size);
     $$('#stRunsMore').hidden = !rest.length;
     $$('#stRunsMore summary').textContent = problems.length ? `${plural(rest.length, 'other run')}` : `All ${plural(rest.length, 'run')}`;
     for (const b of root.querySelectorAll('[data-run]')) b.onclick = () => S.calib.open({ run: b.dataset.run });

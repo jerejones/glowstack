@@ -889,3 +889,7 @@ test('the phone sheet keeps Expand on the handle and tabs to themselves', () => 
 test('a long look name wraps instead of being cut off', () => {
   assert.doesNotMatch(/^\.preset \.name \{[^}]*\}/m.exec(css)[0], /ellipsis/);
 });
+
+test('the runs line counts spacing warnings the way the card above does', () => {
+  assert.match(read('panel/status.js'), /runsFine\(new Set\(/);
+});
