@@ -114,6 +114,13 @@ export function liveLine(house, key, target, sameTarget, nameOf) {
   return on.some((l) => sameTarget(l.target, target)) ? 'Live' : `Live on ${nameOf(on[0].target)}`;
 }
 
+// layerLine is a layer's one line on a phone, collapsed: where it goes and how
+// bright, with the words a screen reader hears for the chevron.
+export function layerLine(kind, name, place, brightness) {
+  const bri = Math.round(brightness * 100) + '%';
+  return { place, bri, label: `${kind}: ${String(name).replace(/\u00a0/g, ' ')} on ${place} at ${bri}. Show its controls` };
+}
+
 // lookAction is what tapping a look does, given the preview's layers: add
 // it, or, when the target already has it, take it back off. A layer that
 // has been tweaked isn't thrown away by a tap: it is focused instead.
@@ -575,7 +582,7 @@ export function createLooks(S, root) {
     const el = document.createElement('div');
     el.className = `layer ${lane}`;
     el.innerHTML = `
-      <div class="name-line"><small class="kind"></small><span class="strip"></span><b></b><small class="front"></small></div>
+      <div class="name-line"><small class="kind"></small><span class="strip"></span><b></b><small class="front"></small><span class="line-place"></span><span class="line-level"></span><button type="button" class="icon-btn row-expand" aria-expanded="false">${icon('chevronDown')}</button></div>
       <div class="controls">
         <div class="place-row"></div>
         <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}<span class="bri-word">Brightness</span></span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
@@ -587,7 +594,8 @@ export function createLooks(S, root) {
     const base = lane === 'preview' ? '/api/v1/preview/layers/' : '/api/v1/layers/';
     c.patch = patcher(() => base + encodeURIComponent(c.id), 80, (nl) => { c.layer = { ...c.layer, ...nl }; }, (e) => S.fail('change the look', e));
     const bri = el.querySelector('.bri input'), out = el.querySelector('.bri output');
-    bri.oninput = () => { out.textContent = Math.round(bri.value * 100) + '%'; c.patch.set({ brightness: +bri.value }); };
+    bri.oninput = () => { out.textContent = Math.round(bri.value * 100) + '%'; el.querySelector('.line-level').textContent = out.textContent; c.patch.set({ brightness: +bri.value }); };
+    el.querySelector('.row-expand').onclick = () => openRow(c, !c.el.classList.contains('open'));
     el.querySelector('.tweak').onclick = () => tweak(c);
     el.querySelector('[data-a=remove]').onclick = () => remove(c, lane === 'preview' ? '/api/map/preview/layers' : '/api/v1/layers');
     if (lane === 'preview') {
@@ -622,6 +630,10 @@ export function createLooks(S, root) {
       meta.textContent = bits.join(' · ');
       meta.title = meta.textContent;
     }
+    const line = layerLine(c.lane === 'preview' ? 'Preview' : 'Live', layerName(S, l), placeName, briOf(l));
+    el.querySelector('.line-place').textContent = line.place;
+    if (!c.patch.busy()) el.querySelector('.line-level').textContent = line.bri;
+    el.querySelector('.row-expand').setAttribute('aria-label', line.label);
     const eff = effectFor(S, l);
     el.querySelector('.strip').style.background = lookStrip(S, eff ? eff.id : l.effect, valuesFor(S, l));
     const bri = el.querySelector('.bri input');
@@ -640,6 +652,12 @@ export function createLooks(S, root) {
     rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Remove from the lights');
     if (c.form && !c.patch.busy()) c.form.update(l);
     if (c.only) c.only.hidden = (S.preview?.layers.length || 0) < 2;
+  }
+
+  // openRow shows or hides a phone row's full controls.
+  function openRow(c, on) {
+    c.el.classList.toggle('open', on);
+    c.el.querySelector('.row-expand').setAttribute('aria-expanded', on ? 'true' : 'false');
   }
 
   // renderRows keeps the stage's list in order: the preview's rows, then the
@@ -757,6 +775,7 @@ export function createLooks(S, root) {
   function renderBar(prev) {
     const bar = $$('#lkBar');
     bar.hidden = !prev.length;
+    $$('#lkClear').hidden = !prev.length;
     syncBarInset();
     S.panel.keepBand(prev.length && S.panel.tab() === 'looks' ? PREVIEW_BAND : 0);
     if (!prev.length) { mode = 'replace'; plan = null; return; }
@@ -770,6 +789,8 @@ export function createLooks(S, root) {
     if (go.dataset.html !== html) { go.dataset.html = html; go.innerHTML = html; }
     go.title = applyTitle(plan, S.houseStatus === 'unavailable' || !!S.statusFailed);
     $$('#lkBarNote').textContent = plan.note;
+    // A phone's bar is one row: what Replace does is the stage's line instead.
+    if (S.panel.layout() === 'sheet' && plan.note && !$$('#lkStageSub').textContent) $$('#lkStageSub').textContent = plan.note;
     fitNote();
   }
   // fitNote gives the note its own full-width line when it can't share one,
@@ -780,6 +801,12 @@ export function createLooks(S, root) {
     if (note.scrollWidth > note.clientWidth + 1) bar.classList.add('note-below');
   }
   for (const b of $$('#lkMode').children) b.onclick = () => { mode = b.dataset.mode; renderStage(); };
+  // placeClear keeps Clear in the bar beside the map, and in the stage's
+  // header on a phone, whose bar is one row.
+  const clearHome = $$('#lkClear').parentElement;
+  function placeClear() { (S.panel.layout() === 'sheet' ? $$('.stage-head') : clearHome).append($$('#lkClear')); }
+  placeClear();
+  S.on('layout', () => { placeClear(); renderStage(); });
   let revealing = false; // opening a form places it: nothing else scrolls then
   let darkToast = null;
   S.on('tab', () => { darkToast?.remove(); darkToast = null; });
@@ -822,6 +849,7 @@ export function createLooks(S, root) {
       replace: (params) => c.patch.replace(params),
     });
     c.form = form;
+    openRow(c, true); // a form opens in a row that shows it
     c.el.querySelector('.slot').append(form.el);
     c.el.querySelector('.tweak').setAttribute('aria-expanded', 'true');
     c.el.querySelector('.tweak').classList.add('on');

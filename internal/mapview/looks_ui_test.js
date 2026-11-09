@@ -208,3 +208,11 @@ test('I69: a look on the lights says Live, and where when it is elsewhere', asyn
   assert.equal(liveLine(house, 'preset:other', 'porch', same, name), '');
   assert.equal(liveLine(house, 'effect:solid', 'all', same, name), 'Live', 'an effect card, too');
 });
+
+test('a phone layer row is one line that says where and how bright', async () => {
+  const { layerLine } = await import('./static/panel/looks.js');
+  const line = layerLine('Preview', 'Warm\u00a0white', 'Porch', 0.804);
+  assert.equal(line.place, 'Porch');
+  assert.equal(line.bri, '80%');
+  assert.equal(line.label, 'Preview: Warm white on Porch at 80%. Show its controls');
+});

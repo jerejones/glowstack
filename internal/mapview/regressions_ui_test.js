@@ -2050,8 +2050,9 @@ test('B120: the action bar never truncates its note and clears the phone edge', 
   const looks = read('panel/looks.js');
   assert.match(looks, /note\.scrollWidth > note\.clientWidth \+ 1\) bar\.classList\.add\('note-below'\)/);
   assert.match(css, /\.look-bar\.note-below \.bar-note \{[^}]*flex: 0 0 100%; white-space: normal/);
-  assert.match(css, /\.look-bar \{ display: flex; flex-wrap: wrap;[^}]*padding-bottom: 12px; \}/);
-  assert.match(css, /\.bar-main \.go \{ flex: 0 0 100%; order: 1; \}/);
+  assert.match(css, /\/\* One row: the action, then Replace or Add as a compact pair\. \*\/\s*\.look-bar \{ display: block;/);
+  assert.match(css, /\.bar-main \.go \{ order: 1; \}/);
+  assert.match(css, /  \.bar-line \{ display: none; \}/, 'Clear moved to the stage header; the note to its line');
 });
 
 test('B122: every Tweak slider takes its name from its row, and color channels keep theirs', () => {
@@ -2142,7 +2143,7 @@ test('B111: a row\'s name has its own line, above the controls', () => {
   const looks = read('panel/looks.js');
   const row = /el\.innerHTML = `\s*<div class="name-line">[\s\S]*?<div class="slot">/.exec(looks)[0];
   assert.ok(row.indexOf('class="name-line"') < row.indexOf('class="controls"'), 'name first');
-  assert.doesNotMatch(/<div class="name-line">.*?<\/div>/.exec(row)[0], /<button|<input/, 'no control shares its line');
+  assert.doesNotMatch(/<div class="name-line">.*?<\/div>/.exec(row)[0].replace(/<button[^>]*row-expand[\s\S]*?<\/button>/, ''), /<button|<input/, 'no control but the phone chevron shares its line');
   for (const c of ['place-row', 'bri', 'tweak', 'data-a="remove"']) assert.ok(row.indexOf(c) > row.indexOf('class="controls"'), c);
   assert.match(css, /\.layer \.controls \{ display: flex; flex-wrap: wrap;/);
   assert.doesNotMatch(/^\.layer \.name-line b \{[^}]*\}/m.exec(css)[0], /nowrap|ellipsis|line-clamp/, 'the whole name, however long');
