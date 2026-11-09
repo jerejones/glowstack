@@ -2287,7 +2287,7 @@ test('Remove takes a layer off with an X and the word at every size; Delete keep
   assert.doesNotMatch(read('panel/looks.js'), /icon\('trash'\)/);
   assert.match(read('panel/presets.js'), /icon\('trash'\)\}Delete/);
   assert.doesNotMatch(css, /\[data-a=remove\]:not\(\.worded\) span/, 'never hidden, at either size');
-  assert.match(css, /\.layer \.bri \{[^}]*min-width: 60px;/, 'the slider shrinks before a label wraps');
+  assert.match(css, /\.layer \.bri \{[^}]*flex: 1 1 60px;[^}]*min-width: 60px;/, 'the slider shrinks before a label wraps');
 });
 
 test('library card rows reserve no second line for names that fit one', () => {

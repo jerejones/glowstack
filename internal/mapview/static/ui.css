@@ -533,7 +533,7 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 /* A row's controls never take room from its name: they have their own line. */
 .layer .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .layer .controls > button { flex: none; white-space: nowrap; }
-.layer .bri { display: flex; flex: 1 1 110px; align-items: center; gap: 6px; min-width: 60px; }
+.layer .bri { display: flex; flex: 1 1 60px; align-items: center; gap: 6px; min-width: 60px; }
 /* Remove is worded at every size. The slider gives way first, so a label
  * never wraps. Trash is for Delete, which destroys. */
 .layer .bri output { min-width: 3em; }
