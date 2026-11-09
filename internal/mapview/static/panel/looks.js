@@ -12,6 +12,7 @@
 // is a line at the bottom that opens to its controls.
 import { api, post, del, esc, accentFor, save, load, parseQty, press, covers, sameSet } from '../util.js';
 import { nodeName, nodeTarget, targetRanges } from '../select.js';
+import { houseStatusMessage } from '../house-status.js';
 import { createForm, patcher, effectFor, valuesFor, layerName, lookStrip } from '../form.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
@@ -188,9 +189,9 @@ export function createLooks(S, root) {
     }
     const note = el.querySelector('.note');
     const orig = c.lane === 'preview' ? copies[l.id] : '';
-    note.className = orig ? 'copy-note' : 'note';
-    note.textContent = orig ? `A copy of layer ${orig} on the lights: Apply to lights replaces it.` : '';
-    if (c.lane === 'preview') el.querySelector('[data-a=apply]').textContent = orig ? 'Apply to lights (replace)' : 'Apply to lights';
+    note.className = orig ? 'note copy-note' : 'note';
+    note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. Apply to update the lights.` : '';
+    if (c.lane === 'preview') el.querySelector('[data-a=apply]').textContent = orig ? 'Update lights' : 'Apply to lights';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
     rm.textContent = part ? `Remove from ${nodeName(S.sel.node)}` : 'Remove';
     rm.title = part ? `Turn off ${part} with a black layer on top; the rest of this layer stays` : (c.lane === 'preview' ? 'Remove from the preview' : 'Take this layer off the lights');
@@ -228,8 +229,16 @@ export function createLooks(S, root) {
     const hbox = $$('#lkHouse .list');
     renderLane(hbox, 'house', house);
     empty = hbox.querySelector('.empty');
-    if (!house.length && !empty) hbox.insertAdjacentHTML('beforeend', '<div class="empty">Nothing on the lights.</div>');
-    else if (house.length && empty) empty.remove();
+    const message = houseStatusMessage(S.houseStatus, S.house.length);
+    if (message) {
+      if (!empty) {
+        empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.setAttribute('role', 'status');
+        hbox.appendChild(empty);
+      }
+      empty.textContent = message;
+    } else if (empty) empty.remove();
     const eph = S.house.length - house.length;
     $$('#lkHouseN').textContent = eph ? `+ ${eph} calibration` : '';
     // A copy whose preview layer is gone is forgotten.
@@ -270,7 +279,7 @@ export function createLooks(S, root) {
       const pc = cards.get('preview:' + id);
       if (pc && !pc.form) tweak(pc);
       if (pc) pc.el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      S.toast('Editing a preview copy. Apply to lights replaces the original.');
+      S.toast(`Editing a preview of ${layerName(S, c.layer)}. Apply to update the lights.`);
       return;
     }
     const form = createForm({

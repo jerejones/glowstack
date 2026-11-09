@@ -19,6 +19,7 @@ import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
+import { createHousePoll } from './house-status.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -44,6 +45,7 @@ const S = {
   fps: load(RATE, 0),  // stream rate asked for; 0 is the server's cap
   preview: null,       // /api/map/preview
   house: [],           // /api/v1/layers
+  houseStatus: 'loading',
   catalog: null,       // /api/v1/effects
   presets: [],
   sel: null,           // { node, chain }
@@ -513,14 +515,7 @@ async function pollPreview() {
     badge();
   } catch (e) { /* offline: the badge says so */ }
 }
-async function pollHouse() {
-  try {
-    const { layers } = await api('/api/v1/layers');
-    const changed = JSON.stringify(layers) !== JSON.stringify(S.house);
-    S.house = layers;
-    if (changed) S.emit('house', layers);
-  } catch (e) { /* offline */ }
-}
+const pollHouse = createHousePoll(S, api);
 // refresh reloads the stacks now, after a change.
 S.refresh = async () => { await Promise.all([pollPreview(), pollHouse()]); };
 
