@@ -1097,8 +1097,8 @@ test('B77: a toggle chip is the same box on and off', () => {
 
 test('B78: a per-unit has no stray space, and other units keep theirs', async () => {
   const { showQty } = await import('./static/util.js');
-  assert.equal(showQty('density', 2), '2/m/s');
-  assert.equal(showQty('rate', 0.2), '0.2/s');
+  assert.equal(showQty('density', 2), '2 /m·s');
+  assert.equal(showQty('rate', 0.2), '0.2 /s');
   assert.equal(showQty('speed', 3), '3 m/s');
   assert.equal(showQty('length', 2), '2 m');
 });
@@ -1147,7 +1147,7 @@ test('B75: the dark warning is said once on a screen', async () => {
   const shown = applyResult('the look to the lights', dark, true);
   assert.equal(shown.warn, false);
   assert.equal(shown.neutral, true);
-  assert.equal(shown.text, 'Applied the look to the lights.');
+  assert.equal(shown.text, 'Applied the look to the lights. 1 zone stays off, see above.');
   // No card on screen (a collapsed panel): the toast is the warning.
   const hidden = applyResult('the look to the lights', dark, false);
   assert.equal(hidden.warn, true);
@@ -2344,4 +2344,14 @@ test('disclosures come in two documented tiers', () => {
   assert.match(css, /\.section-disclosure > summary, #suAdvanced > summary \{ font-size: var\(--t-h2\); font-weight: 600;/);
   assert.match(read('form.js'), /more\.className = 'section-disclosure'/);
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
+});
+
+test('wording: In front explains itself, and the apply toast points at the warning', async () => {
+  assert.match(read('panel/looks.js'), /'Shown over the layers below it'/);
+  const { applyResult } = await import('./static/panel/looks.js');
+  const four = { dark: 'none', zones: ['A', 'B', 'C', 'D'], message: 'x' };
+  assert.equal(applyResult('the look', four, true).text, 'Applied the look. 4 zones stay off, see above.');
+  assert.equal(applyResult('the look', four, true).neutral, true);
+  assert.match(applyResult('the look', four, false).text, /but they stay dark/, 'the warning variant stays');
+  assert.equal(applyResult('the look', { dark: 'none', zones: [], message: 'x' }, true).text, 'Applied the look.', 'no zones to count: just the confirmation');
 });

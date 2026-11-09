@@ -271,9 +271,9 @@ export function showQty(type, v) {
     case 'fraction': return Math.round(v * 100) + '%';
     case 'angle': return n(v * 180 / Math.PI) + '°';
   }
-  // A per-unit reads as one word: "2/m/s", not "2 /m/s".
-  const unit = UNITS[type] || '';
-  return n(v) + (unit && !unit.startsWith('/') ? ' ' : '') + unit;
+  // Every quantity is its number, a space and its unit: "2 /m·s", "5 /s".
+  const unit = type === 'density' ? '/m·s' : UNITS[type] || '';
+  return n(v) + (unit ? ' ' : '') + unit;
 }
 
 // ---------- pixel-id range sets ----------

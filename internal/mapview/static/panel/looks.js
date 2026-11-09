@@ -174,7 +174,10 @@ export function applyTitle(plan, unknown) {
 export function applyResult(what, outcome, cardShown = false) {
   if (!outcome.dark) return { text: `Applied ${what}.`, warn: false };
   // The banner on screen says why, once: this only confirms, in a neutral color.
-  if (cardShown) return { text: `Applied ${what}.`, warn: false, neutral: true };
+  if (cardShown) {
+    const n = outcome.zones?.length || 0, off = n ? ` ${n} ${n === 1 ? 'zone stays' : 'zones stay'} off, see above.` : '';
+    return { text: `Applied ${what}.${off}`, warn: false, neutral: true };
+  }
   const lead = outcome.dark === 'none' ? `Applied ${what}, but they stay dark.` : `Applied ${what}, but part of it stays dark.`;
   return { text: `${lead} ${outcome.message}`, warn: true };
 }
@@ -592,6 +595,7 @@ export function createLooks(S, root) {
     el.querySelector('.name-line b').textContent = noOrphan(layerName(S, l));
     el.querySelector('.kind').textContent = c.lane === 'preview' ? 'Preview' : 'Live';
     el.querySelector('.front').textContent = front ? 'In front' : '';
+    el.querySelector('.front').title = front ? 'Shown over the layers below it' : '';
     // A preview layer's place is a control; on the lights it's a fact.
     const placeName = targetName(g, l.target), placeBtn = el.querySelector('.place');
     if (placeBtn) {
