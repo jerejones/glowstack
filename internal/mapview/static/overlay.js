@@ -50,6 +50,19 @@ export function shortLabel(text, max = NAME_LENGTH) {
 // inZones says a screen point falls inside one of the boxes that outrank it.
 export const inZones = ([x, y], zones) => zones.some((z) => x >= z.x0 && x <= z.x1 && y >= z.y0 && y <= z.y1);
 
+// runCrowded says a run's points are too close on screen for each to carry
+// a name: zoomed out, the run gets one label instead. points are in order.
+export function runCrowded(points, room = 90) {
+  if (points.length < 2) return false;
+  const gaps = points.slice(1).map((q, i) => Math.hypot(q[0] - points[i][0], q[1] - points[i][1])).sort((a, b) => a - b);
+  return gaps[gaps.length >> 1] < room;
+}
+
+// The labels that show whatever the room: below it, only these are readable.
+const FOCUS = 2.5;
+// The least map height, between the top chips and the sheet, worth labeling.
+const MIN_MAP_ROOM = 150;
+
 // placeLabels picks where each label goes, or leaves it out: highest rank
 // first, the first free spot near where it asked to be. A budget label (a
 // name, a percentage) needs room around it too, and is placed only while
@@ -63,11 +76,13 @@ export function placeLabels(queued, { avoid = [], marks = [], width = Infinity, 
   const free = Math.min(height, ...avoid.filter((a) => a.x0 <= 0 && a.x1 >= width && a.y1 >= height).map((a) => a.y0));
   const budget = Number.isFinite(width * height) ? Math.floor(width * free / NAME_AREA) : Infinity;
   const inView = (l) => l.x >= 0 && l.x <= width && l.y >= 0 && l.y <= free;
+  const top = Math.max(0, ...avoid.filter((a) => a.y0 < 16 && a.y1 < free).map((a) => a.y1));
+  const cramped = Number.isFinite(free) && free - top < MIN_MAP_ROOM;
   let spent = 0, targetBox = null, hidden = 0;
   // The same kind of label, shortest first: it fits where a long one won't.
   const order = [...queued].sort((a, b) => b.rank - a.rank || (a.budget && b.budget ? a.text.length - b.text.length : 0));
   for (const raw of order) {
-    if (raw.budget && spent >= budget) { if (inView(raw)) hidden++; continue; }
+    if ((cramped && raw.rank < FOCUS) || (raw.budget && spent >= budget)) { if (inView(raw)) hidden++; continue; }
     const l = raw.budget && raw.text.length > NAME_LENGTH ? { ...raw, text: shortLabel(raw.text) } : raw;
     const target = l.rank === 3, H = target ? 19 : 15; // the plate's height
     const w = measure(l);
@@ -238,7 +253,7 @@ export function createOverlay(S) {
   // dropped rather than drawn over another. rank orders them when there
   // isn't room: TARGET, the point being calibrated, goes first, stands out
   // and clears its neighbors.
-  const TARGET = 3, FOCUS = 2.5, MAJOR = 2, MINOR = 0;
+  const TARGET = 3, MAJOR = 2, MINOR = 0;
   let queued = [], lastPlaced = [], marks = [], hiddenShown = -1;
   // mark notes a point drawn on the map, for the labels to keep clear of.
   const mark = (q, r) => { marks.push({ x0: q[0] - r, x1: q[0] + r, y0: q[1] - r, y1: q[1] + r }); };
@@ -396,7 +411,18 @@ export function createOverlay(S) {
     ctx.setLineDash([]);
     // What a name is for right now: the point under the pointer, or the selected run.
     const near = S.pinned >= 0 ? pixelAt(S.pinned) : S.hover >= 0 ? pixelAt(S.hover) : null;
-    const chosen = S.sel ? new Set(g.runs.filter((r) => r.anchors.some((an) => inRanges(S.sel.node.ranges, an.pixel))).map((r) => r.id)) : null;
+    const pointed = S.pinned >= 0 ? S.pinned : S.hover;
+    const under = (r) => { const ps = r.anchors.map((an) => an.pixel); return pointed >= Math.min(...ps) && pointed <= Math.max(...ps); };
+    const chosen = new Set(g.runs.filter((r) => (S.sel && r.anchors.some((an) => inRanges(S.sel.node.ranges, an.pixel))) || (pointed >= 0 && under(r))).map((r) => r.id));
+    // Zoomed out, a run's points would be a pile of names: it gets one.
+    const crowded = new Set();
+    if (o.labels) for (const r of g.runs) {
+      const pts = r.anchors.map((an) => pixelAt(an.pixel)).filter(Boolean);
+      if (chosen.has(r.id) || !runCrowded(pts)) continue;
+      crowded.add(r.id);
+      const q = pts[pts.length >> 1];
+      if (!inZones(q, targetZones) && !inZones(q, nameZones)) label(runName(g, r.id), q[0] + 8, q[1] - 6, '#e5e7eb', 1.1, true);
+    }
     for (const r of g.runs) {
       for (const an of r.anchors) {
         if (an.source === 'end') continue;
@@ -431,7 +457,8 @@ export function createOverlay(S) {
         if (!o.labels) continue;
         const display = nodeDisplay(g, nd.id);
         const whole = shared && p.runs.length ? `${display} · ${p.runs.map((id) => runName(g, id)).join(' / ')}` : display;
-        const focused = (near && Math.hypot(near[0] - x, near[1] - y) < 40) || (chosen && p.runs.some((id) => chosen.has(id)));
+        const focused = (near && Math.hypot(near[0] - x, near[1] - y) < 40) || p.runs.some((id) => chosen.has(id));
+        if (!focused && p.runs.length && p.runs.every((id) => crowded.has(id))) continue;
         // Which run a shared corner is on is the first thing to give up.
         const name = focused || whole.length <= NAME_LENGTH ? whole : display;
         // A corner several runs meet at matters most, then the rest by room.

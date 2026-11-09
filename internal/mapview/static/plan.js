@@ -177,7 +177,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
 
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (selection && selection.length) {
-      ctx.globalAlpha = 0.26; ctx.strokeStyle = '#fff';
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = '#fff';
       ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
       haloPath(ctx, selection); ctx.stroke();
     }

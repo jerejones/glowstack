@@ -1673,3 +1673,19 @@ test('while previewing, "nothing on the lights" is a status line under it, and a
   assert.match(looks, /if \(S\.show === 'house'\) \{ S\.setShow\(''\)/, 'opening a preview switches the map to it');
   assert.match(css, /\.now\.plain \{[^}]*border: 0/);
 });
+
+test('a zoomed-out run has one label, and a map strip too small to read has none', async () => {
+  const { runCrowded, placeLabels } = await import('./static/overlay.js');
+  assert.equal(runCrowded([[0, 0], [30, 0], [60, 0]]), true);
+  assert.equal(runCrowded([[0, 0], [300, 0], [600, 0]]), false, 'zoomed in: each point has room');
+  assert.equal(runCrowded([[0, 0]]), false);
+  const measure = (l) => l.text.length * 6;
+  const labels = [{ text: 'Porch rail', x: 100, y: 90, color: '#fff', rank: 1.1, budget: true }, { text: 'Pointed at', x: 200, y: 90, color: '#fff', rank: 2.5, budget: false }];
+  const strip = placeLabels(labels, { width: 390, height: 844, measure, avoid: [{ x0: 8, x1: 300, y0: 8, y1: 52 }, { x0: 0, x1: 390, y0: 160, y1: 844 }] });
+  assert.deepEqual(strip.map((p) => p.text), ['Pointed at'], 'only what the pointer is on');
+  assert.equal(strip.hidden, 1, 'and the rest are counted as hidden');
+  const roomy = placeLabels(labels, { width: 390, height: 844, measure, avoid: [{ x0: 8, x1: 300, y0: 8, y1: 52 }, { x0: 0, x1: 390, y0: 460, y1: 844 }] });
+  assert.equal(roomy.length, 2);
+  assert.match(read('scene.js'), /uAlpha: \{ value: 0\.5 \}/, 'the halo shows on an unlit model');
+  assert.match(read('plan.js'), /globalAlpha = 0\.5; ctx\.strokeStyle = '#fff'/);
+});

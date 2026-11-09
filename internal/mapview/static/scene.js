@@ -271,7 +271,7 @@ export async function open(glCanvas, input, opts) {
     const mat = new THREE.ShaderMaterial({
       uniforms: {
         uHalfH: { value: 1 }, uSize: { value: HALO_CSS }, uDpr: { value: 1 }, uGrow: { value: 1.6 },
-        uColor: { value: new THREE.Color(1, 1, 1) }, uAlpha: { value: 0.26 },
+        uColor: { value: new THREE.Color(1, 1, 1) }, uAlpha: { value: 0.5 },
       },
       vertexShader: HALO_VS, fragmentShader: HALO_FS,
       transparent: true, depthTest: false, depthWrite: false,
