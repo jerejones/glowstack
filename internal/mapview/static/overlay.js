@@ -11,7 +11,7 @@
 import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges, readableLabel } from './util.js';
 import { controllerName, controllerLabel, nodeDisplay, runName } from './names.js';
 import { RUN_LINE, OUTLINE, LIT_WIDTH, strokeLine, strokeOutline, runLit, unlitRuns } from './map-control.js';
-import { clusterPoints, runPoints, CLUSTER, MARKER, TARGET as TARGET_RING, OTHERS } from './cal-points.js';
+import { clusterPoints, runPoints, drawCluster, CLUSTER, MARKER, TARGET as TARGET_RING, OTHERS } from './cal-points.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
 const OVERLAY_VERSION = 2;
@@ -800,7 +800,8 @@ export function createOverlay(S) {
     outlined = next;
   }
   // runStates is what of all that is on screen now, for the key.
-  const runStates = () => ({ ...lineStates, ...outlined });
+  // A cluster marker on screen is in the key too, while Calibrate is open.
+  const runStates = () => ({ ...lineStates, ...outlined, cluster: !!S.calibrating && shown().nodes && calClusters.some((c) => c.points.length > 1) });
   function noteStates() {
     const key = JSON.stringify(runStates());
     if (key !== statesKey) { statesKey = key; S.refreshStateKey?.(); }
@@ -864,10 +865,8 @@ export function createOverlay(S) {
       const all = c.points.every((p) => p.measured), q = [c.x, c.y];
       const color = all ? '#5ddc8a' : '#ffb347';
       if (c.points.length === 1) { ring(q, MARKER.radius, color, MARKER.width, all ? null : [3, 3]); continue; }
-      ring(q, CLUSTER_R, color, MARKER.width, all ? null : [3, 3], 'rgba(13, 14, 16, 0.92)');
-      ctx.fillStyle = '#fff'; ctx.font = '600 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(String(c.points.length), q[0], q[1] + 0.5);
-      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      // A count, drawn as one (cal-points.js): "×3" in a ring, not a point's number.
+      mark(q, drawCluster(ctx, q[0], q[1], c.points.length, { color, dashed: !all }) * 0.7);
     }
   }
 
@@ -908,6 +907,7 @@ export function createOverlay(S) {
     else if (namesDraw(o) === 'runs') runNames();
     if (o.controllers) controllers();
     ctx.globalAlpha = 1;
+    noteStates(); // the clusters are known now
     calCursors(cursors);
     for (const [p, color] of [[S.hover, '#fff'], [S.pinned, '#ffb347']]) {
       if (p < 0) continue;

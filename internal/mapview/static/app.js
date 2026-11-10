@@ -26,6 +26,7 @@ import { inspectSentences, inspectTechnical, inspectRows, cardDock, cardSubject,
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
+import { clusterTitle } from './cal-points.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll, lightOutcome, zeroRanges, dimSent } from './house-status.js';
 import { createLibrary } from './library.js';
@@ -668,6 +669,9 @@ function hoverLabel(p, x, y) {
 // follow a hover (round 5 had it do so, and the tag and the card then said
 // the same name twice): it is for a selection or a pinned light.
 function hoverAt(x, y) {
+  // Calibrating, a cluster's marker says what it is: "3 points here".
+  const title = S.calibrating ? clusterTitle(S.overlay.calClusters(), x, y, S.coarse) : '';
+  if (canvas.title !== title) canvas.title = title;
   const p = S.view.pickPixel(x, y, 12);
   if (p !== S.hover) { S.hover = p; markDirty(); }
   hoverRun(p);

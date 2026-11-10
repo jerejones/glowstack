@@ -367,6 +367,8 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 .key.states > span { display: inline-flex; align-items: center; white-space: nowrap; }
 /* A run state's swatch is a small canvas that map-control.js paints with the map's own strokes. */
 canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inline-block; width: 26px; height: 14px; border-radius: 0; margin-right: 6px; vertical-align: middle; flex: none; } /* not the map's own canvases, which fill the stage */
+canvas.sw.rs.tall, #stage canvas.sw.rs.tall { height: 26px; }
+.key.states > span[data-state=cluster] { white-space: normal; line-height: 1.2; } /* its words wrap inside the key rather than being cut */
 /* Only the states to explain: one line, no button, the size of a chip. */
 .legend.states-only { padding: 3px 9px; max-width: none; right: auto; }
 .legend.states-only .key.states { flex-wrap: nowrap; }

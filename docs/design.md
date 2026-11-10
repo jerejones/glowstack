@@ -468,7 +468,13 @@ The Calibrate panel (on the live map) is built to lead and to guide:
   runs' names hide, and no marker is drawn under the target's ring.
 - **Markers that can be told apart.** While the mode is open, markers closer
   than 24 px on a touch screen (16 px with a mouse) draw as one marker with
-  a count. A tap on a marker that stands alone goes to its point; a tap on a
+  a count. The count is drawn as a count: "×3" in a ring, in a smaller and
+  quieter face than a point's name, so it is not read as "point 3"; with a
+  mouse the marker's tooltip says "3 points here", and its list opens under
+  the same words. While Calibrate is open the map's key has an entry for
+  every marker on it: measured, estimated, a point, a shared corner, the
+  point being calibrated, and the cluster ("Points close together: tap to
+  pick one"), each listed only while it is on the map. A tap on a marker that stands alone goes to its point; a tap on a
   cluster opens a list of its points, each named by run and number ("Shed
   eave, point 2 of 3"), instead of picking one silently. So every point is
   reached in at most two taps. Before a session, a pick only sets where

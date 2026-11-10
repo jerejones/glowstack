@@ -21,6 +21,32 @@ export const MARKER = { radius: 8, width: 2 };
 export const TARGET = { radius: 14, width: 4.5, color: '#22d3ee', halo: 'rgba(13, 14, 16, 0.85)' };
 export const OTHERS = 0.4;
 
+// A cluster's marker is a count, and is drawn as one: "×3" in a ring, in a
+// smaller, quieter face than a point's name, so it is not read as "point 3".
+// COUNT is that face; clusterCount the figure; clusterWords what the marker
+// says for itself, as its tooltip and at the head of its list ("3 points
+// here"); CLUSTER_KEY its line in the map's key.
+export const COUNT = { font: '600 11px system-ui, sans-serif', color: '#cbd5e1', radius: 11, wide: 13 };
+export const clusterCount = (n) => `\u00d7${n}`;
+export const clusterWords = (n) => `${n} points here`;
+export const CLUSTER_KEY = 'Points close together: tap to pick one';
+// drawCluster draws a cluster's marker at (x, y) on ctx: the ring in the
+// state's color (dashed when not every point is measured), a dark disc, and
+// the count. The map and the key's swatch both draw with it. It returns the
+// ring's radius: two digits take a wider ring.
+export function drawCluster(ctx, x, y, n, { color = '#ffb347', dashed = true } = {}) {
+  const r = n > 9 ? COUNT.wide : COUNT.radius;
+  ctx.strokeStyle = color; ctx.lineWidth = MARKER.width;
+  if (dashed && ctx.setLineDash) ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
+  ctx.fillStyle = 'rgba(13, 14, 16, 0.92)'; ctx.fill(); ctx.stroke();
+  if (dashed && ctx.setLineDash) ctx.setLineDash([]);
+  ctx.fillStyle = COUNT.color; ctx.font = COUNT.font; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(clusterCount(n), x, y + 0.5);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  return r;
+}
+
 // clusterPoints groups points ({x, y, ...}) into markers that can be told
 // apart: while any two markers' centers are closer than radius, the closest
 // two become one, drawn at the middle of its points. Each cluster is
@@ -66,6 +92,13 @@ export function clusterAt(clusters, x, y, reach) {
     if (d <= bd) { bd = d; best = c; }
   }
   return best;
+}
+
+// clusterTitle is the tooltip for the map at (x, y) while calibrating: a
+// cluster's own words when the pointer is on one with several points, else ''.
+export function clusterTitle(clusters, x, y, coarse = false) {
+  const hit = clusterAt(clusters, x, y, coarse ? CLUSTER.coarse : CLUSTER.fine);
+  return hit && hit.points.length > 1 ? `${clusterWords(hit.points.length)}: ${coarse ? 'tap' : 'click'} to pick one` : '';
 }
 
 // tapsToReach is how many taps it takes to reach a point: one when its

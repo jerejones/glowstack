@@ -178,7 +178,7 @@ test('C2: one state language for runs on the map', async () => {
   assert.deepEqual(statesShown({}), []);
   assert.equal(stateKeyHTML([]), '');
   assert.deepEqual(statesShown({ previewed: true, installed: true, hovered: false }), ['installed', 'previewed']);
-  assert.deepEqual(statesShown({ target: true, selected: true, installed: true, hovered: true, warned: true, previewed: true }), STATE_KEY.map(([id]) => id).filter((id) => id !== 'lit'));
+  assert.deepEqual(statesShown({ target: true, selected: true, installed: true, hovered: true, warned: true, previewed: true }), STATE_KEY.map(([id]) => id).filter((id) => id !== 'lit' && id !== 'cluster')); // cluster: Calibrate's count marker (series 2 round 6)
   const key = stateKeyHTML(['installed', 'selected']);
   assert.match(key, /^<div class="key states"><span data-state="installed"><canvas class="sw rs" data-swatch="installed"[^>]*><\/canvas>Not lit<\/span><span data-state="selected"><canvas class="sw rs" data-swatch="selected"[^>]*><\/canvas>Selected<\/span><\/div>$/);
   assert.match(css, /\.legend\.states-only \.key\.states \{ flex-wrap: nowrap; \}/, 'one line');
@@ -300,7 +300,7 @@ test('F: markers too close to tell apart draw as one, and every point is reached
   // The overlay draws clusters with a count while calibrating; a tap on one opens a list instead of picking silently.
   const overlay = read('overlay.js'), cal = read('panel/calibrate.js'), app = read('app.js');
   assert.match(overlay, /clustered = clusterPoints\(pts, S\.coarse \? CLUSTER\.coarse : CLUSTER\.fine\);/);
-  assert.match(overlay, /ctx\.fillText\(String\(c\.points\.length\), q\[0\], q\[1\] \+ 0\.5\);/);
+  assert.match(overlay, /drawCluster\(ctx, q\[0\], q\[1\], c\.points\.length, \{ color, dashed: !all \}\)/);
   assert.match(app, /S\.calib\.tapAt\(x, y, p\);/);
   assert.match(cal, /if \(hit && hit\.points\.length === 1\) \{ pick\(hit\.points\[0\]\); return; \}\s*clusterList = hit \? hit\.points : null;/);
   assert.match(cal, /pointWords\(runLabel\(pt\.run\), pt\.n, pt\.of\)/, 'the list names the run and the point number');

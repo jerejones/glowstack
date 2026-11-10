@@ -8,6 +8,7 @@
 // tap, shown once per device; the name a run shows under the pointer; and
 // the pixels the panel points at when a card or a row is hovered.
 import { load, save, humanize } from './util.js';
+import { drawCluster, CLUSTER_KEY } from './cal-points.js';
 
 const HINT_SEEN = 'glowstack.hint.tap';
 
@@ -211,6 +212,7 @@ export const STATE_KEY = [
   ['selected', 'Selected'],
   ['hovered', 'Pointed at'],
   ['target', 'Calibrating this point'],
+  ['cluster', CLUSTER_KEY],
   ['warned', 'Needs calibrating'],
 ];
 // statesShown is the states on screen now, in the key's order: the key lists
@@ -219,13 +221,13 @@ export function statesShown(on) {
   return STATE_KEY.filter(([id]) => on[id] && !(id === 'lit' && on.previewed)).map(([id]) => id);
 }
 // SWATCH is a key swatch's size, px: wide enough for two dashes, tall enough for the outline.
-export const SWATCH = { w: 26, h: 14 };
+export const SWATCH = { w: 26, h: 14, tall: 26 }; // tall: a cluster's ring is drawn at its own size
 // stateKeyHTML is those states as one line of the key ('' with none). Each
 // swatch is a small canvas that paintSwatches draws with the map's own
 // strokes, so the key cannot drift from what it explains.
 export function stateKeyHTML(ids) {
   if (!ids.length) return '';
-  return `<div class="key states">${STATE_KEY.filter(([id]) => ids.includes(id)).map(([id, words]) => `<span data-state="${id}"><canvas class="sw rs" data-swatch="${id}" width="${SWATCH.w}" height="${SWATCH.h}" aria-hidden="true"></canvas>${words}</span>`).join('')}</div>`;
+  return `<div class="key states">${STATE_KEY.filter(([id]) => ids.includes(id)).map(([id, words]) => `<span data-state="${id}"><canvas class="sw rs${id === 'cluster' ? ' tall' : ''}" data-swatch="${id}" width="${SWATCH.w}" height="${id === 'cluster' ? SWATCH.tall : SWATCH.h}" aria-hidden="true"></canvas>${words}</span>`).join('')}</div>`;
 }
 // LOOK_COLORS stands for "a look's own colors" in a swatch.
 const LOOK_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7'];
@@ -242,6 +244,8 @@ export function drawSwatch(ctx, id, w = SWATCH.w, h = SWATCH.h) {
   } else if (id === 'selected' || id === 'hovered') {
     // Half strength is in the color, not the context: the cut of the inside must stay whole.
     strokeOutline(ctx, run, id === 'hovered' ? `rgba(${OUTLINE.rgb}, ${OUTLINE.pointed})` : OUTLINE.color);
+  } else if (id === 'cluster') {
+    drawCluster(ctx, w / 2, y, 3);
   } else if (id === 'target') {
     ctx.strokeStyle = TARGET_COLOR; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(w / 2, y, Math.min(w, h) / 2 - 2, 0, 2 * Math.PI); ctx.stroke();
@@ -250,10 +254,11 @@ export function drawSwatch(ctx, id, w = SWATCH.w, h = SWATCH.h) {
 // paintSwatches draws every swatch canvas under root, at the screen's pixel ratio.
 export function paintSwatches(root, ratio = globalThis.devicePixelRatio || 1) {
   for (const c of root.querySelectorAll('canvas[data-swatch]')) {
-    c.width = Math.round(SWATCH.w * ratio); c.height = Math.round(SWATCH.h * ratio);
+    const h = c.dataset.swatch === 'cluster' ? SWATCH.tall : SWATCH.h;
+    c.width = Math.round(SWATCH.w * ratio); c.height = Math.round(h * ratio);
     const ctx = c.getContext('2d');
     if (!ctx) continue;
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    drawSwatch(ctx, c.dataset.swatch);
+    drawSwatch(ctx, c.dataset.swatch, SWATCH.w, h);
   }
 }

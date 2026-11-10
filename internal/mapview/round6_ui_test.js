@@ -181,7 +181,7 @@ test('C3: selected is an outline in the interaction blue; hover is the same at h
 
 test('C3: the key lists the states on screen, with swatches the map\'s own strokes draw', async () => {
   const { STATE_KEY, statesShown, stateKeyHTML, drawSwatch, paintSwatches, SWATCH, RUN_LINE, OUTLINE, outlineWidths, LIT_WIDTH, TARGET_COLOR } = await import('./static/map-control.js');
-  assert.deepEqual(STATE_KEY.map(([, words]) => words), ['Not lit', 'Lit', 'Previewing', 'Selected', 'Pointed at', 'Calibrating this point', 'Needs calibrating']);
+  assert.deepEqual(STATE_KEY.map(([, words]) => words), ['Not lit', 'Lit', 'Previewing', 'Selected', 'Pointed at', 'Calibrating this point', 'Points close together: tap to pick one', 'Needs calibrating']);
   assert.deepEqual(statesShown({ installed: true, lit: true, selected: true }), ['installed', 'lit', 'selected']);
   assert.deepEqual(statesShown({ installed: true, lit: true, previewed: true }), ['installed', 'previewed'], 'lit runs are "Previewing" while a preview is on the map: one entry, never both');
   assert.deepEqual(statesShown({ lit: false, installed: false }), []);
@@ -415,4 +415,44 @@ test('Refinement 3: even card rows: every look card keeps a two-line title slot'
   // The one place it is not used: a phone's half detent, where it cost a floor (a whole row of the library).
   assert.match(sheet, /\nbody\[data-detent=half\] \.cards \.preset \.name \{ min-height: 0; \}/);
   assert.match(design(), /two-line title slot/);
+});
+
+test('Refinement 4: Calibrate\'s cluster marker is a count, and the key explains it', async () => {
+  const { COUNT, clusterCount, clusterWords, clusterTitle, drawCluster, CLUSTER_KEY, MARKER, CLUSTER } = await import('./static/cal-points.js');
+  const { STATE_KEY, statesShown, stateKeyHTML, drawSwatch } = await import('./static/map-control.js');
+  // The figure is a count: a multiplication sign before it, in a smaller, quieter face than a point's name (600 14 px, white).
+  assert.equal(clusterCount(3), '×3');
+  assert.equal(clusterCount(12), '×12');
+  assert.match(COUNT.font, /^600 11px /);
+  assert.notEqual(COUNT.color, '#fff');
+  // What the marker says for itself: its tooltip on the map and the head of its list.
+  assert.equal(clusterWords(8), '8 points here');
+  const clusters = [{ x: 100, y: 100, points: [1, 2, 3] }, { x: 300, y: 100, points: [1] }];
+  assert.equal(clusterTitle(clusters, 104, 98), '3 points here: click to pick one');
+  assert.equal(clusterTitle(clusters, 104, 98, true), '3 points here: tap to pick one');
+  assert.equal(clusterTitle(clusters, 300, 100), '', 'a marker that stands alone is a point, not a cluster');
+  assert.equal(clusterTitle(clusters, 200, 300), '');
+  const cal = read('panel/calibrate.js'), app = read('app.js');
+  assert.match(cal, /id="caCluster" role="group" aria-label="\$\{clusterWords\(clusterList\.length\)\}"><div class="cluster-head"><span><b>\$\{clusterWords\(clusterList\.length\)\}\.<\/b> Choose one:/);
+  assert.match(app, /const title = S\.calibrating \? clusterTitle\(S\.overlay\.calClusters\(\), x, y, S\.coarse\) : '';/);
+  // Drawn as a ring with the count inside; two digits take a wider ring.
+  const ctx = Object.assign(fakeCtx(), { arcs: [], texts: [], arc(...a) { this.arcs.push(a); }, fill() {}, fillText(t) { this.texts.push([t, this.font]); } });
+  assert.equal(drawCluster(ctx, 50, 50, 3), COUNT.radius);
+  assert.deepEqual(ctx.texts, [['×3', COUNT.font]]);
+  assert.equal(ctx.strokes[0].width, MARKER.width);
+  assert.equal(drawCluster(ctx, 50, 50, 12), COUNT.wide);
+  assert.ok(2 * COUNT.wide <= CLUSTER.coarse + 4, 'still smaller than the reach of a finger');
+  // The key has an entry for it while one is on the map, drawn by the same code, after the target's.
+  assert.deepEqual(STATE_KEY.find(([id]) => id === 'cluster'), ['cluster', CLUSTER_KEY]);
+  assert.deepEqual(statesShown({ target: true, cluster: true }), ['target', 'cluster']);
+  assert.match(stateKeyHTML(['cluster']), /<canvas class="sw rs tall" data-swatch="cluster" width="26" height="26"/);
+  const sw = Object.assign(fakeCtx(), { texts: [], arc() {}, fill() {}, fillText(t) { this.texts.push(t); } });
+  drawSwatch(sw, 'cluster', 26, 26);
+  assert.deepEqual(sw.texts, ['×3']);
+  const overlay = read('overlay.js');
+  assert.match(overlay, /cluster: !!S\.calibrating && shown\(\)\.nodes && calClusters\.some\(\(c\) => c\.points\.length > 1\)/);
+  // Every marker type Calibrate draws has its key entry: measured, estimated, point, shared corner (the points' key), the target and the cluster (the states').
+  assert.match(overlay, /<i class="sw ring" style="color:#5ddc8a"><\/i>measured<\/span><span><i class="sw ring dash" style="color:#ffb347"><\/i>estimated<\/span>/);
+  assert.ok(STATE_KEY.some(([id, words]) => id === 'target' && words === 'Calibrating this point'));
+  assert.match(design(), /"×3" in a ring/);
 });

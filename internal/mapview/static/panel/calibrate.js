@@ -16,7 +16,7 @@ import { icon } from '../icons.js';
 import { upgradeSelects } from '../picker.js';
 import { stateHTML, warningHTML } from '../states.js';
 import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
-import { runPoints, pointWords, nextTarget, calKey, NUDGE_KEYS, progressBar, progressGroups, clusterAt, CLUSTER } from '../cal-points.js';
+import { runPoints, pointWords, nextTarget, calKey, NUDGE_KEYS, progressBar, progressGroups, clusterAt, clusterWords, CLUSTER } from '../cal-points.js';
 import { confirmDialog } from '../dialog.js';
 import { announce } from '../a11y.js';
 
@@ -645,7 +645,7 @@ export function createCalibrate(S, root) {
 
     // A tapped cluster: its points, to choose from (never one picked silently).
     if (clusterList) {
-      parts.unshift(`<div class="cal-tap cal-cluster" id="caCluster"><div class="cluster-head"><span><b>${plural(clusterList.length, 'point')} here.</b> Choose one:</span>${btn(icon('close'), () => { clusterList = null; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div><div class="cluster-list">${clusterList.map((pt) => btn(`${pt.measured ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(pointWords(runLabel(pt.run), pt.n, pt.of))}</span>`, () => pick(pt), 'icon-btn')).join('')}</div></div>`);
+      parts.unshift(`<div class="cal-tap cal-cluster" id="caCluster" role="group" aria-label="${clusterWords(clusterList.length)}"><div class="cluster-head"><span><b>${clusterWords(clusterList.length)}.</b> Choose one:</span>${btn(icon('close'), () => { clusterList = null; render(); }, 'quiet icon-btn', false, 'Dismiss')}</div><div class="cluster-list">${clusterList.map((pt) => btn(`${pt.measured ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(pointWords(runLabel(pt.run), pt.n, pt.of))}</span>`, () => pick(pt), 'icon-btn')).join('')}</div></div>`);
     }
 
     // A tapped pixel: calibrate there.
