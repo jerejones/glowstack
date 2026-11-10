@@ -32,3 +32,33 @@ export function inspectTechnical(d, { is3d, fmt }) {
     ...d.mappings.map((m) => [m.id, `${fmt(m.u)}${m.kind === 'index' ? '' : ' m'}${m.stretch !== null && Math.abs(m.stretch - 1) > 1e-4 ? ` · ×${fmt(m.stretch)}` : ''}`]),
   ];
 }
+
+// DETAILS_OPEN is where this device remembers that the card's Details were
+// opened: after one click the wiring detail stays one glance away.
+export const DETAILS_OPEN = 'glowstack.inspect.details';
+
+// inspectRows is the card at rest: at most three rows. The run and its zone,
+// what is showing there (and whether it is a preview), and the place in the
+// chain (the zone and areas the run is part of, biggest first). The pixel's
+// number, its color, its output and GPIO are Details, not rows.
+// chain is the names above the run, without Everything.
+export function inspectRows({ run = '', zone = '', pixel, dead = false, showing = '', chain = [] }) {
+  const rows = [{ kind: 'name', title: run || `Pixel ${pixel}${dead ? ' (dead)' : ''}`, sub: run && zone && zone !== run ? zone : '' }];
+  rows.push({ kind: 'showing', label: 'Showing', value: showing || 'Nothing' });
+  const above = chain.filter((n) => n && n !== run);
+  if (above.length) rows.push({ kind: 'chain', label: 'Part of', value: above.join(' \u203a ') });
+  return rows;
+}
+
+// cardDock is where the floating card sits: the bottom right corner of the
+// map, for a hover and for a pinned card alike, so it never jumps between
+// them. top is how far down the chips and crumbs reach. The one exception:
+// a pixel that would be under the card there (pixel is its [x, y], within
+// clear px of the box) sends the card to the top right, so the card never
+// hides what it describes.
+export function cardDock({ w, h, cw, ch, top = 0, gap = 8, pixel = null, clear = 24 }) {
+  const x = Math.max(gap, w - cw - gap);
+  const high = Math.min(top + gap, Math.max(gap, h - ch - gap)), low = Math.max(high, h - ch - gap);
+  const under = pixel && pixel[0] >= x - clear && pixel[0] <= x + cw + clear && pixel[1] >= low - clear && pixel[1] <= low + ch + clear;
+  return [x, under ? high : low];
+}

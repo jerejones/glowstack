@@ -1433,9 +1433,16 @@ desk.
   deduplicated. Empty lists are `[]`. The graph preserves direct references
   rather than flattening descendants, so selection can move from a run to
   its containing areas and zones.
-- **Inspect.** Hover (mouse) or long-press (touch) a pixel for its
-  controller, index, output, run, edge, areas, flow position `u`, stretch
-  and which layer is showing.
+- **Inspect.** Hover (mouse) or long-press (touch) a pixel for a card that
+  is name first, detail on request. At rest it has at most three rows: the
+  run and its zone, what is showing there (and whether it is a preview), and
+  the place in the chain (the zone and areas it is part of). The pixel's
+  number, its color, its output and GPIO, and the sentences about it are
+  under **Details**, whose open state is remembered per device, with the raw
+  figures (controller index, edge, flow position `u`, stretch) one level
+  further under Technical details. Beside the map the card has one place,
+  the bottom right corner, for a hover and for a pinned card alike; only a
+  pixel that would be under it there sends it to the top right.
 - **Diagnostic views** (overlays instead of the live frame):
   - flow position as a color ramp per mapping, with direction arrows
   - stretch per edge (blue compressed, red stretched)

@@ -16,11 +16,11 @@ import { buildTree, nodeName, nodeKinds, targetName, targetRanges } from './sele
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
-import { cardCorner, createAim, rectGap, labelSpot } from './card-place.js';
-import { tapHint, showTapHint, hintSeen, markHintSeen, runAt, runTitle } from './map-control.js';
+import { createAim, rectGap, labelSpot } from './card-place.js';
+import { tapHint, showTapHint, hintSeen, markHintSeen, runAt } from './map-control.js';
 import { fitCrumbs, crumbKind } from './crumbs.js';
 import { escapeCloses } from './picker.js';
-import { inspectSentences, inspectTechnical } from './inspect.js';
+import { inspectSentences, inspectTechnical, inspectRows, cardDock, DETAILS_OPEN } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
@@ -590,7 +590,7 @@ function hoverAt(x, y) {
 
 // ---------- inspect ----------
 
-let inspectSeq = 0, inspected = null, inspectMore = false, inspectTech = false, inspectShown = '', cardAt = null;
+let inspectSeq = 0, inspected = null, inspectMore = load(DETAILS_OPEN, false) === true, inspectTech = false, inspectShown = '', cardAt = null;
 const showQ = () => (S.show ? '?show=' + S.show : '');
 
 async function inspect(p) {
@@ -639,7 +639,6 @@ function renderInspect() {
   const el = sheet ? row : card;
   const o = S.overlay.outputOf(d.id);
   const sh = d.showing;
-  const layer = sh ? esc(showingLabel(S, sh, sh.target === 'all' ? 'everything' : sh.target ? targetName(S.geo, sh.target) : '')) : '<span class="muted">Nothing</span>';
   const pinButton = pinned
     ? `<button type="button" class="quiet icon-btn" data-unpin aria-label="Unpin this light" title="Stop keeping this card open">${icon('pinFilled')}Pinned</button>`
     : `<button type="button" class="quiet icon-btn" data-pin title="Keep this card open">${icon('pin')}Pin</button>`;
@@ -649,16 +648,26 @@ function renderInspect() {
     areas: d.areas.map((id) => areaName(S.geo, id)),
     zones: d.zones.map((id) => zoneName(S.geo, id)),
   });
-  // The run and its zone are the card's first line; the pixel's number follows.
-  const where = d.run ? runTitle({ run: runName(S.geo, d.run), zone: d.zones.length ? zoneName(S.geo, d.zones[0]) : '' }) : '';
-  const html = `<div class="head"><b>${where ? `${esc(where)}<small>Pixel ${d.id}${d.dead ? ' (dead)' : ''}</small>` : `Pixel ${d.id}${d.dead ? ' (dead)' : ''}`}</b>${pinButton}</div>
-    <table>
-    ${r('Color', `<span class="chip-color" data-color-chip></span><span data-color-text></span>`)}
-    ${r('Showing', layer)}
-    ${r('Run', d.run ? `<span title="${esc(d.run)}">${esc(runName(S.geo, d.run))}</span>` : '<span class="muted">None</span>')}
-    ${r('Output', o ? `${esc(controllerName(S.geo, o.controller))} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
+  // Name first, detail on request: at most three rows (inspect.js). The
+  // pixel's number, color, output and GPIO are under Details, whose open
+  // state this device remembers.
+  const ri = d.run ? S.geo.runs.findIndex((x) => x.id === d.run) : -1;
+  const chain = ri >= 0 ? S.tree.chain(S.tree.runNode(ri)).slice(0, -1).filter((nd) => !nd.members.some((m) => m.kind === 'all')).map(nodeName) : [];
+  const rows = inspectRows({
+    run: d.run ? runName(S.geo, d.run) : '', zone: d.zones.length ? zoneName(S.geo, d.zones[0]) : '', pixel: d.id, dead: d.dead, chain,
+    showing: sh ? showingLabel(S, sh, sh.target === 'all' ? 'everything' : sh.target ? targetName(S.geo, sh.target) : '') : '',
+  });
+  const [name, ...rest] = rows;
+  const html = `<div class="head"><b>${esc(name.title)}${name.sub ? `<small>${esc(name.sub)}</small>` : ''}</b>${pinButton}</div>
+    <table class="rows">
+    ${rest.map((x) => r(x.label, x.kind === 'showing' && !sh ? '<span class="muted">Nothing</span>' : esc(x.value))).join('')}
     </table>
     <details class="more"${inspectMore ? ' open' : ''}><summary>Details</summary>
+    <table>
+    ${d.run ? r('Pixel', `${d.id}${d.dead ? ' (dead)' : ''}`) : ''}
+    ${r('Color', `<span class="chip-color" data-color-chip></span><span data-color-text></span>`)}
+    ${r('Output', o ? `${esc(controllerName(S.geo, o.controller))} ${esc(outputName(o))}` : '<span class="muted">None</span>')}
+    </table>
     ${sentences.map((t) => `<p>${esc(t)}</p>`).join('')}
     <details class="tech"${inspectTech ? ' open' : ''}><summary>Technical details</summary><table>
     ${inspectTechnical(d, { is3d: S.view.kind === '3d', fmt }).map(([k, v]) => r(esc(k), esc(v))).join('')}
@@ -669,7 +678,7 @@ function renderInspect() {
   if (html === inspectShown && el.innerHTML) { refreshInspectColor(); placeCard(); return; }
   inspectShown = html;
   el.innerHTML = html;
-  el.querySelector('details.more').ontoggle = (e) => { inspectMore = e.target.open; placeCard(); };
+  el.querySelector('details.more').ontoggle = (e) => { inspectMore = e.target.open; save(DETAILS_OPEN, inspectMore); placeCard(); };
   el.querySelector('details.tech').ontoggle = (e) => { inspectTech = e.target.open; placeCard(); };
   const b = el.querySelector('[data-unpin]');
   if (b) b.onclick = unpin;
@@ -680,16 +689,15 @@ function renderInspect() {
   placeCard();
 }
 
-// placeCard docks the floating card in the corner of the map farthest
-// from its pixel, so that it never hides what is being inspected.
+// placeCard docks the floating card in the bottom right corner of the map,
+// the same place for a hover and for a pinned card (inspect.js cardDock).
 function placeCard() {
   const card = $('inspectCard');
   if (card.hidden || !inspected) return;
-  const q = S.view.screenOf(inspected.id);
   const { w, h } = S.view.size();
   const stage = $('stage').getBoundingClientRect();
   const under = (id) => { const el = $(id); return el.hidden ? 0 : el.getBoundingClientRect().bottom - stage.top; };
-  const [x, y] = cardAt = cardCorner({ w, h, cw: card.offsetWidth, ch: card.offsetHeight, top: Math.max(under('chips'), under('crumbs')), pixel: q, prev: cardAt });
+  const [x, y] = cardAt = cardDock({ w, h, cw: card.offsetWidth, ch: card.offsetHeight, top: Math.max(under('chips'), under('crumbs')), pixel: S.view.screenOf(inspected.id) });
   card.style.left = x + 'px';
   card.style.top = y + 'px';
 }

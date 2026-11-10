@@ -189,11 +189,12 @@ test('effect cards say something useful: the motion, else what the colors come f
 });
 
 test('the inspect card keeps clear of its pixel', async () => {
-  const { cardCorner } = await import('./static/card-place.js');
+  // One dock since series 2 round 5: the bottom right, and the top right only for a pixel under it.
+  const { cardDock } = await import('./static/inspect.js');
   const base = { w: 1000, h: 800, cw: 240, ch: 200, top: 50 };
-  assert.deepEqual(cardCorner({ ...base, pixel: [900, 100] }), [8, 58]);
-  assert.deepEqual(cardCorner({ ...base, pixel: [100, 100] }), [752, 592]);
-  assert.deepEqual(cardCorner({ ...base, pixel: null }), [752, 58]);
+  assert.deepEqual(cardDock({ ...base, pixel: [100, 100] }), [752, 592]);
+  assert.deepEqual(cardDock({ ...base, pixel: null }), [752, 592]);
+  assert.deepEqual(cardDock({ ...base, pixel: [900, 700] }), [752, 58]);
 });
 
 test('a Points setting leaked by an old build is dropped once, not forever', async () => {

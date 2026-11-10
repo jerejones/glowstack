@@ -229,7 +229,7 @@ test('C: hovering a run names it and its zone, beside the pointer and never over
   assert.ok(cl >= 4 && cl + 80 <= 796 && ct >= 4);
   const app = read('app.js');
   assert.match(app, /hoverLabel\(p, x, y\);/, 'shown from pointermove itself: no request, no timer');
-  assert.match(app, /const where = d\.run \? runTitle\(/, 'the inspect card leads with the run and its zone');
+  assert.match(app, /<div class="head"><b>\$\{esc\(name\.title\)\}\$\{name\.sub \? `<small>\$\{esc\(name\.sub\)\}<\/small>` : ''\}<\/b>/, 'the inspect card leads with the run and its zone');
 });
 
 test('C: the panel points at the map with the soft halo', async () => {

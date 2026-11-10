@@ -1409,7 +1409,7 @@ test('B90: the chip says connecting until the first socket result, with status d
 });
 
 test('B91: the inspect card stays open under the pointer and keeps still while it is reached', async () => {
-  const { createAim, rectGap, cardCorner } = await import('./static/card-place.js');
+  const { createAim, rectGap } = await import('./static/card-place.js');
   assert.equal(rectGap({ left: 10, top: 10, right: 20, bottom: 20 }, 15, 15), 0);
   assert.equal(rectGap({ left: 10, top: 10, right: 20, bottom: 20 }, 25, 10), 5);
   const aim = createAim(500);
@@ -1418,10 +1418,11 @@ test('B91: the inspect card stays open under the pointer and keeps still while i
   assert.equal(aim.step(70, 200), false, 'moving away ends it');
   assert.equal(aim.step(60, 300), true, 'closing in again');
   assert.equal(aim.step(10, 900), false, 'a sweep past the hold time inspects again');
+  // The card has one dock (series 2 round 5), so it keeps still wherever the pointer goes on its way to it.
+  const { cardDock } = await import('./static/inspect.js');
   const base = { w: 1000, h: 700, cw: 240, ch: 100, top: 50 };
-  const prev = cardCorner({ ...base, pixel: [100, 100] });
-  assert.deepEqual(cardCorner({ ...base, pixel: [600, 300], prev }), prev, 'keeps its corner');
-  assert.notDeepEqual(cardCorner({ ...base, pixel: [prev[0] + 10, prev[1] + 10], prev }), prev, 'moves off its own pixel');
+  assert.deepEqual(cardDock({ ...base, pixel: [100, 100] }), cardDock({ ...base, pixel: [600, 300] }), 'keeps its corner');
+  assert.notDeepEqual(cardDock({ ...base, pixel: [800, 650] }), cardDock({ ...base, pixel: [100, 100] }), 'moves off its own pixel');
   const app = read('app.js');
   assert.match(app, /pointerleave', \(e\) => \{ if \(!\$\('inspectCard'\)\.contains\(e\.relatedTarget\)\) endHover\(\)/);
   assert.match(app, /data-pin title="Keep this card open">\$\{icon\('pin'\)\}Pin</, 'Pin is visible on the card');

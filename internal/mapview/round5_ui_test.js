@@ -153,3 +153,31 @@ test('Refinement 2: the Tweak form uses the row\'s width, and unused colors are 
   const { unusedHint } = await import('./static/form.js');
   assert.match(unusedHint(''), /^Not used: /);
 });
+
+test('Refinement 3: the inspect card is name first, three rows at most, in one place', async () => {
+  const { inspectRows, cardDock, DETAILS_OPEN } = await import('./static/inspect.js');
+  const rows = inspectRows({ run: 'Porch rail', zone: 'Porch', pixel: 412, showing: 'Amber wash (preview) on everything', chain: ['Porch', 'Porch rails'] });
+  assert.equal(rows.length, 3);
+  assert.deepEqual(rows[0], { kind: 'name', title: 'Porch rail', sub: 'Porch' });
+  assert.deepEqual(rows[1], { kind: 'showing', label: 'Showing', value: 'Amber wash (preview) on everything' });
+  assert.deepEqual(rows[2], { kind: 'chain', label: 'Part of', value: 'Porch \u203a Porch rails' });
+  // Never more than three, and no pixel number, color or output among them.
+  for (const r of rows) assert.doesNotMatch(JSON.stringify(r), /412|#[0-9a-f]{6}|GPIO|output/i);
+  assert.equal(inspectRows({ run: 'Shed eave', zone: 'Shed eave', pixel: 3 }).length, 2, 'a run that is its own zone has no chain row');
+  assert.equal(inspectRows({ pixel: 9, dead: true })[0].title, 'Pixel 9 (dead)', 'a pixel on no run is named by its number');
+  // One dock for hover and for pinned: the bottom right, whatever the pixel, unless it is under the card.
+  const base = { w: 860, h: 900, cw: 280, ch: 120, top: 80 };
+  assert.deepEqual(cardDock({ ...base, pixel: [200, 300] }), [572, 772]);
+  assert.deepEqual(cardDock({ ...base, pixel: [40, 860] }), [572, 772]);
+  assert.deepEqual(cardDock({ ...base, pixel: [700, 800] }), [572, 88]);
+  // Details hold the wiring facts, and their open state is remembered per device.
+  const app = read('app.js');
+  assert.equal(DETAILS_OPEN, 'glowstack.inspect.details');
+  assert.match(app, /inspectMore = load\(DETAILS_OPEN, false\) === true/);
+  assert.match(app, /inspectMore = e\.target\.open; save\(DETAILS_OPEN, inspectMore\);/);
+  const details = app.slice(app.indexOf('<summary>Details</summary>'), app.indexOf('<summary>Technical details</summary>'));
+  for (const k of ["r('Pixel'", "r('Color'", "r('Output'"]) assert.ok(details.includes(k), k);
+  const rest = app.slice(app.indexOf('<table class="rows">'), app.indexOf('<summary>Details</summary>'));
+  assert.doesNotMatch(rest, /Color|Output|Pixel/);
+  assert.doesNotMatch(app, /cardCorner/);
+});
