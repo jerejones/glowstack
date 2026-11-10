@@ -34,6 +34,13 @@ export function overlayShown(st, { calibrating = false, tab = 'setup' } = {}) {
   return tab === 'setup' ? st : { ...st, mode: 'live', nodes: false, labels: false, controllers: false };
 }
 
+// namesDraw is what the Names option names for an overlay state (B149):
+// 'points' with Points on (each point, gap and link, as before), 'runs'
+// without (every drawn run, once), '' when Names is off. Names alone used to
+// name nothing in any view, because only the Points and Controllers drawings
+// asked for labels. It is the same in every "Color the map by" view.
+export const namesDraw = (o) => (!o.labels ? '' : o.nodes ? 'points' : 'runs');
+
 // CHROME is what floats over the map: the header chip and brand, the
 // Preview/Lights toggle, the tap hint, the breadcrumb's buttons, the key,
 // the inspect card and the calibration panel. Each is an occupied rectangle
@@ -650,6 +657,19 @@ export function createOverlay(S) {
     });
   }
 
+  // runNames names every drawn run once, at its middle, when Names is on
+  // without Points: a name like any other, placed only where there is room
+  // and counted in the key when there is not.
+  function runNames() {
+    g.runs.forEach((r, ri) => {
+      const sets = S.tree?.runSets?.[ri];
+      if (!sets || !sets.length) return;
+      const [a, b] = sets.reduce((best, x) => (x[1] - x[0] > best[1] - best[0] ? x : best));
+      const q = pixelAt((a + b) >> 1);
+      if (q) label(runName(g, r.id), q[0] + 8, q[1] - 6, '#e5e7eb', 1.1, true);
+    });
+  }
+
   // ----- run lines: the state language (map-control.js) -----
   // Every drawn run that is not lit has a thin neutral line along it; the run
   // under the pointer brightens; a run whose Status warning is pointed at
@@ -805,6 +825,7 @@ export function createOverlay(S) {
     // Measuring one point: every other point steps back.
     ctx.globalAlpha = S.calibrating && S.cal?.active && S.cal.target ? OTHERS : 1;
     if (o.nodes) nodes();
+    else if (namesDraw(o) === 'runs') runNames();
     if (o.controllers) controllers();
     ctx.globalAlpha = 1;
     calCursors(cursors);

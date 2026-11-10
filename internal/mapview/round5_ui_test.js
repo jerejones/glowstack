@@ -77,3 +77,30 @@ test('B148: a tile whose value is words uses the label style, so it never outwei
   assert.match(c, /^\.stat span \{ display: block; color: var\(--muted\); font-size: var\(--t-meta\); \}/m);
   assert.match(read('panel/status.js'), /querySelectorAll\('b:not\(\.words\)'\)\) fitFigure/);
 });
+
+test('B149: Names names the runs in every "Color the map by" view, and the key counts what is hidden', async () => {
+  const { namesDraw, overlayShown, MODES, placeLabels } = await import('./static/overlay.js');
+  // The same rule in each view: runs with Names alone, points while Points is on, nothing when off.
+  for (const [mode] of MODES) {
+    assert.equal(namesDraw(overlayShown({ mode, labels: true, nodes: false }, { tab: 'setup' })), 'runs', mode);
+    assert.equal(namesDraw(overlayShown({ mode, labels: true, nodes: true }, { tab: 'setup' })), 'points', mode);
+    assert.equal(namesDraw(overlayShown({ mode, labels: false, nodes: true }, { tab: 'setup' })), '', mode);
+  }
+  // Setup's names are Setup's: another tab's map has none. Calibration names its points.
+  assert.equal(namesDraw(overlayShown({ mode: 'areas', labels: true, nodes: false }, { tab: 'looks' })), '');
+  assert.equal(namesDraw(overlayShown({ mode: 'areas', labels: true, nodes: false }, { calibrating: true })), 'points');
+  // The drawing asks for one name per run, as a budget label the placer may hide and count.
+  const overlay = read('overlay.js');
+  assert.match(overlay, /if \(o\.nodes\) nodes\(\);\s*else if \(namesDraw\(o\) === 'runs'\) runNames\(\);/);
+  assert.match(overlay, /label\(runName\(g, r\.id\), q\[0\] \+ 8, q\[1\] - 6, '#e5e7eb', 1\.1, true\);\s*\}\);\s*\}/);
+  // With room for one name of three, one is placed and two are counted for the key.
+  const names = ['Shed eave', 'Fence north', 'Gate arch'].map((text, i) => ({ text, x: 40 + i, y: 60, color: '#e5e7eb', rank: 1.1, budget: true }));
+  const placed = placeLabels(names, { width: 100, height: 300, measure: (l) => l.text.length * 6 });
+  assert.equal(placed.length, 1);
+  assert.equal(placed.hidden, 2);
+  // The key shows the count in every view, with or without another legend.
+  const setup = read('panel/setup.js');
+  assert.match(setup, /const n = ov\.hiddenLabels\(\);\s*const note = n \? `<div class="muted label-note">/);
+  assert.match(setup, /key\.hidden = !\(legendHTML \+ states \+ note\);/);
+  assert.match(setup, /title="Names on the runs, or on points and gaps while Points is on, and descriptions on controllers">Names</);
+});

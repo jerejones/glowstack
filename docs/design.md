@@ -1386,6 +1386,11 @@ desk.
   - *Next look, or this layer.* **Preview on** sits beside the Library
     heading, and its tooltip and accessible name say "next" ("Where the next
     look goes"). A layer's **On:** is inside that layer's row.
+- **Names.** Setup's Names option names things in every "Color the map by"
+  view: every drawn run once, at its middle, or each point, gap and link
+  while Points is on, and it adds the descriptions to the controllers'
+  names. A name is placed only where there is room for it; the key says how
+  many were left out ("5 labels hidden: no room").
 - **Run states on the map.** A run is drawn one way per state, and the key
   lists a state only while it is on screen (one line on a phone, a chip
   that takes no room from the framing):

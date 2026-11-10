@@ -64,7 +64,7 @@ export function createSetup(S, root) {
     <h2 class="sub">Show on the map</h2>
     <div class="chips toggles" role="group" aria-label="Show on the map">
       <button type="button" id="suNodes" aria-pressed="false" title="Corners, links, gaps and calibration points">Points</button>
-      <button type="button" id="suLabels" aria-pressed="false" title="Names on points and gaps, descriptions on controllers">Names</button>
+      <button type="button" id="suLabels" aria-pressed="false" title="Names on the runs, or on points and gaps while Points is on, and descriptions on controllers">Names</button>
       <button type="button" id="suControllers" aria-pressed="false" title="Where the model puts each controller">Controllers</button>
       <button type="button" id="suEven" aria-pressed="false" title="When a run is hovered or tapped, also say so if it is spaced just as drawn" hidden>Label evenly spaced runs</button>
     </div>
