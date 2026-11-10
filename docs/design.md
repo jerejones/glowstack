@@ -1522,7 +1522,11 @@ desk.
   foot of the panel in every state, with **Clear preview** (secondary) on
   the same row as the primary, tops level; a phone has the same pair in
   its sticky bar, Clear as a compact button beside the green one. The
-  action has one verb in every string: looks are **put on the lights**. Everywhere else a primary is inline and content
+  action has one verb in every string: looks are **put on the lights**.
+  The green button's label is one line in every state: the full sentence
+  where it fits ("Put 2 looks on the lights") and a shorter complete form
+  where it does not ("Replace with 1 look" beside "Add instead"), never a
+  wrapped button; its accessible name is always the full sentence. Everywhere else a primary is inline and content
   width: Setup's Calibrate (the tab's one green control), Calibrate's Start,
   an empty state's action, a dialog's confirm. Heights are one value per pointer type (28 px on a fine
   pointer, 44 px on a coarse one); the calibration dock's buttons are the

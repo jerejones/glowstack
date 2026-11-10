@@ -260,3 +260,41 @@ test('Refinement 5: one Undo at a time, and a compact toast on the phone', async
   assert.match(phone, /\.toast\.has-action\.two-acts \{ flex-wrap: wrap;/, 'a fix and Undo together still take their own line');
   assert.match(read('app.js'), /if \(actions\.length > 1\) el\.classList\.add\('two-acts'\);/);
 });
+
+test('Refinement 6: the phone preview card and an apply button that never wraps', async () => {
+  const { applyPlan, applyLabel } = await import('./static/panel/looks.js');
+  const c = css();
+  // No "Looks" heading on a phone's sheet at any detent: the state card leads.
+  assert.doesNotMatch(c, /body\[data-detent=full\] \.tab \.looks-head/);
+  assert.match(c, /^  \.tab \.looks-head \{ display: none; \}/m);
+  // A folded row always has the name on its own line, the place and level beneath.
+  assert.match(read('panel/looks.js'), /if \(!el\.classList\.contains\('open'\)\) \{ el\.classList\.add\('two-line'\); return; \}/);
+  assert.match(c, /\.layer\.two-line \.line-place \{ grid-column: 2; grid-row: 2;/);
+  // Every state of the bar has a full sentence and a shorter complete form.
+  const states = [
+    applyPlan({ n: 1, updates: false, house: 0, hidden: [], mode: 'replace' }),
+    applyPlan({ n: 2, updates: false, house: 0, hidden: [], mode: 'replace' }),
+    applyPlan({ n: 1, updates: true, house: 1, hidden: [], mode: 'replace' }),
+    applyPlan({ n: 1, updates: false, house: 1, hidden: [], mode: 'replace' }),
+    applyPlan({ n: 1, updates: false, house: 2, hidden: ['Amber wash'], mode: 'add' }),
+    applyPlan({ n: 1, updates: false, house: 1, hidden: ['Amber wash'], mode: 'replace' }),
+    applyPlan({ n: 2, updates: false, house: 2, hidden: ['Amber wash', 'Slow drift'], mode: 'replace' }),
+  ];
+  assert.deepEqual(states.map((p) => p.label), ['Put 1 look on the lights', 'Put 2 looks on the lights', 'Update 1 look on the lights', 'Add 1 look on top', 'Add 1 look on top', "Replace what's on the lights with 1 look", "Replace what's on the lights with 2 looks"]);
+  assert.deepEqual(states.map((p) => p.short), ['Put 1 look on', 'Put 2 looks on', 'Update 1 look', 'Add 1 look', 'Add 1 look', 'Replace with 1 look', 'Replace with 2 looks']);
+  for (const p of states) {
+    assert.ok(p.short.length < p.label.length);
+    assert.match(p.short, /^(Put|Update|Add|Replace) /, 'a verb first, a complete form');
+    assert.doesNotMatch(p.short, /…|\.\.\./);
+    // The fitting rule: the sentence where it fits, the shorter form where it does not.
+    assert.equal(applyLabel(p, () => true), p.label);
+    assert.equal(applyLabel(p, (t) => t.length <= 22), p.label.length <= 22 ? p.label : p.short);
+  }
+  // A phone's bar beside "Add instead" has about 22 characters of room: Replace takes its short form there.
+  assert.equal(applyLabel(states[5], (t) => t.length <= 22), 'Replace with 1 look');
+  assert.equal(applyLabel(states[0], (t) => t.length <= 30), 'Put 1 look on the lights');
+  // The button is one line by rule, and keeps the whole sentence as its accessible name.
+  assert.match(c, /^\.bar-main \.go \{[^}]*white-space: nowrap; overflow: hidden; \}/m);
+  assert.doesNotMatch(c, /\.bar-main \.go \{[^}]*text-wrap: balance/);
+  assert.match(read('panel/looks.js'), /go\.setAttribute\('aria-label', plan\.label\);/);
+});

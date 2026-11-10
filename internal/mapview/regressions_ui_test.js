@@ -1841,7 +1841,7 @@ test('one control language: one slider, one selected fill, one readout', () => {
 
 test('action buttons lead with an icon; the header says it sets new previews', () => {
   const looks = read('panel/looks.js'), setup = read('panel/setup.js'), status = read('panel/status.js'), presets = read('panel/presets.js'), cal = read('panel/calibrate.js');
-  assert.match(looks, /html = `\$\{icon\('apply'\)\}<span>\$\{esc\(plan\.label\)\}/);
+  assert.match(looks, /const html = `\$\{icon\('apply'\)\}<span>\$\{esc\(text\)\}<\/span>`;/); // the label that fits, since series 2 round 5
   assert.match(looks, /\$\{icon\('close'\)\}<span>Clear<span class="wide"> preview<\/span><\/span>/);
   assert.match(presets, /id="prNew" class="icon-btn">\$\{icon\('plus'\)\}/);
   assert.match(setup, /icon\('target'\)\}\$\{running/);
@@ -2449,7 +2449,7 @@ test('B134: a collapsed phone row keeps the look\'s name whole; place and level 
   assert.match(phone, /\.layer\.two-line \.line-level \{ grid-column: 3; grid-row: 2;/);
   assert.match(phone, /\.layer\.two-line \.line-level::before \{ content: '· '; \}/, 'Everything · 100%');
   const looks = read('panel/looks.js');
-  assert.match(looks, /if \(name\.scrollWidth > name\.clientWidth \+ 1\) el\.classList\.add\('two-line'\)/);
+  assert.match(looks, /if \(!el\.classList\.contains\('open'\)\) \{ el\.classList\.add\('two-line'\); return; \}/); // always, since series 2 round 5: the name has its own line
   assert.match(looks, /new ResizeObserver\(\(\) => \{ for \(const c of cards\.values\(\)\) fitControls\(c\); fitStageHead\(\); fitDark\(\); \}\)\.observe\(\$\$\('#lkRows'\)\)/, 'refits on a resize');
 });
 

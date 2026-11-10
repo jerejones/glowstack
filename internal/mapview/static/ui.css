@@ -778,7 +778,7 @@ html:not(.coarse) { --swatch-h: 36px; }
 #tab-looks > .library { margin-bottom: 12px; }
 .bar-main .seg { flex: none; width: auto; }
 .bar-main .swap { display: none; } /* the phone's link to the other mode */
-.bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; text-wrap: balance; }
+.bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; white-space: nowrap; overflow: hidden; } /* one line: looks.js picks the label that fits */
 .group-head { margin: 10px 0 6px; }
 /* The library's groups on the desktop panel: Pinned, then More looks. A secondary heading, quieter than Library's. */
 .lib-group { margin: 8px 0 4px; font-size: var(--t-h3); font-weight: 600; color: var(--muted); }
@@ -791,10 +791,9 @@ html:not(.coarse) { --swatch-h: 36px; }
 .look-bar.note-below .bar-note { order: 5; flex: 0 0 100%; white-space: normal; overflow: visible; }
 
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  /* The tab bar names the tab: on a phone's half sheet the stage is the sheet's
-   * first content. At the full detent Looks has its heading, as the other tabs do. */
+  /* The tab bar names the tab: on a phone's sheet the stage is Looks' first
+   * content at every detent. Its state card is its heading. */
   .tab .looks-head { display: none; }
-  body[data-detent=full] .tab .looks-head { display: flex; margin-top: 16px; }
   .stage { margin-top: 8px; }
   /* A row is one line until asked: kind, name, where, how bright, a chevron.
    * The Library stays within reach while previewing. */

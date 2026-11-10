@@ -324,13 +324,20 @@ export function replaceNote(names) {
 // in the preview, which always goes in place of the original.
 export function applyPlan({ n, updates, house, hidden, mode }) {
   const looks = `${n} ${n === 1 ? 'look' : 'looks'}`;
-  if (updates) return { label: `Update ${looks} on the lights`, choice: false, replace: false, note: 'Your changes go on the lights in place of the original.' };
-  if (!house) return { label: `Put ${looks} on the lights`, choice: false, replace: false, note: '' };
-  if (!hidden.length) return { label: `Add ${looks} on top`, choice: false, replace: false, note: "What's on the lights stays underneath." };
-  if (mode === 'add') return { label: `Add ${looks} on top`, choice: true, replace: false, note: "Goes on top; what's there stays underneath." };
+  // short is the label where the full sentence would not fit the button on
+  // one line: a complete form of the same action, never a cut one.
+  if (updates) return { label: `Update ${looks} on the lights`, short: `Update ${looks}`, choice: false, replace: false, note: 'Your changes go on the lights in place of the original.' };
+  if (!house) return { label: `Put ${looks} on the lights`, short: `Put ${looks} on`, choice: false, replace: false, note: '' };
+  if (!hidden.length) return { label: `Add ${looks} on top`, short: `Add ${looks}`, choice: false, replace: false, note: "What's on the lights stays underneath." };
+  if (mode === 'add') return { label: `Add ${looks} on top`, short: `Add ${looks}`, choice: true, replace: false, note: "Goes on top; what's there stays underneath." };
   const stay = house - hidden.length;
-  return { label: `Replace what's on the lights with ${looks}`, choice: true, replace: true, note: replaceNote(hidden) + (stay ? ` · ${stay} more ${stay === 1 ? 'stays' : 'stay'}` : '') };
+  return { label: `Replace what's on the lights with ${looks}`, short: `Replace with ${looks}`, choice: true, replace: true, note: replaceNote(hidden) + (stay ? ` · ${stay} more ${stay === 1 ? 'stays' : 'stay'}` : '') };
 }
+
+// applyLabel is the primary button's words for the room it has: the full
+// sentence where it fits on one line, else the plan's shorter complete
+// form. fits(text) says a label fits; the button never wraps to two lines.
+export const applyLabel = (plan, fits) => fitLine([plan.label, plan.short], fits);
 
 // swapLabel is the phone bar's link to the other mode: the one the button
 // doesn't say.
@@ -959,10 +966,9 @@ export function createLooks(S, root) {
     const el = c.el, name = el.querySelector('.name-line b'), box = el.querySelector('.controls');
     el.classList.remove('tight', 'two-line');
     if (!name.offsetParent || S.panel.layout() !== 'sheet') return;
-    if (!el.classList.contains('open')) {
-      if (name.scrollWidth > name.clientWidth + 1) el.classList.add('two-line');
-      return;
-    }
+    // Folded, the name has its own line and the place and level sit beneath
+    // it in the meta style: never four items crowded into one line.
+    if (!el.classList.contains('open')) { el.classList.add('two-line'); return; }
     if (box.scrollWidth > box.clientWidth + 1) el.classList.add('tight');
   }
 
@@ -1152,8 +1158,11 @@ export function createLooks(S, root) {
     // the other way, so "Replace" is never on two controls at once.
     $$('#lkSwap').hidden = !plan.choice;
     $$('#lkSwap').textContent = swapLabel(mode);
-    const go = $$('#lkPushAll'), html = `${icon('apply')}<span>${esc(plan.label)}</span>`;
-    if (go.dataset.html !== html) { go.dataset.html = html; go.innerHTML = html; }
+    // One line in every state: the full sentence where it fits, else the shorter complete form.
+    const go = $$('#lkPushAll'), draw = (text) => { const html = `${icon('apply')}<span>${esc(text)}</span>`; if (go.dataset.html !== html) { go.dataset.html = html; go.innerHTML = html; } };
+    const label = go.offsetParent ? applyLabel(plan, (t) => { draw(t); return go.scrollWidth <= go.clientWidth; }) : plan.label;
+    draw(label);
+    go.setAttribute('aria-label', plan.label);
     go.title = applyTitle(plan, S.houseStatus === 'unavailable' || !!S.statusFailed);
     $$('#lkBarNote').textContent = plan.note;
     // A phone's bar is one row: what Replace does is the stage's line instead.

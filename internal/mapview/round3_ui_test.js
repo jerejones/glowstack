@@ -516,7 +516,7 @@ test('Refinement 6: level card rows: a sub line sits under its name, and a row\'
   assert.match(css, /\.preset \.name \{\s*display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;/);
 });
 
-test('Refinement 7: one disclosure style per level, a focus ring of its own, a Looks heading on the full sheet', () => {
+test('Refinement 7: one disclosure style per level, a focus ring of its own', () => {
   // Disclosures: the base rule is the inline tier; the section tier is a class. None is sized by its id.
   assert.match(css, /^details > summary \{[^}]*font-size: var\(--t-m\); font-weight: 600; \}/m);
   assert.match(css, /^\.section-disclosure > summary \{ font-size: var\(--t-h2\); font-weight: 600; color: #f3f4f6; \}/m);
@@ -531,9 +531,9 @@ test('Refinement 7: one disclosure style per level, a focus ring of its own, a L
   assert.doesNotMatch(ring, /var\(--accent\)/);
   for (const rule of css.match(/[^{}]*:focus-visible[^{]*\{[^}]*outline:[^}]*\}/g)) assert.doesNotMatch(rule, /outline: [^;]*var\(--accent\)/, rule.slice(0, 60));
   assert.match(css, /\.preset-actions \[data-act=pin\]\[aria-pressed=true\] \{ color: var\(--accent\); border-color: var\(--accent\); \}/, 'pinned is the accent: the ring is not');
-  // A phone's full sheet shows the Looks heading, as the other tabs show theirs; the half sheet keeps the room.
-  const phone = css.slice(css.indexOf('  .tab .looks-head { display: none; }'));
-  assert.match(phone, /^  \.tab \.looks-head \{ display: none; \}\s*body\[data-detent=full\] \.tab \.looks-head \{ display: flex; margin-top: 16px; \}/);
+  // (Round 3 showed the Looks heading on a phone's full sheet; series 2 round 5 took it out: the state card is the heading.)
+  assert.match(css, /^  \.tab \.looks-head \{ display: none; \}/m);
+  assert.doesNotMatch(css, /body\[data-detent=full\] \.tab \.looks-head/);
   assert.match(read('panel/looks.js'), /<div class="looks-head"><h1 class="title">Looks<\/h1><\/div>/);
 });
 
