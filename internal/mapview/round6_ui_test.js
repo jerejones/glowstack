@@ -371,3 +371,37 @@ test('Refinement 1: one name, one place', async () => {
   assert.deepEqual(liveFold({ compact: false, preview: 1, live: 1, open: true, same: true }), { summary: true, folded: false }, 'the chevron opens them');
   assert.match(sheet, /#lkRows\.same-look\.live-folded > \.layer\.house \{ display: none; \}/);
 });
+
+test('Refinement 2: Status tiles that read alone', async () => {
+  const { tileFacts, tileHTML, lateFacts, lateLabel, LATE_SHARE } = await import('./static/panel/status.js');
+  const base = { lit: 12, total: 12, health: { up: 3, n: 3, cls: 'ok', text: '' }, fps: { measured: 40, target: 40 } };
+  const tiles = (o) => tileFacts({ ...base, ...o });
+  // Four tiles, one structure: a value, then a label, then at most one muted line.
+  for (const power of [null, { anyKnown: false, overall: '', limiting: '' }, { anyKnown: true, overall: '4.10 A', limiting: 'Off' }]) {
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const html = tiles({ late: 3, frames: 144000, power }).map((f) => tileHTML(f, esc));
+    assert.equal(html.length, 4);
+    for (const h of html) assert.match(h, /^<(div|button)[^>]*><b>[^<]+<\/b><span>[^<]+(<svg[^]*?<\/svg>)?<\/span>(<small>[^<]+(<svg[^]*?<\/svg>)?<\/small>)?<\/(div|button)>$/);
+  }
+  // The power tile with nothing configured: a quiet dash, its own label, and the words as the link's line.
+  const gap = tiles({ late: 0, power: { anyKnown: false, overall: '', limiting: '' } })[3];
+  assert.deepEqual([gap.v, gap.label, gap.more], ['—', 'power estimate', 'Not configured']);
+  // The late tile: a unit in its label and a period in its third line, with the share the server's counts give.
+  const late = (n, frames) => tiles({ late: n, frames, power: null })[2];
+  assert.deepEqual([late(3, 144000).v, late(3, 144000).label, late(3, 144000).more], ['3', 'late frames', 'since start · < 0.1%']);
+  assert.deepEqual([late(1, 100).label, late(1, 100).more], ['late frame', 'since start · 1.0%']);
+  assert.equal(late(0, 5000).more, 'since start · 0%');
+  assert.equal(late(5000, 144000).more, 'since start · 3.5%');
+  assert.equal(lateLabel(2), 'late frames');
+  // Neutral up to 1% of frames, amber above.
+  assert.equal(LATE_SHARE, 0.01);
+  assert.equal(late(1, 100).cls, '');
+  assert.equal(late(2, 100).cls, 'warn');
+  assert.equal(lateFacts({ late: 2, frames: 100 }).line, 'since start · 2.0%');
+  // Its explanation is one tap away, not a hover: the tile is a button that opens Diagnostics, where the one line is.
+  assert.match(tileHTML(late(3, 144000)), /^<button type="button" id="stLateTile" class="stat link" title="[^"]*Opens the explanation under Diagnostics\."/);
+  const status = read('panel/status.js');
+  assert.match(status, /\$\$\('#stLateTile'\)\.onclick = \(\) => openDiagnostics\(\);/);
+  assert.match(status, /<details id="stDiag"[^>]*><summary>Diagnostics<\/summary>[\s\S]*?id="stLateNote">\$\{LATE_NOTE\}<\/p><\/details>/);
+  assert.match(design(), /"since start ·\s+0\.2%"/);
+});

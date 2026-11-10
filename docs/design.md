@@ -1665,13 +1665,15 @@ desk.
   That is a hint for the picture only and never changes what goes on the
   lights; nothing is faked in the browser. A layer row keeps a small chip.
 - **Status tiles.** Status's four headline tiles (lights lit, controllers,
-  late frames, power estimate) are one component: a figure in one size,
-  weight and line, tabular numerals, and a one-line label. A value that is
-  words, not a number ("Not configured"), is secondary: the tile's label
-  takes the figure's line in the label's own quiet style and the words sit
-  under it at the label's size and weight, so a config gap never outweighs
-  the numbers beside it. A worded figure with a number in it ("At least
-  12.40 A") keeps the figure's style and shrinks only when it would not fit.
+  late frames, power estimate) are one component with one structure: a
+  value in one size, weight and line, tabular numerals, over a one-line
+  label, and at most one more muted line for what the value needs said
+  about it. Each tile reads alone. With no LED current configured the power
+  tile's value is a quiet dash, its label is still "power estimate", and
+  "Not configured" is the third line and the link, so a config gap never
+  outweighs the numbers beside it. A worded figure with a number in it ("At
+  least 12.40 A") keeps the figure's style and shrinks only when it would
+  not fit, along the type scale's own sizes.
   The color rule: a count is neutral, and color is for state only. Neutral
   is a plain count or nothing to judge (0 lights lit with no looks on them,
   0 late frames, a power estimate). Green is a health check that passed
@@ -1692,8 +1694,12 @@ desk.
   means, and Diagnostics has one line on what a late frame is.
   *Late frames* are counted by the server from when Glowstack started and
   never reset (a frame is late when it started after the following one was
-  due), so the tile's label is "late since start" and its tooltip gives the
-  count out of all frames and the uptime. The figure is neutral while late
+  due), so the tile reads its count over the label "late frames" with a
+  third line giving the period and the share of all frames ("since start ·
+  0.2%"); its tooltip gives the count out of all frames and the uptime.
+  The tile is a button: a tap or a click opens Diagnostics, where the one
+  line that explains a late frame is, so nothing about it depends on a
+  hover. The figure is neutral while late
   frames are at most 1% of all frames since start; above that it is amber
   and Status counts one more warning, which says the share and opens
   Diagnostics. *Controllers*: with every controller reachable the list is

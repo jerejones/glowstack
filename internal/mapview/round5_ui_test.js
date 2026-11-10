@@ -55,27 +55,26 @@ test('B147: the breadcrumb folds older ancestors into one crumb instead of scrol
   assert.match(read('index.html'), /id="crumbMenu" class="crumb-menu" role="menu"/);
 });
 
-test('B148: a tile whose value is words uses the label style, so it never outweighs the numbers', async () => {
+test('B148: a tile without a figure never outweighs the numbers beside it', async () => {
   const { tileFacts, tileHTML } = await import('./static/panel/status.js');
   const base = { lit: 0, total: 0, health: { up: 8, n: 8, cls: 'ok', text: '' }, late: 0, fps: { measured: 30, target: 30 } };
   const gap = tileFacts({ ...base, power: { anyKnown: false, overall: '', limiting: '' } })[3];
-  assert.equal(gap.words, true);
-  // The label has the figure's line, the words follow, and the tile is still the link to Power.
+  // Since series 2 round 6 every tile is value over label: the value is a quiet dash and the words are a third, muted line that is the link.
+  assert.deepEqual([gap.v, gap.quiet, gap.more, gap.label], ['—', true, 'Not configured', 'power estimate']);
   const html = tileHTML(gap);
-  assert.match(html, /^<button type="button" id="stPowerTile" class="stat wordy link"/);
-  assert.match(html, /<b class="words">power estimate<\/b><span>Not configured<svg/);
+  assert.match(html, /^<button type="button" id="stPowerTile" class="stat quiet link"/);
+  assert.match(html, /<b>—<\/b><span>power estimate<\/span><small>Not configured<svg/);
   // With LED current configured the tile shows its number in the figure's style.
   const known = tileFacts({ ...base, power: { anyKnown: true, overall: '3.20 A', limiting: 'Off' } })[3];
-  assert.ok(!known.words);
+  assert.ok(!known.quiet && !known.more);
   assert.match(tileHTML(known), /class="stat link"[^>]*><b>3\.20 A<\/b><span>power estimate/);
-  // Numeric tiles are unchanged, and none of them is wordy.
-  for (const f of tileFacts({ ...base, power: null }).slice(0, 3)) assert.match(tileHTML(f), /^<div class="stat[^"]*" title="[^"]*"><b>[^<]+<\/b><span>/);
-  // Both lines of a wordy tile are the label's size and weight; the figure's box keeps its height.
+  // Every tile starts with its value, then its label.
+  for (const f of tileFacts({ ...base, power: null })) assert.match(tileHTML(f), /^<(div|button)[^>]*class="stat[^"]*" title="[^"]*"><b>[^<]+<\/b><span>/);
+  // The dash is muted and not bold; the words are the secondary size in the muted color.
   const c = css();
-  assert.match(c, /\.tiles \.stat b\.words \{ color: var\(--muted\); font-size: var\(--t-sub\); font-weight: 400; \}/);
-  assert.match(c, /\.tiles \.stat\.wordy span \{ color: var\(--fg\); font-size: var\(--t-sub\); font-weight: 400; \}/);
+  assert.match(c, /\.tiles \.stat\.quiet b \{ color: var\(--muted\); font-weight: 400; \}/);
+  assert.match(c, /\.tiles \.stat small \{ display: block; color: var\(--muted\); font-size: var\(--t-sub\);/);
   assert.match(c, /^\.stat span \{ display: block; color: var\(--muted\); font-size: var\(--t-sub\); \}/m);
-  assert.match(read('panel/status.js'), /querySelectorAll\('b:not\(\.words\)'\)\) fitFigure/);
 });
 
 test('B149: Names names the runs in every "Color the map by" view, and the key counts what is hidden', async () => {
@@ -305,7 +304,7 @@ test('Refinement 7: late frames say their window and have a threshold; healthy c
   const clock = fs.readFileSync(path.join(__dirname, '..', 'clock', 'clock.go'), 'utf8');
   assert.match(clock, /func \(t \*Ticker\) Late\(\) uint64 \{ return t\.late\.Load\(\) \}/);
   assert.doesNotMatch(clock, /late\.Store\(0\)/, 'the count is never reset, so the window is since start');
-  assert.equal(LATE_LABEL, 'late since start');
+  assert.equal(LATE_LABEL, 'late frames'); // the unit; "since start" and the share are the tile's third line (series 2 round 6)
   assert.equal(LATE_SHARE, 0.01);
   assert.match(LATE_NOTE, /Counted since start; amber above 1% of frames\.$/);
   // At or below the threshold: neutral, no warning.

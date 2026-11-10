@@ -520,11 +520,11 @@ test('Refinement 3: the phone\'s search opens fully, with the list as a chip tha
 test('Refinement 4: the power tile says "Not configured" and is a link; qualifiers sit by their headings', async () => {
   const { tileFacts, tileHTML } = await import('./static/panel/status.js');
   const facts = tileFacts({ lit: 0, total: 0, health: { up: 8, n: 8, cls: 'ok', text: '' }, late: 0, fps: { measured: 40, target: 40 }, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
-  assert.equal(facts[3].v, 'Not configured');
+  assert.equal(facts[3].more, 'Not configured'); // value over label since series 2 round 6: a quiet dash, with "Not configured" as the third line
   assert.match(facts[3].title, /Go to the Power section\.$/);
   const tile = tileHTML(facts[3]);
-  assert.match(tile, /^<button type="button" id="stPowerTile" class="stat wordy link" title="/, 'a button, with a tooltip');
-  assert.match(tile, /<span>Not configured<svg/, 'a chevron after its second line (the words, since B148)');
+  assert.match(tile, /^<button type="button" id="stPowerTile" class="stat quiet link" title="/, 'a button, with a tooltip');
+  assert.match(tile, /<small>Not configured<svg/, 'a chevron after its last line');
   assert.doesNotMatch(tileHTML(facts[0]), /link|<svg/, 'the plain tiles are not links');
   assert.match(css, /button\.stat \{[^}]*cursor: pointer; \}/);
   assert.match(css, /button\.stat\.link:hover span, button\.stat\.link:focus-visible span \{ text-decoration: underline;/);

@@ -124,7 +124,10 @@ export function litCount(g, st, layers) {
 // neutral and is not a warning; above it the tile is amber and Status
 // counts a warning that explains it and leads to Diagnostics.
 export const LATE_SHARE = 0.01;
-export const LATE_LABEL = 'late since start';
+// LATE_LABEL is the late tile's label for a count: the unit, in words. The
+// period and the share are the tile's third line (lateFacts().line).
+export const LATE_LABEL = 'late frames';
+export const lateLabel = (n) => (n === 1 ? 'late frame' : LATE_LABEL);
 const sharePct = (x) => (x >= 0.1 ? Math.round(x * 100) : x >= 0.001 ? (x * 100).toFixed(1) : '< 0.1') + '%';
 export function lateFacts({ late = 0, frames = 0, uptime = '' }) {
   const share = frames > 0 ? late / frames : 0;
@@ -133,7 +136,9 @@ export function lateFacts({ late = 0, frames = 0, uptime = '' }) {
   const line = `${Math.round(LATE_SHARE * 100)}%`;
   const title = !late ? `No frame has been late ${since}.`
     : `${plural(late, 'frame')} of ${count(frames)} ${late === 1 ? 'was' : 'were'} late ${since}${frames ? ` (${sharePct(share)})` : ''}. Amber above ${line}.`;
-  return { share, over, title, issue: over ? { kind: 'late', summary: `Frames are late: ${sharePct(share)} of them ${since}, over the ${line} line. Effects may stutter.`, detail: '', plain: LATE_NOTE, fix: { label: 'Open Diagnostics', diag: true } } : null };
+  // The tile's third line: the period the server counts over, and the share of all frames.
+  const tileLine = `since start · ${!late ? '0%' : frames ? sharePct(share) : '—'}`;
+  return { share, over, title, line: tileLine, issue: over ? { kind: 'late', summary: `Frames are late: ${sharePct(share)} of them ${since}, over the ${line} line. Effects may stutter.`, detail: '', plain: LATE_NOTE, fix: { label: 'Open Diagnostics', diag: true } } : null };
 }
 
 // controllersSummary is the Controllers list as one line, and whether it
@@ -163,30 +168,33 @@ export function tileFacts({ lit, total, health, late, fps, power, frames = 0, up
     : { v: count(lit), cls: !total ? '' : lit < total ? 'warn' : 'ok', title: total ? `${count(total)} covered by the looks on the lights` : 'No looks are on the lights' };
   const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls === 'bad' ? 'bad' : health.cls === 'ok' ? 'ok' : '', title: health.text };
   const lf = lateFacts({ late, frames, uptime });
-  const framesTile = { v: count(late), cls: lf.over ? 'warn' : '', title: `${lf.title} Now ${fmt(fps.measured, 1)} fps of ${fps.target}.` };
+  const framesTile = { v: count(late), cls: lf.over ? 'warn' : '', more: lf.line, late: true, title: `${lf.title} Now ${fmt(fps.measured, 1)} fps of ${fps.target}. Opens the explanation under Diagnostics.` };
+  // No LED current set: the value is a quiet dash, the label the same as ever, and "Not configured" a third,
+  // muted line that is the link. Words never take the figure's place or its weight (B148).
   const pw = !power ? { v: '—', cls: '', title: 'Reading the power estimate' }
-    : !power.anyKnown ? { v: 'Not configured', words: true, cls: '', title: 'No LED current is set, so there is no estimate. Go to the Power section.' }
+    : !power.anyKnown ? { v: '—', quiet: true, more: 'Not configured', cls: '', title: 'No LED current is set, so there is no estimate. Go to the Power section.' }
     : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : '', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
   return [
     { ...lights, label: 'lights lit' },
     { ...ctl, label: 'controllers' },
-    { ...framesTile, label: LATE_LABEL },
+    { ...framesTile, label: lateLabel(late) },
     { ...pw, label: 'power estimate', power: true },
   ];
 }
 
-// tileHTML is one tile: the same markup for all four, so they are one
-// component. The power tile is a button (a link to the Power section); the
-// others are plain. The figure and the label are each one line.
+// tileHTML is one tile, and every tile is the same thing: a value over a
+// label, each one line, with an optional third, muted line (more) for what
+// the value needs said about it (the period a count is over; that a figure
+// is missing because nothing is configured). The power tile and the late
+// tile are buttons: one goes to the Power section, the other opens the late
+// frames' one-line explanation under Diagnostics, so neither meaning needs a
+// hover. A tile that is a button ends its last line with a chevron.
 export function tileHTML(f, e = (s) => s) {
-  const tag = f.power ? 'button' : 'div', attrs = f.power ? ' type="button" id="stPowerTile"' : '';
-  // The link's label carries a chevron, and underlines on hover and focus (ui.css).
-  const chevron = f.power ? icon('chevronRight') : '';
-  // A value that is words, not a number (B148), is secondary: the label takes
-  // the figure's line in its own quiet style and the words sit under it at
-  // the label's size, so a config gap never outweighs the numbers beside it.
-  if (f.words) return `<${tag}${attrs} class="stat wordy${f.power ? ' link' : ''}" title="${e(f.title)}"><b class="words">${e(f.label)}</b><span>${e(f.v)}${chevron}</span></${tag}>`;
-  return `<${tag}${attrs} class="stat${f.cls ? ' ' + f.cls : ''}${f.power ? ' link' : ''}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}${chevron}</span></${tag}>`;
+  const link = !!(f.power || f.late);
+  const tag = link ? 'button' : 'div', attrs = f.power ? ' type="button" id="stPowerTile"' : f.late ? ' type="button" id="stLateTile"' : '';
+  const chevron = link ? icon('chevronRight') : '';
+  const cls = `stat${f.cls ? ' ' + f.cls : ''}${f.quiet ? ' quiet' : ''}${link ? ' link' : ''}`;
+  return `<${tag}${attrs} class="${cls}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}${f.more ? '' : chevron}</span>${f.more ? `<small>${e(f.more)}${chevron}</small>` : ''}</${tag}>`;
 }
 
 // fitFigure shrinks a tile's figure, a step at a time, only while it does
@@ -496,7 +504,9 @@ export function createStatus(S, root) {
     // A focused tile is redrawn with the rest: the focus goes back to it, so a poll does not drop the keyboard.
     const held = box.contains(document.activeElement) ? document.activeElement.id : '';
     if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; if (held) box.querySelector('#' + held)?.focus({ preventScroll: true }); }
-    for (const b of box.querySelectorAll('b:not(.words)')) fitFigure(b);
+    for (const b of box.querySelectorAll('b')) fitFigure(b);
+    // The late tile opens its one-line explanation: Diagnostics, with the note in view.
+    $$('#stLateTile').onclick = () => openDiagnostics();
     $$('#stPowerTile').onclick = () => {
       const pwBox = $$('#stPower');
       const details = pwBox.querySelector('details');
