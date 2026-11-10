@@ -848,11 +848,12 @@ html:not(.coarse) { --swatch-h: 36px; }
 
 /* the Tweak form */
 /* A nested card is a step of background, not another border: a stronger
- * outline is kept for focus, selection and the tab's primary card. The form
- * hangs under its look's name, its labels on the name's left edge (looks.js
- * measures --name-in). */
+ * outline is kept for focus, selection and the tab's primary card. A layer's
+ * Tweak form uses the row's whole width: no card of its own and no gutter,
+ * so its labels start at the row's content edge, under the "This look"
+ * control, and a phone's sliders span the card. */
 .form { background: var(--card2); border: 0; border-radius: var(--radius); padding: 8px 10px; margin-top: 8px; }
-.layer .slot > .form { margin-left: var(--name-in, 0px); }
+.layer .slot > .form { background: transparent; padding: 0; border-radius: 0; }
 .form > details { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 2px; }
 .form details details { margin-top: 8px; }
 .form .f { display: grid; grid-template-columns: minmax(0, var(--label-w)) minmax(0, 1fr); gap: 4px 8px; align-items: center; margin: 6px 0; }
@@ -878,7 +879,11 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .color-picker { width: 100%; min-width: 0; }
 .form .color-picker summary { gap: 8px; justify-content: flex-start; }
 .form .color-picker > summary::before { order: 2; }
-.unused-note { margin: 6px 0 2px; text-wrap: pretty; }
+/* A color the palette does not draw with: the row stays, disabled, and the reason is its hint. */
+.form .f.unused > label, .form .f.unused > .ctl { opacity: 0.45; }
+.form .f.unused > .ctl { pointer-events: none; }
+.form .f.unused > .unused-hint { margin-top: 0; }
+.form .f.unused .color-picker > summary > :not(.color-swatch), .form .f.unused .color-picker > summary::before { display: none; } /* nothing to edit: the swatch alone */
 .form .color-swatch { display: inline-block; width: 32px; height: 28px; border: 1px solid #64748b; border-radius: 7px; }
 .form .f:has(.picker.open) > .ctl { grid-column: 1 / -1; }
 /* Open, the mixer reaches under the label; the row itself stays side by side. */
@@ -888,6 +893,8 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 @media (max-width: 1099.98px) and (min-width: 700px), (max-width: 699.98px) and (max-height: 499.98px) and (orientation: landscape), (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
   .form .f, .form details > .f, .form details > .f.stack { grid-template-columns: minmax(0, 1fr); }
   .form .f .color-picker[open] > .color-mixer { margin-left: 0; }
+  /* A disabled color row is one line here: its name, then its swatch. */
+  .form .f.unused, .form details > .f.unused { grid-template-columns: minmax(0, 1fr) auto; }
 }
 /* On a phone a slider's value sits at the right of its label's line, and the
  * track has the line below to itself; the color mixer's channels likewise. */

@@ -134,3 +134,22 @@ test('Refinement 1: a one-line state is a one-line pill, with no empty line kept
   assert.match(c, /body\.calibrating \.badge \.detail \{ display: none; \}/);
   assert.doesNotMatch(c, /\.badge \.detail \{ visibility: hidden/);
 });
+
+test('Refinement 2: the Tweak form uses the row\'s width, and unused colors are disabled rows', async () => {
+  const c = css();
+  // No gutter and no card of its own inside a layer row: labels start at the row's content edge.
+  assert.match(c, /^\.layer \.slot > \.form \{ background: transparent; padding: 0; border-radius: 0; \}/m);
+  assert.doesNotMatch(c, /--name-in/);
+  // The form itself still has no border (round 4's two-surface limit).
+  assert.match(c, /^\.form \{ background: var\(--card2\); border: 0;/m);
+  // A color the palette ignores: the row stays, inert and dimmed, with one hint.
+  const form = read('form.js');
+  assert.match(form, /part\.inert = on; if \(on\) part\.setAttribute\('aria-disabled', 'true'\); else part\.removeAttribute\('aria-disabled'\);/);
+  assert.match(form, /c\.hint\.hidden = !last;/);
+  assert.doesNotMatch(form, /unused-note/);
+  assert.match(c, /\.form \.f\.unused > label, \.form \.f\.unused > \.ctl \{ opacity: 0\.45; \}/);
+  // On a phone a disabled row is one line, name then swatch.
+  assert.match(c, /\.form \.f\.unused, \.form details > \.f\.unused \{ grid-template-columns: minmax\(0, 1fr\) auto; \}/);
+  const { unusedHint } = await import('./static/form.js');
+  assert.match(unusedHint(''), /^Not used: /);
+});

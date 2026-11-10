@@ -315,23 +315,9 @@ export function paramLabel(name) {
   return humanize(name.replace(/(^|\.)span$/, '$1repeat_length'));
 }
 
-// unusedNote words the line that stands in for hidden color controls: it
-// names them, and says which part of the look draws from the palette
-// instead. owner is the layer's name in a composite ("gradient") or ''
-// for the effect itself. "Color 1 to 3 are not used: this effect takes its
-// colors from the palette."
-export function unusedNote(labels, owner) {
-  if (!labels.length) return '';
-  const nums = labels.map((l) => /^(.*?)\s*(\d+)$/.exec(l));
-  const stem = nums.every((m) => m && m[1] === nums[0][1]) ? nums[0][1] : null;
-  let names;
-  if (stem && labels.length > 1) {
-    const ns = nums.map((m) => +m[2]);
-    const run = ns.every((n, i) => i === 0 || n === ns[i - 1] + 1);
-    names = run && ns.length > 2 ? `${stem} ${ns[0]} to ${ns[ns.length - 1]}` : `${stem} ${ns.slice(0, -1).join(', ')} and ${ns[ns.length - 1]}`;
-  } else names = labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels[labels.length - 1]}` : labels[0];
-  const who = owner ? `the ${humanize(owner).toLowerCase()}` : 'this effect';
-  return `${names} ${labels.length > 1 ? 'are' : 'is'} not used: ${who} takes its colors from the palette.`;
+// unusedHint is the hint under a disabled color row: why it is not used.
+export function unusedHint(owner) {
+  return `Not used: ${owner ? `the ${humanize(owner).toLowerCase()}` : 'this effect'} takes its colors from the palette.`;
 }
 
 // boundEntries counts the entries at the start of list or colors param p
@@ -532,18 +518,25 @@ export function createForm(ctx) {
       }
     }
     if (unusedColors.length) {
-      const groups = new Map(); // owner → its colors and the line in their place
-      for (const c of unusedColors) {
-        if (!groups.has(c.owner)) groups.set(c.owner, { colors: [], line: Object.assign(document.createElement('p'), { className: 'muted small unused-note' }) });
-        groups.get(c.owner).colors.push(c);
-      }
-      for (const g of groups.values()) g.colors[g.colors.length - 1].row.after(g.line);
+      // A color the palette doesn't draw with stays in its place, disabled,
+      // with the reason as the hint under the last such row of its layer:
+      // the form keeps its shape whatever the palette, and nothing is a
+      // paragraph. The hint is said once per layer of the look.
+      const owners = [...new Set(unusedColors.map((c) => c.owner))];
+      for (const c of unusedColors) c.hint = Object.assign(document.createElement('div'), { className: 'doc unused-hint', hidden: true });
+      for (const c of unusedColors) c.row.append(c.hint);
       const sync = () => {
-        for (const c of unusedColors) c.row.hidden = c.ignored();
-        for (const [owner, g] of groups) {
-          const names = g.colors.filter((c) => c.ignored()).map((c) => c.label);
-          g.line.hidden = !names.length;
-          g.line.textContent = unusedNote(names, owner);
+        for (const owner of owners) {
+          const off = unusedColors.filter((c) => c.owner === owner && c.ignored());
+          for (const c of unusedColors.filter((x) => x.owner === owner)) {
+            const on = off.includes(c), last = on && c === off[off.length - 1];
+            c.row.classList.toggle('unused', on);
+            for (const part of [c.row.querySelector('label'), c.row.querySelector('.ctl')]) { part.inert = on; if (on) part.setAttribute('aria-disabled', 'true'); else part.removeAttribute('aria-disabled'); }
+            if (on) for (const d of c.row.querySelectorAll('details[open]')) d.open = false;
+            c.row.title = on ? unusedHint(owner) : '';
+            c.hint.hidden = !last;
+            c.hint.textContent = last ? unusedHint(owner) : '';
+          }
         }
       };
       sync();
