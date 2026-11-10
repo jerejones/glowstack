@@ -218,28 +218,48 @@ test('C3: the key lists the states on screen, with swatches the map\'s own strok
   assert.match(doc, /\*\*not lit is a line, lit is light,\s+selected is an outline\.\*\*/);
 });
 
-test('C3: the map says how to get the whole house back, without a control', async () => {
-  const { fitHint, showFitHint, doubleTap } = await import('./static/map-control.js');
-  assert.equal(fitHint('Double-tap'), 'Double-tap the map to see the whole house');
-  assert.equal(fitHint('Double-click'), 'Double-click the map to see the whole house');
-  assert.equal(showFitHint({ away: true }), true);
-  assert.equal(showFitHint({ away: false }), false, 'gone when the view is framed again');
-  for (const why of ['calibrating', 'failed', 'full']) assert.equal(showFitHint({ away: true, [why]: true }), false, why);
-  // A double tap on empty map fits; one that lands on a run is a second tap on it and climbs the selection.
+test('C3: a Reset view button, only while the camera is away from the default framing', async () => {
+  const { RESET_VIEW, showResetView, doubleTap, fitHint, showFitHint } = await import('./static/map-control.js');
+  // Absent, not disabled, at the default view; there after any move; never while calibrating or over a full sheet.
+  assert.equal(showResetView({ away: false }), false);
+  assert.equal(showResetView({ away: true }), true);
+  for (const why of ['calibrating', 'failed', 'full']) assert.equal(showResetView({ away: true, [why]: true }), false, why);
+  assert.equal(RESET_VIEW.label, 'Reset view');
+  assert.ok(RESET_VIEW.ease > 0 && RESET_VIEW.ease <= 400, 'it eases back');
+  // The hint line it replaced is gone, with its strings.
+  assert.equal(fitHint, undefined);
+  assert.equal(showFitHint, undefined);
+  const app = read('app.js'), page = read('index.html'), sheet = css();
+  assert.doesNotMatch(app + page + read('map-control.js'), /to see the whole house|fitHint/);
+  // One named, focusable button beside the Preview/Lights toggle, in the page's markup, hidden until needed.
+  assert.match(page, /<span class="seg" id="showSeg"[\s\S]*?<\/span>\s*<button type="button" id="resetView" class="reset-view" title="[^"]+" hidden>Reset view<\/button>\s*<\/div>/);
+  assert.equal((page.match(/<button[^>]*>Reset view<\/button>/g) || []).length, 1, 'one button');
+  assert.match(sheet, /\.reset-view\[hidden\] \{ display: none; \}/);
+  assert.match(app, /const show = showResetView\(\{ away: !!S\.view && !S\.view\.cameraState\(\)\.auto, calibrating: S\.calibrating,/);
+  assert.match(app, /for \(const ev of \['camera', 'detent', 'view', 'tab'\]\) S\.on\(ev, renderReset\);/);
+  assert.match(read('panel/calibrate.js'), /S\.renderReset\?\.\(\);/, 'entering and leaving Calibrate redraws it');
+  // One press eases to the default framing, at once under reduced motion; the focus is not dropped when the button goes.
+  assert.match(app, /S\.view\.resetView\(reducedMotion\.matches \? 0 : RESET_VIEW\.ease\);/);
+  assert.match(app, /if \(had && !show\) \(\$\('showSeg'\)\.querySelector\('button\.on'\)/);
+  // The default framing is the site's view fitted to the lights; the device's remembered camera is not touched.
+  const scene = read('scene.js');
+  const reset = scene.slice(scene.indexOf('    resetView(ease = 0) {'), scene.indexOf('    // forget clears the remembered camera'));
+  assert.match(reset, /Object\.assign\(cam, siteView\(\), \{ mode: 'street', auto: true, fov: viewFov \}\);/);
+  assert.match(reset, /if \(lights\.length\) d = centerOn\(cam\.dir, target, lights\);\s*glide\(cam\.dir, target, d, ease\);/);
+  assert.doesNotMatch(reset, /save\(|remember\(/, 'Setup\'s Default changes the stored camera; this does not');
+  assert.match(read('plan.js'), /resetView\(\) \{ this\.restore\(\); \},/);
+  // The labels on the map keep clear of it, like the rest of the chrome.
+  assert.ok((await import('./static/overlay.js')).CHROME.includes('#resetView'));
+  // The double tap still fits, and one on a run still climbs the selection.
   assert.equal(doubleTap({ onRun: false }), 'fit');
   assert.equal(doubleTap({ onRun: true }), 'tap');
   assert.equal(doubleTap({ onRun: true, calibrating: true }), 'fit', 'the mode\'s own framing');
-  const app = read('app.js'), page = read('index.html');
   assert.match(app, /const onRun = !S\.calibrating && was\.run >= 0;/, 'the run the first tap was on: the map may have moved under the finger since');
   assert.match(app, /tapAt\(t\.x, t\.y, was\.run\);/);
   assert.match(app, /if \(was\.cleared && !S\.sel\) select\(was\.cleared\.node, was\.cleared\.chain\);/, 'seeing the whole house does not cost the selection');
-  assert.match(app, /const fit = showFitHint\(\{ away: !!S\.view && !S\.view\.cameraState\(\)\.auto,/);
-  assert.match(app, /box\.textContent = fit \? fitHint\(S\.coarse \? 'Double-tap' : 'Double-click'\) : tap \? tapHint\(/);
-  assert.match(app, /\$\('mapHint'\)\.style\.top = \(top \+ \(\$\('crumbs'\)\.hidden \? 0 : \$\('crumbs'\)\.offsetHeight \+ 4\)\) \+ 'px';/, 'its own line under the breadcrumb');
-  // It is a caption, not a control: nothing to press came with it (owner decision).
-  assert.match(page, /<p id="mapHint" class="map-hint" hidden><\/p>/);
-  assert.match(css(), /\.map-hint \{[^}]*pointer-events: none;/);
-  assert.doesNotMatch(page + app, /Reset view|Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"/i);
+  // One button, not a toolbar: no view buttons came back.
+  assert.doesNotMatch(page + app, /Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"|>(Street|Overhead|Free|Fit)</i);
+  assert.match(design(), /\*\*Reset view\*\*/);
 });
 
 test('C3: a double-tap fit leaves the view framed, not handed back to the user', () => {

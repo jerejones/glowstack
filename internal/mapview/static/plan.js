@@ -236,6 +236,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
     cameraState: () => ({ mode: auto ? 'fit' : 'free', auto, hasFree: false }),
     restore() { auto = true; fit(); emit(); },
     forget() { this.restore(); },
+    // resetView goes back to the default framing (the fit), at once.
+    resetView() { this.restore(); },
     hold: () => ({ v: { ...v }, auto }),
     release(h) {
       if (!h) return;

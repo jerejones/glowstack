@@ -271,7 +271,7 @@ test('C: the panel points at the map with the soft halo', async () => {
   assert.match(overlay, /const k = pt\.fade \? Math\.min\(1, \(performance\.now\(\) - pt\.since\) \/ OUTLINE\.fade\) : 1;/);
   assert.equal((await import('./static/map-control.js')).OUTLINE.fade, 120);
   // Owner decisions: no camera buttons, reset-view control or map toolbar came with it.
-  assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"/i);
+  assert.doesNotMatch(read('index.html') + app, /Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"/i); // one Reset view button is allowed (owner correction, 2026-11-09); the view buttons and a toolbar are not
 });
 
 test('E: undo after apply: ten seconds on the toast, five minutes on the card, one level', async () => {
@@ -552,8 +552,8 @@ test('E follow-up: undo is withdrawn when the stack is no longer the one this pa
 test('C follow-up: the caption has its line of the map, and a focused controller row keeps its focus', () => {
   const app = read('app.js'), status = read('panel/status.js');
   // The tap hint is framed around like the breadcrumb whose place it holds: no light is drawn under it.
-  assert.match(app, /crumbs: !\$\('mapHint'\)\.hidden \? below\('mapHint'\) : !\$\('crumbs'\)\.hidden \? below\('crumbs'\) : null,/); // the caption may sit under the breadcrumb since C3
-  assert.match(app, /tap \? tapHint\(S\.coarse \? 'Tap' : 'Click'\) : '';\s*placeCrumbs\(\);\s*setInsets\(\);/);
+  assert.match(app, /crumbs: !\$\('crumbs'\)\.hidden \? below\('crumbs'\) : !\$\('mapHint'\)\.hidden \? below\('mapHint'\) : null,/);
+  assert.match(app, /box\.textContent = box\.hidden \? '' : tapHint\(S\.coarse \? 'Tap' : 'Click'\);[^\n]*\s*placeCrumbs\(\);\s*setInsets\(\);/);
   // A controller row that points at the map is focusable; a poll redraws the list and gives the focus back.
   assert.match(status, /const focusedCtl = document\.activeElement\?\.closest\?\.\('#stCtl li\[data-ctl\]'\)\?\.dataset\.ctl;/);
   assert.match(status, /if \(focusedCtl\) \[\.\.\.\$\$\('#stCtl'\)\.children\]\.find\(\(li\) => li\.dataset\.ctl === focusedCtl\)\?\.focus\(\{ preventScroll: true \}\);/);

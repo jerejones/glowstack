@@ -270,6 +270,10 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
 }
 .map-controls .seg > button { background: transparent; }
 .map-controls .seg > button.on { background: var(--seg-on); }
+/* Reset view: beside the toggle, only while the camera is away from the default framing. */
+.map-controls { display: flex; align-items: center; gap: 8px; }
+.reset-view { background: rgba(22, 25, 30, 0.88); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); white-space: nowrap; }
+.reset-view[hidden] { display: none; }
 
 .chipbar {
   position: absolute; z-index: 3; left: 8px; right: 8px; top: max(8px, env(safe-area-inset-top));
@@ -534,6 +538,8 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
    * first line is whole, "Showing your preview" and "Colored by Controllers" included. */
   .badge { max-width: calc(100% - 204px); font-size: var(--t-sub); }
   .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
+  /* On a phone the chip row is full: the button sits just under the toggle, at the right, below the breadcrumb's line when there is one (--reset-top, app.js placeCrumbs). */
+  .reset-view { position: absolute; right: 0; top: calc(100% + var(--reset-top, 6px)); }
   /* The key stays on the map above the sheet, compact, away from the toggle
    * at the top. Setup's half sheet has its own copy; a full sheet has no room. */
   .legend { display: none; left: 8px; right: 8px; bottom: calc(var(--sheet-visible) + 8px); max-width: none; max-height: 124px; }

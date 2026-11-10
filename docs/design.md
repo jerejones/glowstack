@@ -1512,15 +1512,22 @@ desk.
   included; when the key has more to explain (a coloring's ramp, the
   points' marks) a phone's half and full sheets show it in Setup's panel
   instead, with the states as its last line.
-- **Finding the whole house again.** There is no reset-view button and no
-  map toolbar (owner decision). The gesture is the double tap on empty map,
-  and the map says so when it is needed: while the camera is away from the
-  default framing, the map's one caption (the quiet line that teaches the
-  tap) reads "Double-tap the map to see the whole house" ("Double-click"
-  with a mouse), on every tab, under the breadcrumb when there is one. It
-  goes when the view is framed again. It is not a control and adds no
-  chrome. It does not show while calibrating, or over a full sheet, whose
-  strip of map is framed on the selection on purpose.
+- **A way back to the whole house.** While the camera is away from the
+  default framing (after any zoom, pan or rotate) a small **Reset view**
+  button is on the map beside the Preview/Lights toggle: next to it at the
+  bottom left beside the panel, just under it on a phone, below the
+  breadcrumb's line when there is one. One press eases the camera back to
+  the default framing, the view the page opens with (the site's angle, the
+  lights centered in the free area with the fit's margins), at once under
+  reduced motion, and the button goes; at the default view it is absent,
+  not disabled. It is a named button in the Tab order, and the map's labels
+  keep clear of it like any other chrome. It does not change the camera
+  remembered for the device (Setup's **Default** does that). It is not in
+  the page while calibrating, where the mode frames its target, or over a
+  phone's full sheet, whose strip of map is framed on the selection on
+  purpose. A double tap or double click on empty map still fits the view.
+  It is one button, not a toolbar: there are no Street, Overhead, Free or
+  Fit buttons (owner decision).
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
   - *Looks*: where looks go (**Next look:**), presets first and then effects, the preview

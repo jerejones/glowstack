@@ -650,6 +650,21 @@ export async function open(glCanvas, input, opts) {
       } finally { restoring = false; }
       emit();
     },
+    // resetView eases the camera back to the default framing, the one the
+    // page opens with (the site's angle, the lights centered in the free
+    // area with the fit's margins), over ease ms. It does not touch the
+    // camera remembered for this device: Setup's Default does that.
+    resetView(ease = 0) {
+      grab = null; // the press is not a gesture that owns the move
+      Object.assign(cam, siteView(), { mode: 'street', auto: true, fov: viewFov });
+      project();
+      const target = cam.target ? cam.target.clone() : box.getCenter(new THREE.Vector3());
+      let d = fitDistance(cam.dir, target, corners());
+      const lights = litPoints();
+      if (lights.length) d = centerOn(cam.dir, target, lights);
+      glide(cam.dir, target, d, ease);
+      emit();
+    },
     // forget clears the remembered camera and returns to the site's view.
     forget() {
       save(CAMERA, undefined);

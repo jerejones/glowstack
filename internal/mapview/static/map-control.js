@@ -24,17 +24,19 @@ export function showTapHint({ seen, selected, tab = 'looks', calibrating = false
   return tab === 'looks' && !seen && !selected && !calibrating && !failed;
 }
 
-// fitHint is the line that says how to get the whole house back, shown in
-// the same caption while the camera is away from the default framing. The
-// gesture has always been there (a double tap on empty map fits the view);
-// this makes it found without a button. word is Double-tap or Double-click.
-export const fitHint = (word = 'Double-tap') => `${word} the map to see the whole house`;
+// RESET_VIEW is the one camera control on the map: a button beside the
+// Preview/Lights toggle that is there only while the camera is away from the
+// default framing. One press eases back to that framing and the button goes.
+// It is one button, not a toolbar: there are no view buttons.
+export const RESET_VIEW = { label: 'Reset view', ease: 300 }; // the words are in index.html
 
-// showFitHint says whether that line shows: the camera has been moved (away),
-// on any tab, while the map is free for it. Not while calibrating (the mode
-// frames its own steps), not over a full sheet (its strip of map is framed on
-// the selection on purpose) and not when the map failed.
-export function showFitHint({ away, calibrating = false, failed = false, full = false }) {
+// showResetView says whether the button is in the page: the camera has been
+// moved (away) and the map is free for it. It is absent, not disabled, at
+// the default view. Not while calibrating (the mode frames its own target),
+// not over a phone's full sheet (its strip of map is framed on the selection
+// on purpose, and comes back when the sheet lowers) and not when the map
+// failed.
+export function showResetView({ away, calibrating = false, failed = false, full = false }) {
   return !!away && !calibrating && !failed && !full;
 }
 

@@ -93,7 +93,7 @@ test('B145: the fit margin scales with the pane and counts a marker\'s ring', as
   assert.match(app, /shown\.nodes \|\| shown\.mode === 'outputs'/);
   assert.match(read('scene.js'), /Math\.floor\(n \/ 30000\)/);
   assert.match(read('plan.js'), /Math\.max\(W - 2 \* padSide, 1\) \/ w/);
-  assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar/i, 'default framing only: no new control');
+  assert.doesNotMatch(read('index.html') + app, /Fit lights|map-toolbar/i, 'default framing only: no toolbar'); // one Reset view button is allowed (owner correction, 2026-11-09); the view buttons and a toolbar are not
   assert.match(design, /at least 4% of the free rectangle/);
 });
 
@@ -131,8 +131,8 @@ test('C2: the tap hint is said once, on the Looks map, and says what the tap doe
   assert.equal(sources.join('').match(/tapHint\(/g).length, 1, 'tapHint is called in one place');
   const app = read('app.js');
   assert.match(app, /showTapHint\(\{ seen: hintSeen\(\), selected: !!S\.sel, tab: S\.panel\.tab\(\),/);
-  assert.match(app, /box\.textContent = fit \? fitHint\([^)]*\) : tap \? tapHint\(/);
-  assert.match(app, /for \(const ev of \['tab', 'camera', 'detent', 'calibration', 'view'\]\) S\.on\(ev, renderHint\);/);
+  assert.match(app, /box\.textContent = box\.hidden \? '' : tapHint\(/);
+  assert.match(app, /S\.on\('tab', renderHint\);/);
   // No string describes selecting as lighting.
   for (const src of sources) assert.doesNotMatch(src, /to light just|light just that part|run on the map to light/i);
   assert.doesNotMatch(read('panel/looks.js'), /lkTip/);
@@ -360,7 +360,8 @@ test('F: Calibrate opens framed, and a step frames its run without taking the ca
   assert.match(fit, /cam\.auto = true;\s*frame\(\);/);
   assert.doesNotMatch(fit, /remember\(\)/, 'the mode\'s framing is not saved as this device\'s camera');
   assert.match(read('plan.js'), /fitAll\(\) \{ auto = true; fit\(\); \},/);
-  assert.doesNotMatch(read('index.html') + cal, /Reset view|Fit lights|data-view=/, 'framing by the mode, not a camera button');
+  assert.doesNotMatch(cal, /Reset view|Fit lights|data-view=/, 'framing by the mode, not a camera button');
+  assert.match(read('app.js'), /showResetView\(\{ away: [^}]*calibrating: S\.calibrating,/, 'the Reset view button is not in the page while calibrating');
 });
 
 test('F: the keys: minus and plus nudge, Shift is ten, Enter confirms, Escape asks to stop', async () => {

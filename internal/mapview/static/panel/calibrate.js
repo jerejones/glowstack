@@ -455,6 +455,7 @@ export function createCalibrate(S, root) {
     if (!on && hold) { S.view.release(hold); hold = null; }
     keepAwake();
     S.inspect(S.pinned);
+    S.renderReset?.(); // the mode frames its own view: the map's reset button is not offered while it is open
     S.markDirty();
   }
   // close leaves the mode for the tab it was opened from.

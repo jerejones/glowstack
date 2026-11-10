@@ -47,7 +47,7 @@ export const namesDraw = (o) => (!o.labels ? '' : o.nodes ? 'points' : 'runs');
 // for the label placer at every viewport (B144): a label that would touch
 // one moves or is hidden and counted. The bars that hold the chips and the
 // crumbs are as wide as the map; their children are what is drawn.
-export const CHROME = ['#chips > *', '#mapControls', '#mapHint', '#crumbs > *', '#crumbMenu', '#legend', '#inspectCard', '#calibrate'];
+export const CHROME = ['#chips > *', '#mapControls', '#resetView', '#mapHint', '#crumbs > *', '#crumbMenu', '#legend', '#inspectCard', '#calibrate'];
 export const CHROME_GAP = 4; // px of clear space a label keeps from any of them
 
 // occupiedRects measures CHROME in doc, in px from the stage's corner (stage

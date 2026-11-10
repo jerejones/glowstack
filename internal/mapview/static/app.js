@@ -17,7 +17,7 @@ import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
 import { labelSpot } from './card-place.js';
-import { tapHint, showTapHint, fitHint, showFitHint, doubleTap, hintSeen, markHintSeen, runAt } from './map-control.js';
+import { tapHint, showTapHint, RESET_VIEW, showResetView, doubleTap, hintSeen, markHintSeen, runAt } from './map-control.js';
 import { fitCrumbs, crumbKind } from './crumbs.js';
 import { peekLine } from './peek.js';
 import { announce, installRoving, selectionWords, mapWords } from './a11y.js';
@@ -234,8 +234,8 @@ function setInsets() {
   const { top, bottom } = frameInsets({
     height: stage.height,
     chips: below('chips'),
-    // The hint sits where the breadcrumb will be, or under it: the lights frame clear of both.
-    crumbs: !$('mapHint').hidden ? below('mapHint') : !$('crumbs').hidden ? below('crumbs') : null,
+    // The tap hint sits where the breadcrumb will be: the lights frame clear of either.
+    crumbs: !$('crumbs').hidden ? below('crumbs') : !$('mapHint').hidden ? below('mapHint') : null,
     controls: below('mapControls'),
     layout: S.panel.layout(),
     covered: S.panel.covered(),
@@ -417,27 +417,42 @@ function wireCrumbMenu(fold, menu, sel) {
 function placeCrumbs() {
   const stage = $('stage').getBoundingClientRect();
   const top = $('chips').getBoundingClientRect().bottom - stage.top + 6;
-  $('crumbs').style.top = top + 'px';
-  // The hint has the breadcrumb's line, or its own line under a breadcrumb that is showing.
-  $('mapHint').style.top = (top + ($('crumbs').hidden ? 0 : $('crumbs').offsetHeight + 4)) + 'px';
+  $('crumbs').style.top = $('mapHint').style.top = top + 'px';
+  // A phone's Reset view button sits under the toggle, below the breadcrumb's or the hint's line when one is showing.
+  const line = !$('crumbs').hidden ? $('crumbs').offsetHeight : !$('mapHint').hidden ? $('mapHint').offsetHeight : 0;
+  $('mapControls').style.setProperty('--reset-top', (line ? line + 10 : 6) + 'px');
   $('crumbMenu').style.top = (top + $('crumbs').offsetHeight + 4) + 'px';
 }
 
-// renderHint keeps the map's one caption: a quiet line where the breadcrumb
-// will be (under it, once there is one). While the camera is away from the
-// default framing it says how to get the whole house back; otherwise, on the
-// Looks tab until this device's first selection, it teaches the tap. It is
-// the only place either line is said, and it is never a control.
+// renderHint shows the one line that teaches the tap, as a quiet caption
+// where the breadcrumb will be, on the Looks tab, until this device's first
+// selection. It is the only place the line is said.
 function renderHint() {
   const box = $('mapHint');
-  const failed = !!S.mapFailed || !S.view;
-  const fit = showFitHint({ away: !!S.view && !S.view.cameraState().auto, calibrating: S.calibrating, failed, full: S.panel.detent() === 'full' });
-  const tap = !fit && showTapHint({ seen: hintSeen(), selected: !!S.sel, tab: S.panel.tab(), calibrating: S.calibrating, failed });
-  box.hidden = !(fit || tap);
-  // In the page only while it shows.
-  box.textContent = fit ? fitHint(S.coarse ? 'Double-tap' : 'Double-click') : tap ? tapHint(S.coarse ? 'Tap' : 'Click') : '';
+  box.hidden = !showTapHint({ seen: hintSeen(), selected: !!S.sel, tab: S.panel.tab(), calibrating: S.calibrating, failed: !!S.mapFailed || !S.view });
+  box.textContent = box.hidden ? '' : tapHint(S.coarse ? 'Tap' : 'Click'); // in the page only while it shows
   placeCrumbs();
   setInsets(); // the caption takes, or gives back, a line of the map's top
+}
+
+// renderReset keeps the Reset view button: in the page only while the
+// camera is away from the default framing (map-control.js showResetView).
+// Pressing it eases back to that framing, at once under reduced motion, and
+// hands the focus to the toggle beside it, since the button itself goes.
+function renderReset() {
+  const b = $('resetView');
+  const show = showResetView({ away: !!S.view && !S.view.cameraState().auto, calibrating: S.calibrating, failed: !!S.mapFailed || !S.view, full: S.panel.detent() === 'full' });
+  if (show === !b.hidden) return;
+  const had = document.activeElement === b;
+  b.hidden = !show;
+  if (had && !show) ($('showSeg').querySelector('button.on') || $('showSeg').querySelector('button')).focus({ preventScroll: true });
+  markDirty(); // the labels keep clear of it
+}
+S.renderReset = renderReset;
+function resetView() {
+  if (!S.view?.resetView) return;
+  S.view.resetView(reducedMotion.matches ? 0 : RESET_VIEW.ease);
+  announce('The map shows the whole house again.');
 }
 S.renderHint = renderHint;
 
@@ -932,6 +947,7 @@ S.refresh = async () => { await Promise.all([pollPreview(), pollHouse()]); };
 // ---------- chrome ----------
 
 function bindChrome() {
+  $('resetView').onclick = resetView;
   for (const b of $('showSeg').querySelectorAll('button')) b.onclick = () => (b.getAttribute('aria-disabled') === 'true' ? toast(b.title) : setShow(b.dataset.show));
   addEventListener('resize', () => { S.panel.refresh(); resize(); });
   document.addEventListener('visibilitychange', () => {
@@ -1074,7 +1090,8 @@ async function main() {
   S.status = createStatus(S, $('tab-status'));
   S.on('preview', refitPreview);
   for (const ev of ['preview', 'select', 'tab', 'detent', 'layout', 'view', 'runVisibility']) S.on(ev, applyPoint);
-  for (const ev of ['tab', 'camera', 'detent', 'calibration', 'view']) S.on(ev, renderHint); // the caption follows the tab and the camera
+  S.on('tab', renderHint); // the caption is the Looks tab's
+  for (const ev of ['camera', 'detent', 'view', 'tab']) S.on(ev, renderReset); // the button follows the camera
   for (const ev of ['preview', 'select', 'show', 'tab', 'calprogress']) S.on(ev, () => S.refreshStateKey?.());
   for (const ev of ['tab', 'detent', 'layout', 'preview']) S.on(ev, () => S.moveToasts());
   S.on('calprogress', (st) => { calSteps = st?.progress ? { done: st.progress.filter((i) => i.done).length, total: st.progress.length } : null; });

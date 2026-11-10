@@ -173,6 +173,23 @@ async function main() {
   check('Enter on Save creates the preset', !!mine, mine ? mine.id : 'not found');
   if (mine) await api('/api/v1/presets/' + encodeURIComponent(mine.id), 'DELETE');
 
+  // ----- Reset view: absent at the default view, reached by Tab after the camera moves, gone after one press -----
+  await open('looks');
+  // Over a phone's full sheet the strip of map is framed on the selection and has no such button: the walk is at half height.
+  if (PHONE) { await S(() => window.glowstack.panel.setDetent('half')); await wait(700); }
+  const resetShown = () => S(() => { const b = document.getElementById('resetView'); return !!b && !b.hidden && b.getBoundingClientRect().width > 0; });
+  check('no Reset view button at the default view', !(await resetShown()));
+  // Moving the camera needs a pointer (the map has no key for it): the one wheel turn here.
+  await page.mouse.move(PHONE ? 195 : 430, PHONE ? 190 : 470); await page.mouse.wheel(0, -400); await wait(900);
+  check('Reset view appears once the camera has moved', await resetShown());
+  await S(() => document.activeElement?.blur());
+  check('Reset view is reachable by Tab, with a name', await tabTo('#resetView') && (await S(focused))?.text === 'Reset view', JSON.stringify(await S(focused)));
+  await key('Enter'); await wait(900);
+  check('Enter goes back to the default framing and the button goes', !(await resetShown()) && await S(() => window.glowstack.view.cameraState().auto));
+  check('the focus is handed on, not dropped', await S(() => !!document.activeElement && document.activeElement !== document.body), JSON.stringify(await S(focused)));
+  await S(() => window.glowstack.view.forget());
+  if (PHONE) { await S(() => window.glowstack.panel.setDetent('full')); await wait(700); }
+
   // ----- 5. calibration: start a step, nudge, confirm, go back -----
   await open('setup');
   const before = await api('/api/v1/calibration');
