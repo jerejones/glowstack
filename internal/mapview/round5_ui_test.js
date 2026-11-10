@@ -200,12 +200,12 @@ test('Refinement 4: this look and the next look in words; one word per action; t
   assert.match(part.title, /^Remove from Shed eave: turn off Shed eave and leave the rest of this look on$/);
   assert.equal(removeWords({ lane: 'house' }).title, 'Remove from the lights');
   // A card's state line is whole or drops its place: never an ellipsis.
-  assert.deepEqual(stateLines('Previewing on Everything'), ['Previewing on Everything', 'Previewing elsewhere', 'Previewing']);
-  assert.deepEqual(stateLines('Live on Porch rail'), ['Live on Porch rail', 'Live elsewhere', 'Live']);
+  assert.deepEqual(stateLines('Previewing on Everything'), ['Previewing on Everything', 'Previewing on part of the house', 'Previewing']);
+  assert.deepEqual(stateLines('Live on Porch rail'), ['Live on Porch rail', 'Live on part of the house', 'Live']);
   assert.deepEqual(stateLines('Previewing'), ['Previewing']);
   const fits = (n) => (t) => t.length <= n;
   assert.equal(fitLine(stateLines('Previewing on Everything'), fits(30)), 'Previewing on Everything');
-  assert.equal(fitLine(stateLines('Previewing on Everything'), fits(22)), 'Previewing elsewhere');
+  assert.equal(fitLine(stateLines('Previewing on Everything'), fits(22)), 'Previewing'); // "elsewhere" is gone (series 2 round 6): the longer true phrase, or the word alone
   assert.equal(fitLine(stateLines('Previewing on Everything'), fits(12)), 'Previewing');
   // The chip: a look on one run names it; several places read "part of the house"; no zone brightness as coverage.
   const { mapStatus, badgeHTML, lookScope, levelPhrase } = await import('./static/map-status.js');

@@ -1430,8 +1430,13 @@ desk.
   - *Hover and tap name things.* With a mouse, a run's name and zone show
     in a small label beside the pointer as soon as it is over any drawn
     run, lit or not; the label is placed where it covers none of that run.
-    The inspect card's first line is the same name. On touch, the first
-    tap's selection shows the name in the breadcrumb.
+    A hover shows that tag and nothing else: one name surface at a time.
+    The docked card is for a selection (or a pinned light), and its first
+    line is the breadcrumb's last crumb, the same string for the same thing.
+    A crumb's tooltip, and its row in the folded menu, say what kind of
+    place it is ("area", "run"), so an area and a run with alike names are
+    not read as a mismatch. On touch, the first tap's selection shows the
+    name in the breadcrumb.
   - *The panel points at the map.* Hovering or focusing a library card or
     a preset row draws a thin outline at half strength around the runs it
     would go on (the current target); a controller's row on Status draws it
@@ -1458,8 +1463,20 @@ desk.
     look off that part only, and the scope is in the button's tooltip and
     accessible name ("Remove from Shed eave"), never another name for the
     button. A library card's state line ("Previewing on Shed eave", "Live on
-    Porch") shows whole or drops its place ("Previewing elsewhere"); it is
-    never cut with an ellipsis.
+    Porch") shows whole where it fits, so it says where; where the card is
+    too narrow for the place's name it reads "Live on part of the house",
+    and the word alone only when that does not fit either. It is never cut
+    with an ellipsis and never says "elsewhere".
+  - *One state marker.* A layer row's state is its colored bar and its
+    pill ("Preview", "Live"). When every row of the card is in the state
+    its heading names ("Previewing", "On the lights") the pill is left out:
+    the heading says it once. Mixed rows keep their pills. When a look in
+    the preview is also on the lights (a tweak in progress, or the look
+    picked again) the card shows it as one full row, the preview's, and the
+    live rows fold to one line under it that opens in place, on every
+    layout. A row's **This look:** control is one line: where the row is too
+    narrow it takes a line of its own under the name, and the place is never
+    broken over two lines inside its box.
   - *The chip says where.* With looks on the lights the header chip names
     them and where they are: "on the lights" when they cover every light,
     the place's name when they are all on one place ("Ember drift on Door
@@ -1534,8 +1551,11 @@ desk.
   deduplicated. Empty lists are `[]`. The graph preserves direct references
   rather than flattening descendants, so selection can move from a run to
   its containing areas and zones.
-- **Inspect.** Hover (mouse) or long-press (touch) a pixel for a card that
-  is name first, detail on request. At rest it has at most three rows: the
+- **Inspect.** Selecting on the map (mouse) or long-pressing a pixel pins a
+  card that is name first, detail on request. Beside the map a selection
+  shows the card for the light that was tapped, named for the selection;
+  **Pin** keeps a light's own card open while the selection moves on. A
+  hover never opens it. At rest it has at most three rows: the
   run and its zone, what is showing there (and whether it is a preview), and
   the place in the chain (the zone and areas it is part of). The pixel's
   number, its color, its output and GPIO, and the sentences about it are

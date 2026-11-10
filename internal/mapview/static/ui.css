@@ -624,11 +624,12 @@ details[open] > summary::before { transform: rotate(90deg); }
 /* "Preview on" sits beside the Library heading it belongs to: it is where the next look goes, and a layer's own place is inside its row (move C2). */
 .catalog-head { position: relative; display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 4px; }
 .catalog-head .group-head { margin: 0; }
-.place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
+/* "This look:" and its place are one line, always: where the row is too narrow for them beside the brightness and the buttons, the control takes a line of its own under the name and the rest wrap below it. The place is never broken over two lines inside its box. */
+.place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 0 auto; max-width: 100%; }
 .place-row .meta { color: var(--muted); font-size: var(--t-sub); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
 button.place { min-width: 0; max-width: 100%; }
 .place .muted { flex: none; white-space: nowrap; }
-.place b { font-weight: 600; flex: 1 1 auto; min-width: 8ch; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
+.place b { font-weight: 600; flex: 1 1 auto; min-width: 0; text-align: left; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
 /* The target control (move C): "Preview on [Everything v]", the one control
  * that sets where the next preview goes. A select-styled button, with a
  * border and a chevron, and a clear (x) while it is not Everything. A
@@ -704,6 +705,11 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .live-sum > .icon { justify-self: center; color: var(--muted); }
 .live-sum[aria-expanded=true] > .icon { transform: rotate(180deg); }
 .live-sum.prev-sum::before { background: var(--preview); }
+/* The same look in the preview and on the lights: one full row (the preview's), the live rows a line under it, on every layout. */
+#lkRows.same-look > .live-sum:not(.prev-sum):not([hidden]) { display: grid; }
+#lkRows.same-look.live-folded > .layer.house { display: none; }
+/* Every row is in the state the heading names: the colored bar says it, and no pill says it again. The pill keeps its place at no width, so a phone row's columns stay where they are. */
+.stage.one-lane .layer .name-line .kind { width: 0; min-width: 0; padding: 0; border: 0; margin-right: -8px; overflow: hidden; visibility: hidden; }
 .live-sum.prev-sum .kind { border-color: var(--preview); color: var(--preview); }
 .tab-intro-compact { display: none; }
 #lkWords { margin-top: 12px; }

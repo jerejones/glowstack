@@ -1424,8 +1424,9 @@ test('B91: the inspect card stays open under the pointer and keeps still while i
   assert.deepEqual(cardDock({ ...base, pixel: [100, 100] }), cardDock({ ...base, pixel: [600, 300] }), 'keeps its corner');
   assert.notDeepEqual(cardDock({ ...base, pixel: [800, 650] }), cardDock({ ...base, pixel: [100, 100] }), 'moves off its own pixel');
   const app = read('app.js');
-  assert.match(app, /pointerleave', \(e\) => \{ if \(!\$\('inspectCard'\)\.contains\(e\.relatedTarget\)\) endHover\(\)/);
-  assert.match(app, /data-pin title="Keep this card open">\$\{icon\('pin'\)\}Pin</, 'Pin is visible on the card');
+  // Since series 2 round 6 the card is for a selection or a pinned light, not a hover: leaving the map only ends the hover.
+  assert.match(app, /canvas\.addEventListener\('pointerleave', endHover\);/);
+  assert.match(app, /data-pin title="Keep this light's card open when the selection changes">\$\{icon\('pin'\)\}Pin</, 'Pin is visible on the card');
   assert.match(app, /LONG_PRESS/, 'the long press stays a shortcut');
   assert.match(app, /<summary>Technical details<\/summary>/, 'raw ids are labeled as such');
 });
@@ -2404,7 +2405,7 @@ test('an open More settings scrolls inside the panel beside the map', () => {
 });
 
 test('a layer row gives the slider the width the place does not use', () => {
-  assert.match(read('ui.css'), /\.place-row \{[^}]*flex: 0 1 auto; max-width: 41%;/);
+  assert.match(read('ui.css'), /\.place-row \{[^}]*flex: 0 0 auto; max-width: 100%;/);
 });
 
 test('a phone row gives its name the room the place does not use', () => {
@@ -2419,7 +2420,7 @@ test('B129: a long slider value never overruns the shared right edge', () => {
 test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word first', () => {
   const looks = read('panel/looks.js');
   // The name is a flex item with a floor, not one that collapses to nothing.
-  assert.match(css, /\.place b \{ font-weight: 600; flex: 1 1 auto; min-width: 8ch;/);
+  assert.match(css, /\.place b \{ font-weight: 600; flex: 1 1 auto; min-width: 0; text-align: left; display: block; white-space: nowrap;/); // one line since series 2 round 6: the control moves to its own line instead of wrapping inside its box
   // On the sheet the place takes the row's first column whole, one line.
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
   assert.match(phone, /\.layer \.place-row \{ grid-column: 1; grid-row: 1; max-width: none; \}/);
@@ -2935,7 +2936,7 @@ test('A2: the half sheet keeps the Library in reach while previewing; the search
   assert.deepEqual(liveFold({ compact: false, preview: 1, live: 2, open: false }), { summary: false, folded: false }, 'the full sheet shows every row');
   const looks = read('panel/looks.js');
   assert.match(looks, /<button type="button" class="live-sum" id="lkLiveSum" aria-expanded="false" hidden><small class="kind">Live<\/small><span class="text"><\/span>\$\{icon\('chevronDown'\)\}<\/button>/);
-  assert.match(looks, /liveFold\(\{ compact: compact\(\), preview: prev\.length, live: house\.length, open: liveOpen \}\)/);
+  assert.match(looks, /liveFold\(\{ compact: compact\(\), preview: prev\.length, live: house\.length, open: liveOpen, same \}\)/);
   assert.match(looks, /\$\$\('#lkLiveSum'\)\.onclick = \(\) => \{ liveOpen = !liveOpen; renderStage\(\); \};/);
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
   assert.match(phone, /body\[data-detent=half\] #lkRows\.live-folded \.layer\.house \{ display: none; \}/);

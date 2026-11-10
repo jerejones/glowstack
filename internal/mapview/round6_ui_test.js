@@ -304,3 +304,50 @@ test('T: primary against secondary, the floor, weights, numerals and line length
   for (const t of ['--t-title', '--t-section', '--t-body', '--t-sub', '--t-fine']) assert.ok(doc.includes('`' + t + '`'), t);
   assert.match(doc, /Five sizes per pointer type/);
 });
+
+// ---------- Refinements ----------
+
+test('Refinement 1: one name, one place', async () => {
+  const { cardSubject } = await import('./static/inspect.js');
+  const { stateLines, fitLine, SOMEWHERE, liveFold, sameLook, oneLane } = await import('./static/panel/looks.js');
+  const app = read('app.js'), sheet = css();
+  // Hovering a run shows the pointer's tag and nothing else: no timer opens the docked card.
+  const hover = app.slice(app.indexOf('function hoverAt(x, y) {'), app.indexOf('// ---------- inspect ----------'));
+  assert.doesNotMatch(hover, /inspect\(|setTimeout/);
+  assert.match(hover, /hoverLabel\(p, x, y\);/);
+  // The card is the selection's (named as the breadcrumb's last crumb is) or a pinned light's (named for its run).
+  assert.match(app, /showSelectionCard\(\);\s*S\.emit\('select', S\.sel\);/);
+  assert.match(app, /inspect\(S\.sel \? selPixel : -1\);/, 'unpinning goes back to the selection\'s card, or to none');
+  const sel = { name: 'Porch', zone: 'Front', above: ['Front'] };
+  assert.deepEqual(cardSubject({ selected: sel, run: 'Porch rail', zone: 'Front', chain: ['Front', 'Porch'] }), { name: 'Porch', zone: 'Front', chain: ['Front'] });
+  assert.deepEqual(cardSubject({ pinned: true, selected: sel, run: 'Porch rail', zone: 'Front', chain: ['Front', 'Porch'] }), { name: 'Porch rail', zone: 'Front', chain: ['Front', 'Porch'] });
+  assert.equal(cardSubject({ selected: { name: 'Front', zone: 'Front', above: [] } }).zone, '', 'a zone is not said to be in itself');
+  // A crumb says its kind in its tooltip and in the folded menu, so an area and a run with alike names are told apart.
+  assert.match(app, /title="\$\{esc\(cut \? name : `\$\{nodeKinds\(nd\)\} · \$\{nd\.count\} px`\)\}"/);
+  assert.match(app, /<small>\$\{esc\(crumbKind\(nd\)\)\}<\/small>/);
+  // A card that is live somewhere else says where, or "on part of the house": never "elsewhere".
+  assert.equal(SOMEWHERE, 'on part of the house');
+  assert.deepEqual(stateLines('Live on Porch rail'), ['Live on Porch rail', 'Live on part of the house', 'Live']);
+  const fits = (n) => (t) => t.length <= n;
+  assert.equal(fitLine(stateLines('Live on Porch rail'), fits(20)), 'Live on Porch rail');
+  assert.equal(fitLine(stateLines('Live on the long north wing eave'), fits(26)), 'Live on part of the house');
+  for (const f of ['panel/looks.js', 'panel/presets.js', 'library.js']) assert.doesNotMatch(read(f).replace(/\/\/[^\n]*/g, ''), /(Live|Previewing) elsewhere/, f);
+  // "This look:" and its place are one line; too narrow, the control takes its own line and the rest wrap under it.
+  assert.match(sheet, /\.place-row \{ display: flex; align-items: center; min-width: 0; min-height: var\(--tap\); flex: 0 0 auto; max-width: 100%; \}/);
+  assert.match(sheet, /\.place b \{[^}]*display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;/);
+  assert.match(sheet, /\.layer \.controls \{ display: flex; flex-wrap: wrap;/);
+  // One state marker per row: with every row in the state the heading names, no pill repeats it.
+  assert.equal(oneLane({ preview: 1, live: 0 }), true);
+  assert.equal(oneLane({ preview: 0, live: 2 }), true);
+  assert.equal(oneLane({ preview: 1, live: 1 }), false, 'mixed rows keep their pills');
+  assert.equal(oneLane({ preview: 0, live: 0 }), false);
+  assert.match(sheet, /\.stage\.one-lane \.layer \.name-line \.kind \{ width: 0;/);
+  // The same look live and previewing: the live rows fold to their one line on every layout.
+  const key = (l) => l.preset;
+  assert.equal(sameLook([{ preset: 'a' }], [{ preset: 'b' }, { preset: 'a' }], key), true);
+  assert.equal(sameLook([{ preset: 'a' }], [{ preset: 'b' }], key), false);
+  assert.deepEqual(liveFold({ compact: false, preview: 1, live: 1, open: false, same: true }), { summary: true, folded: true });
+  assert.deepEqual(liveFold({ compact: false, preview: 1, live: 1, open: false, same: false }), { summary: false, folded: false }, 'different looks: both rows, as before');
+  assert.deepEqual(liveFold({ compact: false, preview: 1, live: 1, open: true, same: true }), { summary: true, folded: false }, 'the chevron opens them');
+  assert.match(sheet, /#lkRows\.same-look\.live-folded > \.layer\.house \{ display: none; \}/);
+});

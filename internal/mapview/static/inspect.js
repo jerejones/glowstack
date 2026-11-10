@@ -50,6 +50,17 @@ export function inspectRows({ run = '', zone = '', pixel, dead = false, showing 
   return rows;
 }
 
+// cardSubject is what the card is about, in the words every other surface
+// uses for it. A selection's card is named as the breadcrumb's last crumb is
+// (selected: { name, zone, above } from the selection's chain); a pinned
+// light's card is named for the light's run (run, zone, chain). One string
+// for one thing: the pointer's tag says a run's name, the breadcrumb and
+// this card say the selection's.
+export function cardSubject({ pinned = false, selected = null, run = '', zone = '', chain = [] }) {
+  if (selected && !pinned) return { name: selected.name, zone: selected.zone && selected.zone !== selected.name ? selected.zone : '', chain: selected.above || [] };
+  return { name: run, zone, chain };
+}
+
 // cardDock is where the floating card sits: the bottom right corner of the
 // map, for a hover and for a pinned card alike, so it never jumps between
 // them. top is how far down the chips and crumbs reach. The one exception:

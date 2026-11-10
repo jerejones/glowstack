@@ -189,11 +189,26 @@ export function fitText(el, candidates) {
 // liveFold says whether the live rows fold behind their summary: on the half
 // sheet, while a preview is present and the fold has not been opened. The
 // summary shows whenever the fold applies, open or closed; the full sheet
-// shows every row.
-export function liveFold({ compact, preview, live, open }) {
-  const summary = compact && preview > 0 && live > 0;
+// shows every row. same says a look in the preview is also on the lights
+// (a tweak in progress, or the look picked again): then the fold applies
+// on every layout, so the card shows that look as one full row, the
+// preview's, with the live one a line under it.
+export function liveFold({ compact, preview, live, open, same = false }) {
+  const summary = (compact || same) && preview > 0 && live > 0;
   return { summary, folded: summary && !open };
 }
+
+// sameLook says some look is both in the preview and on the lights. key is
+// lookKey: what a layer shows, whatever its place.
+export function sameLook(prev, house, key) {
+  const on = new Set(house.map(key));
+  return prev.some((l) => on.has(key(l)));
+}
+
+// oneLane says every row of the state card is in the one state its heading
+// names ("Previewing", "On the lights"): the rows then carry the colored bar
+// alone, and no pill repeats the heading. Mixed rows keep their pills.
+export const oneLane = ({ preview, live }) => (preview > 0) !== (live > 0);
 
 // The two target controls are told apart in words (series 2 round 5): a
 // layer row's says where this look is, the Library header's where the next
@@ -219,10 +234,14 @@ export function fitLine(candidates, fits) {
   return candidates.find((t) => fits(t)) ?? candidates[candidates.length - 1];
 }
 // stateLines are a library card's candidates for a state line such as
-// "Previewing on Shed eave": whole, then without the place.
+// "Live on Shed eave": whole, so it says where; then, where the card is too
+// narrow for the place's name, "on part of the house", which is still true
+// and still says it is not here; then the word alone. Never "elsewhere":
+// that says a place exists and withholds it.
+export const SOMEWHERE = 'on part of the house';
 export function stateLines(line) {
   const m = /^(Previewing|Live) on /.exec(line);
-  return m ? [line, `${m[1]} elsewhere`, m[1]] : [line];
+  return m ? [line, `${m[1]} ${SOMEWHERE}`, m[1]] : [line];
 }
 
 // targetControl is the one control that sets where the next preview goes,
@@ -998,7 +1017,9 @@ export function createLooks(S, root) {
     const keep = new Set();
     // On the half sheet a preview folds the live rows into one line (A2), so
     // the Library's first row stays on screen; the chevron opens them in place.
-    const sum = $$('#lkLiveSum'), fold = liveFold({ compact: compact(), preview: prev.length, live: house.length, open: liveOpen });
+    const same = sameLook(prev, house, lookKey);
+    const sum = $$('#lkLiveSum'), fold = liveFold({ compact: compact(), preview: prev.length, live: house.length, open: liveOpen, same });
+    box.classList.toggle('same-look', same);
     sum.hidden = !fold.summary;
     sum.setAttribute('aria-expanded', liveOpen ? 'true' : 'false');
     const nameOf = (l) => layerName(S, l);
@@ -1068,6 +1089,7 @@ export function createLooks(S, root) {
     $$('#lkStageTitle').textContent = head.title;
     $$('#lkStageSub').textContent = head.sub;
     $$('#lkStage').classList.toggle('stale', stale);
+    $$('#lkStage').classList.toggle('one-lane', oneLane({ preview: prev.length, live: house.length }));
     const notRead = S.houseStatus === 'available' || S.houseRead ? null : houseState(S.houseStatus, S.house.length);
     stageState(previewState(S.preview, S.previewStatus) || notRead);
     // The toggle can be on Lights with a preview open: the stage says so.

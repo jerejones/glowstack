@@ -16,13 +16,13 @@ import { buildTree, nodeName, nodeKinds, targetName, targetRanges } from './sele
 import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
-import { createAim, rectGap, labelSpot } from './card-place.js';
+import { labelSpot } from './card-place.js';
 import { tapHint, showTapHint, fitHint, showFitHint, doubleTap, hintSeen, markHintSeen, runAt } from './map-control.js';
 import { fitCrumbs, crumbKind } from './crumbs.js';
 import { peekLine } from './peek.js';
 import { announce, installRoving, selectionWords, mapWords } from './a11y.js';
 import { escapeCloses } from './picker.js';
-import { inspectSentences, inspectTechnical, inspectRows, cardDock, DETAILS_OPEN } from './inspect.js';
+import { inspectSentences, inspectTechnical, inspectRows, cardDock, cardSubject, DETAILS_OPEN } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
 import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
@@ -310,10 +310,25 @@ function select(node, chain) {
   const at = node ? { name: nodeName(node), zone: zoneOf(node) } : null;
   announce(selectionWords(at?.name || '', at?.zone || ''));
   describeMap();
+  showSelectionCard();
   S.emit('select', S.sel);
   if (S.panel.detent() === 'full') frameFull();
 }
 S.select = select;
+
+// The docked card is for what is selected, or for a pinned light: never for
+// a hover, which has the pointer's tag (one name surface at a time).
+// selPixel is the light the selection's card reads: the one tapped, else the
+// middle of the selection.
+let selPixel = -1;
+function showSelectionCard() {
+  if (!S.sel) selPixel = -1;
+  else if (!(selPixel >= 0 && S.sel.node.ranges.some(([a, b]) => selPixel >= a && selPixel <= b))) {
+    const [a, b] = S.sel.node.ranges.reduce((best, r) => (r[1] - r[0] > best[1] - best[0] ? r : best), S.sel.node.ranges[0] || [0, -1]);
+    selPixel = b >= a ? (a + b) >> 1 : -1;
+  }
+  if (S.pinned < 0) inspect(selPixel);
+}
 
 // renderCrumbs draws the breadcrumb as one row that never scrolls and never
 // clips an end (crumbs.js): the whole chain where it fits, else the older
@@ -514,6 +529,9 @@ function tapAt(x, y, run) {
   }
   const nd = S.tree.climb(ri, S.sel && S.sel.node);
   const chain = S.tree.chain(S.tree.runNode(ri));
+  // The card reads the light that was tapped, where the tap was on one.
+  const p = S.view.pickPixel(x, y, radius * 2);
+  if (p >= 0 && S.geo.pixels.run[p] === ri) selPixel = p;
   select(nd, chain.includes(nd) ? chain : null);
   return ri;
 }
@@ -527,7 +545,7 @@ function pin(p) {
 }
 function unpin() {
   S.pinned = -1;
-  inspect(S.hover);
+  inspect(S.sel ? selPixel : -1);
   markDirty();
 }
 
@@ -593,20 +611,10 @@ function bindMap() {
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
-  // Moving onto the card isn't leaving: it is what the card is there for.
-  canvas.addEventListener('pointerleave', (e) => { if (!$('inspectCard').contains(e.relatedTarget)) endHover(); });
-  const card = $('inspectCard');
-  card.addEventListener('pointerenter', () => {
-    clearTimeout(hoverTimer);
-    armedFor = undefined;
-    if (inspected && S.pinned < 0) { S.hover = inspected.id; markDirty(); }
-  });
-  card.addEventListener('pointerleave', (e) => { if (e.relatedTarget !== canvas) endHover(); });
+  canvas.addEventListener('pointerleave', endHover);
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
-let hoverTimer = 0, armedFor;
-const aim = createAim();
 // hoverRun tells the panel which run the pointer is on ('' for none), so a
 // row for it that is on screen can show it: the map points at the panel too.
 let hoveredRun = -1;
@@ -618,13 +626,9 @@ function hoverRun(p) {
   S.emit('hoverRun', S.hoveredRun);
 }
 function endHover() {
-  clearTimeout(hoverTimer);
-  armedFor = undefined;
-  aim.reset();
   S.hover = -1;
   hoverRun(-1);
   $('hoverLabel').hidden = true;
-  if (S.pinned < 0 && inspected) inspect(-1);
   markDirty();
 }
 // hoverLabel names the run under the pointer, and its zone, in a small label
@@ -644,25 +648,15 @@ function hoverLabel(p, x, y) {
   box.style.left = left + 'px';
   box.style.top = top + 'px';
 }
-// aiming says the pointer is on its way to the open card, so what it
-// crosses on the way doesn't replace what the card shows.
-function aiming(x, y) {
-  const card = $('inspectCard');
-  if (S.pinned >= 0 || card.hidden || !inspected) { aim.reset(); return false; }
-  const r = card.getBoundingClientRect(), at = canvas.getBoundingClientRect();
-  return aim.step(rectGap({ left: r.left - at.left, top: r.top - at.top, right: r.right - at.left, bottom: r.bottom - at.top }, x, y), performance.now());
-}
+// hoverAt is the pointer over the map: the run under it gets its outline and
+// the tag beside the pointer, and that is all. The docked card does not
+// follow a hover (round 5 had it do so, and the tag and the card then said
+// the same name twice): it is for a selection or a pinned light.
 function hoverAt(x, y) {
   const p = S.view.pickPixel(x, y, 12);
   if (p !== S.hover) { S.hover = p; markDirty(); }
   hoverRun(p);
   hoverLabel(p, x, y);
-  if (S.pinned >= 0) return;
-  if (aiming(x, y)) { clearTimeout(hoverTimer); armedFor = undefined; return; }
-  if (p === (inspected ? inspected.id : -1) || p === armedFor) return;
-  clearTimeout(hoverTimer);
-  armedFor = p;
-  hoverTimer = setTimeout(() => { armedFor = undefined; inspect(p); }, 60);
 }
 
 // ---------- inspect ----------
@@ -717,8 +711,8 @@ function renderInspect() {
   const o = S.overlay.outputOf(d.id);
   const sh = d.showing;
   const pinButton = pinned
-    ? `<button type="button" class="quiet icon-btn" data-unpin aria-label="Unpin this light" title="Stop keeping this card open">${icon('pinFilled')}Pinned</button>`
-    : `<button type="button" class="quiet icon-btn" data-pin title="Keep this card open">${icon('pin')}Pin</button>`;
+    ? `<button type="button" class="quiet icon-btn" data-unpin aria-label="Unpin this light" title="Stop keeping this light's card open">${icon('pinFilled')}Pinned</button>`
+    : `<button type="button" class="quiet icon-btn" data-pin title="Keep this light's card open when the selection changes">${icon('pin')}Pin</button>`;
   const sentences = inspectSentences(d, {
     run: d.run ? runName(S.geo, d.run) : '',
     output: o && { led: d.id - o.first + 1, count: o.count, name: `${controllerName(S.geo, o.controller)} ${outputName(o)}` },
@@ -730,8 +724,12 @@ function renderInspect() {
   // state this device remembers.
   const ri = d.run ? S.geo.runs.findIndex((x) => x.id === d.run) : -1;
   const chain = ri >= 0 ? S.tree.chain(S.tree.runNode(ri)).slice(0, -1).filter((nd) => !nd.members.some((m) => m.kind === 'all')).map(nodeName) : [];
+  // The card's first row is the breadcrumb's last crumb when it is the
+  // selection's card (the same string for the same thing), and the light's
+  // run when it is a pinned light's.
+  const subject = cardSubject({ pinned, selected: S.sel && !pinned ? { name: nodeName(S.sel.node), zone: zoneOf(S.sel.node), above: S.sel.chain.slice(0, S.sel.chain.indexOf(S.sel.node)).filter((nd) => !nd.members.some((m) => m.kind === 'all')).map(nodeName) } : null, run: d.run ? runName(S.geo, d.run) : '', zone: d.zones.length ? zoneName(S.geo, d.zones[0]) : '', chain });
   const rows = inspectRows({
-    run: d.run ? runName(S.geo, d.run) : '', zone: d.zones.length ? zoneName(S.geo, d.zones[0]) : '', pixel: d.id, dead: d.dead, chain,
+    run: subject.name, zone: subject.zone, pixel: d.id, dead: d.dead, chain: subject.chain,
     showing: sh ? showingLabel(S, sh, sh.target === 'all' ? 'everything' : sh.target ? targetName(S.geo, sh.target) : '') : '',
   });
   const [name, ...rest] = rows;
@@ -767,7 +765,7 @@ function renderInspect() {
 }
 
 // placeCard docks the floating card in the bottom right corner of the map,
-// the same place for a hover and for a pinned card (inspect.js cardDock).
+// the same place for a selection's card and for a pinned one (inspect.js cardDock).
 function placeCard() {
   const card = $('inspectCard');
   if (card.hidden || !inspected) return;
@@ -1104,7 +1102,7 @@ async function main() {
   await S.refresh();
   setInterval(pollPreview, 1000);
   setInterval(pollHouse, 2000);
-  setInterval(() => { if (S.pinned >= 0) inspect(S.pinned); }, 1000);
+  setInterval(() => { const p = S.pinned >= 0 ? S.pinned : S.sel ? selPixel : -1; if (p >= 0) inspect(p); }, 1000);
   S.emit('ready');
 }
 
