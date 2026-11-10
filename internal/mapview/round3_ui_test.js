@@ -358,7 +358,7 @@ test('Refinement 1: preset actions are readable at rest, the same words at 390 a
   assert.match(src, /<div class="preset-body"[^>]*><span class="swatch"><\/span><div class="preset-title"><b>/);
   assert.match(src, /b\.innerHTML = `\$\{icon\('eye'\)\}<span class="lbl">\$\{on \? 'Previewing' : 'Preview'\}<\/span>`;/, 'Preview: the eye and the word');
   assert.match(src, /\$\{icon\(p\.pinned \? 'pinFilled' : 'pin'\)\}<span class="lbl">\$\{p\.pinned \? 'Pinned' : 'Pin'\}<\/span>/, 'an outline pin against a filled one, and the word');
-  assert.match(src, /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More is its glyph, with a title');
+  assert.match(src, /data-tip="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More is its glyph, with a tooltip'); // the page's tooltip (data-tip) since series 2 round 6, not a native title
   // No rule hides a word on any pointer or width: the labels are the markup's, the same everywhere.
   assert.doesNotMatch(css, /\.preset-actions[^{]*\.lbl[^{]*\{/);
   // Fine pointers: 28 px buttons (--tap) on the row's own line; coarse keeps 44 px.

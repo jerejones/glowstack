@@ -1379,7 +1379,7 @@ test('desktop footer keeps to the panel bottom; legend folds; boot has the tab i
   for (const ic of icons) assert.ok(html.includes(ic + '<svg'), ic);
   const { icon } = await import('./static/icons.js');
   assert.ok(html.includes(icon('looks')), 'the same drawing the app uses');
-  assert.match(read('panel/presets.js'), /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More carries the kebab, named by its title (round 3)');
+  assert.match(read('panel/presets.js'), /data-tip="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More carries the kebab, with its tooltip'); // the page's tooltip (data-tip) since series 2 round 6, not a native title
   assert.doesNotMatch(css, /\.color-picker summary::before \{ order: 2/, 'the chevron is a disclosure like the rest');
   assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-section\)/);
   assert.match(css, /text-wrap: balance/);
@@ -1499,7 +1499,7 @@ test('essential metadata is 14px and a phone heading qualifier gets its own line
 test('every secondary action on a card or row has its icon and word, and category keys share one swatch', () => {
   const looks = read('panel/looks.js'), presets = read('panel/presets.js'), overlay = read('overlay.js');
   assert.match(read('icons.js'), /more: 'M8 3\.5v\.01M8 8v\.01M8 12\.5v\.01'/, 'a vertical kebab');
-  assert.match(presets, /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
+  assert.match(presets, /data-tip="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
   assert.match(looks, /\$\{icon\('tweak'\)\}Tweak/);
   assert.match(looks, /\$\{icon\('close'\)\}<span>Remove/);
   assert.match(looks, /\$\{icon\('apply'\)\}Put only this on the lights/);
@@ -2766,7 +2766,7 @@ test('Refinement 5 (round 2): a denser desktop library and compact preset rows',
   const src = read('panel/presets.js');
   assert.match(src, /data-act="pin"[^>]*aria-label="\$\{esc\(\(p\.pinned \? 'Unpin ' : 'Pin '\) \+ presetName\(p\)\)\}" title="\$\{p\.pinned \? 'Unpin from Looks' : 'Pin to Looks'\}"/, 'Pin has a title and an aria-label');
   assert.match(src, /<span class="lbl">\$\{p\.pinned \? 'Pinned' : 'Pin'\}<\/span>/);
-  assert.match(src, /data-act="more"[^>]*aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
+  assert.match(src, /data-act="more"[^>]*aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" data-tip="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/);
   assert.match(src, /b\.innerHTML = `\$\{icon\('eye'\)\}<span class="lbl">\$\{on \? 'Previewing' : 'Preview'\}<\/span>`;\s*b\.setAttribute\('aria-label', on \? 'Previewing' : 'Preview'\);/);
   assert.match(src, /row\.querySelector\('\[data-act=try\]'\)\.onclick = row\.querySelector\('\.preset-body'\)\.onclick/, 'the row body previews');
 });
@@ -2947,7 +2947,7 @@ test('A2: the half sheet keeps the Library in reach while previewing; the search
   assert.equal(searching(true, ''), true);
   assert.equal(searching(false, 'glit'), true);
   assert.equal(searching(false, '  '), false);
-  assert.match(textField({ label: 'Find a look', id: 'lkFind', type: 'search', clearable: true }), /<label class="field clearable"><span class="lbl">Find a look<\/span><input [^>]*><button type="button" class="field-clear" id="lkFindClear" aria-label="Clear Find a look" hidden>×<\/button>/);
+  assert.match(textField({ label: 'Find a look', id: 'lkFind', type: 'search', clearable: true }), /<label class="field clearable"><span class="lbl">Find a look<\/span><input [^>]*><button type="button" class="field-clear" id="lkFindClear" aria-label="Clear Find a look" data-tip="Clear" hidden>×<\/button>/);
   assert.doesNotMatch(textField({ label: 'Name', id: 'x' }), /field-clear/);
   assert.match(looks, /wireClear\(\$\$\('#lkFind'\), renderCatalog, document\.getElementById\('content'\)\)/, 'clearing restores the panel\'s scroll');
   assert.match(looks, /<button type="button" data-filter="pinned">\$\{icon\('pin'\)\}<span>Pinned<\/span><\/button><button type="button" data-filter="presets">\$\{icon\('presets'\)\}<span>All presets<\/span><\/button><button type="button" data-filter="effects">\$\{icon\('looks'\)\}<span>Effects<\/span><\/button>/);

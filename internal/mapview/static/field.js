@@ -12,7 +12,7 @@ export function textField({ label = '', ariaLabel = '', id, type = 'text', place
   const attrs = `id="${esc(id)}" type="${esc(type)}" autocomplete="off"${placeholder ? ` placeholder="${esc(placeholder)}"` : ''}${maxlength ? ` maxlength="${maxlength}"` : ''}${required ? ' required' : ''}${ariaLabel ? ` aria-label="${esc(ariaLabel)}"` : ''}`;
   const err = `<span class="field-err" id="${esc(id)}Err" role="alert"></span>`;
   // A clearable field has a × at its end while it holds a query (wireClear).
-  const clear = clearable ? `<button type="button" class="field-clear" id="${esc(id)}Clear" aria-label="Clear ${esc(label || ariaLabel || 'the field')}" hidden>×</button>` : '';
+  const clear = clearable ? `<button type="button" class="field-clear" id="${esc(id)}Clear" aria-label="Clear ${esc(label || ariaLabel || 'the field')}" data-tip="Clear" hidden>×</button>` : '';
   // The label's words are their own span, so a layout can fold them away
   // (the phone's half sheet, where the placeholder says it) and keep the input.
   return label ? `<label class="field${clearable ? ' clearable' : ''}"><span class="lbl">${esc(label)}</span><input ${attrs}>${clear}${err}</label>` : `<div class="field${clearable ? ' clearable' : ''}"><input ${attrs}>${clear}${err}</div>`;

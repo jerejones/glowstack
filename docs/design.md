@@ -1777,9 +1777,20 @@ it is. No chrome is added for it: the focus ring is the only thing drawn.
   (assertive). Toasts are spoken through that same region. Toggles carry
   `aria-pressed`, disclosures `aria-expanded`, the tabs are a `tablist`,
   and a phone's sheet handle is a slider with its detent as its value.
-- **Names.** Every control has an accessible name, and every icon-only one
-  a tooltip too; form rows name every control in them, and an error is tied
-  to its field.
+- **Names.** Every control has an accessible name; form rows name every
+  control in them, and an error is tied to its field. A control that is an
+  icon and no words (the More glyph, a clear x, a dismiss, the sheet's
+  handle, the brightness icon, the panel's rail toggle) also says what it is
+  in one small tooltip, drawn in the page: a native `title` never shows on
+  touch or in a capture. It appears 400 ms after the pointer rests on the
+  control, at once when the keyboard focuses it, and after a long press on
+  touch; it sits above the control, or below when there is no room, and
+  never over it; it is the secondary type size. It is `aria-hidden`, since
+  the control's accessible name is its own, and such a control has no
+  native `title` beside it. It is not shown where the control already shows
+  those words (a phone's "Brightness" beside its icon). Controls with words
+  do not get one; the map's **Reset view** uses it for its one line of
+  explanation.
 - **Motion and size.** Under reduced motion nothing eases or animates.
   Text may wrap at 200% zoom or with larger text; no control is clipped.
   On a touch screen every target is at least 44 px.

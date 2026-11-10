@@ -345,6 +345,9 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 /* The name under the pointer: the run and its zone, beside the pointer and never over the run. */
 .hover-label { position: absolute; z-index: 5; display: flex; flex-direction: column; max-width: 240px; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: rgba(21, 24, 29, 0.96); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); pointer-events: none; white-space: nowrap; font-size: var(--t-sub); line-height: 1.3; }
 .hover-label[hidden] { display: none; }
+/* The page's one tooltip (tooltip.js), for controls that are an icon and no words: the secondary size, above everything, never in the way of a press. */
+.tip { position: fixed; z-index: 60; max-width: min(280px, calc(100vw - 8px)); padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: rgba(21, 24, 29, 0.98); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); color: var(--fg); font-size: var(--t-sub); line-height: 1.35; pointer-events: none; }
+.tip[hidden] { display: none; }
 .hover-label span { color: var(--muted); font-size: var(--t-sub); }
 
 .legend {

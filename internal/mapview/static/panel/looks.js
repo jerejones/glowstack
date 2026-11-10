@@ -467,9 +467,9 @@ export function createLooks(S, root) {
     <section class="library" aria-label="Presets and effects">
       <div class="catalog-head" id="lkCatalogHead">
         <h2 class="group-head">Library</h2>
-        <div class="target-ctl"><span class="muted" id="lkTargetLabel">${NEXT_LOOK}</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next look goes" aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Next look: back to Everything" title="Back to Everything" hidden>${icon('close')}</button></div>
+        <div class="target-ctl"><span class="muted" id="lkTargetLabel">${NEXT_LOOK}</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next look goes" aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Next look: back to Everything" data-tip="Back to Everything" hidden>${icon('close')}</button></div>
         <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
-          <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
+          <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" data-tip="Close">${icon('close')}</button></div>
           ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
           <div class="muted small" id="lkPickHint">Or choose on the map: a second ${word.toLowerCase()} on a run takes the area around it.</div>
           <div class="target-list" id="lkTargetList"></div>
@@ -914,7 +914,7 @@ export function createLooks(S, root) {
       <div class="name-line"><small class="kind"></small><span class="strip"></span><b></b><small class="front"></small><span class="line-place"></span><span class="line-level"></span><button type="button" class="icon-btn row-expand" aria-expanded="false"><span class="lbl">Controls</span>${icon('chevronDown')}</button></div>
       <div class="controls">
         <div class="place-row"></div>
-        <div class="bri"><span class="bri-label" title="How bright this look is">${icon('sun')}<span class="bri-word">Brightness</span></span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
+        <div class="bri" data-tip="Brightness"><span class="bri-label">${icon('sun')}<span class="bri-word">Brightness</span></span><input type="range" min="0" max="1" step="0.01" aria-label="Brightness of this look"><output></output></div>
         <button type="button" class="tweak icon-btn" aria-expanded="false">${icon('tweak')}Tweak</button><button type="button" class="icon-btn" data-a="remove">${icon('close')}<span>Remove</span></button>
       </div>
       <div class="note"></div>

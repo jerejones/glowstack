@@ -232,7 +232,7 @@ test('C3: a Reset view button, only while the camera is away from the default fr
   const app = read('app.js'), page = read('index.html'), sheet = css();
   assert.doesNotMatch(app + page + read('map-control.js'), /to see the whole house|fitHint/);
   // One named, focusable button beside the Preview/Lights toggle, in the page's markup, hidden until needed.
-  assert.match(page, /<span class="seg" id="showSeg"[\s\S]*?<\/span>\s*<button type="button" id="resetView" class="reset-view" title="[^"]+" hidden>Reset view<\/button>\s*<\/div>/);
+  assert.match(page, /<span class="seg" id="showSeg"[\s\S]*?<\/span>\s*<button type="button" id="resetView" class="reset-view" data-tip="[^"]+" hidden>Reset view<\/button>\s*<\/div>/);
   assert.equal((page.match(/<button[^>]*>Reset view<\/button>/g) || []).length, 1, 'one button');
   assert.match(sheet, /\.reset-view\[hidden\] \{ display: none; \}/);
   assert.match(app, /const show = showResetView\(\{ away: !!S\.view && !S\.view\.cameraState\(\)\.auto, calibrating: S\.calibrating,/);
@@ -455,4 +455,65 @@ test('Refinement 4: Calibrate\'s cluster marker is a count, and the key explains
   assert.match(overlay, /<i class="sw ring" style="color:#5ddc8a"><\/i>measured<\/span><span><i class="sw ring dash" style="color:#ffb347"><\/i>estimated<\/span>/);
   assert.ok(STATE_KEY.some(([id, words]) => id === 'target' && words === 'Calibrating this point'));
   assert.match(design(), /"×3" in a ring/);
+});
+
+test('Refinement 5: icon buttons say what they are, in a tooltip drawn in the page', async () => {
+  const { tipSpot, tipFor, installTooltips, HOVER_MS, PRESS_MS } = await import('./static/tooltip.js');
+  assert.equal(HOVER_MS, 400);
+  assert.ok(PRESS_MS >= 400 && PRESS_MS <= 600, 'a long press');
+  // Above the control, centered; below when there is no room above; held inside the viewport; never over the control.
+  const a = { left: 100, right: 128, top: 200, bottom: 228 };
+  assert.deepEqual(tipSpot(a, 80, 24, 1440, 900), { left: 74, top: 170, below: false });
+  const top = { left: 100, right: 128, top: 8, bottom: 36 };
+  assert.deepEqual(tipSpot(top, 80, 24, 1440, 900), { left: 74, top: 42, below: true });
+  assert.equal(tipSpot({ left: 2, right: 30, top: 200, bottom: 228 }, 120, 24, 390, 844).left, 4);
+  assert.equal(tipSpot({ left: 360, right: 388, top: 200, bottom: 228 }, 120, 24, 390, 844).left, 266);
+  for (const [anchor, W, H] of [[a, 1440, 900], [top, 1440, 900], [{ left: 180, right: 210, top: 820, bottom: 840 }, 390, 844]]) {
+    const at = tipSpot(anchor, 90, 24, W, H);
+    assert.ok(at.top + 24 <= anchor.top || at.top >= anchor.bottom, 'never over its own control');
+  }
+  // Its text is the control's data-tip, unless the control already shows those words.
+  assert.equal(tipFor({ dataset: { tip: 'Clear the selection' }, innerText: '' }), 'Clear the selection');
+  assert.equal(tipFor({ dataset: { tip: 'Brightness' }, innerText: 'Brightness\n100%' }), '', 'a phone shows the word beside the icon already');
+  assert.equal(tipFor({ dataset: {}, innerText: 'Preview' }), '');
+  assert.equal(tipFor(null), '');
+  // One element, aria-hidden: the control's accessible name stays its own.
+  const made = [];
+  const listeners = {};
+  const doc = { createElement: () => { const el = { attrs: {}, style: {}, setAttribute(k, v) { this.attrs[k] = v; } }; made.push(el); return el; }, body: { append() {} }, addEventListener: (ev) => { listeners[ev] = true; }, defaultView: { innerWidth: 1440, innerHeight: 900 } };
+  const tips = installTooltips(doc);
+  assert.equal(made.length, 1);
+  assert.deepEqual([made[0].id, made[0].hidden, made[0].attrs['aria-hidden']], ['tip', true, 'true']);
+  for (const ev of ['pointerover', 'pointerout', 'focusin', 'focusout', 'keydown', 'pointerdown', 'pointerup']) assert.ok(listeners[ev], ev);
+  // Shown for a control, placed, and hidden again.
+  const control = { dataset: { tip: 'More: edit, duplicate or delete' }, innerText: '', isConnected: true, getBoundingClientRect: () => a };
+  Object.assign(made[0], { offsetWidth: 180, offsetHeight: 24 });
+  tips.show(control);
+  assert.deepEqual([made[0].hidden, made[0].textContent, made[0].style.top], [false, 'More: edit, duplicate or delete', '170px']);
+  tips.hide();
+  assert.equal(made[0].hidden, true);
+  const src = read('tooltip.js');
+  assert.match(src, /if \(el && el !== shownFor\) later\(el, HOVER_MS\);/, 'hover: after 400 ms');
+  assert.match(src, /if \(el && e\.target\.matches\?\.\(':focus-visible'\)\) show\(el\);/, 'keyboard focus: at once');
+  assert.match(src, /later\(el, PRESS_MS\);/, 'touch: a long press');
+  assert.match(css(), /\.tip \{ position: fixed;[^}]*font-size: var\(--t-sub\);[^}]*pointer-events: none; \}/);
+  assert.match(read('app.js'), /installTooltips\(document\);/);
+  // Every icon-only control named in the plan has it, and none keeps a native title beside it.
+  const uses = {
+    'app.js': [/class="x" aria-label="Clear the selection" data-tip="Clear the selection">/, /aria-label="Dismiss" data-tip="Dismiss">/],
+    'panel/looks.js': [/id="lkTargetClear" aria-label="Next look: back to Everything" data-tip="Back to Everything" hidden>/, /<div class="bri" data-tip="Brightness"><span class="bri-label">\$\{icon\('sun'\)\}/, /id="lkPickClose" aria-label="Close" data-tip="Close">/],
+    'panel/presets.js': [/data-act="more"[^>]*data-tip="More: edit, duplicate or delete">\$\{icon\('more'\)\}/],
+    'index.html': [/<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" data-tip="[^"]+"/, /id="railToggle" class="rail-toggle" data-tip="Collapse the panel" aria-label="Collapse the panel"/, /id="resetView" class="reset-view" data-tip="[^"]+" hidden>/],
+    'field.js': [/class="field-clear"[^>]*data-tip="Clear" hidden>/],
+    'form.js': [/rm\.dataset\.tip = 'Remove';/],
+  };
+  for (const [f, res] of Object.entries(uses)) for (const re of res) assert.match(read(f), re, `${f}: ${re}`);
+  for (const f of ['index.html', 'app.js', 'field.js', 'panel/looks.js', 'panel/presets.js', 'panel/calibrate.js']) {
+    for (const m of read(f).matchAll(/<[a-z]+\b[^>]*data-tip="[^>]*>/g)) assert.doesNotMatch(m[0], /\stitle="/, `${f}: a native title beside the tooltip: ${m[0].slice(0, 80)}`);
+  }
+  // Nothing else gained one: a control with words keeps to its words ("Hide key" stays a text button).
+  const all = ['index.html', 'app.js', 'field.js', 'form.js', 'sheet.js', 'panel/looks.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js', 'panel/calibrate.js'].map(read).join('\n');
+  assert.equal((all.match(/data-tip[=`]|dataset\.tip = /g) || []).length, 13);
+  assert.doesNotMatch(read('panel/setup.js'), /data-tip|dataset\.tip/);
+  assert.match(design(), /one small tooltip, drawn in the page/);
 });

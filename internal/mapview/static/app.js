@@ -38,6 +38,7 @@ import { foldable, merged } from './toast-merge.js';
 import { createTiles } from './tiles.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
 import { showingLabel, layerName } from './form.js';
+import { installTooltips } from './tooltip.js';
 
 const SHOW = 'glowstack.show';   // '' preview, 'house' lights
 const PLAN = 'glowstack.plan';
@@ -97,7 +98,7 @@ function toast(msg, opts = {}) {
   for (const t of folded) t.el.remove();
   const { text, details } = merged(err ? msg.message : msg, err ? msg.details || [] : opts.details || [], folded);
   el.note = { at: Date.now(), error: err || opts.error, action: opts.action || opts.actions?.[0], text, details };
-  el.innerHTML = `<span class="msg">${esc(text)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" title="Dismiss">${icon('close')}</button>`;
+  el.innerHTML = `<span class="msg">${esc(text)}${details.map((d) => `<div>${esc(d)}</div>`).join('')}</span><button type="button" aria-label="Dismiss" data-tip="Dismiss">${icon('close')}</button>`;
   el.querySelector('button').onclick = () => el.remove();
   // Buttons that do the toast's fix, then clear it: the one action, and
   // after an apply Undo beside it (opts.actions).
@@ -370,7 +371,7 @@ function renderCrumbs() {
   fitCrumbs(box, sel.chain.length, on, (plan) => {
     box.innerHTML = (plan.menu ? `<button type="button" class="fold" aria-haspopup="menu" aria-expanded="false" aria-label="Show the whole path" title="Show the whole path">…</button>${sep}` : '') +
       plan.show.map((i) => crumb(sel.chain[i], i, plan.squeeze)).join(sep) +
-      `<button type="button" class="x" aria-label="Clear the selection" title="Clear the selection">${icon('close')}</button>`;
+      `<button type="button" class="x" aria-label="Clear the selection" data-tip="Clear the selection">${icon('close')}</button>`;
   });
   box.querySelectorAll('button[data-i]').forEach((b) => { b.onclick = () => select(sel.chain[+b.dataset.i], sel.chain); });
   box.querySelector('.x').onclick = () => select(null);
@@ -1069,6 +1070,7 @@ function showLoadingTabs() {
 let bootStep = 'load the map';
 async function main() {
   fillIcons(document);
+  installTooltips(document); // the one tooltip, for controls that are an icon and no words
   const q = new URLSearchParams(location.search);
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';

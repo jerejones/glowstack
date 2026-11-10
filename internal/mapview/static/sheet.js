@@ -147,7 +147,8 @@ export function createPanel(hooks) {
     // moved by its handle (ui.css hides this button in the sheet layout).
     const b = $('railToggle');
     const t = rail ? 'Open the panel' : 'Collapse the panel';
-    b.title = t;
+    b.dataset.tip = t; // an icon and no words: the page's tooltip, not a native title
+    b.removeAttribute('title');
     b.setAttribute('aria-label', t);
     b.innerHTML = icon(rail ? 'chevronLeft' : 'chevronRight');
   }

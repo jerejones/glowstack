@@ -173,6 +173,29 @@ async function main() {
   check('Enter on Save creates the preset', !!mine, mine ? mine.id : 'not found');
   if (mine) await api('/api/v1/presets/' + encodeURIComponent(mine.id), 'DELETE');
 
+  // ----- icon-only controls say their name in the page's tooltip, at once, when the keyboard reaches them -----
+  await open('looks');
+  const tipText = () => S(() => { const t = document.getElementById('tip'); return t && !t.hidden ? t.textContent : ''; });
+  const tipClear = () => S(() => { const t = document.getElementById('tip'), a = document.activeElement; if (!t || t.hidden || !a) return false; const r = t.getBoundingClientRect(), q = a.closest('[data-tip]').getBoundingClientRect(); return r.bottom <= q.top || r.top >= q.bottom; });
+  // With a place selected, the clear beside "Next look" and the breadcrumb's clear are in the page.
+  await S(() => { const G = window.glowstack; G.select(G.tree.runNode(G.geo.runs.findIndex((r, i) => G.tree.runSets[i]?.length))); }); await wait(700);
+  await S(() => document.activeElement?.blur());
+  check('the clear beside Next look shows its tooltip on focus', await tabTo('#lkTargetClear') && (await tipText()) === 'Back to Everything' && await tipClear(), await tipText());
+  check("the breadcrumb's clear shows its tooltip on focus", await tabTo('#crumbs .x', { back: true }) && (await tipText()) === 'Clear the selection' && await tipClear(), await tipText());
+  check('a control with words shows none', await tabTo('#showSeg button') && (await tipText()) === '', await tipText());
+  await S(() => window.glowstack.select(null)); await wait(400);
+  await open('presets');
+  // A preset row's actions are one Tab stop: the arrows reach More.
+  let onMore = await tabTo('#prList .preset-entry button');
+  for (let i = 0; onMore && i < 4 && !(await S(() => document.activeElement?.matches('[data-act=more]'))); i++) await key('ArrowRight');
+  onMore = onMore && await S(() => !!document.activeElement?.matches('[data-act=more]'));
+  check('the More glyph shows its tooltip on focus', onMore && /^More: /.test(await tipText()) && await tipClear(), await tipText());
+  await S(() => document.activeElement?.blur());
+  if (PHONE) {
+    await S(() => document.activeElement?.blur());
+    check("the sheet's handle shows its tooltip on focus", await tabTo('#handle') ? (await tipText()).length > 0 && await tipClear() : false, await tipText());
+  }
+
   // ----- Reset view: absent at the default view, reached by Tab after the camera moves, gone after one press -----
   await open('looks');
   // Over a phone's full sheet the strip of map is framed on the selection and has no such button: the walk is at half height.
@@ -221,8 +244,12 @@ async function main() {
   const dialog = await S(() => { const d = document.querySelector('dialog[open]'); return d ? { in: d.contains(document.activeElement) } : null; });
   check('Escape asks before stopping, in a dialog that takes the focus', dialog && dialog.in);
   if (dialog) {
-    await key('Tab', 6);
-    check('the dialog keeps the focus inside it', await S(() => !!document.querySelector('dialog[open]')?.contains(document.activeElement)));
+    // A modal dialog's Tab cycle is its own controls and the browser's chrome (the page reports that as
+    // the body): never a control of the page behind it. Every stop is checked, not only the last.
+    const stops = [];
+    for (let i = 0; i < 6; i++) { await key('Tab'); stops.push(await S(() => { const a = document.activeElement, d = document.querySelector('dialog[open]'); return d && d.contains(a) ? 'dialog' : !a || a === document.body ? 'browser' : `page: ${a.tagName.toLowerCase()}#${a.id}`; })); }
+    check('the dialog keeps the focus inside it', stops.every((x) => x === 'dialog' || x === 'browser') && stops.includes('dialog'), stops.join(' '));
+    for (let i = 0; i < 3 && !(await S(() => !!document.querySelector('dialog[open]')?.contains(document.activeElement))); i++) await key('Tab');
     await key('Escape'); await wait(400);
     check('Escape closes the dialog and the focus goes back where it was', await S(() => !document.querySelector('dialog[open]') && document.activeElement?.id === 'caConfirm'), JSON.stringify(await S(focused)));
   }

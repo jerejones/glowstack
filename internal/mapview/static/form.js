@@ -714,7 +714,7 @@ export function createForm(ctx) {
           row.append(lab, ...[].concat(c));
         }
         const rm = document.createElement('button');
-        rm.type = 'button'; rm.className = 'icon-btn'; rm.innerHTML = icon('close'); rm.title = 'Remove'; rm.setAttribute('aria-label', 'Remove');
+        rm.type = 'button'; rm.className = 'icon-btn'; rm.innerHTML = icon('close'); rm.dataset.tip = 'Remove'; rm.setAttribute('aria-label', 'Remove');
         rm.onclick = () => { const l = [...(get() || [])]; l.splice(i, 1); set(l); build(); };
         row.append(rm);
         box.append(row);

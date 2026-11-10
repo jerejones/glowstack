@@ -534,7 +534,7 @@ export function createCalibrate(S, root) {
   const acts = [];
   const btn = (label, fn, cls = '', disabled = false, title = '') => {
     acts.push(fn);
-    return `<button type="button" class="${cls}" data-a="${acts.length - 1}"${disabled ? ' disabled' : ''}${title ? ` title="${esc(title)}"` : ''}>${label}</button>`;
+    return `<button type="button" class="${cls}" data-a="${acts.length - 1}"${disabled ? ' disabled' : ''}${title ? ` ${/^<svg/.test(label) ? `aria-label="${esc(title)}" data-tip` : 'title'}="${esc(title)}"` : ''}>${label}</button>`;
   };
 
   function render() {

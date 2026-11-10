@@ -372,7 +372,7 @@ test('H: the phone shell has its tabs in a bottom bar and a sheet that follows t
   // No Expand button anywhere on a phone; the handle is a named control with its state.
   assert.match(phone, /\.tabs \.rail-toggle \{ display: none; \}/);
   assert.doesNotMatch(sheet + html, /Expand/);
-  assert.match(html, /<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" title="[^"]+" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="[^"]+"><i><\/i><\/div>/);
+  assert.match(html, /<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" data-tip="[^"]+" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="[^"]+"><i><\/i><\/div>/);
   assert.match(sheet, /handle\.setAttribute\('aria-valuenow', DETENTS\.indexOf\(d\)\);\s*handle\.setAttribute\('aria-valuetext', DETENT_WORDS\[d\]\);/);
   assert.deepEqual(DETENTS, ['peek', 'half', 'full']);
   assert.deepEqual(Object.keys(DETENT_WORDS), DETENTS);
@@ -552,7 +552,8 @@ test('G: the accessible-name audit: no interactive element in the page\'s markup
     }
     // Every icon-only control with a name also has a tooltip.
     for (const m of src.matchAll(/<button\b([^>]*)>\s*\$\{icon\([^)]*\)\}\s*<\/button>/g)) {
-      if (!/title=/.test(m[1])) nameless.push(`${f}: icon-only button without a title <button${m[1].slice(0, 70)}>`);
+      if (!/data-tip=/.test(m[1])) nameless.push(`${f}: icon-only button without a tooltip <button${m[1].slice(0, 70)}>`); // the page's tooltip since series 2 round 6
+      if (/title=/.test(m[1])) nameless.push(`${f}: icon-only button with a native title beside its tooltip <button${m[1].slice(0, 70)}>`);
     }
   }
   // Buttons whose words are filled in by script are named there: these are the ones this audit cannot read, each checked by hand.
@@ -563,11 +564,11 @@ test('G: the accessible-name audit: no interactive element in the page\'s markup
   assert.deepEqual(left, [], 'interactive elements with no accessible name');
   assert.match(read('panel/looks.js'), /go\.setAttribute\('aria-label', plan\.label\);/);
   // The ones the plan names: the More glyph, the clear x, the brightness icon, Hide key, the sheet handle.
-  assert.match(read('panel/presets.js'), /data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="More: edit, duplicate or delete"/);
-  assert.match(read('app.js'), /class="x" aria-label="Clear the selection" title="Clear the selection"/);
-  assert.match(read('panel/looks.js'), /class="bri-label" title="How bright this look is"/);
+  assert.match(read('panel/presets.js'), /data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" data-tip="More: edit, duplicate or delete"/);
+  assert.match(read('app.js'), /class="x" aria-label="Clear the selection" data-tip="Clear the selection"/);
+  assert.match(read('panel/looks.js'), /<div class="bri" data-tip="Brightness"><span class="bri-label">/); // the page's tooltip since series 2 round 6
   assert.match(read('panel/setup.js'), /textContent: folded \? 'Show key' : 'Hide key'/);
-  assert.match(read('index.html'), /id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" title="/);
+  assert.match(read('index.html'), /id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" data-tip="/);
   // Form rows name every control in them, and an error is tied to its field.
   assert.match(read('form.js'), /r\.setAttribute\('aria-label', c\.querySelector\('input\[type=range\]'\) && r\.type !== 'checkbox' \? `\$\{label\}, typed` : label\);/);
   assert.match(read('field.js'), /input\.setAttribute\('aria-describedby', err\.id\);/);
