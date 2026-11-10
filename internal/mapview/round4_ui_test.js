@@ -487,7 +487,7 @@ test('Refinement 2: nested cards step their background; Tweak\'s labels sit on t
   assert.match(css, /^\.form \.color-mixer \{[^}]*background: #151a22; border: 0;/m);
   // The stronger outline is the primary card's (and popovers that float over the page).
   const strong = css.split('\n').filter((l) => /border: 1px solid var\(--line-strong\)/.test(l)).map((l) => l.trim().split(' {')[0]);
-  for (const sel of strong) assert.match(sel, /^(\.stage|\.setup-cal|\.hover-label|\.target-picker|\.preset-menu|\.picker-pop)/, sel);
+  for (const sel of strong) assert.match(sel, /^(\.stage|\.setup-cal|\.hover-label|\.target-picker|\.preset-menu|\.crumb-menu|\.picker-pop)/, sel);
   assert.ok(strong.includes('.stage'), 'the primary card keeps it');
   // The form hangs under the look's name: looks.js measures where the name starts.
   assert.match(css, /\.layer \.slot > \.form \{ margin-left: var\(--name-in, 0px\); \}/);

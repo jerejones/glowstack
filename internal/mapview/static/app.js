@@ -18,6 +18,8 @@ import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
 import { cardCorner, createAim, rectGap, labelSpot } from './card-place.js';
 import { tapHint, showTapHint, hintSeen, markHintSeen, runAt, runTitle } from './map-control.js';
+import { fitCrumbs, crumbKind } from './crumbs.js';
+import { escapeCloses } from './picker.js';
 import { inspectSentences, inspectTechnical } from './inspect.js';
 import { createSetup } from './panel/setup.js';
 import { createStatus } from './panel/status.js';
@@ -187,6 +189,7 @@ function resize() {
   canvas.height = Math.round(r.height * dpr);
   if (!S.view) return;
   S.view.resize(r.width, r.height, dpr);
+  if (S.sel) renderCrumbs(); // the chain folds to the room there is now
   placeCrumbs();
   setInsets();
   syncTabsInset();
@@ -286,26 +289,78 @@ function select(node, chain) {
 }
 S.select = select;
 
+// renderCrumbs draws the breadcrumb as one row that never scrolls and never
+// clips an end (crumbs.js): the whole chain where it fits, else the older
+// ancestors folded into one "…" crumb that opens the whole chain as a menu.
+let crumbMenuClose = null;
 function renderCrumbs() {
-  const box = $('crumbs');
+  const box = $('crumbs'), menu = $('crumbMenu');
   const sel = S.sel;
+  const hadFocus = box.contains(document.activeElement) || menu.contains(document.activeElement);
+  crumbMenuClose?.();
   box.hidden = !sel;
-  if (!sel) { setInsets(); return; }
-  box.innerHTML = sel.chain.map((nd, i) => `${i ? `<span class="sep">${icon('chevronRight')}</span>` : ''}<button type="button" data-i="${i}" class="${nd === sel.node ? 'on' : ''}" title="${esc(nodeKinds(nd))} · ${nd.count} px">${esc(nodeName(nd))}</button>`).join('') +
-    `<button type="button" class="x" aria-label="Clear the selection" title="Clear the selection">${icon('close')}</button>`;
+  if (!sel) { box.innerHTML = ''; setInsets(); return; }
+  const on = sel.chain.indexOf(sel.node);
+  const crumb = (nd, i, squeeze) => {
+    const name = nodeName(nd), cur = nd === sel.node;
+    const cut = squeeze === (cur ? 'current' : 'parent') && (cur || i === on - 1);
+    // A shortened crumb still says its whole name, to a pointer and to a screen reader.
+    return `<button type="button" data-i="${i}" class="${cur ? 'on' : ''}${cut ? ' cut' : ''}"${cur ? ' aria-current="true"' : ''} aria-label="${esc(name)}" title="${esc(cut ? name : `${nodeKinds(nd)} · ${nd.count} px`)}">${esc(name)}</button>`;
+  };
+  const sep = `<span class="sep" aria-hidden="true">${icon('chevronRight')}</span>`;
+  fitCrumbs(box, sel.chain.length, on, (plan) => {
+    box.innerHTML = (plan.menu ? `<button type="button" class="fold" aria-haspopup="menu" aria-expanded="false" aria-label="Show the whole path" title="Show the whole path">…</button>${sep}` : '') +
+      plan.show.map((i) => crumb(sel.chain[i], i, plan.squeeze)).join(sep) +
+      `<button type="button" class="x" aria-label="Clear the selection" title="Clear the selection">${icon('close')}</button>`;
+  });
   box.querySelectorAll('button[data-i]').forEach((b) => { b.onclick = () => select(sel.chain[+b.dataset.i], sel.chain); });
   box.querySelector('.x').onclick = () => select(null);
-  // On a phone the crumbs are one row that scrolls: show the selected one.
-  const on = box.querySelector('.on');
-  const past = on.offsetLeft + on.offsetWidth + 8 - (box.scrollLeft + box.clientWidth);
-  if (past > 0) box.scrollLeft += past;
-  else if (on.offsetLeft < box.scrollLeft) box.scrollLeft = on.offsetLeft - 8;
+  const fold = box.querySelector('.fold');
+  if (fold) wireCrumbMenu(fold, menu, sel);
+  if (hadFocus) box.querySelector('.on')?.focus({ preventScroll: true });
   placeCrumbs();
+}
+
+// wireCrumbMenu makes the "…" crumb open the whole chain as a menu under the
+// row: a choice selects it, Escape or a tap elsewhere closes it and focus
+// goes back to the crumb.
+function wireCrumbMenu(fold, menu, sel) {
+  const outside = (e) => { if (!menu.contains(e.target) && !fold.contains(e.target)) close(); };
+  function close() {
+    menu.hidden = true;
+    menu.innerHTML = '';
+    fold.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('pointerdown', outside, true);
+    if (crumbMenuClose === close) crumbMenuClose = null;
+  }
+  fold.onclick = () => {
+    if (!menu.hidden) { close(); return; }
+    menu.innerHTML = sel.chain.map((nd, i) => `<button type="button" role="menuitemradio" aria-checked="${nd === sel.node}" data-i="${i}" class="${nd === sel.node ? 'on' : ''}" style="--depth:${i}">${esc(nodeName(nd))}<small>${esc(crumbKind(nd))}</small></button>`).join('');
+    menu.hidden = false;
+    fold.setAttribute('aria-expanded', 'true');
+    crumbMenuClose = close;
+    document.addEventListener('pointerdown', outside, true);
+    placeCrumbs();
+    const items = [...menu.children];
+    for (const b of items) b.onclick = () => select(sel.chain[+b.dataset.i], sel.chain);
+    (menu.querySelector('.on') || items[0]).focus({ preventScroll: true });
+  };
+  menu.onkeydown = (e) => {
+    const items = [...menu.children], i = items.indexOf(document.activeElement);
+    const to = e.key === 'ArrowDown' ? (i + 1) % items.length : e.key === 'ArrowUp' ? (i + items.length - 1) % items.length : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : -1;
+    if (e.key === 'Tab') { close(); fold.focus(); return; }
+    if (to < 0) return;
+    e.preventDefault();
+    items[to].focus();
+  };
+  escapeCloses(menu, () => !menu.hidden, () => { close(); fold.focus(); });
 }
 
 function placeCrumbs() {
   const stage = $('stage').getBoundingClientRect();
-  $('crumbs').style.top = $('mapHint').style.top = ($('chips').getBoundingClientRect().bottom - stage.top + 6) + 'px';
+  const top = $('chips').getBoundingClientRect().bottom - stage.top + 6;
+  $('crumbs').style.top = $('mapHint').style.top = top + 'px';
+  $('crumbMenu').style.top = (top + $('crumbs').offsetHeight + 4) + 'px';
 }
 
 // renderHint shows the one line that teaches the tap, as a quiet caption

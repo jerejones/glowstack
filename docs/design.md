@@ -1336,7 +1336,13 @@ desk.
   (every pixel on a run, the `all` target), then back to the run. An area
   that already covers everything is the same step as All. A breadcrumb over
   the map shows the chain and jumps along it, with a one-tap clear beside
-  it. The selection is where looks go; a soft white halo marks its pixels
+  it. The breadcrumb is one row that never scrolls and never clips an end:
+  where the whole chain does not fit, the current target, its parent and the
+  clear button stay and the older ancestors fold into one "…" crumb that
+  opens the whole chain as a menu, so every step is at most two taps away.
+  If the parent still does not fit it shortens, then moves into the menu; the
+  current target's name shortens only when nothing else is left, and then
+  keeps its whole name as its tooltip and accessible name. The selection is where looks go; a soft white halo marks its pixels
   on the map. A selection made while a preview is up moves no existing
   layer: it only sets where the next one goes.
 - **The map is a control, and says so.**

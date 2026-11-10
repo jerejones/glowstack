@@ -304,12 +304,27 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
 }
 
 .crumbs {
-  position: absolute; z-index: 3; left: 8px; right: 8px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  position: absolute; z-index: 3; left: 8px; right: 8px; display: flex; flex-wrap: nowrap; gap: 4px; align-items: center;
   pointer-events: none;
 }
+/* One row that never scrolls or clips an end (B147): app.js folds the older
+ * ancestors into the "…" crumb when the chain does not fit. Only a crumb the
+ * fold marks .cut may shorten; every other one keeps its whole name. */
+.crumbs > * { flex: none; }
+.crumbs button.cut { display: block; flex: 0 1 auto; min-width: 72px; }
+.crumbs .fold { min-width: var(--tap); padding: 0 8px; font-weight: 600; letter-spacing: 1px; }
+.crumb-menu { position: absolute; z-index: 6; left: 8px; max-width: calc(100% - 16px); min-width: 180px; display: grid; gap: 2px; padding: 4px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+.crumb-menu[hidden] { display: none; }
+.crumb-menu button { justify-content: flex-start; gap: 8px; border-color: transparent; padding-left: calc(8px + var(--depth, 0) * 12px); text-align: left; }
+.crumb-menu button small { margin-left: auto; padding-left: 12px; color: var(--muted); font-size: var(--t-note); font-weight: 400; }
+.crumb-menu button.on { background: var(--on); border-color: var(--accent); color: #fff; }
+.crumb-menu button.on small { color: #dbe7ff; }
+.crumb-menu button:hover, .crumb-menu button:focus-visible { background: var(--card); border-color: var(--line); }
+.crumb-menu button.on:hover, .crumb-menu button.on:focus-visible { background: var(--on); border-color: var(--accent); }
+body.calibrating .crumb-menu { display: none; }
 .crumbs > * { pointer-events: auto; }
 .crumbs button {
-  border-radius: 999px; background: rgba(22, 25, 30, 0.88); max-width: 60vw;
+  border-radius: 999px; background: rgba(22, 25, 30, 0.88);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .crumbs button.on { background: var(--on); border-color: var(--accent); color: #fff; }
@@ -499,9 +514,6 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
    * first line is whole, "Showing your preview" and "Colored by Controllers" included. */
   .badge { max-width: calc(100% - 204px); font-size: var(--t-meta); }
   .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
-  .crumbs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  .crumbs::-webkit-scrollbar { display: none; }
-  .crumbs > * { flex: none; }
   /* The key stays on the map above the sheet, compact, away from the toggle
    * at the top. Setup's half sheet has its own copy; a full sheet has no room. */
   .legend { display: none; left: 8px; right: 8px; bottom: calc(var(--sheet-visible) + 8px); max-width: none; max-height: 124px; }
