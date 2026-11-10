@@ -10,7 +10,7 @@
 // (scene.js or plan.js).
 import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges, readableLabel } from './util.js';
 import { controllerName, controllerLabel, nodeDisplay, runName } from './names.js';
-import { RUN_LINE, OUTLINE, strokeOutline, runLit, unlitRuns } from './map-control.js';
+import { RUN_LINE, OUTLINE, LIT_WIDTH, strokeLine, strokeOutline, runLit, unlitRuns } from './map-control.js';
 import { clusterPoints, runPoints, CLUSTER, MARKER, TARGET as TARGET_RING, OTHERS } from './cal-points.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
@@ -670,94 +670,83 @@ export function createOverlay(S) {
     });
   }
 
-  // ----- run lines: the state language (map-control.js) -----
-  // Every drawn run that is not lit has a thin neutral line along it; the run
-  // under the pointer brightens; a run whose Status warning is pointed at
-  // gets an amber outline. A lit run shows its look and no line. Paths are
-  // screen polylines, rebuilt only when the view or the runs shown change.
-  let pathsKey = '', paths = [], lineStates = { installed: false, hovered: false, warned: false }, statesKey = '';
+  // ----- runs: the state language (map-control.js) -----
+  // Not lit is a line, lit is light, selected is an outline. Every drawn run
+  // that is not lit has a thin dashed line along it; a lit run shows its look
+  // and nothing else; the selection has a thin outline around its runs, and
+  // the run under the pointer or pointed at from the panel the same outline at
+  // half strength; a run whose Status warning is pointed at gets an amber
+  // line. Paths are screen polylines of [x, y, d], d being how wide a lit
+  // pixel draws there, rebuilt only when the view or the runs shown change.
+  const stamp = () => [S.plan, S.view.version, S.view.size?.().w, S.view.size?.().h, pixelAt(0), pixelAt(n - 1)].join();
+  // sampleRanges is pixel ranges as those polylines: one per run a range
+  // crosses, broken where pixels are not drawn, with every corner (an edge's
+  // first and last pixel) kept however long the range.
+  function sampleRanges(ranges) {
+    const size = S.view.litSize ? (p, depth) => S.view.litSize(p, depth) : () => LIT_WIDTH;
+    const parts = [];
+    for (const [a, b] of ranges) {
+      const stride = Math.max(1, Math.floor((b - a) / 300));
+      let part = [], last = -1;
+      const flush = () => { if (part.length) parts.push(part); part = []; };
+      for (let p = a; p <= b; p++) {
+        if (last >= 0 && px.run[p] !== px.run[last]) flush();
+        const corner = p === a || p === b || px.edge[p] !== px.edge[p - 1] || px.edge[p] !== px.edge[p + 1];
+        if (!corner && part.length && p - last < stride) continue;
+        const q = pixelAt(p);
+        if (!q) { flush(); last = -1; continue; }
+        part.push([q[0], q[1], size(p, q[2])]);
+        last = p;
+      }
+      flush();
+    }
+    return parts;
+  }
+  let pathsKey = '', paths = [], lineStates = { installed: false, lit: false, warned: false }, statesKey = '';
   const seenLit = [];
   function runPaths() {
-    const key = [S.plan, S.view.version, S.view.size?.().w, S.view.size?.().h, pixelAt(0), pixelAt(n - 1)].join();
+    const key = stamp();
     if (key === pathsKey && paths.for === S.visibility) return paths;
     paths = g.runs.map((r, ri) => {
       if (r.plan !== S.plan || !S.tree) return null;
-      const parts = [];
-      for (const [a, b] of S.tree.runSets[ri]) {
-        const stride = Math.max(1, Math.floor((b - a) / 300));
-        let part = [];
-        for (let p = a; ; p = Math.min(b, p + stride)) {
-          const q = pixelAt(p);
-          if (q) part.push(q); else if (part.length) { parts.push(part); part = []; }
-          if (p >= b) break;
-        }
-        if (part.length) parts.push(part);
-      }
+      const parts = sampleRanges(S.tree.runSets[ri]);
       return parts.length ? parts : null;
     });
     paths.for = S.visibility; pathsKey = key;
     return paths;
   }
-  function strokeRun(parts, style) {
-    ctx.strokeStyle = style.color; ctx.lineWidth = style.width; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.beginPath();
-    for (const part of parts) {
-      ctx.moveTo(part[0][0], part[0][1]);
-      // One pixel on screen still draws: a dot of the line's width.
-      if (part.length === 1) ctx.lineTo(part[0][0] + 0.01, part[0][1]);
-      for (let i = 1; i < part.length; i++) ctx.lineTo(part[i][0], part[i][1]);
-    }
-    ctx.stroke();
-  }
   function runLines(o) {
-    const next = { installed: false, hovered: false, warned: false };
+    const next = { installed: false, lit: false, warned: false };
+    let quiet = null;
     // Only over the live colors: a diagnostic coloring or a calibration step
     // paints every pixel, and their own marks lead.
     if (o.mode === 'live' && S.rgb && S.tree && !(S.calibrating && S.cal?.active)) {
       const all = runPaths();
       const lit = g.runs.map((r, ri) => !all[ri] || runLit(S.rgb, S.tree.runSets[ri]));
-      const unlit = new Set(unlitRuns(lit, seenLit, performance.now()).filter((ri) => all[ri]));
-      const hovered = S.hover >= 0 ? px.run[S.hover] : -1;
-      for (const ri of unlit) if (ri !== hovered) { strokeRun(all[ri], RUN_LINE.installed); next.installed = true; }
-      if (unlit.has(hovered)) { strokeRun(all[hovered], RUN_LINE.hovered); next.hovered = true; }
+      const unlit = unlitRuns(lit, seenLit, performance.now()).filter((ri) => all[ri]);
+      for (const ri of unlit) strokeLine(ctx, all[ri], RUN_LINE.installed);
+      next.installed = unlit.length > 0;
+      next.lit = lit.some((on, ri) => on && !!all[ri]);
       const warned = S.warnedRun ?? -1;
-      if (all[warned]) { strokeRun(all[warned], RUN_LINE.warned); next.warned = true; }
+      if (all[warned]) { strokeLine(ctx, all[warned], RUN_LINE.warned); next.warned = true; }
+      quiet = unlit;
     }
+    // An unlit run is its line and nothing else: the view leaves out the dim
+    // dot it otherwise draws for each dark pixel, which made a second, wider
+    // line under this one (and a tube when zoomed in).
+    S.view.setQuietRuns?.(quiet);
     lineStates = next;
-    const key = JSON.stringify(next);
-    if (key !== statesKey) { statesKey = key; S.refreshStateKey?.(); }
   }
 
   // ----- outlines -----
-  // rangeParts is pixel ranges as screen polylines of [x, y, d], d being how
-  // wide a lit pixel draws there: one polyline per run a range crosses, broken
-  // where pixels are not drawn, sampled so that every corner (an edge's first
-  // and last pixel) is kept. Worked out again only when the view or the
-  // ranges change.
+  // rangeParts is sampleRanges, kept until the view or the ranges change.
   const partsCache = new Map();
   function rangeParts(ranges, key) {
-    const stamp = [S.plan, S.view.version, S.view.size?.().w, S.view.size?.().h, pixelAt(0), pixelAt(n - 1)].join();
-    const hit = partsCache.get(key);
-    if (hit && hit.stamp === stamp && hit.vis === S.visibility) return hit.parts;
-    const size = S.view.litSize ? (p) => S.view.litSize(p) : () => 5;
-    const parts = [];
-    for (const [a, b] of ranges) {
-      const stride = Math.max(1, Math.floor((b - a) / 600));
-      let part = [], last = -1;
-      const flush = () => { if (part.length) parts.push(part); part = []; };
-      for (let p = a; p <= b; p++) {
-        const corner = p === a || p === b || px.edge[p] !== px.edge[p - 1] || px.edge[p] !== px.edge[p + 1];
-        if (last >= 0 && px.run[p] !== px.run[last]) flush();
-        if (!corner && p - last < stride && part.length) continue;
-        const q = pixelAt(p);
-        if (!q) { flush(); last = -1; continue; }
-        part.push([q[0], q[1], size(p)]);
-        last = p;
-      }
-      flush();
-    }
+    const at = stamp(), hit = partsCache.get(key);
+    if (hit && hit.stamp === at && hit.vis === S.visibility) return hit.parts;
+    const parts = sampleRanges(ranges);
     if (partsCache.size > 8) partsCache.clear();
-    partsCache.set(key, { stamp, vis: S.visibility, parts });
+    partsCache.set(key, { stamp: at, vis: S.visibility, parts });
     return parts;
   }
   // The outlines draw on a layer of their own, the size of the map, and are
@@ -785,19 +774,35 @@ export function createOverlay(S) {
     ctx.drawImage(layer, 0, 0);
     ctx.restore();
   }
-  // outlines marks what the panel points at (app.js, S.pointing): the thin
-  // outline at half strength, fading in. Not over a calibration step.
-  let outlined = { pointed: false };
+  const within = (outer, sets) => sets.every(([a, b]) => outer.some(([c, d]) => a >= c && b <= d));
+  // outlines draws the selection's outline at full strength, and at half
+  // strength the run under the pointer and what the panel points at
+  // (app.js, S.pointing; that one fades in). The selection is the Looks
+  // target, so it is not drawn while calibrating; nothing is over a step.
+  let outlined = { selected: false, hovered: false };
   function outlines() {
-    const next = { pointed: false };
+    const next = { selected: false, hovered: false };
+    if (!S.tree) { outlined = next; return; }
+    const sel = S.sel && !S.calibrating ? S.sel.node.ranges : null;
+    if (sel && sel.length) { drawOutline(rangeParts(sel, 'selected' + JSON.stringify(sel)), 1); next.selected = true; }
+    const hr = !S.calibrating && S.hover >= 0 ? px.run[S.hover] : -1;
+    const run = hr >= 0 ? runPaths()[hr] : null;
+    // A run inside the selection has its outline already.
+    if (run && !(sel && within(sel, S.tree.runSets[hr]))) { drawOutline(run, OUTLINE.pointed); next.hovered = true; }
     const pt = S.pointing;
-    if (pt && S.tree && !(S.calibrating && S.cal?.active)) {
+    if (pt && !(S.calibrating && S.cal?.active)) {
       const k = pt.fade ? Math.min(1, (performance.now() - pt.since) / OUTLINE.fade) : 1;
       drawOutline(rangeParts(pt.ranges, 'pointed' + pt.key), OUTLINE.pointed * k);
       if (k < 1) S.markDirty?.();
-      next.pointed = true;
+      next.hovered = true;
     }
     outlined = next;
+  }
+  // runStates is what of all that is on screen now, for the key.
+  const runStates = () => ({ ...lineStates, ...outlined });
+  function noteStates() {
+    const key = JSON.stringify(runStates());
+    if (key !== statesKey) { statesKey = key; S.refreshStateKey?.(); }
   }
 
   // calCursors rings the physical target, not the moving test pixel.
@@ -890,6 +895,7 @@ export function createOverlay(S) {
     const m = mappings.get(st.mapping), o = shown();
     runLines(o);
     outlines();
+    noteStates();
     if (o.mode === 'flow' && m) { arrows(m); flowLabels(m); }
     if (o.mode === 'stretch' && m) spacingLabels(m);
     if (o.mode === 'outputs') outputStarts();
@@ -910,5 +916,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: () => lineStates, outlined: () => outlined, rangeParts, runPaths, calClusters: () => calClusters, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: runStates, rangeParts, runPaths, calClusters: () => calClusters, live: () => shown().mode === 'live' };
 }

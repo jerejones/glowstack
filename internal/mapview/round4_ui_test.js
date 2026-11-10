@@ -131,8 +131,8 @@ test('C2: the tap hint is said once, on the Looks map, and says what the tap doe
   assert.equal(sources.join('').match(/tapHint\(/g).length, 1, 'tapHint is called in one place');
   const app = read('app.js');
   assert.match(app, /showTapHint\(\{ seen: hintSeen\(\), selected: !!S\.sel, tab: S\.panel\.tab\(\),/);
-  assert.match(app, /box\.textContent = box\.hidden \? '' : tapHint\(/);
-  assert.match(app, /S\.on\('tab', renderHint\);/);
+  assert.match(app, /box\.textContent = fit \? fitHint\([^)]*\) : tap \? tapHint\(/);
+  assert.match(app, /for \(const ev of \['tab', 'camera', 'detent', 'calibration', 'view'\]\) S\.on\(ev, renderHint\);/);
   // No string describes selecting as lighting.
   for (const src of sources) assert.doesNotMatch(src, /to light just|light just that part|run on the map to light/i);
   assert.doesNotMatch(read('panel/looks.js'), /lkTip/);
@@ -151,17 +151,16 @@ test('C2: no halo at rest; the halo is for a selection or for what the panel poi
 
 test('C2: one state language for runs on the map', async () => {
   const { RUN_LINE, TARGET_COLOR, runLit, unlitRuns, LINGER, statesShown, stateKeyHTML, STATE_KEY } = await import('./static/map-control.js');
-  // The installed line: neutral (no hue), thin, at least 3:1 on the map's background, and not the selection's width.
+  // The installed line (C3: a thin dashed warm neutral; a solid neutral gray before): at least 3:1 on the map's background.
   const rgb = /rgb\((\d+), (\d+), (\d+)\)/.exec(RUN_LINE.installed.color).slice(1).map(Number);
-  assert.ok(rgb[0] === rgb[1] && rgb[1] === rgb[2], 'neutral gray');
   const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
   const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
   const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
   assert.ok(ratio(rgb, [13, 14, 16]) >= 3, `contrast ${ratio(rgb, [13, 14, 16])}`);
-  assert.ok(RUN_LINE.installed.width <= 2 && RUN_LINE.installed.width < 15, 'thin: the halo is 15 px or more');
-  // Hovered is brighter and wider; warned is amber and wider still; the target has the one reserved color.
-  assert.ok(RUN_LINE.hovered.width > RUN_LINE.installed.width && RUN_LINE.warned.width > RUN_LINE.hovered.width);
-  assert.notEqual(RUN_LINE.hovered.color, RUN_LINE.installed.color);
+  assert.ok(RUN_LINE.installed.width <= 2, 'thin');
+  // Warned is amber and wider; the target has the one reserved color. (Hovered is an outline since C3, not a line.)
+  assert.ok(RUN_LINE.warned.width > RUN_LINE.installed.width);
+  assert.equal(RUN_LINE.hovered, undefined);
   assert.equal(RUN_LINE.warned.color, 'rgb(245, 158, 11)');
   assert.equal(TARGET_COLOR, '#22d3ee');
   for (const style of Object.values(RUN_LINE)) assert.notEqual(style.color, TARGET_COLOR);
@@ -179,20 +178,20 @@ test('C2: one state language for runs on the map', async () => {
   assert.deepEqual(statesShown({}), []);
   assert.equal(stateKeyHTML([]), '');
   assert.deepEqual(statesShown({ previewed: true, installed: true, hovered: false }), ['installed', 'previewed']);
-  assert.deepEqual(statesShown({ target: true, selected: true, installed: true, hovered: true, warned: true, previewed: true }), STATE_KEY.map(([id]) => id));
+  assert.deepEqual(statesShown({ target: true, selected: true, installed: true, hovered: true, warned: true, previewed: true }), STATE_KEY.map(([id]) => id).filter((id) => id !== 'lit'));
   const key = stateKeyHTML(['installed', 'selected']);
-  assert.match(key, /^<div class="key states"><span data-state="installed"><i class="sw rs line"><\/i>Not lit<\/span><span data-state="selected"><i class="sw rs halo"><\/i>Selected<\/span><\/div>$/);
+  assert.match(key, /^<div class="key states"><span data-state="installed"><canvas class="sw rs" data-swatch="installed"[^>]*><\/canvas>Not lit<\/span><span data-state="selected"><canvas class="sw rs" data-swatch="selected"[^>]*><\/canvas>Selected<\/span><\/div>$/);
   assert.match(css, /\.legend\.states-only \.key\.states \{ flex-wrap: nowrap; \}/, 'one line');
-  assert.match(css, /\.sw\.rs\.line \{ background: rgb\(122, 122, 122\); \}/, 'the key shows the line as it is drawn');
+  assert.doesNotMatch(css, /\.sw\.rs\.line/, 'the key draws each swatch with the map\'s own strokes (C3), not a CSS copy of them');
   // The overlay draws the lines under everything else, only over the live colors, never in a calibration step.
   const overlay = read('overlay.js');
   assert.match(overlay, /if \(o\.mode === 'live' && S\.rgb && S\.tree && !\(S\.calibrating && S\.cal\?\.active\)\)/);
-  assert.match(overlay, /runLines\(o\);\s*outlines\(\);\s*if \(o\.mode === 'flow'/);
-  assert.match(overlay, /if \(unlit\.has\(hovered\)\) \{ strokeRun\(all\[hovered\], RUN_LINE\.hovered\);/);
+  assert.match(overlay, /runLines\(o\);\s*outlines\(\);\s*noteStates\(\);\s*if \(o\.mode === 'flow'/);
+  assert.match(overlay, /for \(const ri of unlit\) strokeLine\(ctx, all\[ri\], RUN_LINE\.installed\);/);
   // The key is repainted when the states change, and a states-only key takes nothing from the framing.
   assert.match(read('panel/setup.js'), /key\.classList\.toggle\('states-only', !!states && !\(legendHTML \+ note\)\);/);
   assert.match(read('app.js'), /\|\| \$\('legend'\)\.classList\.contains\('states-only'\);/);
-  for (const word of ['Installed, not lit', 'Hovered', 'Selected', 'Previewed', 'Calibration target']) assert.ok(design.includes(`| ${word}`), word);
+  for (const word of ['Not lit', 'Lit', 'Selected', 'Hovered', 'Calibration target']) assert.ok(design.includes(`| ${word}`), word);
 });
 
 test('C2: the map points at the panel, and a warning outlines its run in amber', async () => {
@@ -215,7 +214,7 @@ test('C2: the map points at the panel, and a warning outlines its run in amber',
   assert.match(status, /data-warn-run="\$\{esc\(it\.fix\.run\)\}"/);
   assert.match(status, /S\.warnRun\?\.\(el\.dataset\.warnRun \|\| el\.dataset\.runRow\)/);
   assert.match(app, /S\.warnRun = \(id\) => \{/);
-  assert.match(read('overlay.js'), /if \(all\[warned\]\) \{ strokeRun\(all\[warned\], RUN_LINE\.warned\);/);
+  assert.match(read('overlay.js'), /if \(all\[warned\]\) \{ strokeLine\(ctx, all\[warned\], RUN_LINE\.warned\);/);
 });
 
 test('C2: the next look\'s target is told from a layer\'s without reading the label', async () => {

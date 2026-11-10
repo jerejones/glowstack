@@ -14,7 +14,7 @@ import { controllerName, modelPartLabel } from '../names.js';
 import { MODES } from '../overlay.js';
 import { upgradeSelects } from '../picker.js';
 import { icon } from '../icons.js';
-import { statesShown, stateKeyHTML } from '../map-control.js';
+import { statesShown, stateKeyHTML, paintSwatches } from '../map-control.js';
 
 const ADVANCED = 'glowstack.setup.advanced';
 const KEY_FOLDED = 'glowstack.legend.folded';
@@ -163,8 +163,14 @@ export function createSetup(S, root) {
     key.hidden = !(legendHTML + states + note);
     key.classList.toggle('states-only', !!states && !(legendHTML + note));
     key.firstChild.scrollTop = scrolled;
-    $$('#suLegend').innerHTML = legendHTML + note;
-    $$('#suLegend').hidden = key.hidden;
+    // Setup's own copy of the key (a phone's half sheet shows this one when
+    // the key has a coloring's or the points' rows) lists the runs' states
+    // too. With only the states to explain, the one-line chip on the map is
+    // the key on every tab, and the panel has no second copy.
+    const more = legendHTML + note;
+    $$('#suLegend').innerHTML = more ? more + states : '';
+    $$('#suLegend').hidden = !more;
+    paintSwatches(key); paintSwatches($$('#suLegend'));
     wireKey(key); wireKey($$('#suLegend'));
     // The key on the map can be folded down, so that it leaves the map free.
     const phoneCalibrating = S.calibrating && S.panel.layout() === 'sheet';

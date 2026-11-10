@@ -484,7 +484,7 @@ test('every lit pixel outweighs the model, and unlit ones keep their outline', (
   const scene = read('scene.js');
   assert.match(scene, /lit \? clamp\(s \* 1\.5/);
   assert.match(scene, /subdue\(anyLit\(/);
-  assert.match(read('plan.js'), /Unlit: a dim outline/);
+  assert.match(read('plan.js'), /Unlit, on a lit run: a dim outline/); // a run with nothing lit is the overlay's dashed line (C3)
 });
 
 test('B52: a stretch flagged as off is far from the as-drawn color, and a small one is tinted', async () => {
@@ -1661,8 +1661,8 @@ test('a zoomed-out run has one label, and a map strip too small to read has none
   assert.equal(strip.hidden, 1, 'and the rest are counted as hidden');
   const roomy = placeLabels(labels, { width: 390, height: 844, measure, avoid: [{ x0: 8, x1: 300, y0: 8, y1: 52 }, { x0: 0, x1: 390, y0: 460, y1: 844 }] });
   assert.equal(roomy.length, 2);
-  assert.match(read('scene.js'), /uAlpha: \{ value: 0\.5 \}/, 'the halo shows on an unlit model');
-  assert.match(read('plan.js'), /globalAlpha = 0\.5; ctx\.strokeStyle = '#fff'/);
+  assert.doesNotMatch(read('scene.js'), /HALO_VS|haloGroup/, 'the selection is an outline on the overlay since C3, not a halo here');
+  assert.doesNotMatch(read('plan.js'), /haloPath/);
 });
 
 test('wording: one phrase for scope, a calm empty list, amber real-lights warning, nudge help by the buttons', () => {

@@ -17,7 +17,7 @@ import { openPlan } from './plan.js';
 import { createPresets } from './panel/presets.js';
 import { createLooks } from './panel/looks.js';
 import { createAim, rectGap, labelSpot } from './card-place.js';
-import { tapHint, showTapHint, hintSeen, markHintSeen, runAt } from './map-control.js';
+import { tapHint, showTapHint, fitHint, showFitHint, doubleTap, hintSeen, markHintSeen, runAt } from './map-control.js';
 import { fitCrumbs, crumbKind } from './crumbs.js';
 import { peekLine } from './peek.js';
 import { announce, installRoving, selectionWords, mapWords } from './a11y.js';
@@ -234,8 +234,8 @@ function setInsets() {
   const { top, bottom } = frameInsets({
     height: stage.height,
     chips: below('chips'),
-    // The tap hint sits where the breadcrumb will be: the lights frame clear of either.
-    crumbs: !$('crumbs').hidden ? below('crumbs') : !$('mapHint').hidden ? below('mapHint') : null,
+    // The hint sits where the breadcrumb will be, or under it: the lights frame clear of both.
+    crumbs: !$('mapHint').hidden ? below('mapHint') : !$('crumbs').hidden ? below('crumbs') : null,
     controls: below('mapControls'),
     layout: S.panel.layout(),
     covered: S.panel.covered(),
@@ -402,17 +402,26 @@ function wireCrumbMenu(fold, menu, sel) {
 function placeCrumbs() {
   const stage = $('stage').getBoundingClientRect();
   const top = $('chips').getBoundingClientRect().bottom - stage.top + 6;
-  $('crumbs').style.top = $('mapHint').style.top = top + 'px';
+  $('crumbs').style.top = top + 'px';
+  // The hint has the breadcrumb's line, or its own line under a breadcrumb that is showing.
+  $('mapHint').style.top = (top + ($('crumbs').hidden ? 0 : $('crumbs').offsetHeight + 4)) + 'px';
   $('crumbMenu').style.top = (top + $('crumbs').offsetHeight + 4) + 'px';
 }
 
-// renderHint shows the one line that teaches the tap, as a quiet caption
-// where the breadcrumb will be, on the Looks tab, until this device's first
-// selection. It is the only place the line is said.
+// renderHint keeps the map's one caption: a quiet line where the breadcrumb
+// will be (under it, once there is one). While the camera is away from the
+// default framing it says how to get the whole house back; otherwise, on the
+// Looks tab until this device's first selection, it teaches the tap. It is
+// the only place either line is said, and it is never a control.
 function renderHint() {
   const box = $('mapHint');
-  box.hidden = !showTapHint({ seen: hintSeen(), selected: !!S.sel, tab: S.panel.tab(), calibrating: S.calibrating, failed: !!S.mapFailed || !S.view });
-  box.textContent = box.hidden ? '' : tapHint(S.coarse ? 'Tap' : 'Click'); // in the page only while it shows
+  const failed = !!S.mapFailed || !S.view;
+  const fit = showFitHint({ away: !!S.view && !S.view.cameraState().auto, calibrating: S.calibrating, failed, full: S.panel.detent() === 'full' });
+  const tap = !fit && showTapHint({ seen: hintSeen(), selected: !!S.sel, tab: S.panel.tab(), calibrating: S.calibrating, failed });
+  box.hidden = !(fit || tap);
+  // In the page only while it shows.
+  box.textContent = fit ? fitHint(S.coarse ? 'Double-tap' : 'Double-click') : tap ? tapHint(S.coarse ? 'Tap' : 'Click') : '';
+  placeCrumbs();
   setInsets(); // the caption takes, or gives back, a line of the map's top
 }
 S.renderHint = renderHint;
@@ -458,15 +467,14 @@ S.warnRun = (id) => {
 // runStates is which of the map's run states are on screen now, for the key.
 S.runStates = () => ({
   ...(S.overlay ? S.overlay.lineStates() : {}),
-  selected: !!S.sel && !S.calibrating,
   previewed: !S.calibrating && S.show !== 'house' && !!S.preview?.layers?.length,
   target: S.calibrating && !!S.cal?.active && !!S.cal.cursors?.length,
 });
 
-// applySelection draws the halo along the selected pixels.
+// applySelection redraws the map for a new selection: the overlay outlines
+// its runs (overlay.js).
 function applySelection() {
-  if (!S.view) return;
-  S.view.setSelection(S.sel ? S.sel.node.ranges : null);
+  if (S.view) markDirty();
 }
 
 const previewRanges = () => (S.preview?.layers || []).flatMap((l) => targetRanges(S.geo, S.tree, l.target) || []);
@@ -488,22 +496,26 @@ function frameFull() {
 
 // ---------- input on the map ----------
 
-function tapAt(x, y) {
+// tapAt is a tap on the map at (x, y): it selects the run there, or climbs
+// from it. run, when given, is the run the tap is on (the second of two quick
+// taps is on the first one's run). It returns that run's index, -1 for none.
+function tapAt(x, y, run) {
   const radius = S.coarse ? 24 : 12;
   if (S.calibrating) {
     const p = S.view.pickPixel(x, y, radius);
     S.calib.tapAt(x, y, p);
-    return;
+    return -1;
   }
-  const ri = S.view.pickRun(x, y, radius, S.pickRuns);
+  const ri = run ?? S.view.pickRun(x, y, radius, S.pickRuns);
   if (ri < 0) {
     if (S.pinned >= 0) unpin();
     else if (S.sel) select(null);
-    return;
+    return -1;
   }
   const nd = S.tree.climb(ri, S.sel && S.sel.node);
   const chain = S.tree.chain(S.tree.runNode(ri));
   select(nd, chain.includes(nd) ? chain : null);
+  return ri;
 }
 
 function pin(p) {
@@ -554,14 +566,30 @@ function bindMap() {
     if (t.long) return;
     const now = e.timeStamp;
     if (lastTap && now - lastTap.t < 320 && Math.hypot(t.x - lastTap.x, t.y - lastTap.y) < 24) {
+      const was = lastTap;
       lastTap = null;
-      // A double tap fits. While calibrating that is the mode's own framing:
-      // it is not remembered as this device's camera.
-      if (S.calibrating && S.view.fitAll) S.view.fitAll(); else S.view.setView('fit');
+      // A double tap on empty map fits the view. On a run it is two taps on
+      // that run: the second climbs the selection, as any second tap does.
+      // It is the run the first tap was on: that tap's breadcrumb takes a
+      // line of the map and can move the lights under the finger, and the
+      // second tap must not land on a neighbor (or on nothing, and fit).
+      const onRun = !S.calibrating && was.run >= 0;
+      if (doubleTap({ onRun, calibrating: S.calibrating }) === 'fit') {
+        // While calibrating that is the mode's own framing: it is not
+        // remembered as this device's camera.
+        if (S.calibrating && S.view.fitAll) S.view.fitAll(); else S.view.setView('fit');
+        // The first of the two taps cleared the selection, as a tap on empty
+        // map does: seeing the whole house does not cost the target.
+        if (was.cleared && !S.sel) select(was.cleared.node, was.cleared.chain);
+        return;
+      }
+      tapAt(t.x, t.y, was.run);
+      lastTap = { x: t.x, y: t.y, t: now, run: was.run, cleared: null };
       return;
     }
-    lastTap = { x: t.x, y: t.y, t: now };
-    tapAt(t.x, t.y);
+    const before = S.sel;
+    const run = tapAt(t.x, t.y);
+    lastTap = { x: t.x, y: t.y, t: now, run, cleared: before && !S.sel ? before : null };
   };
   canvas.addEventListener('pointerup', end);
   canvas.addEventListener('pointercancel', end);
@@ -1048,7 +1076,7 @@ async function main() {
   S.status = createStatus(S, $('tab-status'));
   S.on('preview', refitPreview);
   for (const ev of ['preview', 'select', 'tab', 'detent', 'layout', 'view', 'runVisibility']) S.on(ev, applyPoint);
-  S.on('tab', renderHint); // the caption is the Looks tab's
+  for (const ev of ['tab', 'camera', 'detent', 'calibration', 'view']) S.on(ev, renderHint); // the caption follows the tab and the camera
   for (const ev of ['preview', 'select', 'show', 'tab', 'calprogress']) S.on(ev, () => S.refreshStateKey?.());
   for (const ev of ['tab', 'detent', 'layout', 'preview']) S.on(ev, () => S.moveToasts());
   S.on('calprogress', (st) => { calSteps = st?.progress ? { done: st.progress.filter((i) => i.done).length, total: st.progress.length } : null; });

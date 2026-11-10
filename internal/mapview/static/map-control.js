@@ -24,6 +24,25 @@ export function showTapHint({ seen, selected, tab = 'looks', calibrating = false
   return tab === 'looks' && !seen && !selected && !calibrating && !failed;
 }
 
+// fitHint is the line that says how to get the whole house back, shown in
+// the same caption while the camera is away from the default framing. The
+// gesture has always been there (a double tap on empty map fits the view);
+// this makes it found without a button. word is Double-tap or Double-click.
+export const fitHint = (word = 'Double-tap') => `${word} the map to see the whole house`;
+
+// showFitHint says whether that line shows: the camera has been moved (away),
+// on any tab, while the map is free for it. Not while calibrating (the mode
+// frames its own steps), not over a full sheet (its strip of map is framed on
+// the selection on purpose) and not when the map failed.
+export function showFitHint({ away, calibrating = false, failed = false, full = false }) {
+  return !!away && !calibrating && !failed && !full;
+}
+
+// doubleTap says what the second of two quick taps in one place does: over
+// a run it is one more tap on that run (it climbs the selection), anywhere
+// else it fits the view. Calibrating, it always fits (the mode's framing).
+export const doubleTap = ({ onRun, calibrating = false }) => (calibrating || !onRun ? 'fit' : 'tap');
+
 // hintSeen reads, and markHintSeen records, that this device has made a
 // selection: the caption never shows again after the first one.
 export const hintSeen = () => load(HINT_SEEN, false) === true;
@@ -56,32 +75,58 @@ export function controllerRanges(geo, id) {
 
 // ---------- the state language for runs on the map ----------
 
-// A run on the map is in one of these states, each drawn its own way
-// (docs/design.md, "Selection"):
-//   installed  a thin, dim, neutral line along every drawn run that is not
-//              lit, so a run can be told from a roof edge and looks tappable
-//   hovered    the line brightens and the run's name shows (mouse)
-//   selected   the soft white halo, wider than any line, and the breadcrumb
-//   previewed  the look's own colors
+// One rule (docs/design.md, "Run states on the map"): not lit is a line, lit
+// is light, selected is an outline. A run on the map is in these states,
+// each drawn its own way:
+//   installed  not lit: a thin dashed line in a warm neutral. The dash is the
+//              cue (the model's edges are solid), so it survives grayscale;
+//              the warm tone sets it off the model's cool blue-gray
+//   lit        the look's own colors at the lit width, and nothing else
+//   previewed  the same, while the map shows a preview
+//   selected   a thin outline in the interaction blue around the run's path,
+//              clear of the run, so the colors inside are untouched
+//   hovered    the same outline at half strength: under the pointer (with the
+//              run's name beside it), or pointed at from the panel
 //   target     calibration's current point: the one cyan ring
-//   warned     an amber outline, while a Status warning for the run is pointed at
+//   warned     an amber line, while a Status warning for the run is pointed at
 // RUN_LINE is how the line states are stroked on the overlay canvas. The
-// installed line is neutral gray: no hue a light could be showing, at least
-// 3:1 against the map's background and another weight than the model's lines.
+// installed line is at least 3:1 against the map's background, 1 to 1.5 px
+// wide, and dashed.
 export const RUN_LINE = {
-  installed: { color: 'rgb(122, 122, 122)', width: 2 },
-  hovered: { color: 'rgb(241, 245, 249)', width: 3 },
+  installed: { color: 'rgb(140, 124, 102)', width: 1.25, dash: [4, 3] },
   warned: { color: 'rgb(245, 158, 11)', width: 4 },
 };
 export const TARGET_COLOR = '#22d3ee'; // the one color reserved for "current"
+// LIT_WIDTH is the least width a lit run draws at, px (scene.js PIXEL_VS):
+// the key's swatch for it, and what its outline clears.
+export const LIT_WIDTH = 5;
+
+// strokeLine strokes parts (polylines of [x, y]) in a RUN_LINE style, dashed
+// when the style is. The map and the key's swatches both draw with it.
+export function strokeLine(ctx, parts, style) {
+  ctx.strokeStyle = style.color; ctx.lineWidth = style.width; ctx.lineJoin = 'round'; ctx.lineCap = style.dash ? 'butt' : 'round';
+  if (style.dash && ctx.setLineDash) ctx.setLineDash(style.dash);
+  ctx.beginPath();
+  for (const part of parts) {
+    ctx.moveTo(part[0][0], part[0][1]);
+    // One pixel on screen still draws: a dot of the line's width.
+    if (part.length === 1) ctx.lineTo(part[0][0] + (style.dash ? style.dash[0] : 0.01), part[0][1]);
+    for (let i = 1; i < part.length; i++) ctx.lineTo(part[i][0], part[i][1]);
+  }
+  ctx.stroke();
+  if (style.dash && ctx.setLineDash) ctx.setLineDash([]);
+}
 
 // OUTLINE is the thin line drawn around a run's path, clear of the run by a
 // small gap, so whatever the run shows inside it is untouched: the page's
-// interaction blue, width px thick, gap px from the widest thing the run
-// draws (a lit pixel). What the panel points at has it at `pointed` of its
-// strength. It replaced a 15 px translucent halo, which over a whole house
-// read as every run being a thick gray tube (B150).
-export const OUTLINE = { color: '#7cc4ff', width: 1.5, gap: 2, pointed: 0.5, fade: 120 };
+// interaction blue (ui.css --accent: not the preview's purple, the lights'
+// green or a warning's amber), width px thick, gap px from the widest thing
+// the run draws (a lit pixel). The selection has it at full strength; the run
+// under the pointer and what the panel points at have it at `pointed` of
+// that. It replaced a 15 px translucent halo, which over a whole house read
+// as every run being a thick gray tube (B150) and grayed the colors under a
+// selection.
+export const OUTLINE = { color: 'rgb(124, 196, 255)', rgb: '124, 196, 255', width: 1.5, gap: 2, pointed: 0.5, fade: 120 };
 
 // outlineWidths is the outline for a run drawn d px wide: `inner` is the
 // width left clear along the path, `outer` the stroke that leaves the
@@ -154,22 +199,59 @@ export function unlitRuns(lit, seen, now) {
   return out;
 }
 
-// STATE_KEY is the key's entry for each state: a swatch class and the words.
+// STATE_KEY is the key's entry for each state, in the key's order: the id
+// and the words. Lit and Previewing are one state under two names (what the
+// map shows decides which), so only one of them is ever listed.
 export const STATE_KEY = [
-  ['installed', 'line', 'Not lit'],
-  ['hovered', 'line bright', 'Pointed at'],
-  ['selected', 'halo', 'Selected'],
-  ['previewed', 'look', 'Previewing'],
-  ['target', 'ring', 'Calibrating this point'],
-  ['warned', 'line amber', 'Needs calibrating'],
+  ['installed', 'Not lit'],
+  ['lit', 'Lit'],
+  ['previewed', 'Previewing'],
+  ['selected', 'Selected'],
+  ['hovered', 'Pointed at'],
+  ['target', 'Calibrating this point'],
+  ['warned', 'Needs calibrating'],
 ];
 // statesShown is the states on screen now, in the key's order: the key lists
 // a state only while it is there.
 export function statesShown(on) {
-  return STATE_KEY.filter(([id]) => on[id]).map(([id]) => id);
+  return STATE_KEY.filter(([id]) => on[id] && !(id === 'lit' && on.previewed)).map(([id]) => id);
 }
-// stateKeyHTML is those states as one line of the key ('' with none).
+// SWATCH is a key swatch's size, px: wide enough for two dashes, tall enough for the outline.
+export const SWATCH = { w: 26, h: 14 };
+// stateKeyHTML is those states as one line of the key ('' with none). Each
+// swatch is a small canvas that paintSwatches draws with the map's own
+// strokes, so the key cannot drift from what it explains.
 export function stateKeyHTML(ids) {
   if (!ids.length) return '';
-  return `<div class="key states">${STATE_KEY.filter(([id]) => ids.includes(id)).map(([id, cls, words]) => `<span data-state="${id}"><i class="sw rs ${cls}"></i>${words}</span>`).join('')}</div>`;
+  return `<div class="key states">${STATE_KEY.filter(([id]) => ids.includes(id)).map(([id, words]) => `<span data-state="${id}"><canvas class="sw rs" data-swatch="${id}" width="${SWATCH.w}" height="${SWATCH.h}" aria-hidden="true"></canvas>${words}</span>`).join('')}</div>`;
+}
+// LOOK_COLORS stands for "a look's own colors" in a swatch.
+const LOOK_COLORS = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7'];
+// drawSwatch draws state id's swatch on ctx, w by h px, with the strokes the
+// map uses for it at the weights the map uses: the dashed line, the lit
+// width, the outline at its strength, the target's ring, the amber line.
+export function drawSwatch(ctx, id, w = SWATCH.w, h = SWATCH.h) {
+  const y = h / 2, line = [[[1, y], [w - 1, y]]], run = [[[4, y, LIT_WIDTH], [w - 4, y, LIT_WIDTH]]];
+  if (id === 'installed') strokeLine(ctx, line, RUN_LINE.installed);
+  else if (id === 'warned') strokeLine(ctx, [[[3, y], [w - 3, y]]], RUN_LINE.warned);
+  else if (id === 'lit' || id === 'previewed') {
+    const n = LOOK_COLORS.length, step = (w - 6) / n;
+    LOOK_COLORS.forEach((color, i) => strokeLine(ctx, [[[3 + i * step, y], [3 + (i + 1) * step, y]]], { color, width: LIT_WIDTH, dash: [step, 0] }));
+  } else if (id === 'selected' || id === 'hovered') {
+    // Half strength is in the color, not the context: the cut of the inside must stay whole.
+    strokeOutline(ctx, run, id === 'hovered' ? `rgba(${OUTLINE.rgb}, ${OUTLINE.pointed})` : OUTLINE.color);
+  } else if (id === 'target') {
+    ctx.strokeStyle = TARGET_COLOR; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(w / 2, y, Math.min(w, h) / 2 - 2, 0, 2 * Math.PI); ctx.stroke();
+  }
+}
+// paintSwatches draws every swatch canvas under root, at the screen's pixel ratio.
+export function paintSwatches(root, ratio = globalThis.devicePixelRatio || 1) {
+  for (const c of root.querySelectorAll('canvas[data-swatch]')) {
+    c.width = Math.round(SWATCH.w * ratio); c.height = Math.round(SWATCH.h * ratio);
+    const ctx = c.getContext('2d');
+    if (!ctx) continue;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    drawSwatch(ctx, c.dataset.swatch);
+  }
 }

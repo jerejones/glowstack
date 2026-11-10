@@ -5,8 +5,8 @@
 // The live map's 2-D view of an SVG plan, with the same interface as
 // scene.js so app.js and overlay.js don't care which one is open. It
 // draws on the map canvas: the plan (inverted, as plans are black on
-// white), the selection halo, then the pixels as squares sized by their
-// pitch. It
+// white), then the pixels as squares sized by their pitch (selection and
+// pointing are outlines the overlay draws over them). It
 // pans and zooms with a finger, two fingers or the wheel. World units
 // are plan meters, y down as in the SVG.
 import { clamp, nearestRun } from './util.js';
@@ -20,8 +20,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
   let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0, padSide = 0, padEdge = 0;
   const v = { k: 50, tx: 0, ty: 0 };
   let auto = true, version = 0;
-  let colors = null, gray = new Set(), selection = null;
-  let img = null, cache = null;
+  let colors = null, gray = new Set(), quiet = new Set();
+  let img = null, cache = null, quietKey = '';
 
   const drawn = [];
   for (let p = 0; p < n; p++) if (px.plan[p] === planIndex && px.x[p] !== null) drawn.push(p);
@@ -138,30 +138,6 @@ export function openPlan(canvas, plan, planIndex, opts) {
   // sizeOf is the side of pixel p's square, in CSS px.
   const sizeOf = (p) => clamp((px.dl[p] || 0.03) * v.k * 1.275, 4, 24);
 
-  // haloPath strokes a set of pixels as one path, so its translucency
-  // doesn't build up where it overlaps itself.
-  function haloPath(ctx, ranges) {
-    ctx.beginPath();
-    for (const [a, b] of ranges) {
-      let seq = [];
-      const flush = () => {
-        if (!seq.length) return;
-        for (let i = 0; i < seq.length; i++) {
-          const p = seq[i];
-          const x = px.x[p] * v.k + v.tx, y = px.y[p] * v.k + v.ty;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        if (seq.length === 1) ctx.lineTo(px.x[seq[0]] * v.k + v.tx + 0.1, px.y[seq[0]] * v.k + v.ty);
-        seq = [];
-      };
-      for (let p = a; p <= b; p++) {
-        if (!isDrawn[p] || (seq.length && px.run[p] !== px.run[seq[seq.length - 1]])) flush();
-        if (isDrawn[p]) seq.push(p);
-      }
-      flush();
-    }
-  }
-
   function render(ctx) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = '#0d0e10';
@@ -176,14 +152,6 @@ export function openPlan(canvas, plan, planIndex, opts) {
     if (img && r) ctx.drawImage(planLayer(r), 0, 0, W, H);
     ctx.globalAlpha = 1;
 
-    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    if (selection && selection.length) {
-      ctx.globalAlpha = 0.5; ctx.strokeStyle = '#fff';
-      ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
-      haloPath(ctx, selection); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
     for (const p of drawn) {
       if (!isDrawn[p]) continue;
       const s = sizeOf(p);
@@ -196,7 +164,9 @@ export function openPlan(canvas, plan, planIndex, opts) {
       }
       let cr = col[3 * p], cg = col[3 * p + 1], cb = col[3 * p + 2];
       if (!(cr | cg | cb) && !gray.has(px.controller[p])) {
-        // Unlit: a dim outline, so off doesn't read as missing.
+        // A run with nothing lit is the overlay's one dashed line: no square per pixel.
+        if (quiet.has(px.run[p])) continue;
+        // Unlit, on a lit run: a dim outline, so off doesn't read as missing.
         ctx.strokeStyle = '#333a44'; ctx.lineWidth = 1;
         ctx.strokeRect(x - s / 2, y - s / 2, s, s);
         continue;
@@ -232,7 +202,14 @@ export function openPlan(canvas, plan, planIndex, opts) {
     setColors(arr) { colors = arr; changed(); },
     frameArrived() {},
     setGray(ctrls) { gray = ctrls; changed(); },
-    setSelection(sel) { selection = sel; changed(); },
+    // setQuietRuns says which runs have nothing lit (run indexes, or null).
+    setQuietRuns(runs) {
+      const key = runs ? runs.join() : '';
+      if (key === quietKey) return;
+      quietKey = key;
+      quiet = new Set(runs || []);
+      opts.onChange();
+    },
     render,
     tick: () => false,
     toScreen: (x, y) => [x * v.k + v.tx, y * v.k + v.ty, 1],

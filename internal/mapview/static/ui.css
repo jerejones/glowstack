@@ -364,13 +364,8 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 /* The runs' states, as the map draws them (map-control.js): the key's last line. */
 .key.states { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: center; }
 .key.states > span { display: inline-flex; align-items: center; white-space: nowrap; }
-.sw.rs { width: 16px; height: 2px; border-radius: 1px; margin-right: 6px; vertical-align: middle; }
-.sw.rs.line { background: rgb(122, 122, 122); }
-.sw.rs.line.bright { height: 3px; background: rgb(241, 245, 249); }
-.sw.rs.line.amber { height: 4px; border-radius: 2px; background: rgb(245, 158, 11); }
-.sw.rs.halo { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.5); }
-.sw.rs.look { height: 5px; border-radius: 2px; background: linear-gradient(90deg, #ef4444, #f59e0b, #22c55e, #3b82f6, #a855f7); }
-.sw.rs.ring { width: 10px; height: 10px; background: none; border: 2px solid #22d3ee; border-radius: 50%; }
+/* A run state's swatch is a small canvas that map-control.js paints with the map's own strokes. */
+canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inline-block; width: 26px; height: 14px; border-radius: 0; margin-right: 6px; vertical-align: middle; flex: none; } /* not the map's own canvases, which fill the stage */
 /* Only the states to explain: one line, no button, the size of a chip. */
 .legend.states-only { padding: 3px 9px; max-width: none; right: auto; }
 .legend.states-only .key.states { flex-wrap: nowrap; }
@@ -548,6 +543,11 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   .legend-rows { display: flex; flex-wrap: wrap; gap: 2px 10px; align-items: center; }
   .legend-rows > .ramp, .legend-rows > .row, .legend-rows > .key, .legend-rows > .key-row, .legend-rows > .label-note, .legend-rows > div:first-child { flex: 0 0 100%; }
   body[data-detent=peek]:not(.calibrating) .legend, :root:not([data-tab=setup]) body[data-detent=half]:not(.calibrating) .legend { display: flex; }
+  /* When the key is only the runs' states it is one line on the map at every detent and on every tab, Setup included (a longer key, with a coloring's or the points' rows, is in Setup's panel there). */
+  body[data-detent=half]:not(.calibrating) .legend.states-only, body[data-detent=full]:not(.calibrating) .legend.states-only { display: flex; }
+  /* A phone's key is a tighter chip: it sits over the map's lower corner. */
+  .legend.states-only .key.states { gap: 2px 8px; }
+  .legend.states-only canvas.sw.rs { margin-right: 4px; }
   .tab h1.title, .tab .library-heading { margin-top: 16px; }
   /* Half open, the sheet opens to the task. On Looks the stage compacts so
    * the Library's first row is on screen: a one-line header ("Previewing ·

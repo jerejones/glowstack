@@ -1312,7 +1312,10 @@ desk.
   default framing only; a camera placed by hand stays where it was put.
   When the band is short the house draws smaller; the sheet keeps its height.
 - **Touch and pointer.** A tap selects (a finger may drift 6 px); a long
-  press (450 ms) pins a pixel's inspect card; a double tap fits. With a
+  press (450 ms) pins a pixel's inspect card; a double tap (or double click)
+  on empty map fits the view to the lights, and the selection the first of
+  the two taps cleared comes back. A double tap that lands on a run is two
+  taps on that run: the second climbs the selection, it never fits. With a
   mouse, hovering shows the card. On touch screens every control is at
   least 44 px and text is 15 px; with a mouse, controls are about 28 px and
   text 13 px.
@@ -1323,9 +1326,10 @@ desk.
     wall shows dimmed and one in front of it shows fully.
   - The pixels are one point cloud (one color buffer, updated in place
     each frame), each a dot at its position in its live color, sized by its
-    pitch and distance. An unlit pixel is a black dot, like the LED; a
-    dead pixel is a gray ring, and a pixel whose controller can't be
-    reached is gray.
+    pitch and distance. A dark pixel on a lit run is a dim ring; a run with
+    nothing lit draws no dots at all and is one thin dashed line instead
+    (see "Run states on the map"). A dead pixel is a gray ring, and a pixel
+    whose controller can't be reached is gray.
   - Orbit, pan and zoom. The map opens on the site's view until you move
     the camera, then keeps where you left it, per device. **Default** forgets
     this device's camera. The site's view reframes itself when the screen or
@@ -1376,8 +1380,8 @@ desk.
   opens the whole chain as a menu, so every step is at most two taps away.
   If the parent still does not fit it shortens, then moves into the menu; the
   current target's name shortens only when nothing else is left, and then
-  keeps its whole name as its tooltip and accessible name. The selection is where looks go; a soft white halo marks its pixels
-  on the map. A selection made while a preview is up moves no existing
+  keeps its whole name as its tooltip and accessible name. The selection is where looks go; a thin blue outline
+  around its runs marks it on the map. A selection made while a preview is up moves no existing
   layer: it only sets where the next one goes.
 - **The map is a control, and says so.**
   - *One target control.* The Library's header has **Next look:** followed
@@ -1443,18 +1447,38 @@ desk.
   while Points is on, and it adds the descriptions to the controllers'
   names. A name is placed only where there is room for it; the key says how
   many were left out ("5 labels hidden: no room").
-- **Run states on the map.** A run is drawn one way per state, and the key
-  lists a state only while it is on screen (one line on a phone, a chip
-  that takes no room from the framing):
+- **Run states on the map.** One rule: **not lit is a line, lit is light,
+  selected is an outline.** A run is drawn one way per state, and the three
+  can be told apart at a glance, in grayscale as well as in color:
 
   | State | Drawn as |
   |---|---|
-  | Installed, not lit | A thin (2 px) neutral gray line along every drawn run: no hue a light could be showing, at least 3:1 against the map's background, and another weight and color than the model's lines. A run with any pixel lit shows its look and no line (the line stays away for 2 s after the last lit frame, so a look that breathes to black does not flash it in). Not drawn over a diagnostic coloring or during a calibration step. |
-  | Hovered (mouse) | The run's line brightens to near white at 3 px, and its name shows beside the pointer. |
-  | Selected | The soft white halo, wider than any line, and the name in the breadcrumb. |
-  | Previewed | The look's own colors. |
+  | Not lit | A thin (1.25 px) dashed line along every drawn run, in a warm neutral. The dash is the cue: the model's edges are solid, so an unlit run cannot be taken for a roof edge even without color; the warm tone sets it off the model's cool blue-gray. At least 3:1 against the map's background. The run draws nothing else: no dot per pixel, so it stays a line however far the map is zoomed in, never a tube. A run with any pixel lit shows its look and no line (the line stays away for 2 s after the last lit frame, so a look that breathes to black does not flash it in). Not drawn over a diagnostic coloring or during a calibration step. |
+  | Lit | The look's own colors at the lit width (5 px or more), and nothing else on the run. It is the brightest and widest thing on the map in every state. Called "Previewing" in the key while the map shows a preview. |
+  | Selected | A thin (1.5 px) outline in the page's interaction blue, drawn around the run's path 2 px clear of it, so the colors inside are exactly as they were: no fill, no blur. A selected unlit run is its dashed line inside the outline. The name is in the breadcrumb. |
+  | Hovered (mouse), pointed at | The same outline at half strength: around the run under the pointer, with its name beside the pointer, and around what the panel points at. |
   | Calibration target | Cyan, the one color reserved for "current": see "Calibration mode". |
-  | Warned | A 4 px amber outline, only while a Status warning for that run is pointed at. |
+  | Warned | A 4 px amber line, only while a Status warning for that run is pointed at. |
+
+  The blue is the one used for interaction everywhere on the page: not the
+  preview's purple, the lights' green or a warning's amber. **The key**
+  lists exactly the states on screen, on every tab, in a fixed order (one
+  line on a phone, a chip that takes no room from the framing). Each swatch
+  is a small canvas painted by the same strokes that draw the map, at the
+  same widths, so the key cannot drift from what it explains. On a phone
+  that one-line chip is on the map at every detent and on every tab, Setup
+  included; when the key has more to explain (a coloring's ramp, the
+  points' marks) a phone's half and full sheets show it in Setup's panel
+  instead, with the states as its last line.
+- **Finding the whole house again.** There is no reset-view button and no
+  map toolbar (owner decision). The gesture is the double tap on empty map,
+  and the map says so when it is needed: while the camera is away from the
+  default framing, the map's one caption (the quiet line that teaches the
+  tap) reads "Double-tap the map to see the whole house" ("Double-click"
+  with a mouse), on every tab, under the breadcrumb when there is one. It
+  goes when the view is framed again. It is not a control and adds no
+  chrome. It does not show while calibrating, or over a full sheet, whose
+  strip of map is framed on the selection on purpose.
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
   - *Looks*: where looks go (**Next look:**), presets first and then effects, the preview
@@ -1665,7 +1689,7 @@ it is. No chrome is added for it: the focus ring is the only thing drawn.
   run, so the **Next look:** control is the way to choose a place: its list
   has Everything, the zones, the areas and every drawn run, typing anywhere
   in it searches, and choosing one selects it on the map exactly as a tap
-  would, halo and breadcrumb included. The breadcrumb's crumbs are buttons.
+  would, outline and breadcrumb included. The breadcrumb's crumbs are buttons.
   The map itself is a named image ("Map of the lights") whose description
   says what is selected and what it is showing.
 - **Focus.** It is always visible (a 2 px ring, offset) and never dropped:
@@ -1817,7 +1841,7 @@ are display metadata and do not alter the flow graph or measured indices.
 
 Setup offers Operating only / All runs, defaulting to Operating only and
 remembering the choice per browser. It filters pixels, picking, selection
-halos, node labels, anchors and sync connectors without changing output or
+outlines, node labels, anchors and sync connectors without changing output or
 calibration. The model's optional run `status` describes strip condition:
 `working` is operating; other recorded conditions are hidden by the default.
 Missing status defaults to working for older models and 2-D plans. Controller

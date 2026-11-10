@@ -5,8 +5,7 @@
 // The live map's 3-D view of a scene model (.glb), on three.js. It owns
 // the WebGL canvas: the building (see-through lines over faint
 // surfaces), every pixel as one Points object whose color buffer is
-// updated per frame, a translucent halo along the selected pixels,
-// and the camera: computed framing, the site's view, Fit and the camera
+// updated per frame, and the camera: computed framing, the site's view, Fit and the camera
 // remembered per device. Picking is on demand: pixels and runs are
 // projected to the screen only when a tap or hover asks.
 //
@@ -44,12 +43,16 @@ const zUp = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0
 
 // Pixels: a dot sized by its pitch and distance (3–21 CSS px). flags:
 // 1 dead (a gray ring), 2 gray (its controller is unreachable), 4 not
-// drawn. An unlit pixel is a dim ring, so off doesn't read as missing; a
-// lit one is half again as big, so a look reads over the model's lines.
+// drawn. A dark pixel on a lit run is a dim ring, so off doesn't read as
+// missing; a lit one is half again as big, so a look reads over the model's
+// lines. quiet marks the pixels of a run with nothing lit: the overlay draws
+// that run as one thin dashed line, and its dark pixels draw nothing here
+// (a ring each made a second, wider line under it).
 const PIXEL_VS = `
 attribute vec3 rgb;
 attribute float dl;
 attribute float flags;
+attribute float quiet;
 uniform float uHalfH;
 uniform float uDpr;
 varying vec3 vColor;
@@ -62,6 +65,7 @@ void main() {
   gl_Position = projectionMatrix * mv;
   float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 1.35;
   bool lit = dot(rgb, rgb) >= 0.0004 && flags < 2.0;
+  if (quiet > 0.5 && flags < 1.0 && dot(rgb, rgb) < 0.0004) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 1.0; return; }
   gl_PointSize = lit ? clamp(s * 1.5, 5.0 * uDpr, 24.0 * uDpr) : clamp(s, 3.0 * uDpr, 21.0 * uDpr);
 }`;
 const PIXEL_FS = `
@@ -87,36 +91,12 @@ void main() {
   gl_FragColor = vec4(col, uAlpha);
 }`;
 
-// The selection halo: wide translucent dots centered on the selected
-// pixels, growing with them (uGrow). The stencil lets it cover a screen
-// pixel once, so overlapping dots don't build up.
-const HALO_VS = `
-attribute float dl;
-uniform float uHalfH;
-uniform float uSize;
-uniform float uDpr;
-uniform float uGrow;
-void main() {
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_Position = projectionMatrix * mv;
-  float s = dl * projectionMatrix[1][1] * uHalfH / max(-mv.z, 1e-3) * 1.35;
-  float ps = clamp(s, 3.0 * uDpr, 21.0 * uDpr);
-  gl_PointSize = max(uSize, ps * uGrow);
-}`;
-const HALO_FS = `
-uniform vec3 uColor;
-uniform float uAlpha;
-void main() {
-  vec2 c = gl_PointCoord * 2.0 - 1.0;
-  if (dot(c, c) > 1.0) discard;
-  gl_FragColor = vec4(uColor, uAlpha);
-}`;
-
 // Draw order, all in three's transparent pass: model surfaces and lines
-// (no depth test, see-through), the halo, every pixel dimmed with no depth
-// test, then the pixels again tested against the surfaces' depth. So a
-// pixel behind a wall shows dimmed and one in front shows fully.
-const ORDER = { surfaces: 0, lines: 1, halo: 2, dim: 3, pixels: 4 };
+// (no depth test, see-through), every pixel dimmed with no depth test, then
+// the pixels again tested against the surfaces' depth. So a pixel behind a
+// wall shows dimmed and one in front shows fully. Selection and pointing
+// are outlines on the overlay canvas above (overlay.js), not drawn here.
+const ORDER = { surfaces: 0, lines: 1, dim: 3, pixels: 4 };
 
 // open loads the model and returns the view. Orbit controls listen on
 // input (the overlay canvas above); drawing is on glCanvas. opts:
@@ -128,7 +108,7 @@ const ORDER = { surfaces: 0, lines: 1, halo: 2, dim: 3, pixels: 4 };
 //   onChange     called when anything drawn changed
 //   onCamera     called with camera state when it moves or changes view
 export async function open(glCanvas, input, opts) {
-  const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true, stencil: true });
+  const renderer = new THREE.WebGLRenderer({ canvas: glCanvas, antialias: true });
   renderer.setClearColor(0x0d0e10, 1);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 2000);
@@ -206,7 +186,7 @@ export async function open(glCanvas, input, opts) {
   // ----- pixels -----
   const pos = new Float32Array(3 * n), dl = new Float32Array(n), flags = new Float32Array(n);
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-  let visibility = null, grayControllers = new Set(), currentSelection = null;
+  let visibility = null, grayControllers = new Set();
   const drawn = (p) => (!visibility || visibility[p]) && px.plan[p] === opts.plan && px.x[p] !== null;
   for (let p = 0; p < n; p++) {
     if (!drawn(p)) { flags[p] = 4; continue; }
@@ -222,6 +202,9 @@ export async function open(glCanvas, input, opts) {
   geom.setAttribute('dl', new THREE.BufferAttribute(dl, 1));
   const flagAttr = new THREE.BufferAttribute(flags, 1);
   geom.setAttribute('flags', flagAttr);
+  const quiet = new Float32Array(n), quietAttr = new THREE.BufferAttribute(quiet, 1);
+  geom.setAttribute('quiet', quietAttr);
+  let quietKey = '';
   // BufferAttribute keeps the array (Uint8BufferAttribute would copy it),
   // so each frame written into opts.rgb only needs an upload.
   const liveAttr = new THREE.BufferAttribute(opts.rgb, 3, true);
@@ -247,45 +230,6 @@ export async function open(glCanvas, input, opts) {
     scene.add(pts);
   }
 
-  // ----- selection halo -----
-  const haloGroup = new THREE.Group();
-  scene.add(haloGroup);
-  let haloKey = '';
-  const HALO_CSS = 15; // the halo's least width, CSS px
-  function haloObject(ranges) {
-    let k = 0;
-    for (const [a, b] of ranges) for (let p = a; p <= b; p++) if (drawn(p)) k++;
-    const rp = new Float32Array(3 * k), rl = new Float32Array(k);
-    let i = 0;
-    for (const [a, b] of ranges) {
-      for (let p = a; p <= b; p++) {
-        if (!drawn(p)) continue;
-        rp.set(pos.subarray(3 * p, 3 * p + 3), 3 * i);
-        rl[i] = dl[p];
-        i++;
-      }
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(rp, 3));
-    g.setAttribute('dl', new THREE.BufferAttribute(rl, 1));
-    const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        uHalfH: { value: 1 }, uSize: { value: HALO_CSS }, uDpr: { value: 1 }, uGrow: { value: 1.6 },
-        uColor: { value: new THREE.Color(1, 1, 1) }, uAlpha: { value: 0.5 },
-      },
-      vertexShader: HALO_VS, fragmentShader: HALO_FS,
-      transparent: true, depthTest: false, depthWrite: false,
-      stencilWrite: true, stencilRef: 250, stencilFunc: THREE.NotEqualStencilFunc,
-      stencilZPass: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilFail: THREE.KeepStencilOp,
-    });
-    const obj = new THREE.Points(g, mat);
-    obj.frustumCulled = false;
-    obj.renderOrder = ORDER.halo;
-    return obj;
-  }
-  function clearHalo() {
-    for (const o of [...haloGroup.children]) { o.geometry.dispose(); o.material.dispose(); haloGroup.remove(o); }
-  }
   // ----- camera -----
   const box = new THREE.Box3();
   if (isFinite(lo[0])) { box.expandByPoint(toThree(lo)); box.expandByPoint(toThree(hi)); }
@@ -492,6 +436,12 @@ export async function open(glCanvas, input, opts) {
 
   function setView(name) {
     if (name === 'fit') {
+      // The tap that asked for the fit is itself a gesture the controls are
+      // holding: the move the fit makes is not that gesture's, so it must not
+      // hand the camera back to the user (it did: after a double tap the
+      // view was framed but no longer followed the screen, and never counted
+      // as back at the default).
+      grab = null;
       cam.dir = camera.position.clone().sub(controls.target).normalize();
       cam.target = null; cam.auto = true;
       if (cam.mode === 'free') cam.mode = 'fit';
@@ -593,34 +543,26 @@ export async function open(glCanvas, input, opts) {
       flagAttr.needsUpdate = true;
       changed();
     },
-    // setSelection draws the halo along the selected pixels (ranges, or
-    // null), rebuilding only when they change.
     setPixelVisibility(mask) {
       visibility = mask;
       this.setGray(grayControllers);
-      haloKey = null;
-      this.setSelection(currentSelection);
     },
-    setSelection(selection) {
-      currentSelection = selection;
-      const key = JSON.stringify(selection);
-      if (key === haloKey) return;
-      haloKey = key;
-      clearHalo();
-      if (selection && selection.length) haloGroup.add(haloObject(selection));
-      for (const o of haloGroup.children) this.sizeHalo(o);
-      changed();
-    },
-    sizeHalo(o) {
-      const u = o.material.uniforms;
-      u.uHalfH.value = H * dpr / 2;
-      u.uSize.value = HALO_CSS * dpr;
-      u.uDpr.value = dpr;
+    // setQuietRuns says which runs have nothing lit (run indexes, or null for
+    // none): their dark pixels draw nothing, the overlay's line stands for
+    // them. It changes nothing about where a pixel is or whether it is picked.
+    setQuietRuns(runs) {
+      const key = runs ? runs.join() : '';
+      if (key === quietKey) return;
+      quietKey = key;
+      const on = new Set(runs || []);
+      for (let p = 0; p < n; p++) quiet[p] = on.has(px.run[p]) ? 1 : 0;
+      quietAttr.needsUpdate = true;
+      glDirty = true;
+      opts.onChange();
     },
     // render draws if anything changed; returns whether it did.
     render() {
       if (!glDirty) return false;
-      for (const o of haloGroup.children) this.sizeHalo(o);
       renderer.render(scene, camera);
       glDirty = false;
       return true;
@@ -671,9 +613,11 @@ export async function open(glCanvas, input, opts) {
     },
     // litSize is how wide pixel p draws when it is lit, in CSS px: the
     // widest thing its run draws there (PIXEL_VS).
-    litSize(p) {
-      const v = new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]).applyMatrix4(camera.matrixWorldInverse);
-      const s = dl[p] * camera.projectionMatrix.elements[5] * H / 2 / Math.max(-v.z, 1e-3) * 1.35;
+    // depth is its view depth where the caller has it (toScreen's third
+    // value), which saves working it out again.
+    litSize(p, depth) {
+      const z = depth ?? -new THREE.Vector3(pos[3 * p], pos[3 * p + 1], pos[3 * p + 2]).applyMatrix4(camera.matrixWorldInverse).z;
+      const s = dl[p] * camera.projectionMatrix.elements[5] * H / 2 / Math.max(z, 1e-3) * 1.35;
       return clamp(s * 1.5, 5, 24);
     },
     // screenOf is a pixel's last projected screen position (for pinned
@@ -734,6 +678,7 @@ export async function open(glCanvas, input, opts) {
     // hold and release put the user's camera back).
     fitAll() {
       cancelAnimationFrame(gliding);
+      grab = null; // as in setView: the fit's own move is not the tap's
       cam.dir = camera.position.clone().sub(controls.target).normalize();
       cam.target = null; cam.auto = true;
       frame();
