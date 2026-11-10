@@ -112,7 +112,12 @@ export function installTooltips(doc = document) {
   };
   doc.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') lift(); }, true);
   doc.addEventListener('pointercancel', lift, true);
-  // The page moved under it: it would point at nothing.
-  doc.addEventListener('scroll', () => { if (shownFor) hide(); }, true);
+  // The page moved under it (focusing a control scrolls it into view): it
+  // follows its control, and goes only when the control has left the screen.
+  doc.addEventListener('scroll', () => {
+    if (!shownFor) return;
+    const r = shownFor.getBoundingClientRect(), view = doc.defaultView;
+    if (!shownFor.isConnected || r.bottom < 0 || r.top > view.innerHeight || !(r.width > 0)) hide(); else show(shownFor);
+  }, true);
   return { show, hide };
 }

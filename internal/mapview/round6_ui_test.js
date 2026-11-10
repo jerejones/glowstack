@@ -502,6 +502,7 @@ test('Refinement 5: icon buttons say what they are, in a tooltip drawn in the pa
   assert.match(src, /if \(el && el !== shownFor\) later\(el, HOVER_MS\);/, 'hover: after 400 ms');
   assert.match(src, /if \(el && e\.target\.matches\?\.\(':focus-visible'\)\) show\(el\);/, 'keyboard focus: at once');
   assert.match(src, /later\(el, PRESS_MS\);/, 'touch: a long press');
+  assert.match(src, /if \(!shownFor\.isConnected \|\| r\.bottom < 0 \|\| r\.top > view\.innerHeight \|\| !\(r\.width > 0\)\) hide\(\); else show\(shownFor\);/, 'a scroll moves it with its control: focusing a control scrolls it into view');
   assert.match(css(), /\.tip \{ position: fixed;[^}]*font-size: var\(--t-sub\);[^}]*pointer-events: none; \}/);
   assert.match(read('app.js'), /installTooltips\(document\);/);
   // Every icon-only control named in the plan has it, and none keeps a native title beside it.
