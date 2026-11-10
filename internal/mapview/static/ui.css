@@ -52,7 +52,7 @@
   --cal-map: 42%;        /* the map above calibration on a phone */
   --rail-w: 52px;
   --panel-space: var(--panel-w);
-  --handle: 24px;        /* the sheet's grabber */
+  --handle: 20px;        /* the sheet's grabber: with the 48 px tab bar it takes what the old handle and tab strip took (68 px), so the half sheet's content is the height it was */
   --peek-line: 28px;     /* the one line of state a peeking sheet shows */
   --tabbar: 48px;        /* the phone's tab bar, before the safe area */
   --peek: calc(var(--handle) + var(--peek-line) + var(--tabbar));

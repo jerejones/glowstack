@@ -17,7 +17,7 @@ const TAB = 'glowstack.tab';
 const RAIL = 'glowstack.rail';
 const DETENT = 'glowstack.sheet.detent';
 const routeTab = () => /^\/(looks|presets|setup|status)\/?$/.exec(location.pathname)?.[1] || null;
-const PEEK = 52;   // the sheet's own part of a peek: the handle (24) and the state line (28); the tab bar is below it
+const PEEK = 48;   // the sheet's own part of a peek: the handle (20) and the state line (28); the tab bar is below it
 const STRIP = 200; // the map above a full sheet: --strip in ui.css
 const HALF = 0.64; // of the window's height at the half detent, tab bar included, the same on every tab so the map holds still: the sheet opens to the task, and the map band above it still shows the whole lit outline
 const HALF_MIN = 300; // with the tab bar: room for a look card above the Apply bar on a short phone

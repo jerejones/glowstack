@@ -1047,7 +1047,7 @@ test('the phone sheet has no rail toggle, and its peek is the handle and one lin
   assert.match(sheet, /\.tabs \.rail-toggle \{ display: none; \}/);
   assert.match(sheet, /\.ico svg \{ width: 20px; height: 20px; \}/);
   assert.match(css, /--peek: calc\(var\(--handle\) \+ var\(--peek-line\) \+ var\(--tabbar\)\);/);
-  assert.match(read('sheet.js'), /const PEEK = 52;/);
+  assert.match(read('sheet.js'), /const PEEK = 48;/);
 });
 
 test('a long look name wraps instead of being cut off', () => {

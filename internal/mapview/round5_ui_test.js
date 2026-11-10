@@ -407,7 +407,10 @@ test('H: the phone shell has its tabs in a bottom bar and a sheet that follows t
   assert.match(phone, /@media \(prefers-reduced-motion: reduce\) \{ \.panel \{ transition: none; \} \}/);
   // The heights: the peek is the handle and one line (plus the apply bar while previewing) over the bar; half and full keep the map's band.
   assert.match(sheet, /return \{ peek: PEEK \+ sb \+ peekExtra, half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\), full: h - STRIP \};/);
-  assert.match(sheet, /const PEEK = 52;/);
+  assert.match(sheet, /const PEEK = 48;/);
+  // The handle and the tab bar together take what the old handle and tab strip took, so the half sheet's content keeps its height and its floors.
+  const px = (name) => parseFloat(new RegExp(`--${name}: (\\d+)px;`).exec(c)[1]);
+  assert.equal(px('handle') + px('tabbar'), 68);
   assert.match(read('panel/looks.js'), /S\.panel\.setPeekExtra\?\.\(shown \? bar\.offsetHeight : 0\);/);
   // Beside the map nothing changes: the handle and the peek's line are the phone's, and are not drawn there.
   assert.match(c.slice(0, c.indexOf('/* bottom sheet */')), /^\.handle, \.peek-line \{ display: none; \}/m);
