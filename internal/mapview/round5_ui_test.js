@@ -72,9 +72,9 @@ test('B148: a tile whose value is words uses the label style, so it never outwei
   for (const f of tileFacts({ ...base, power: null }).slice(0, 3)) assert.match(tileHTML(f), /^<div class="stat[^"]*" title="[^"]*"><b>[^<]+<\/b><span>/);
   // Both lines of a wordy tile are the label's size and weight; the figure's box keeps its height.
   const c = css();
-  assert.match(c, /\.tiles \.stat b\.words \{ color: var\(--muted\); font-size: var\(--t-meta\); font-weight: 400; \}/);
-  assert.match(c, /\.tiles \.stat\.wordy span \{ color: var\(--fg\); font-size: var\(--t-meta\); font-weight: 400; \}/);
-  assert.match(c, /^\.stat span \{ display: block; color: var\(--muted\); font-size: var\(--t-meta\); \}/m);
+  assert.match(c, /\.tiles \.stat b\.words \{ color: var\(--muted\); font-size: var\(--t-sub\); font-weight: 400; \}/);
+  assert.match(c, /\.tiles \.stat\.wordy span \{ color: var\(--fg\); font-size: var\(--t-sub\); font-weight: 400; \}/);
+  assert.match(c, /^\.stat span \{ display: block; color: var\(--muted\); font-size: var\(--t-sub\); \}/m);
   assert.match(read('panel/status.js'), /querySelectorAll\('b:not\(\.words\)'\)\) fitFigure/);
 });
 

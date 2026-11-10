@@ -123,8 +123,8 @@ test('a disabled primary action does not look like a faded primary', () => {
 
 test('the type scale has four named sizes and no ad hoc ones', () => {
   assert.doesNotMatch(css, /font-size: (0\.\d+em|1\.\d+em|\d+px)/);
-  assert.match(css, /--t-s: 12px/);
-  assert.match(css, /^h3 \{[^}]*font-size: var\(--t-h3\)/m);
+  assert.match(css, /--t-fine: 12px/); // five named sizes since series 2 round 6 (T)
+  assert.match(css, /^h3 \{[^}]*font-size: var\(--t-body\)/m);
 });
 
 test('icons are SVG: no glyph icons are left in the page source', async () => {
@@ -242,9 +242,9 @@ test('a run shorter than drawn warns like one that is longer', () => {
 });
 
 test('nothing is under the caption size, and small text uses it', () => {
-  assert.match(css, /(^|\n)small \{ font-size: var\(--t-s\); \}/);
-  assert.match(css, /--t-s: 12px/);
-  assert.doesNotMatch(css, /--t-s: (\d|1[01])px/);
+  assert.match(css, /(^|\n)small \{ font-size: var\(--t-sub\); \}/); // the secondary size (T): 13 px, not the 12 px caption
+  assert.match(css, /--t-fine: 12px/);
+  assert.doesNotMatch(css, /--t-(fine|sub): (\d|1[01])px/);
   for (const m of css.matchAll(/font-size: ([^;]+);/g)) assert.match(m[1], /var\(--t-[a-z0-9]+\)/, m[0]);
 });
 

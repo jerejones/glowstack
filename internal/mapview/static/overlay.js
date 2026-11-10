@@ -729,7 +729,8 @@ export function createOverlay(S) {
       next.lit = lit.some((on, ri) => on && !!all[ri]);
       const warned = S.warnedRun ?? -1;
       if (all[warned]) { strokeLine(ctx, all[warned], RUN_LINE.warned); next.warned = true; }
-      quiet = unlit;
+      // A run that has just gone dark is quiet too, while its line waits out the linger.
+      quiet = lit.map((on, ri) => (on ? -1 : ri)).filter((ri) => ri >= 0);
     }
     // An unlit run is its line and nothing else: the view leaves out the dim
     // dot it otherwise draws for each dark pixel, which made a second, wider

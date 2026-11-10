@@ -192,13 +192,16 @@ export function tileHTML(f, e = (s) => s) {
 // fitFigure shrinks a tile's figure, a step at a time, only while it does
 // not fit its tile on one line: words such as "Not set" or "At least
 // 12.40 A" use the figures' own size unless they would be cut, and are
-// never larger. The figure's box keeps its height, so every figure's bottom
-// edge stays level whatever its size.
-export function fitFigure(el, sizes = [22, 19, 17, 15, 13]) {
+// never larger. The steps are the type scale's own (ui.css): the title size
+// a figure has, then section, body and secondary, never a size between
+// them. The figure's box keeps its height, so every figure's bottom edge
+// stays level whatever its size.
+export const FIGURE_STEPS = ['t-section', 't-body', 't-sub'];
+export function fitFigure(el, steps = FIGURE_STEPS) {
   el.style.fontSize = '';
-  for (const px of sizes.slice(1)) {
+  for (const token of steps) {
     if (el.scrollWidth <= el.clientWidth) return;
-    el.style.fontSize = px + 'px';
+    el.style.fontSize = `var(--${token})`;
   }
 }
 

@@ -11,7 +11,6 @@
  * app.js which one applies. Calibration mode is at the end. */
 
 :root {
-  --t-verdict: 18px;     /* Status's answer: a size below the page title */
   --field: #0f1115; --field-line: #6b7480; --title-row: 44px;
   --control-line: #6b7480; /* a control's edge: 3:1 on every surface it sits on */
   --bg: #0d0e10;
@@ -37,16 +36,13 @@
   --house: #5ddc8a;
   --radius: 10px;
   --tap: 28px;           /* every control's smallest side: 44 px on touch */
-  --t-s: 12px;           /* metadata */
-  --t-note: 13px;        /* validation and status: never smaller */
-  --t-meta: 14px;        /* metadata someone reads for, on every screen */
-  --t-stat: 22px;        /* a Status figure */
-  --t-help: 14px;        /* text that explains */
-  --t-m: 14px;           /* body and controls */
-  --t-h3: 15px;          /* group headings */
-  --t-l: 15px;           /* emphasized values */
-  --t-h2: 17px;          /* section headings, one step on every tab */
-  --t-xl: 24px;          /* the one headline on a screen */
+  /* Type: five sizes, and no other font-size anywhere in this file (docs/design.md, "Type").
+   * Primary is what is acted on or read first; secondary is what explains it. */
+  --t-title: 24px;       /* the one headline on a screen, and a Status figure */
+  --t-section: 17px;     /* section headings, Status's answer, the calibration dock's buttons */
+  --t-body: 14px;        /* primary: names, values, control labels */
+  --t-sub: 13px;         /* secondary: descriptions, sub-lines, help, hints, meta. Never smaller for anything read to act */
+  --t-fine: 12px;        /* dense tabular meta only: a table's column heads, a key's hint beside its button's word */
   --panel-w: 400px;
   --label-w: 11em;       /* the Tweak form's label column */
   --cal-map: 42%;        /* the map above calibration on a phone */
@@ -64,9 +60,9 @@
   --picker-rows: 8;
   color-scheme: dark;
 }
-@media (pointer: coarse) { :root { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; --t-h2: 18px; --t-xl: 26px; --picker-rows: 4; } }
+@media (pointer: coarse) { :root { --tap: 44px; --t-title: 26px; --t-section: 18px; --t-body: 15px; --t-sub: 14px; --t-fine: 13px; --picker-rows: 4; } }
 /* ?pointer=coarse: touch sizing with a mouse, for testing */
-html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; --t-h2: 18px; --t-xl: 26px; --picker-rows: 4; }
+html.coarse { --tap: 44px; --t-title: 26px; --t-section: 18px; --t-body: 15px; --t-sub: 14px; --t-fine: 13px; --picker-rows: 4; }
 
 @media (min-width: 1280px) {
   :root { --panel-w: 580px; }
@@ -75,7 +71,7 @@ html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; 
   :root { --layout: side; --panel-w: 300px; }
 }
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  :root { --layout: sheet; --panel-space: 0px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; --t-h2: 18px; --t-xl: 26px; }
+  :root { --layout: sheet; --panel-space: 0px; --t-title: 26px; --t-section: 18px; --t-body: 15px; --t-sub: 14px; --t-fine: 13px; } /* a phone's width has touch's sizes, whatever the pointer says */
 }
 
 * { box-sizing: border-box; }
@@ -88,14 +84,15 @@ html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; 
 html, body {
   margin: 0; height: 100%; overflow: hidden; overscroll-behavior: contain;
   background: var(--bg); color: var(--fg);
-  font: var(--t-m)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: var(--t-body)/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-variant-numeric: tabular-nums; /* every count, percentage, index and time lines up, wherever it is written */
   -webkit-tap-highlight-color: transparent;
 }
 body { position: fixed; inset: 0; }
 [hidden] { display: none !important; }
-h1, h2 { margin: 16px 0 6px; font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
-h3 { margin: 12px 0 6px; font-size: var(--t-h3); font-weight: 600; color: #f3f4f6; }
-small { font-size: var(--t-s); }
+h1, h2 { margin: 16px 0 6px; font-size: var(--t-section); font-weight: 600; color: #f3f4f6; }
+h3 { margin: 12px 0 6px; font-size: var(--t-body); font-weight: 600; color: #f3f4f6; }
+small { font-size: var(--t-sub); }
 b, strong { font-weight: 600; }
 h2 small, h3 small { font-weight: 400; color: var(--muted); margin-left: 4px; }
 h2 small:empty, h3 small:empty { display: none; }
@@ -109,17 +106,17 @@ h2 small:empty, h3 small:empty { display: none; }
 .status-head > small { min-width: 0; }
 /* On a phone a qualifier takes its own line and never strands a word. */
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  h2 small, h3 small { display: block; margin-left: 0; font-size: var(--t-meta); }
+  h2 small, h3 small { display: block; margin-left: 0; font-size: var(--t-sub); }
   .status-head > small { display: inline; white-space: normal; text-align: left; }
 }
-h1.title { font-size: var(--t-xl); font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; min-height: var(--title-row); margin: 10px 0 8px; }
+h1.title { font-size: var(--t-title); font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; min-height: var(--title-row); margin: 10px 0 8px; }
 p { margin: 6px 0; }
 a { color: var(--accent); }
-code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
+code { font: var(--t-sub) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .muted { color: var(--muted); }
-.small { font-size: var(--t-help); }
+.small { font-size: var(--t-sub); }
 /* The one error layout: directly under the field it is about. */
-.error, .err, .field-err { color: #fca5a5; font-size: var(--t-note); }
+.error, .err, .field-err { color: #fca5a5; font-size: var(--t-sub); }
 .err:empty, .field-err:empty { display: none; }
 .field-err { display: block; margin-top: 4px; }
 [aria-invalid=true] { border-color: var(--bad) !important; }
@@ -131,7 +128,7 @@ code { font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
 .state.error > .icon { color: var(--bad); }
 .state-text { flex: 1; min-width: 12em; display: grid; gap: 2px; }
 .state-text span { color: var(--muted); font-weight: 400; }
-.verdict .state { font-size: var(--t-m); font-weight: 400; color: var(--fg); }
+.verdict .state { font-size: var(--t-body); font-weight: 400; color: var(--fg); }
 .state.empty { background: transparent; border-style: dashed; }
 .state.error { border-color: #7f1d1d; }
 .state.error b { color: #fca5a5; }
@@ -286,14 +283,14 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
 .chipbar .seg > button.on { background: var(--seg-on); }
 .brand {
   display: inline-flex; align-items: center; gap: 7px; min-height: var(--tap); padding: 0 10px;
-  border: 1px solid var(--line); border-radius: 999px; font-weight: 650; letter-spacing: 0.01em;
+  border: 1px solid var(--line); border-radius: 999px; font-weight: 600; letter-spacing: 0.01em;
 }
 .brand-mark {
   display: block; width: 24px; height: 24px; flex: none;
 }
 .badge {
   display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 10px;
-  border: 1px solid var(--line); border-radius: 999px; font-size: var(--t-m); white-space: nowrap; /* the panel's body size: it is read, not glanced at */
+  border: 1px solid var(--line); border-radius: 999px; font-size: var(--t-body); white-space: nowrap; /* the panel's body size: it is read, not glanced at */
 }
 .badge b { font-weight: 600; } /* the look names */
 .badge.preview { color: var(--preview); border-color: #4c3d80; }
@@ -304,7 +301,7 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
 .badge .detail { color: var(--muted); }
 .badge .stack { display: grid; line-height: 1.15; min-width: 0; }
 .badge .stack > span { overflow: hidden; text-overflow: ellipsis; }
-.badge .stack .detail { font-size: var(--t-s); }
+.badge .stack .detail { font-size: var(--t-sub); }
 @media (max-width: 699.98px) {
   .brand b { display: none; }
   .brand { padding: 0; width: var(--tap); justify-content: center; }
@@ -323,7 +320,7 @@ input[type=checkbox]:checked { background: var(--accent) var(--check) center / 8
 .crumb-menu { position: absolute; z-index: 6; left: 8px; max-width: calc(100% - 16px); min-width: 180px; display: grid; gap: 2px; padding: 4px; background: var(--card2); border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
 .crumb-menu[hidden] { display: none; }
 .crumb-menu button { justify-content: flex-start; gap: 8px; border-color: transparent; padding-left: calc(8px + var(--depth, 0) * 12px); text-align: left; }
-.crumb-menu button small { margin-left: auto; padding-left: 12px; color: var(--muted); font-size: var(--t-note); font-weight: 400; }
+.crumb-menu button small { margin-left: auto; padding-left: 12px; color: var(--muted); font-size: var(--t-sub); font-weight: 400; }
 .crumb-menu button.on { background: var(--on); border-color: var(--accent); color: #fff; }
 .crumb-menu button.on small { color: #dbe7ff; }
 .crumb-menu button:hover, .crumb-menu button:focus-visible { background: var(--card); border-color: var(--line); }
@@ -339,20 +336,20 @@ body.calibrating .crumb-menu { display: none; }
 .crumbs .x { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); padding: 0; }
 /* The line that teaches the tap, where the breadcrumb will be, until the
  * first selection on this device (move C). Quiet: a caption, not a control. */
-.map-hint { position: absolute; z-index: 2; left: 10px; right: 10px; margin: 0; color: var(--muted); font-size: var(--t-note); pointer-events: none; text-shadow: 0 1px 2px #000; }
+.map-hint { position: absolute; z-index: 2; left: 10px; right: 10px; margin: 0; color: var(--muted); font-size: var(--t-sub); pointer-events: none; text-shadow: 0 1px 2px #000; }
 body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 /* The name under the pointer: the run and its zone, beside the pointer and never over the run. */
-.hover-label { position: absolute; z-index: 5; display: flex; flex-direction: column; max-width: 240px; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: rgba(21, 24, 29, 0.96); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); pointer-events: none; white-space: nowrap; font-size: var(--t-help); line-height: 1.3; }
+.hover-label { position: absolute; z-index: 5; display: flex; flex-direction: column; max-width: 240px; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: rgba(21, 24, 29, 0.96); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5); pointer-events: none; white-space: nowrap; font-size: var(--t-sub); line-height: 1.3; }
 .hover-label[hidden] { display: none; }
-.hover-label span { color: var(--muted); font-size: var(--t-note); }
+.hover-label span { color: var(--muted); font-size: var(--t-sub); }
 
 .legend {
   position: absolute; z-index: 2; left: 8px; bottom: calc(max(8px, var(--safe-b)) + var(--tap) + 10px); max-width: min(260px, 60%); max-height: 45%; display: flex; flex-direction: column;
   background: rgba(13, 14, 16, 0.86); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 8px 10px; font-size: var(--t-s);
+  padding: 8px 10px; font-size: var(--t-sub);
 }
 .legend-rows { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.legend-toggle { flex: none; align-self: flex-start; margin-top: 4px; padding: 0 8px; background: transparent; font-size: var(--t-s); }
+.legend-toggle { flex: none; align-self: flex-start; margin-top: 4px; padding: 0 8px; background: transparent; font-size: var(--t-sub); }
 .legend.folded { padding: 2px; }
 .legend.folded > :not(.legend-toggle) { display: none; }
 .legend.folded .legend-toggle { margin: 0; border: 0; }
@@ -394,7 +391,7 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
 .toast.warn { border-left-color: var(--warn); }
 .toast.neutral { border-left-color: var(--line-strong); }
 .toast .msg { flex: 1; }
-.toast .msg div { font-size: var(--t-s); color: var(--muted); }
+.toast .msg div { font-size: var(--t-sub); color: var(--muted); }
 .toast button { min-width: var(--tap); padding: 0; background: transparent; border: 0; }
 .toast button.act { flex: none; padding: 0 10px; border: 1px solid var(--control-line); background: var(--card2); white-space: nowrap; }
 /* On a phone whose sheet is up, messages sit in the sheet, ending just above
@@ -404,7 +401,7 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
   .panel-toasts { display: flex; position: absolute; z-index: 6; left: 8px; right: 8px; bottom: auto; width: auto; transform: translateY(-100%); }
 }
 /* The quieter Undo on the "On the lights" card: a link, there for five minutes. */
-.stage-undo { margin: 4px 4px 2px; text-align: right; font-size: var(--t-help); } /* 2 px under it: the card's bottom padding is its top's */
+.stage-undo { margin: 4px 4px 2px; text-align: right; font-size: var(--t-sub); } /* 2 px under it: the card's bottom padding is its top's */
 .stage-undo[hidden] { display: none; } /* no room is kept for it: the card is as tall as what it shows, and grows by this row when the link appears (B151) */
 /* The card's padding under its last row is its padding above its heading: a row brings 6 px of its own, so the card gives 4 px less. */
 .stage:has(> #lkRows > .layer):not(:has(> .stage-undo:not([hidden]))):not(:has(> #lkStageState:not(:empty))) { padding-bottom: 4px; }
@@ -412,20 +409,20 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
 
 /* the inspect card: floating on the map with a mouse, a row in the sheet on phones */
 .inspect table { border-collapse: collapse; width: 100%; }
-.inspect th { text-align: left; font-weight: 500; color: var(--muted); padding: 2px 10px 2px 0; white-space: nowrap; vertical-align: top; }
+.inspect th { text-align: left; font-weight: 400; color: var(--muted); padding: 2px 10px 2px 0; white-space: nowrap; vertical-align: top; }
 .inspect.card > table th, .inspect.card > .more > table th { width: 6.5em; } /* the rows and the Details share one label column */
 .inspect td { padding: 2px 0; word-break: break-word; }
 .inspect .head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .inspect .head b { flex: 1; }
-.inspect .head b small { display: block; color: var(--muted); font-weight: 400; font-size: var(--t-note); }
+.inspect .head b small { display: block; color: var(--muted); font-weight: 400; font-size: var(--t-sub); }
 .inspect .chip-color { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 4px; border: 1px solid var(--rim); }
 .inspect.card {
   position: absolute; z-index: 4; width: 280px; pointer-events: auto;
   background: rgba(21, 24, 29, 0.95); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 10px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); font-size: var(--t-help); max-height: calc(100% - 16px); overflow-y: auto; overscroll-behavior: contain;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5); font-size: var(--t-sub); max-height: calc(100% - 16px); overflow-y: auto; overscroll-behavior: contain;
 }
 .inspect .more p { margin: 2px 0 6px; }
-.inspect .tech { font-size: var(--t-note); }
+.inspect .tech { font-size: var(--t-sub); }
 .inspect .head button { flex: none; }
 .inspect.row { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 6px 10px; margin: 8px 0; }
 
@@ -506,7 +503,7 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
   .handle:focus-visible { outline: none; }
   .handle:focus-visible i { outline: 2px solid #f8fafc; outline-offset: 3px; background: #cbd5e1; }
   /* The peek's one line: the current tab's state, under the handle, only while the sheet is lowered. */
-  .peek-line { display: none; margin: 0; padding: 0 16px; height: var(--peek-line); flex: none; align-items: flex-start; font-size: var(--t-meta); line-height: 20px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .peek-line { display: none; margin: 0; padding: 0 16px; height: var(--peek-line); flex: none; align-items: flex-start; font-size: var(--t-sub); line-height: 20px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
   body[data-detent=peek] .peek-line { display: block; }
   .tabs {
     position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; height: calc(var(--tabbar) + var(--safe-b));
@@ -535,7 +532,7 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
   /* The chip's budget is the row less the brand (44), the toggle (140) and the gaps: at 14 px (the
    * phone's meta size; its two stacked lines would not fit the pill at body size) every state's
    * first line is whole, "Showing your preview" and "Colored by Controllers" included. */
-  .badge { max-width: calc(100% - 204px); font-size: var(--t-meta); }
+  .badge { max-width: calc(100% - 204px); font-size: var(--t-sub); }
   .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   /* The key stays on the map above the sheet, compact, away from the toggle
    * at the top. Setup's half sheet has its own copy; a full sheet has no room. */
@@ -591,7 +588,7 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
    * its word, so a 25-character query shows whole at 390 px; a tap on it moves to the next list. */
   body[data-detent] .lib-filters .field.searching { flex: 1 1 100%; }
   body[data-detent] .lib-filters:has(.field.searching) .seg > button:not(.on) { display: none; }
-  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 6px; gap: 0; font-size: var(--t-s); border-radius: 999px; }
+  body[data-detent] .lib-filters:has(.field.searching) .seg > button.on { padding: 0 6px; gap: 0; font-size: var(--t-sub); border-radius: 999px; }
   body[data-detent] .lib-filters:has(.field.searching) .seg { border-radius: 999px; }
   body[data-detent] .lib-filters .field.searching input { padding-left: 10px; }
 }
@@ -604,14 +601,14 @@ canvas.sw.rs, #stage canvas.sw.rs { position: static; inset: auto; display: inli
 .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .row.end { justify-content: flex-end; }
 .kv { border-collapse: collapse; width: 100%; }
-.kv th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 10px 3px 0; white-space: nowrap; vertical-align: top; }
+.kv th { text-align: left; font-weight: 400; color: var(--muted); padding: 3px 10px 3px 0; white-space: nowrap; vertical-align: top; }
 .kv td { padding: 3px 0; }
 /* Disclosures come in three tiers, and one is never larger than its
  * container's heading. One that heads a section (Advanced, Diagnostics) takes
- * the section step, --t-h2/600; More settings, inside a form or layer card,
- * takes the form step, --t-h3/600; an inline one (What these words mean,
- * Details and the rest) stays at the body size, --t-m. */
-details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; font-size: var(--t-m); font-weight: 600; }
+ * the section step, --t-section/600; More settings, inside a form or layer card,
+ * takes the form step, --t-body/600; an inline one (What these words mean,
+ * Details and the rest) stays at the body size, --t-body. */
+details > summary { cursor: pointer; min-height: var(--tap); display: flex; align-items: center; gap: 6px; list-style: none; color: #cbd5e1; font-size: var(--t-body); font-weight: 600; }
 details > summary::-webkit-details-marker { display: none; }
 details > summary::before {
   content: ''; width: 12px; height: 12px; flex: none; background: var(--muted);
@@ -628,15 +625,15 @@ details[open] > summary::before { transform: rotate(90deg); }
 .catalog-head { position: relative; display: flex; align-items: center; justify-content: flex-start; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 4px; }
 .catalog-head .group-head { margin: 0; }
 .place-row { display: flex; align-items: center; min-width: 0; min-height: var(--tap); flex: 0 1 auto; max-width: 41%; }
-.place-row .meta { color: var(--muted); font-size: var(--t-meta); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
+.place-row .meta { color: var(--muted); font-size: var(--t-sub); line-height: 1.2; min-width: 0; overflow-wrap: anywhere; }
 button.place { min-width: 0; max-width: 100%; }
 .place .muted { flex: none; white-space: nowrap; }
-.place b { font-weight: 500; flex: 1 1 auto; min-width: 8ch; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
+.place b { font-weight: 600; flex: 1 1 auto; min-width: 8ch; text-align: left; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: break-word; line-height: 1.2; }
 /* The target control (move C): "Preview on [Everything v]", the one control
  * that sets where the next preview goes. A select-styled button, with a
  * border and a chevron, and a clear (x) while it is not Everything. A
  * preview row's own place ("On: Everything") is the same component. */
-.target-ctl { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--t-help); }
+.target-ctl { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--t-sub); }
 .target-ctl > .muted { flex: none; white-space: nowrap; }
 button.target-select { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 0 6px 0 9px; border: 1px solid var(--control-line); border-radius: 7px; background: var(--card); color: var(--fg); text-align: left; }
 button.target-select:hover { border-color: var(--accent); }
@@ -660,18 +657,18 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .target-picker input { width: 100%; }
 .target-group { padding: 8px 0; }
 .target-group + .target-group { border-top: 1px solid var(--line-strong); }
-.target-list h3 { margin: 0 0 6px; font-size: var(--t-help); color: #cbd5e1; font-weight: 600; }
+.target-list h3 { margin: 0 0 6px; font-size: var(--t-sub); color: #cbd5e1; font-weight: 600; }
 .stage { margin: 0 0 6px; padding: 8px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
 .stage-head { display: grid; gap: 1px; padding: 2px 4px; }
 .stage-head h2 { margin: 0; }
-.stage-head small { color: var(--muted); font-size: var(--t-meta); }
+.stage-head small { color: var(--muted); font-size: var(--t-sub); }
 .stage-head small:empty, #lkStageState:empty { display: none; }
 .stage.stale .stage-head small { color: var(--warn); }
 .stage-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 6px 4px; }
 /* The stage's one 0% line. */
 .stage-warn { display: flex; align-items: center; gap: 8px; padding: 2px 8px; margin: 6px 0 0; color: #fcd9a5; background: #2a2110; border: 1px solid #6b4b16; border-radius: 8px; }
 .stage-warn > .icon { color: var(--warn); }
-.stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-help); white-space: nowrap; overflow: hidden; } /* one line, fitted by looks.js (fitDark): never cut, never wrapped */
+.stage-warn .warn-text { flex: 1; min-width: 0; font-size: var(--t-sub); white-space: nowrap; overflow: hidden; } /* one line, fitted by looks.js (fitDark): never cut, never wrapped */
 .stage-warn button { flex: none; white-space: nowrap; }
 .library { margin-top: 4px; }
 .lib-filters { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 8px; margin: 0 0 4px; }
@@ -697,13 +694,13 @@ button.target-btn:hover { text-decoration-thickness: 2px; }
 .field.clearable { position: relative; }
 /* The room for the × is the query's, not the placeholder's: a resting field keeps its whole width for its words. */
 .field.clearable:has(.field-clear:not([hidden])) input { padding-right: 36px; }
-.field-clear { position: absolute; right: 2px; bottom: 0; width: 36px; height: var(--tap, 36px); padding: 0; border: 0; background: transparent; color: var(--muted); font-size: var(--t-l); line-height: 1; border-radius: 6px; }
+.field-clear { position: absolute; right: 2px; bottom: 0; width: 36px; height: var(--tap, 36px); padding: 0; border: 0; background: transparent; color: var(--muted); font-size: var(--t-body); line-height: 1; border-radius: 6px; }
 .field-clear:hover { color: var(--text); }
 /* The folded live rows' summary line: one tap row, the Live badge, the names, a chevron. */
 .live-sum { display: none; grid-template-columns: auto minmax(0, 1fr) var(--tap); align-items: center; gap: 0 6px; width: 100%; min-height: var(--tap); padding: 0 0 0 12px; border: 0; border-radius: 0; background: transparent; color: var(--text); text-align: left; position: relative; margin-top: 2px; }
 .live-sum::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 5px; border-radius: 0 4px 4px 0; background: var(--house); }
-.live-sum .kind { padding: 0 7px; border: 1px solid var(--house); border-radius: 999px; color: var(--house); font-size: var(--t-note); font-weight: 600; line-height: 1.5; min-width: 5.1em; text-align: center; box-sizing: border-box; }
-.live-sum .text { min-width: 0; white-space: nowrap; overflow: hidden; color: var(--muted); font-size: var(--t-meta); }
+.live-sum .kind { padding: 0 7px; border: 1px solid var(--house); border-radius: 999px; color: var(--house); font-size: var(--t-sub); font-weight: 600; line-height: 1.5; min-width: 5.1em; text-align: center; box-sizing: border-box; }
+.live-sum .text { min-width: 0; white-space: nowrap; overflow: hidden; color: var(--muted); font-size: var(--t-sub); }
 .live-sum > .icon { justify-self: center; color: var(--muted); }
 .live-sum[aria-expanded=true] > .icon { transform: rotate(180deg); }
 .live-sum.prev-sum::before { background: var(--preview); }
@@ -748,7 +745,7 @@ html:not(.coarse) { --swatch-h: 36px; }
  * or two; beside a two-line name, the spare line is at the card's foot,
  * not a hole between a name and its line. */
 .preset { justify-content: flex-start; }
-.preset .name { font-size: var(--t-h3); font-weight: 600; line-height: 1.3; }
+.preset .name { font-size: var(--t-body); font-weight: 600; line-height: 1.3; }
 .preset .name, .preset .sub, .preset .in-badge { min-width: 0; }
 /* What someone chooses by wraps, up to two lines, rather than being cut. */
 .preset .name {
@@ -756,8 +753,8 @@ html:not(.coarse) { --swatch-h: 36px; }
 }
 /* A row is as tall as its name needs: it is never cut for the controls. */
 .layer .name-line b { overflow-wrap: anywhere; }
-.preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.preset .live-badge { min-width: 0; height: 1.4em; font-size: var(--t-meta); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-sub); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.preset .live-badge { min-width: 0; height: 1.4em; font-size: var(--t-sub); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .preset .in-badge > span, .preset .live-badge > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .preset .sub { color: var(--muted); }
 .layer {
@@ -767,11 +764,11 @@ html:not(.coarse) { --swatch-h: 36px; }
 .layer::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 5px; border-radius: 0 4px 4px 0; background: var(--acc, #888); }
 .layer.sel { box-shadow: 0 0 0 1px var(--acc, #888) inset; }
 .layer .name-line { display: flex; align-items: center; gap: 8px; }
-.layer .name-line b { flex: 1; min-width: 0; font-size: var(--t-h3); }
+.layer .name-line b { flex: 1; min-width: 0; font-size: var(--t-body); }
 .layer .line-place, .layer .line-level, .layer .row-expand { display: none; }
 .layer .name-line .strip { width: 28px; height: 8px; flex: none; border-radius: 3px; border: 1px solid var(--rim); }
-.layer .kind { flex: none; padding: 0 7px; border: 1px solid var(--acc, var(--line-strong)); border-radius: 999px; color: var(--acc, var(--muted)); font-size: var(--t-note); font-weight: 600; line-height: 1.5; }
-.layer .front { flex: none; color: var(--muted); font-size: var(--t-meta); }
+.layer .kind { flex: none; padding: 0 7px; border: 1px solid var(--acc, var(--line-strong)); border-radius: 999px; color: var(--acc, var(--muted)); font-size: var(--t-sub); font-weight: 600; line-height: 1.5; }
+.layer .front { flex: none; color: var(--muted); font-size: var(--t-sub); }
 .layer .front:empty { display: none; }
 /* A row's controls never take room from its name: they have their own line. */
 .layer .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
@@ -781,11 +778,11 @@ html:not(.coarse) { --swatch-h: 36px; }
  * never wraps. Trash is for Delete, which destroys. */
 .layer .bri output { min-width: 3em; }
 .bri-word { display: none; }
-.bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-meta); }
+.bri-label { display: inline-flex; align-items: center; gap: 5px; flex: none; color: var(--muted); font-size: var(--t-sub); }
 .crumbs .sep { display: inline-flex; }
 .apply-one { margin-bottom: 6px; }
 .layer [data-a=remove]:hover { color: #fecaca; border-color: #7f1d1d; }
-.layer .copy-note { font-size: var(--t-help); color: var(--preview); margin-top: 4px; }
+.layer .copy-note { font-size: var(--t-sub); color: var(--preview); margin-top: 4px; }
 .look-bar {
   /* The scrollport's padding counts against sticky: reach the panel's edge. */
   position: sticky; bottom: calc(-1 * var(--content-bottom)); z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; align-items: center;
@@ -804,11 +801,11 @@ html:not(.coarse) { --swatch-h: 36px; }
 .bar-main .go { flex: 1; min-width: 0; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; white-space: nowrap; overflow: hidden; } /* one line: looks.js picks the label that fits */
 .group-head { margin: 10px 0 6px; }
 /* The library's groups on the desktop panel: Pinned, then More looks. A secondary heading, quieter than Library's. */
-.lib-group { margin: 8px 0 4px; font-size: var(--t-h3); font-weight: 600; color: var(--muted); }
+.lib-group { margin: 8px 0 4px; font-size: var(--t-body); font-weight: 600; color: var(--muted); }
 .lib-group[hidden], #lkMoreBox[hidden] { display: none; }
 #lkMoreBox { margin-top: 6px; }
 .bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-help); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* A note too long to share a line takes its own, whole, under the buttons. */
 .look-bar.note-below .bar-line { flex-wrap: wrap; }
 .look-bar.note-below .bar-note { order: 5; flex: 0 0 100%; white-space: normal; overflow: visible; }
@@ -828,9 +825,9 @@ html:not(.coarse) { --swatch-h: 36px; }
   .layer.preview { background: rgba(182, 156, 255, 0.07); border-radius: 0 var(--radius) var(--radius) 0; }
   .layer .name-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; min-height: var(--tap); gap: 0 6px; }
   /* The disclosure says what it opens: the word, then the chevron, at the row's right. */
-  .layer .row-expand { display: inline-flex; align-items: center; gap: 2px; flex: none; min-width: var(--tap); padding: 0 4px 0 2px; border: 0; background: transparent; color: var(--muted); font-size: var(--t-note); font-weight: 400; grid-column: 5; grid-row: 1; }
+  .layer .row-expand { display: inline-flex; align-items: center; gap: 2px; flex: none; min-width: var(--tap); padding: 0 4px 0 2px; border: 0; background: transparent; color: var(--muted); font-size: var(--t-sub); font-weight: 400; grid-column: 5; grid-row: 1; }
   .layer.open .row-expand .icon { transform: rotate(180deg); }
-  .layer .line-place, .layer .line-level { display: block; color: var(--muted); font-size: var(--t-meta); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .layer .line-place, .layer .line-level { display: block; color: var(--muted); font-size: var(--t-sub); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .layer .line-place { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
   .layer .name-line .strip, .layer .front { display: none; }
   .layer .name-line b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -870,7 +867,7 @@ html:not(.coarse) { --swatch-h: 36px; }
   .look-bar { display: block; padding: 8px 12px; }
   .bar-main .go { flex: 1 1 auto; }
   .bar-main .seg { display: none; }
-  .bar-main .swap { display: inline-block; flex: none; min-height: var(--tap); font-size: var(--t-help); text-align: right; }
+  .bar-main .swap { display: inline-block; flex: none; min-height: var(--tap); font-size: var(--t-sub); text-align: right; }
   /* Clear is compact beside the green button: its word, a full tap target. */
   .bar-clear { min-width: var(--tap); padding: 0 8px; }
   .bar-clear .wide, .bar-clear .icon { display: none; } /* its word alone: the green button keeps its two lines */
@@ -905,7 +902,7 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .f .ctl input[type=text], .form .f .ctl input:not([type]) { flex: 1; min-width: 0; }
 /* As wide as its value, so a long unit can't run past the shared right edge. */
 .form .f .ctl output { flex: none; min-width: 4.8em; }
-.form .f .doc { grid-column: 1 / -1; color: var(--muted); font-size: var(--t-help); margin-top: -2px; text-wrap: pretty; }
+.form .f .doc { grid-column: 1 / -1; color: var(--muted); font-size: var(--t-sub); margin-top: -2px; text-wrap: pretty; }
 .form .f.bad input { border-color: var(--bad); }
 .form .colors { display: flex; width: 100%; min-width: 0; gap: 6px; flex-wrap: wrap; align-items: center; }
 .form .color-picker { width: 100%; min-width: 0; }
@@ -946,16 +943,16 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .form .f:has(.color-picker[open]) { align-items: start; }
 .form .color-mixer { padding: 16px; margin-top: 6px; background: #151a22; border: 0; border-radius: 10px; }
 .form .channel-row { display: grid; grid-template-columns: 84px minmax(40px, 1fr) 48px; align-items: center; gap: 8px; margin: 10px 0; }
-.form .channel-row label { font-size: var(--t-meta); color: #e2e8f0; }
+.form .channel-row label { font-size: var(--t-sub); color: #e2e8f0; }
 .form .channel-row input[type=number] { width: 48px; min-width: 0; padding: 0 3px; text-align: center; }
 .form .channel-row input[type=range] { --track: transparent; }
 .form .channel-row input:focus-visible { outline: 2px solid #f8fafc; outline-offset: 3px; }
 .form .color-choices { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
-.form .color-choices button { font-size: var(--t-s); padding: 4px 7px; }
-.form .color-note { color: var(--muted); font-size: var(--t-help); line-height: 1.4; margin-top: 12px; }
+.form .color-choices button { font-size: var(--t-sub); padding: 4px 7px; }
+.form .color-note { color: var(--muted); font-size: var(--t-sub); line-height: 1.4; margin-top: 12px; }
 .form .list { grid-column: 1 / -1; border-left: 2px solid var(--line); padding-left: 8px; }
 .form .list .item { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
-.form textarea { min-height: 160px; font: var(--t-s) ui-monospace, SFMono-Regular, Menlo, monospace; }
+.form textarea { min-height: 160px; font: var(--t-sub) ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 /* ---------- Setup and Status ---------- */
 .setup-cal { margin: 0 0 16px; padding: 12px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); }
@@ -977,13 +974,15 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .cal-bar { height: 6px; border-radius: 3px; background: #2a3038; overflow: hidden; }
 .cal-bar > i { display: block; height: 100%; border-radius: 3px; background: var(--house); }
 .help { margin-top: 6px; }
+/* A paragraph that explains is read as prose: about 70 characters to the line, however wide the panel. */
+p.help, div.help, .tab > p.muted, .cal-nudge-how, .stage-head small { max-width: 70ch; }
 #suAdvanced { margin-top: 16px; }
 /* One disclosure style per level, by class: a section's disclosure
  * (.section-disclosure: Diagnostics, Advanced) reads at a section heading's
  * size; every other one (Details, All runs, After limiting, What these
  * words mean) takes the base rule above. No disclosure is sized by its id. */
-.section-disclosure > summary { font-size: var(--t-h2); font-weight: 600; color: #f3f4f6; }
-.form-disclosure > summary { font-size: var(--t-h3); font-weight: 600; color: #f3f4f6; }
+.section-disclosure > summary { font-size: var(--t-section); font-weight: 600; color: #f3f4f6; }
+.form-disclosure > summary { font-size: var(--t-body); font-weight: 600; color: #f3f4f6; }
 /* Beside the map, open More settings scrolls inside, so with every group open
  * the Library stays within a panel's height of the top. */
 @media (min-width: 700px) {
@@ -993,7 +992,7 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 /* Its sections sit under Advanced: indented, and a size below the top-level
  * ones. Every section is one wrapper, so a control takes the wrapper's width. */
 #suAdvanced > :not(summary) { margin-left: 4px; padding-left: 10px; border-left: 1px solid var(--line-strong); }
-#suAdvanced h3.sub { font-size: var(--t-m); color: var(--muted-raised); margin-top: 10px; }
+#suAdvanced h3.sub { font-size: var(--t-body); color: var(--muted-raised); margin-top: 10px; }
 /* One rhythm on Setup: 16 above a heading, 6 to its control, 6 to its help. */
 .tab h2.sub, .tab h3.sub { margin: 16px 0 6px; color: #f3f4f6; }
 .nv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
@@ -1002,19 +1001,19 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .cal-prog .nv-go { position: relative; display: block; min-width: 0; min-height: 0; height: auto; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .cal-prog .nv-go::after { content: ''; position: absolute; inset: -12px 0; } /* a full tap tall, drawn no bigger */
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
-.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-verdict); line-height: 1.25; font-weight: 650; letter-spacing: -0.01em; margin: 4px 0 10px; }
-.verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; letter-spacing: 0; color: var(--fg); }
+.verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-section); line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; margin: 4px 0 10px; }
+.verdict > small { flex-basis: 100%; font-size: var(--t-sub); font-weight: 400; letter-spacing: 0; color: var(--fg); }
 .status-fix { margin: -4px 0 10px; }
 .verdict.bad { color: #fca5a5; }
 .verdict.ok { color: var(--house); }
 .verdict.warn { color: var(--warn); }
-.stale-note { margin: -6px 0 10px; color: var(--warn); font-size: var(--t-help); }
+.stale-note { margin: -6px 0 10px; color: var(--warn); font-size: var(--t-sub); }
 .health { display: flex; align-items: center; gap: 8px; margin: -6px 0 10px; color: var(--muted); }
 /* Healthy is a mark as well as a color: a check, not a dot. */
 .mark { display: inline-flex; flex: none; width: 16px; justify-content: center; }
 .mark.ok { color: var(--house); }
 .mark.bad { color: var(--bad); }
-.meta-line { margin: 14px 0 0; color: var(--muted); font-size: var(--t-meta); }
+.meta-line { margin: 14px 0 0; color: var(--muted); font-size: var(--t-sub); }
 .health.bad { color: #fca5a5; }
 .issues { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
 .issue { background: #2a2110; border: 1px solid #6b4b16; border-radius: var(--radius); padding: 8px 10px; }
@@ -1025,11 +1024,11 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .issue-acts details { flex: 1; min-width: 7em; }
 /* Open, the raw text takes the row's whole width, below the button. */
 .issue-acts details[open] { flex-basis: 100%; }
-.issue-acts .plain { display: block; overflow-wrap: anywhere; color: var(--muted); font-size: var(--t-m); line-height: 1.4; margin-top: 4px; }
+.issue-acts .plain { display: block; overflow-wrap: anywhere; color: var(--muted); font-size: var(--t-body); line-height: 1.4; margin-top: 4px; }
 .power { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .power th, .power td { padding: 4px 0; text-align: right; white-space: nowrap; }
 .power th:first-child, .power td:first-child { text-align: left; white-space: normal; }
-.power thead th { color: var(--muted); font-weight: 500; font-size: var(--t-s); }
+.power thead th { color: var(--muted); font-weight: 400; font-size: var(--t-fine); }
 .power .total td { font-weight: 600; }
 .power .total + tr:not(.total) td { border-top: 1px solid var(--line); }
 .power .bar { min-width: 60px; }
@@ -1052,8 +1051,8 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .tiles .stat span { white-space: nowrap; overflow: hidden; line-height: 1.3; }
 /* A value that is words (B148): the label has the figure's line in the label's own style, the words
  * follow at the same size, so "Not configured" is no larger or heavier than any tile's label. */
-.tiles .stat b.words { color: var(--muted); font-size: var(--t-meta); font-weight: 400; }
-.tiles .stat.wordy span { color: var(--fg); font-size: var(--t-meta); font-weight: 400; }
+.tiles .stat b.words { color: var(--muted); font-size: var(--t-sub); font-weight: 400; }
+.tiles .stat.wordy span { color: var(--fg); font-size: var(--t-sub); font-weight: 400; }
 button.stat { width: 100%; color: var(--fg); border-color: var(--line); cursor: pointer; }
 button.stat:hover { border-color: #8b95a3; background: var(--card2); }
 /* The tile that is a link looks like one: a chevron after its label, and the label underlined on hover and focus. */
@@ -1062,8 +1061,8 @@ button.stat.link span .icon { flex: none; width: 12px; height: 12px; }
 button.stat.link:hover span, button.stat.link:focus-visible span { text-decoration: underline; text-underline-offset: 2px; color: var(--fg); }
 @media (max-width: 699.98px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } } /* after the base rule, which would otherwise win on order */
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-.stat b { display: block; font-size: var(--t-stat); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.stat span { display: block; color: var(--muted); font-size: var(--t-meta); }
+.stat b { display: block; font-size: var(--t-title); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { display: block; color: var(--muted); font-size: var(--t-sub); }
 .list-rows { list-style: none; margin: 0; padding: 0; }
 .list-rows li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #1e2228; min-height: var(--tap); }
 /* A row that points at the map (move C): its controller's or run's lights get the halo while it is hovered, focused or, on a phone, tapped. */
@@ -1078,21 +1077,21 @@ button.stat.link:hover span, button.stat.link:focus-visible span { text-decorati
 .list-rows li .fact.ok { color: var(--house); }
 .list-rows li .fact.bad { color: #fca5a5; }
 .list-rows li .val { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
-.list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-meta); }
+.list-rows li .what small { display: block; color: var(--muted); font-size: var(--t-sub); }
 /* The action column is one fixed width, empty or not, so every row's figures
  * end on one edge; the figures take what they need and never reach the button. */
 .run-rows li { display: grid; grid-template-columns: minmax(0, 1fr) max-content 6.4em; column-gap: 12px; }
 .run-rows li > button { width: 100%; padding-left: 0; padding-right: 0; }
 .run-rows .len { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.run-rows .len small { display: block; color: var(--muted); font-size: var(--t-meta); }
+.run-rows .len small { display: block; color: var(--muted); font-size: var(--t-sub); }
 #stDiag { margin-top: 12px; }
 .issue-list { list-style: none; margin: 6px 0 0 24px; padding: 0; display: grid; gap: 6px; color: #fcd9a5; }
 .issue-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
 .issue-list li > span { flex: 1 1 12em; min-width: 0; }
 .issue-list li details[open] { flex-basis: 100%; }
-.issue-list .plain { overflow-wrap: anywhere; color: var(--muted); font-size: var(--t-meta); margin: 4px 0 0; }
+.issue-list .plain { overflow-wrap: anywhere; color: var(--muted); font-size: var(--t-sub); margin: 4px 0 0; }
 .nb { white-space: nowrap; }
-.dev { color: var(--fg); font-size: var(--t-m); }
+.dev { color: var(--fg); font-size: var(--t-body); }
 .list-rows li.warn .dev { color: var(--warn); }
 .list-rows li.warn .what b { color: var(--warn); }
 .dotc { width: 10px; height: 10px; border-radius: 50%; flex: none; background: #4b5563; }
@@ -1104,7 +1103,7 @@ button.stat.link:hover span, button.stat.link:focus-visible span { text-decorati
 .bar { height: 6px; background: #22262d; border-radius: 3px; overflow: hidden; margin-top: 3px; }
 .bar span { display: block; height: 100%; background: var(--house); }
 .bar span.hot { background: var(--bad); }
-.legend-inline { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; margin: 8px 0; font-size: var(--t-s); }
+.legend-inline { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; margin: 8px 0; font-size: var(--t-sub); }
 
 /* ---------- calibration ---------- */
 .calibrate {
@@ -1116,17 +1115,17 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); flex: none; }
 .cal-top .what { flex: 1; min-width: 0; }
 .cal-top .what b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-top .what small { color: var(--muted); font-size: var(--t-meta); }
+.cal-top .what small { color: var(--muted); font-size: var(--t-sub); }
 .cal-top #caBar { display: block; margin-top: 5px; max-width: 320px; }
 .cal-top #caBar:empty { display: none; }
 /* Keys, on the buttons they press: shown where there is a keyboard. */
-.calibrate kbd { font: inherit; font-size: var(--t-s); font-weight: 400; color: inherit; opacity: 0.92; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
+.calibrate kbd { font: inherit; font-size: var(--t-fine); font-weight: 400; color: inherit; opacity: 0.92; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
 .nudges button { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
 .nudges kbd { margin: 0; border: 0; padding: 0; line-height: 1.1; }
 html.coarse .calibrate kbd { display: none; }
 @media (pointer: coarse) { .calibrate kbd { display: none; } }
 /* What comes next, in one line. */
-.cal-next { margin: 4px 0 6px; font-size: var(--t-help); color: var(--muted); }
+.cal-next { margin: 4px 0 6px; font-size: var(--t-sub); color: var(--muted); }
 .cal-next b { color: var(--fg); font-weight: 600; }
 .cal-back { margin-top: 6px; }
 .cal-back button { width: 100%; justify-content: center; }
@@ -1134,10 +1133,10 @@ html.coarse .calibrate kbd { display: none; }
 .cal-toasts { flex: none; display: grid; gap: 6px; padding: 8px 12px 0; }
 .cal-toasts:empty { display: none; }
 .cal-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; scroll-padding-bottom: 16px; }
-.calibrate h3 { font-size: var(--t-h2); }
+.calibrate h3 { font-size: var(--t-section); }
 .cal-step { margin: 10px 0 4px; }
-.cal-step small { color: var(--muted); font-size: var(--t-meta); }
-.cal-step h2 { font-size: var(--t-xl); margin: 2px 0; overflow-wrap: anywhere; }
+.cal-step small { color: var(--muted); font-size: var(--t-sub); }
+.cal-step h2 { font-size: var(--t-title); margin: 2px 0; overflow-wrap: anywhere; }
 .cal-step p { margin: 0; color: var(--muted); }
 .cal-read { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; }
 .cal-how { margin: 6px 0; }
@@ -1145,14 +1144,14 @@ html.coarse .calibrate kbd { display: none; }
 .cal-sides { display: flex; gap: 6px; margin: 6px 0; }
 .cal-sides button { flex: 1; }
 .cal-pixel { flex: 1 1 10em; min-width: 9em; }
-.cal-why { margin: 0 0 8px; color: var(--muted); font-size: var(--t-help); }
+.cal-why { margin: 0 0 8px; color: var(--muted); font-size: var(--t-sub); }
 .cal-dock { flex: none; padding: 8px 12px calc(10px + var(--safe-b)); border-top: 1px solid var(--line); background: #0d0f12; }
-.cal-nudge-how { margin: 0 0 6px; color: var(--muted); font-size: var(--t-s); }
+.cal-nudge-how { margin: 0 0 6px; color: var(--muted); font-size: var(--t-sub); }
 .nudges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.nudges button { min-height: 56px; font-size: var(--t-l); font-weight: 650; font-variant-numeric: tabular-nums; }
+.nudges button { min-height: 56px; font-size: var(--t-section); font-weight: 600; font-variant-numeric: tabular-nums; }
 .cal-confirm { display: flex; gap: 8px; margin-top: 8px; }
 .cal-confirm button { min-height: 56px; }
-.cal-confirm .go { flex: 1; font-size: var(--t-l); }
+.cal-confirm .go { flex: 1; font-size: var(--t-section); }
 .cal-nav { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
 .cal-nav > .icon-btn { flex: 1; }
 .cal-util { margin-top: -2px; }
@@ -1166,13 +1165,13 @@ html.coarse .calibrate kbd { display: none; }
 .cal-prog .g-bar { flex: none; width: 48px; height: 4px; border-radius: 2px; background: #2a3038; overflow: hidden; }
 .cal-prog .g-bar > i { display: block; height: 100%; background: var(--house); }
 .cal-prog .group > summary small { flex: none; min-width: 2.6em; text-align: right; font-weight: 400; font-variant-numeric: tabular-nums; }
-.cal-part { margin: 6px 0 2px; font-size: var(--t-m); font-weight: 600; }
-.cal-part small, .cal-done > summary small { font-weight: 400; font-size: var(--t-meta); margin-left: 6px; }
+.cal-part { margin: 6px 0 2px; font-size: var(--t-body); font-weight: 600; }
+.cal-part small, .cal-done > summary small { font-weight: 400; font-size: var(--t-sub); margin-left: 6px; }
 .cal-done { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 4px; }
 .cal-done > summary { font-weight: 600; }
 .cal-done > .group { margin-left: 8px; }
 .cal-prog li.nv { grid-template-columns: minmax(0, 1fr) auto auto; }
-.cal-prog li .redo { min-height: 28px; padding: 0 8px; font-size: var(--t-meta); }
+.cal-prog li .redo { min-height: 28px; padding: 0 8px; font-size: var(--t-sub); }
 html.coarse .cal-prog li .redo { min-height: var(--tap); }
 /* A cluster's points, to choose from. */
 .cal-cluster .cluster-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1184,7 +1183,7 @@ html.coarse .cal-prog li .redo { min-height: var(--tap); }
 .cal-prog li.nv { align-items: start; }
 .cal-prog li .name { display: flex; align-items: flex-start; gap: 6px; min-width: 0; white-space: normal; overflow: visible; }
 .cal-prog li .name span { min-width: 0; overflow-wrap: break-word; text-wrap: balance; }
-.cal-prog li .value { font-size: var(--t-meta); }
+.cal-prog li .value { font-size: var(--t-sub); }
 .cal-prog li .icon { width: 12px; height: 12px; margin-top: 4px; }
 .cal-prog li:hover { background: #1a1e24; }
 .cal-prog li.done .icon { color: var(--house); }
@@ -1203,7 +1202,7 @@ html.coarse .cal-prog li .redo { min-height: var(--tap); }
   body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); max-height: calc(var(--cal-map) - var(--tap) - 32px); }
   body.calibrating .legend.folded { right: auto; }
   /* One line on a phone, so the title doesn't push the primary action down. */
-  .calibrate h1.title, .cal-step h2 { font-size: var(--t-h2); min-height: 0; }
+  .calibrate h1.title, .cal-step h2 { font-size: var(--t-section); min-height: 0; }
   .calibrate { top: var(--cal-map); left: 0; width: auto; border-left: 0; border-top: 1px solid var(--line); border-radius: 14px 14px 0 0; }
 }
 
@@ -1255,7 +1254,7 @@ html.coarse .cal-prog li .redo { min-height: var(--tap); }
 @media (pointer: fine) {
   html:not(.coarse) .preset-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 10px; }
   html:not(.coarse) .preset-actions { flex-wrap: nowrap; gap: 4px; }
-  html:not(.coarse) .preset-actions button { font-size: var(--t-help); }
+  html:not(.coarse) .preset-actions button { font-size: var(--t-sub); }
   html:not(.coarse) .preset-actions [data-act=try] { width: 7.6em; }
   html:not(.coarse) .preset-actions [data-act=pin] { width: 6em; }
 }
@@ -1264,14 +1263,14 @@ html.coarse .cal-prog li .redo { min-height: var(--tap); }
 .preset-editor h3 { margin-top: 0; }
 .preset-editor .row { flex-wrap: wrap; }
 .tabs button { min-width: 0; padding-left: 7px; padding-right: 7px; }
-@media (max-width: 420px) { .tabs button { flex-direction: column; gap: 0; font-size: var(--t-s); line-height: 1.15; } }
+@media (max-width: 420px) { .tabs button { flex-direction: column; gap: 0; font-size: var(--t-sub); line-height: 1.15; } }
 
 /* Native dialog, in-app look. */
 dialog.confirm { background: #1a1e24; color: var(--fg); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; width: min(380px, calc(100vw - 32px)); }
 dialog.confirm::backdrop { background: rgba(0, 0, 0, 0.6); }
 dialog.confirm h3 { margin-top: 0; }
 dialog.confirm .row { margin-top: 10px; }
-dialog.confirm kbd { font: inherit; font-size: var(--t-s); font-weight: 400; color: inherit; opacity: 0.92; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
+dialog.confirm kbd { font: inherit; font-size: var(--t-fine); font-weight: 400; color: inherit; opacity: 0.92; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
 html.coarse dialog.confirm kbd { display: none; }
 @media (pointer: coarse) { dialog.confirm kbd { display: none; } }
 
@@ -1280,7 +1279,7 @@ html.coarse dialog.confirm kbd { display: none; }
 .picker.open { flex-basis: 100%; }
 .picker-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--tap); background: var(--field); border-color: var(--field-line); text-align: left; }
 .picker-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.picker-note { color: var(--muted); font-size: var(--t-meta); margin-left: 6px; }
+.picker-note { color: var(--muted); font-size: var(--t-sub); margin-left: 6px; }
 .picker-swatch { flex: none; width: 34px; height: 12px; border-radius: 3px; border: 1px solid var(--rim); }
 .picker-pop { display: grid; gap: 6px; margin-top: 4px; padding: 6px; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius); scroll-margin: 8px; }
 .picker-pop input { width: 100%; }

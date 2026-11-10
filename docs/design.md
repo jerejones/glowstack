@@ -1317,8 +1317,33 @@ desk.
   the two taps cleared comes back. A double tap that lands on a run is two
   taps on that run: the second climbs the selection, it never fits. With a
   mouse, hovering shows the card. On touch screens every control is at
-  least 44 px and text is 15 px; with a mouse, controls are about 28 px and
-  text 13 px.
+  least 44 px; with a mouse, controls are about 28 px. Text sizes are in
+  "Type" below.
+- **Type.** The system font stack, no shipped typeface (no load step, no
+  reflow). Five sizes per pointer type, and no other font size anywhere in
+  the stylesheet:
+
+  | Token | Mouse | Touch | For |
+  |---|---|---|---|
+  | `--t-title` | 24 px | 26 px | The one headline on a screen; a Status figure. |
+  | `--t-section` | 17 px | 18 px | Section headings, Status's answer, the calibration dock's buttons. |
+  | `--t-body` | 14 px | 15 px | **Primary**: names, values, control labels, anything acted on. |
+  | `--t-sub` | 13 px | 14 px | **Secondary**: descriptions, sub-lines, help, hints and meta, usually in the muted color. |
+  | `--t-fine` | 12 px | 13 px | Dense tabular meta only: a table's column heads, a key's hint beside its button's word. |
+
+  *Primary against secondary.* A thing and its explanation differ in size
+  as well as weight: a library card is its name (primary, 600) over its
+  description (secondary); a preset row the same; a layer row's name
+  against its place and level; a Status row's name against its counts.
+  *The floor.* Nothing read in order to act is below the secondary size:
+  13 px with a mouse, 14 px on touch. The fine size is never used for a
+  sentence. *Numbers line up.* Tabular numerals are the page's default, so
+  every count, percentage, pixel index, step count and time holds its
+  column wherever it is written. *Weights.* Three: 400, 600, and 650 for
+  the page title alone; muted text is never bolded to make it louder.
+  *Line length.* A paragraph that explains wraps at about 70 characters
+  however wide the panel; a name that wraps never leaves one word alone on
+  its last line.
 - **3-D view.** With a scene model, the map is a 3-D view (WebGL, three.js
   vendored with its license):
   - The building draws as see-through lines over faint surfaces. The

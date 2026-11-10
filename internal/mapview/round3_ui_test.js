@@ -66,10 +66,12 @@ test('B142: the Status tiles are one component with one color rule', async () =>
   assert.match(tileHTML(facts[3]), /^<button type="button" id="stPowerTile" class="stat wordy link" title="[^"]*Go to the Power section\."><b class="words">power estimate<\/b><span>Not configured<svg[^]*<\/svg><\/span><\/button>$/); // the words under the label since series 2 round 5 (B148)
   assert.match(tileHTML(facts[1]), /^<div class="stat ok"/);
   // The figure shrinks only while it does not fit, never grows, and stops at the floor.
-  const el = (fits) => ({ style: { fontSize: 'x' }, clientWidth: 100, get scrollWidth() { return fits(parseFloat(this.style.fontSize) || 22) ? 100 : 140; } });
+  // The steps are the type scale's own tokens since series 2 round 6 (T): 24, then 17, 14, 13 px with a mouse.
+  const PX = { '': 24, 'var(--t-section)': 17, 'var(--t-body)': 14, 'var(--t-sub)': 13 };
+  const el = (fits) => ({ style: { fontSize: 'x' }, clientWidth: 100, get scrollWidth() { return fits(PX[this.style.fontSize]) ? 100 : 140; } });
   const a = el(() => true); fitFigure(a); assert.equal(a.style.fontSize, '', 'a figure that fits keeps the one size');
-  const b = el((px) => px <= 17); fitFigure(b); assert.equal(b.style.fontSize, '17px');
-  const c = el(() => false); fitFigure(c); assert.equal(c.style.fontSize, '13px');
+  const b = el((px) => px <= 17); fitFigure(b); assert.equal(b.style.fontSize, 'var(--t-section)');
+  const c = el(() => false); fitFigure(c); assert.equal(c.style.fontSize, 'var(--t-sub)');
   // One spec in the stylesheet: a fixed one-line figure box (equal bottoms), tabular numerals, one-line labels, equal heights.
   assert.match(css, /\.tiles \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-auto-rows: 1fr;/);
   assert.match(css, /\.tiles \.stat \{ display: flex; flex-direction: column; justify-content: flex-start;/);
@@ -518,8 +520,8 @@ test('Refinement 6: level card rows: a sub line sits under its name, and a row\'
 
 test('Refinement 7: one disclosure style per level, a focus ring of its own', () => {
   // Disclosures: the base rule is the inline tier; the section tier is a class. None is sized by its id.
-  assert.match(css, /^details > summary \{[^}]*font-size: var\(--t-m\); font-weight: 600; \}/m);
-  assert.match(css, /^\.section-disclosure > summary \{ font-size: var\(--t-h2\); font-weight: 600; color: #f3f4f6; \}/m);
+  assert.match(css, /^details > summary \{[^}]*font-size: var\(--t-body\); font-weight: 600; \}/m);
+  assert.match(css, /^\.section-disclosure > summary \{ font-size: var\(--t-section\); font-weight: 600; color: #f3f4f6; \}/m);
   assert.doesNotMatch(css, /#[A-Za-z]+ > summary \{[^}]*font-(size|weight)/, 'no id-specific disclosure size or weight');
   assert.match(read('panel/setup.js'), /<details id="suAdvanced" class="section-disclosure"><summary>Advanced<\/summary>/);
   assert.match(read('panel/status.js'), /<details id="stDiag" class="section-disclosure"><summary>Diagnostics<\/summary>/);

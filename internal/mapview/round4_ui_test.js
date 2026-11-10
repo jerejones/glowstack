@@ -506,7 +506,7 @@ test('Refinement 3: the phone\'s search opens fully, with the list as a chip tha
   const phone = css.slice(css.indexOf('/* The search takes the row while in use'));
   assert.match(phone, /body\[data-detent\] \.lib-filters \.field\.searching \{ flex: 1 1 100%; \}/);
   assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button:not\(\.on\) \{ display: none; \}/);
-  assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button\.on \{ padding: 0 6px; gap: 0; font-size: var\(--t-s\);/);
+  assert.match(phone, /\.lib-filters:has\(\.field\.searching\) \.seg > button\.on \{ padding: 0 6px; gap: 0; font-size: var\(--t-sub\);/);
   assert.match(css, /\.lib-filters \.seg > button > \.icon \{ display: none; \}/, 'the chip is its word');
   // The chip names the list, and the search is searching from focus: blur with nothing typed folds it back.
   const { searching } = await import('./static/field.js');

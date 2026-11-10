@@ -248,3 +248,59 @@ test('C3: a double-tap fit leaves the view framed, not handed back to the user',
   assert.match(scene, /function setView\(name\) \{\s*if \(name === 'fit'\) \{[\s\S]{0,420}?grab = null;\s*cam\.dir = camera\.position/);
   assert.match(scene, /fitAll\(\) \{\s*cancelAnimationFrame\(gliding\);\s*grab = null;/);
 });
+
+// ---------- T: a type system ----------
+
+test('T: five sizes per pointer type, and every font size in the stylesheet is one of them', async () => {
+  const sheet = css();
+  const TOKENS = ['t-title', 't-section', 't-body', 't-sub', 't-fine'];
+  const root = /:root \{([\s\S]*?)\n\}/.exec(sheet)[1];
+  const fine = Object.fromEntries(TOKENS.map((t) => [t, +new RegExp(`--${t}: (\\d+)px;`).exec(root)[1]]));
+  assert.deepEqual(fine, { 't-title': 24, 't-section': 17, 't-body': 14, 't-sub': 13, 't-fine': 12 });
+  // Touch is each a step up, and both ways of being coarse say the same.
+  const coarse = (rule) => Object.fromEntries(TOKENS.map((t) => [t, +new RegExp(`--${t}: (\\d+)px;`).exec(rule)[1]]));
+  const narrow = /:root \{ --layout: sheet;([^}]*)\}/.exec(sheet)[1];
+  const media = /@media \(pointer: coarse\) \{ :root \{([^}]*)\}/.exec(sheet)[1], forced = /html\.coarse \{([^}]*)\}/.exec(sheet)[1];
+  assert.deepEqual(coarse(media), { 't-title': 26, 't-section': 18, 't-body': 15, 't-sub': 14, 't-fine': 13 });
+  assert.deepEqual(coarse(forced), coarse(media));
+  assert.deepEqual(coarse(narrow), coarse(media), 'a phone-width screen has the touch sizes');
+  // No other size token is defined, and none is used.
+  assert.deepEqual([...new Set([...sheet.matchAll(/--(t-[a-z0-9]+):/g)].map((m) => m[1]))].sort(), [...TOKENS].sort());
+  assert.deepEqual([...new Set([...sheet.matchAll(/var\(--(t-[a-z0-9]+)\)/g)].map((m) => m[1]))].sort(), [...TOKENS].sort());
+  // Every font-size, and every font shorthand that sets one, is a token: no px, em, rem or percentage.
+  for (const m of sheet.matchAll(/font-size:\s*([^;}]+)/g)) assert.match(m[1], /^var\(--t-(title|section|body|sub|fine)\)$/, m[0]);
+  for (const m of sheet.matchAll(/[^-]font:\s*([^;}]+)/g)) assert.match(m[1], /^(inherit|var\(--t-(title|section|body|sub|fine)\)[ /])/, m[0]);
+  // Scripts set no size of their own on the page (the map's canvas labels are drawn, not styled).
+  for (const f of ['app.js', 'sheet.js', 'form.js', 'tiles.js', 'panel/looks.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js', 'panel/calibrate.js', 'index.html']) assert.doesNotMatch(read(f), /font-size:|fontSize = [a-z0-9.]+ \+ 'px'|fontSize = ['`]\d/, f);
+  // The one script that sizes text (a Status figure that would not fit) steps along the scale's own tokens.
+  assert.match(read('panel/status.js'), /el\.style\.fontSize = `var\(--\$\{token\}\)`;/);
+  assert.deepEqual((await import('./static/panel/status.js')).FIGURE_STEPS, ['t-section', 't-body', 't-sub']);
+});
+
+test('T: primary against secondary, the floor, weights, numerals and line length', () => {
+  const sheet = css();
+  const size = (sel) => { for (const m of sheet.matchAll(new RegExp(`(^|\\n)\\s*${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`, 'g'))) { const t = /font(?:-size)?: var\(--(t-[a-z]+)\)/.exec(m[2]); if (t) return t[1]; } return assert.fail(`no size for ${sel}`); };
+  // A name is primary; what explains it is secondary.
+  assert.equal(size('.preset .name'), 't-body');
+  assert.match(sheet, /\.preset \.name \{ font-size: var\(--t-body\); font-weight: 600;/);
+  assert.equal(size('.layer .name-line b'), 't-body');
+  assert.equal(size('small'), 't-sub');
+  assert.equal(size('.stage-head small'), 't-sub');
+  assert.equal(size('.stat span'), 't-sub');
+  assert.equal(size('.cal-nudge-how'), 't-sub', 'the nudge instructions are read to act: not the fine size');
+  assert.equal(size('.legend-toggle'), 't-sub');
+  // The fine size is only for table heads and key hints.
+  const fineUsers = [...sheet.matchAll(/(^|\n)\s*([^{}\n]+) \{[^}]*var\(--t-fine\)[^}]*\}/g)].map((m) => m[2].trim()).filter((s) => !/^(:root|html\.coarse|@media)/.test(s));
+  assert.deepEqual(fineUsers.sort(), ['.calibrate kbd', '.power thead th', 'dialog.confirm kbd']);
+  // Three weights: 400, 600, and 650 for the page title alone.
+  const weights = [...sheet.matchAll(/([^{}\n]+)\{[^}]*font-weight: (\d+)/g)];
+  assert.deepEqual([...new Set(weights.map((m) => m[2]))].sort(), ['400', '600', '650']);
+  assert.deepEqual([...sheet.matchAll(/(^|\n)([^{}\n]+) \{[^}]*font-weight: 650/g)].map((m) => m[2].trim()), ['h1.title']);
+  // Tabular numerals are the page's default.
+  assert.match(sheet, /html, body \{[^}]*font-variant-numeric: tabular-nums;/);
+  // Prose wraps at about 70 characters.
+  assert.match(sheet, /p\.help, div\.help, \.tab > p\.muted, \.cal-nudge-how, \.stage-head small \{ max-width: 70ch; \}/);
+  const doc = design();
+  for (const t of ['--t-title', '--t-section', '--t-body', '--t-sub', '--t-fine']) assert.ok(doc.includes('`' + t + '`'), t);
+  assert.match(doc, /Five sizes per pointer type/);
+});

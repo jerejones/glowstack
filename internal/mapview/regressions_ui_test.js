@@ -648,11 +648,11 @@ test('Everything is the one term, and the Runs group says why runs are missing',
 });
 
 test('a real type scale: h2 and h3 differ, and body text is larger on desktop', () => {
-  assert.match(css, /--t-m: 14px/);
-  assert.match(css, /--t-h3: 15px/);
-  assert.match(css, /--t-h2: 17px/);
-  assert.match(css, /^h1, h2 \{[^}]*font-size: var\(--t-h2\)/m);
-  assert.match(css, /^h3 \{[^}]*font-size: var\(--t-h3\)/m);
+  assert.match(css, /--t-body: 14px/);
+  assert.match(css, /--t-body: 15px/);
+  assert.match(css, /--t-section: 17px/);
+  assert.match(css, /^h1, h2 \{[^}]*font-size: var\(--t-section\)/m);
+  assert.match(css, /^h3 \{[^}]*font-size: var\(--t-body\)/m);
 });
 
 test('the shared text input puts its error under the field', async () => {
@@ -874,8 +874,8 @@ test('Status tiles are even, uptime is words, and file names stay out of the way
 
 test('the last polish: pin glyph, type sizes, contrast and the Preview reason', () => {
   assert.match(read('panel/presets.js'), /icon\(p\.pinned \? 'pinFilled' : 'pin'\)/);
-  assert.match(css, /--t-help: 14px/);
-  assert.match(css, /--t-meta: 14px/);
+  assert.match(css, /--t-sub: 14px/);
+  assert.match(css, /--t-sub: 14px/);
   const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.substr(i, 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
   const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
   const card2 = /--card2: (#[0-9a-f]{6})/.exec(css)[1];
@@ -1038,7 +1038,7 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   assert.deepEqual(out.map((x) => x.summary), ['dark', 'The lights are spaced differently than drawn in 2 places.', 'other']);
   assert.equal(out[1].group.length, 2);
   assert.match(css, /\.run-rows li \{ display: grid; grid-template-columns: minmax\(0, 1fr\) max-content 6\.4em;/);
-  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-meta\)/, 'controller rows at 14px');
+  assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-sub\)/, 'controller rows at 14px');
 });
 
 test('the phone sheet has no rail toggle, and its peek is the handle and one line over the tab bar', () => {
@@ -1210,8 +1210,8 @@ test('polish: type, primary green and wiring colors', async () => {
   const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
   const go = /--go: (#[0-9a-f]{6})/.exec(css)[1];
   assert.ok(1.05 / (lum(go) + 0.05) >= 6, `white on ${go} is at least 6:1`);
-  assert.match(css, /--t-note: 13px/);
-  assert.match(css, /\.error, \.err, \.field-err \{ color: #fca5a5; font-size: var\(--t-note\)/);
+  assert.match(css, /--t-sub: 13px/);
+  assert.match(css, /\.error, \.err, \.field-err \{ color: #fca5a5; font-size: var\(--t-sub\)/);
   const { nthColor } = await import('./static/util.js');
   // No two colors in the first 16 may be close enough to be taken for each other.
   const near = [];
@@ -1381,16 +1381,16 @@ test('desktop footer keeps to the panel bottom; legend folds; boot has the tab i
   assert.ok(html.includes(icon('looks')), 'the same drawing the app uses');
   assert.match(read('panel/presets.js'), /title="More: edit, duplicate or delete">\$\{icon\('more'\)\}<\/button>/, 'More carries the kebab, named by its title (round 3)');
   assert.doesNotMatch(css, /\.color-picker summary::before \{ order: 2/, 'the chevron is a disclosure like the rest');
-  assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-h2\)/);
+  assert.match(css, /\.calibrate h1\.title, \.cal-step h2 \{ font-size: var\(--t-section\)/);
   assert.match(css, /text-wrap: balance/);
 });
 
 test('B93: a preset card has no reserved row, and its name is the largest text', () => {
   assert.doesNotMatch(css, /\.tab \.sub \{/, "Setup's heading rule must not reach the cards' type line");
   assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{/);
-  assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\)/, 'the name takes the heading size');
-  assert.match(css, /--t-meta: 14px/);
-  assert.match(css, /--t-h3: 15px/, 'above the type line on desktop as well');
+  assert.match(css, /\.preset \.name \{ font-size: var\(--t-body\)/, 'the name takes the heading size');
+  assert.match(css, /--t-sub: 14px/);
+  assert.match(css, /--t-body: 15px/, 'above the type line on desktop as well');
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ height: 1\.4em;/, 'Previewing takes the type line\'s slot');
 });
 
@@ -1488,9 +1488,9 @@ test('0%: a layer over dark zones says so, and Status stops calling Sending good
 });
 
 test('essential metadata is 14px and a phone heading qualifier gets its own line', () => {
-  assert.match(css, /--t-meta: 14px/);
+  assert.match(css, /--t-sub: 14px/);
   for (const sel of ['.place-row .meta', '.stage-head small', '.bri-label', '.stat span', '.list-rows li .what small', '.run-rows .len small', '.cal-step small', '.cal-prog li .value']) {
-    assert.match(css, new RegExp(`${sel.replace(/[.]/g, '\\.')} \\{[^}]*font-size: var\\(--t-meta\\)`), sel);
+    assert.match(css, new RegExp(`${sel.replace(/[.]/g, '\\.')} \\{[^}]*font-size: var\\(--t-sub\\)`), sel);
   }
   assert.match(css, /max-width: 699\.98px[^{]*\{\s*h2 small, h3 small \{ display: block; margin-left: 0;/);
 });
@@ -1819,7 +1819,7 @@ test('the stage says why it is dark, once, inside the stage', () => {
 });
 
 test('Status: the verdict leads, the counts are a line, healthy is a check', async () => {
-  assert.match(css, /\.verdict \{[^}]*font-size: var\(--t-verdict\)/);
+  assert.match(css, /\.verdict \{[^}]*font-size: var\(--t-section\)/);
   const status = read('panel/status.js');
   assert.ok(status.indexOf('id="stStats"') > status.indexOf('id="stPower"'), 'counts below the answers');
   assert.doesNotMatch(status, /stat\(count\(st\.layers\)/, 'the count of looks repeats the verdict');
@@ -2073,11 +2073,11 @@ test('the action bar sits right below short content and sticks over tall content
 test('one section-heading step, with a smaller h3 nested under Advanced', () => {
   assert.doesNotMatch(css, /\.stage-head h2 \{[^}]*font-size/, 'the stage heading is a section heading');
   assert.match(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*color: #f3f4f6/);
-  assert.doesNotMatch(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*font-size: var\(--t-h3\)/);
-  assert.match(css, /\.section-disclosure > summary \{ font-size: var\(--t-h2\)/);
+  assert.doesNotMatch(css, /\.tab h2\.sub, \.tab h3\.sub \{[^}]*font-size: var\(--t-body\)/);
+  assert.match(css, /\.section-disclosure > summary \{ font-size: var\(--t-section\)/);
   assert.match(read('panel/setup.js'), /<details id="suAdvanced" class="section-disclosure">/, 'Advanced takes the section tier by class (round 3)');
-  assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
-  assert.match(css, /\.calibrate h3 \{ font-size: var\(--t-h2\); \}/, 'Progress');
+  assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-body\)/);
+  assert.match(css, /\.calibrate h3 \{ font-size: var\(--t-section\); \}/, 'Progress');
 });
 
 test('one word for taking a layer off, Pin matches the Presets tab, and the empty Preview toggle says why', async () => {
@@ -2158,7 +2158,7 @@ test('B113: the Status count comes from the same list as the cards', async () =>
 });
 
 test('B114: library cards clamp the name to two lines and keep the subtitle on a fixed row', () => {
-  assert.match(css, /\.preset \.name \{ font-size: var\(--t-h3\); font-weight: 600; line-height: 1\.3; \}/);
+  assert.match(css, /\.preset \.name \{ font-size: var\(--t-body\); font-weight: 600; line-height: 1\.3; \}/);
   assert.match(css, /-webkit-line-clamp: 2/);
   assert.match(css, /\.preset \.sub, \.preset \.in-badge \{ height: 1\.4em;[^}]*white-space: nowrap/);
 });
@@ -2181,7 +2181,7 @@ test('Tweak is the sliders, and Setup a gear', () => {
 
 test('Setup: Advanced is nested under Advanced, a size below the top-level sections', () => {
   assert.match(css, /#suAdvanced > :not\(summary\) \{[^}]*border-left/);
-  assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-m\)/);
+  assert.match(css, /#suAdvanced h3\.sub \{ font-size: var\(--t-body\)/);
 });
 
 test('a phone: the stage is the first content, and the sheet rises for Tweak only', () => {
@@ -2327,8 +2327,8 @@ test('More settings group by what they affect, and help waits to be wanted', asy
 
 test('disclosures come in two documented tiers', () => {
   assert.match(css, /Disclosures come in three tiers/);
-  assert.match(css, /details > summary \{[^}]*font-size: var\(--t-m\);/);
-  assert.match(css, /\.section-disclosure > summary \{ font-size: var\(--t-h2\); font-weight: 600;/);
+  assert.match(css, /details > summary \{[^}]*font-size: var\(--t-body\);/);
+  assert.match(css, /\.section-disclosure > summary \{ font-size: var\(--t-section\); font-weight: 600;/);
   assert.match(read('form.js'), /more\.className = 'form-disclosure'/);
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });
@@ -2380,8 +2380,8 @@ test('B129: the Tweak form has one wider label column, stacked on the narrow pan
 test('B130: a disclosure is never larger than its container heading', () => {
   const css = read('ui.css');
   assert.match(css, /Disclosures come in three tiers/);
-  assert.match(css, /\.form-disclosure > summary \{ font-size: var\(--t-h3\); font-weight: 600;/);
-  assert.match(css, /\.layer \.name-line b \{[^}]*font-size: var\(--t-h3\)/, "a layer card's title is at least its More settings");
+  assert.match(css, /\.form-disclosure > summary \{ font-size: var\(--t-body\); font-weight: 600;/);
+  assert.match(css, /\.layer \.name-line b \{[^}]*font-size: var\(--t-body\)/, "a layer card's title is at least its More settings");
   assert.match(read('panel/status.js'), /id="stDiag" class="section-disclosure"/);
 });
 
@@ -2419,7 +2419,7 @@ test('B129: a long slider value never overruns the shared right edge', () => {
 test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word first', () => {
   const looks = read('panel/looks.js');
   // The name is a flex item with a floor, not one that collapses to nothing.
-  assert.match(css, /\.place b \{ font-weight: 500; flex: 1 1 auto; min-width: 8ch;/);
+  assert.match(css, /\.place b \{ font-weight: 600; flex: 1 1 auto; min-width: 8ch;/);
   // On the sheet the place takes the row's first column whole, one line.
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px) and (orientation: portrait)'));
   assert.match(phone, /\.layer \.place-row \{ grid-column: 1; grid-row: 1; max-width: none; \}/);
@@ -2737,9 +2737,9 @@ test('Refinement 4 (round 2): the chip names what is on the lights, with weight'
   assert.equal(mapStatus(base).text, 'Showing the lights');
   assert.equal(mapStatus({ ...base, lit: { dark: 'none', zones: ['Yard'], ids: ['a'], message: 'x' }, looks: ['Lantern'], levels: [0] }).text, 'Lights: dark', 'dark zones come first');
   // The chip is body size; the state word is in the text color, the green on the rim.
-  assert.match(css, /\.badge \{[^}]*font-size: var\(--t-m\)/);
+  assert.match(css, /\.badge \{[^}]*font-size: var\(--t-body\)/);
   assert.match(css, /\.badge\.house \{ color: var\(--fg\); border-color: #24543a; \}/);
-  assert.match(css, /  \.badge \{ max-width: calc\(100% - 204px\); font-size: var\(--t-meta\); \}/, 'the phone chip has the room for its longest first line at 14 px');
+  assert.match(css, /  \.badge \{ max-width: calc\(100% - 204px\); font-size: var\(--t-sub\); \}/, 'the phone chip has the room for its longest first line at 14 px');
   assert.match(css, /\.badge b \{ font-weight: 600; \}/);
   // Wired from the stack and the brightness reading; no control in the chip.
   const app = read('app.js');
