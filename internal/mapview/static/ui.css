@@ -1155,7 +1155,7 @@ html.coarse .cal-prog li .redo { min-height: var(--tap); }
    * one row above the map, and framing keeps the target below that row. */
   body.calibrating .chipbar { top: max(8px, env(safe-area-inset-top)); left: 8px; right: 8px; bottom: auto; }
   body.calibrating .brand { display: none; }
-  body.calibrating .badge .detail { visibility: hidden; } /* its line is kept: the chip is one shape in every state */
+  body.calibrating .badge .detail { display: none; } /* one line, centered: no empty line is kept in the pill */
   body.calibrating .map-controls { top: max(8px, env(safe-area-inset-top)); right: 8px; left: auto; bottom: auto; }
   /* The point key, on the map just above the calibration sheet. */
   body.calibrating .legend { display: flex; bottom: calc(100% - var(--cal-map) + var(--cal-shift, 0px) + 8px); max-height: calc(var(--cal-map) - var(--tap) - 32px); }

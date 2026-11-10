@@ -545,7 +545,7 @@ test('Refinement 4: the power tile says "Not configured" and is a link; qualifie
   assert.match(status, /Runs <small>drawn vs measured length<\/small>/);
 });
 
-test('Refinement 5: a selected segment is 3:1 and heavier; the phone chip keeps its second line', async () => {
+test('Refinement 5: a selected segment is 3:1 and heavier; the phone chip stacks its detail', async () => {
   // The segment: fill against fill at least 3:1, and a weight change.
   const hex = (name) => new RegExp(`--${name}: (#[0-9a-f]{6});`).exec(css)[1];
   const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -556,16 +556,11 @@ test('Refinement 5: a selected segment is 3:1 and heavier; the phone chip keeps 
   assert.match(css, /^\.seg > button\.on \{ background: var\(--seg-on\); color: #fff; font-weight: 600;/m);
   assert.match(css, /^\.seg > button \{[^}]*background: var\(--card2\);/m);
   for (const where of ['.map-controls', '.chipbar']) assert.match(css, new RegExp(`\\${where} \\.seg > button\\.on \\{ background: var\\(--seg-on\\); \\}`));
-  // The phone's chip: two lines in every state, the second kept empty when there is nothing for it.
+  // The phone's chip: a second line only when there is a detail for it (series 2 round 5 took the reserved empty line out).
   const { badgeHTML } = await import('./static/map-status.js');
-  const reserved = /<span class="detail reserved" aria-hidden="true">&nbsp;<\/span><\/span>$/;
-  assert.match(badgeHTML({ text: 'Showing your preview', detail: '' }, true), reserved);
-  assert.match(badgeHTML({ text: 'Showing your preview', detail: '' }, true), /^<span class="stack"><span>Showing your preview<\/span>/);
-  assert.match(badgeHTML({ short: 'Target pattern', text: 'Target pattern', detail: '' }, true), reserved);
   const two = badgeHTML({ text: 'Lights: nothing lit', detail: ' · no looks on them' }, true);
   assert.match(two, /^<span class="stack"><span>Lights: nothing lit<\/span><span class="detail">no looks on them<\/span><\/span>$/);
   assert.doesNotMatch(badgeHTML({ text: 'Showing your preview', detail: '' }), /stack|reserved/, 'the desktop chip is one line, as before');
-  assert.match(css, /body\.calibrating \.badge \.detail \{ visibility: hidden; \}/, 'kept while calibrating too');
 });
 
 test('Refinement 6: the desktop Looks panel fills with "More looks" when the Pinned list leaves room', async () => {

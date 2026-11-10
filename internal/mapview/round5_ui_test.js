@@ -104,3 +104,33 @@ test('B149: Names names the runs in every "Color the map by" view, and the key c
   assert.match(setup, /key\.hidden = !\(legendHTML \+ states \+ note\);/);
   assert.match(setup, /title="Names on the runs, or on points and gaps while Points is on, and descriptions on controllers">Names</);
 });
+
+test('Refinement 1: a one-line state is a one-line pill, with no empty line kept in it', async () => {
+  const { badgeHTML, stackedLines, mapStatus } = await import('./static/map-status.js');
+  const count = (html) => (html.match(/<span(?: class="detail")?>[^<]*<\/span>/g) || []).length;
+  const base = { connected: true, show: '', preview: null };
+  const states = [
+    mapStatus({ ...base, lit: { dark: 'none', empty: true, zones: [], message: '' } }),
+    mapStatus(base),
+    mapStatus({ ...base, looks: ['Amber wash'], levels: [1, 1] }),
+    mapStatus({ ...base, preview: { previewing: true } }),
+    mapStatus({ ...base, preview: { previewing: true }, dimZones: 2 }),
+    mapStatus({ ...base, mode: 'outputs' }),
+    mapStatus({ ...base, target: true }),
+    mapStatus({ ...base, connected: false }),
+  ];
+  for (const m of states) {
+    const html = badgeHTML(m, true);
+    assert.equal(count(html), stackedLines(m), m.text);
+    assert.doesNotMatch(html, /&nbsp;|reserved|<span[^>]*>\s*<\/span>/, `${m.text}: no empty line`);
+  }
+  // The states with nothing more to say are one line.
+  for (const i of [3, 5, 6, 7]) assert.equal(stackedLines(states[i]), 1, states[i].text);
+  for (const i of [0, 1, 2, 4]) assert.equal(stackedLines(states[i]), 2, states[i].text);
+  // The pill centers what it has and is never shorter than the logo button beside it.
+  const c = css();
+  assert.match(c, /^\.badge \{\s*display: inline-flex; align-items: center; min-height: var\(--tap\);/m);
+  assert.match(c, /^\.brand \{\s*display: inline-flex; align-items: center; gap: 7px; min-height: var\(--tap\);/m);
+  assert.match(c, /body\.calibrating \.badge \.detail \{ display: none; \}/);
+  assert.doesNotMatch(c, /\.badge \.detail \{ visibility: hidden/);
+});

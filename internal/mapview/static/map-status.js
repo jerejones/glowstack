@@ -91,14 +91,16 @@ export function showButton(choice, { ready, failed, canPreview, word }) {
 // badgeHTML is the chip's content. One element holds both parts: the chip
 // is a flex box, and a direct child span would lose its leading space. On a
 // phone (stacked) the detail is a second line, since it won't fit on the first.
-// RESERVED is a stacked chip's second line when there is nothing to say on
-// it: the line is kept, empty, so the state's words sit at the same height in
-// every state and the header never changes shape between them.
-const RESERVED = '<span class="detail reserved" aria-hidden="true">&nbsp;</span>';
+// A one-line state is a one-line pill: the second line is there only when
+// there is a detail to put on it, so no pill has an empty line and its words
+// sit centered. (The header's chip may be one or two lines tall as the state
+// changes; a hollow pill was the worse of the two.)
+// stackedLines says how many lines the stacked chip has for a status.
+export const stackedLines = (m) => (m.detail ? 2 : 1);
 export function badgeHTML(m, stacked = false) {
-  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${m.detail ? `<span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span>` : RESERVED}</span>`;
+  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${m.detail ? `<span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span>` : ''}</span>`;
   if (m.names) return `<span><b>${esc(m.names)}</b>${esc(m.text.slice(m.names.length))}<span class="detail">${esc(m.detail)}</span></span>`;
   if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, '').replace(' shown dim', ' dim'))}</span></span>`;
-  if (stacked) return `<span class="stack"><span>${esc(m.text)}</span>${RESERVED}</span>`;
+  if (stacked) return `<span class="stack"><span>${esc(m.text)}</span></span>`;
   return `<span>${esc(m.text)}<span class="detail">${esc(m.detail)}</span></span>`;
 }
