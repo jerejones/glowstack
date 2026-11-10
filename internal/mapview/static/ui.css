@@ -409,9 +409,10 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   .panel-toasts { display: flex; position: absolute; z-index: 6; left: 8px; right: 8px; bottom: auto; width: auto; transform: translateY(-100%); }
 }
 /* The quieter Undo on the "On the lights" card: a link, there for five minutes. */
-.stage-undo { margin: 4px 4px 0; text-align: right; font-size: var(--t-help); }
-.stage-undo.held { visibility: hidden; } /* the toast has the Undo for now: one at a time, and no jump when it leaves */
-.stage-undo[hidden] { display: none; }
+.stage-undo { margin: 4px 4px 2px; text-align: right; font-size: var(--t-help); } /* 2 px under it: the card's bottom padding is its top's */
+.stage-undo[hidden] { display: none; } /* no room is kept for it: the card is as tall as what it shows, and grows by this row when the link appears (B151) */
+/* The card's padding under its last row is its padding above its heading: a row brings 6 px of its own, so the card gives 4 px less. */
+.stage:has(> #lkRows > .layer):not(:has(> .stage-undo:not([hidden]))):not(:has(> #lkStageState:not(:empty))) { padding-bottom: 4px; }
 .stage-undo button { min-height: var(--tap); }
 
 /* the inspect card: floating on the map with a mouse, a row in the sheet on phones */
@@ -847,6 +848,11 @@ html:not(.coarse) { --swatch-h: 36px; }
   .layer.open .line-place, .layer.open .line-level { display: none; }
   .stage-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .stage-head > h2, .stage-head > small { grid-column: 1; }
+  /* The same rule on a phone (B151), where a row has no padding of its own under it: 10 px of card at
+   * the full detent (8 and 2 above the heading), 6 px at half (6 above), whatever the last row is. */
+  .stage:has(> #lkRows > .layer):not(:has(> .stage-undo:not([hidden]))):not(:has(> #lkStageState:not(:empty))) { padding-bottom: 10px; }
+  body[data-detent=half] .stage:has(> #lkRows > .layer):not(:has(> .stage-undo:not([hidden]))):not(:has(> #lkStageState:not(:empty))) { padding-bottom: 6px; }
+  #lkRows > .layer.two-line:last-of-type .name-line { padding-bottom: 0; }
   /* On a phone the four controls keep the desktop's left-to-right order in
    * two rows that pair like with like (series 2 round 4): where the look is
    * and how bright, then what can be done to it, Tweak and Remove. The

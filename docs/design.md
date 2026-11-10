@@ -1525,9 +1525,11 @@ desk.
   (Put, Add, Update, Replace, and Remove on a live look) can be taken back
   once, and one Undo is on screen at a time. The confirmation toast carries
   **Undo** for 10 seconds; while it shows, the "On the lights" card has no
-  link (its line is held, so the card does not grow later). When the toast
-  leaves, the card's quieter **Undo last change** link appears and stays
-  until the next change or for 5 minutes, whichever is first. On a phone
+  link and keeps no room for one. When the toast leaves, the card's quieter
+  **Undo last change** link appears, the card growing by that one row, and
+  stays until the next change or for 5 minutes, whichever is first. The
+  card is as tall as what it shows at every moment: its padding under its
+  last row is its padding above its heading. On a phone
   the toast is one compact line, the message and Undo. One level only. The
   offer is for the stack that page left: if the looks on the lights are no
   longer those (another screen or Home Assistant added or removed one), the

@@ -857,13 +857,10 @@ export function createLooks(S, root) {
     const toastShowing = !!document.querySelector('.toast [data-act=undo]');
     const offered = undo.link() ? undo.point() : null;
     const p = cardLink({ link: !!offered, toastShowing }) ? offered : null;
-    // The link's line is held, empty, while the toast has the Undo: the
-    // card does not grow under the pointer when the toast leaves.
-    const line = $$('#lkUndoLine');
-    line.hidden = !offered;
-    line.classList.toggle('held', !!offered && !p);
-    $$('#lkUndo').tabIndex = p ? 0 : -1;
-    $$('#lkUndo').toggleAttribute('aria-hidden', !!offered && !p);
+    // While the toast has the Undo the card has no line for it, and keeps no
+    // room for one (B151): the card is as tall as what it shows, and grows by
+    // the link's row when the link appears.
+    $$('#lkUndoLine').hidden = !p;
     if (p) $$('#lkUndo').setAttribute('aria-label', `Undo last change: ${p.what}`);
   }
   // A toast arriving or leaving changes which Undo is the one on screen.

@@ -54,3 +54,20 @@ test('B150: what the panel points at is a thin outline, never a tube over every 
   assert.ok(RUN_LINE.installed.width <= 2);
   assert.match(design(), /a thin outline at half strength/);
 });
+
+test('B151: the state card is as tall as what it shows', () => {
+  const looks = read('panel/looks.js'), sheet = css();
+  // The Undo link's line is in the page only while the link is the one Undo on screen: no held, blank line.
+  assert.match(looks, /\$\$\('#lkUndoLine'\)\.hidden = !p;/);
+  assert.doesNotMatch(looks, /classList\.toggle\('held'/);
+  assert.doesNotMatch(sheet, /\.stage-undo\.held/);
+  assert.match(sheet, /\.stage-undo\[hidden\] \{ display: none; \}/);
+  // Bottom padding is top padding: 8 px of card and 2 px of heading above; under a last row (6 px of its own) the card gives 4 px, and the link has 2 px under it.
+  assert.match(sheet, /\.stage \{ margin: 0 0 6px; padding: 8px;/);
+  assert.match(sheet, /\.stage-head \{ display: grid; gap: 1px; padding: 2px 4px; \}/);
+  assert.match(sheet, /\.stage:has\(> #lkRows > \.layer\):not\(:has\(> \.stage-undo:not\(\[hidden\]\)\)\):not\(:has\(> #lkStageState:not\(:empty\)\)\) \{ padding-bottom: 4px; \}/);
+  assert.match(sheet, /\.stage-undo \{ margin: 4px 4px 2px;/);
+  // A phone's rows bring no padding of their own under them, so the card gives all of it: 10 px at full, 6 px at half.
+  assert.match(sheet, /\n  \.stage:has\(> #lkRows > \.layer\)[^{]*\{ padding-bottom: 10px; \}\n  body\[data-detent=half\] \.stage:has\(> #lkRows > \.layer\)[^{]*\{ padding-bottom: 6px; \}\n  #lkRows > \.layer\.two-line:last-of-type \.name-line \{ padding-bottom: 0; \}/);
+  assert.match(design(), /keeps no room for one/);
+});

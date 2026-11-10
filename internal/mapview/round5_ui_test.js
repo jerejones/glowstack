@@ -250,7 +250,7 @@ test('Refinement 5: one Undo at a time, and a compact toast on the phone', async
   const looks = read('panel/looks.js');
   assert.match(looks, /const toastShowing = !!document\.querySelector\('\.toast \[data-act=undo\]'\);/);
   assert.match(looks, /new MutationObserver\(\(\) => renderUndo\(\)\)/);
-  assert.match(css(), /\.stage-undo\.held \{ visibility: hidden; \}/);
+  assert.doesNotMatch(css(), /\.stage-undo\.held/, 'B151: no room is kept for the hidden link');
   // The phone's confirmation is the sentence without what it replaced, on one line with Undo.
   assert.equal(compactToast('The look is on the lights, in place of Amber wash.'), 'The look is on the lights.');
   assert.equal(compactToast('2 looks are on the lights.'), '2 looks are on the lights.');
