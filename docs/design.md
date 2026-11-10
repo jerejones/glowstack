@@ -1256,11 +1256,37 @@ desk.
   the config and never committed. Pixels are drawn at their positions from
   the layout solver. Runs with no position are listed but not drawn.
 - **Layout by width.** One page, arranged for the screen:
-  - Under 700 px wide, the map fills the screen and the panel is a bottom
-    sheet with three detents: *peek* (just the tabs), *half* (64% of the
-    height) and *full* (a 200 px strip of map stays above it, framing the
-    selection). Drag or flick the handle between them, or tap it. The
-    camera chips float over the map.
+  - Under 700 px wide, the phone's own shell: the map fills the screen, the
+    four tabs (Looks, Presets, Setup, Status) are a fixed bar at the bottom of the
+    screen, and the panel is a sheet above that bar.
+    - *The tab bar* is in the thumb zone: icon over label, 44 px targets,
+      an opaque background, padded by the safe area. It is the same bar at
+      every detent and on every tab, and is the last thing on the screen
+      and in the Tab order. Calibrate is full-screen and hides it; closing
+      Calibrate brings it back.
+    - *The sheet* has three detents, measured with the bar: *peek* (the
+      handle and one line), *half* (64% of the height) and *full* (a 200 px
+      strip of map stays above it, framing the selection). It follows the
+      finger: dragging the handle, or the peek's line, moves the sheet with
+      the pointer and letting go settles on the nearest detent, a flick
+      going on to the next one. The move takes 220 ms, and none under
+      reduced motion. Tapping the handle steps between detents. There is no
+      Expand button. The handle is a named control with its state ("Panel
+      height: Half height"): Up and Down step the detents, Home and End go
+      to the ends. A finger on the sheet's content scrolls it; only with the
+      content at its top and the finger going down does the same touch move
+      the sheet.
+    - *Peek means something.* The lowered sheet shows one line that says
+      the current tab's state: on Looks "Nothing on the lights",
+      "Previewing 2 looks" or the look's name "on the lights"; on Status the
+      warning count, a fault in words, or "All good"; on Setup the
+      calibration progress; on Presets the count. So a peek is a whole map
+      with one line of truth under it.
+    - *The apply bar* sits directly above the tab bar whenever a preview is
+      up on Looks, at every detent: the lowered sheet rises by the bar's
+      height, so putting a look on the lights is always one thumb press
+      away. Toasts sit above it.
+    The chips float over the map.
   - From 700 to 1100 px, and on a phone held sideways, a 300 px side panel
     that folds to an icon rail.
   - Over 1100 px, a 360 px side panel, always open.

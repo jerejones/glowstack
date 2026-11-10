@@ -1138,8 +1138,12 @@ export function createLooks(S, root) {
   function syncBarInset() {
     const bar = $$('#lkBar'), content = root.parentElement;
     queueMicrotask(() => {
-      if (bar.hidden || S.panel.tab() !== 'looks') content.style.removeProperty('--look-bar');
+      const shown = !(bar.hidden || S.panel.tab() !== 'looks');
+      if (!shown) content.style.removeProperty('--look-bar');
       else content.style.setProperty('--look-bar', bar.offsetHeight + 'px');
+      // A phone's lowered sheet rises by the bar's height while a preview is
+      // up: putting the look on the lights is one press away at every detent.
+      S.panel.setPeekExtra?.(shown ? bar.offsetHeight : 0);
     });
   }
   function renderBar(prev) {

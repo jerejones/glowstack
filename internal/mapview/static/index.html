@@ -53,7 +53,8 @@ wider screens. app.js fills it in.
 </main>
 
 <aside id="panel" class="panel">
-  <div id="handle" class="handle" aria-hidden="true"><i></i></div>
+  <div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" title="Drag, or press, to resize the panel" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="Lowered: one line"><i></i></div>
+  <p id="peekLine" class="peek-line" role="status"></p>
   <div id="panelToasts" class="toasts panel-toasts" aria-live="polite"></div>
   <div class="tabs" role="tablist">
     <button type="button" role="tab" data-tab="looks" title="Looks"><span class="ico" data-icon="looks"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 2l1.4 3.6L11.5 7 7.9 8.4 6.5 12 5.1 8.4 1.5 7l3.6-1.4zM12.5 10.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span><span class="lbl">Looks</span></button>

@@ -202,8 +202,8 @@ test('during a calibration step, neighbors clear the target label', async () => 
   assert.ok(out.texts.includes('Gamma'), 'far labels stay');
 });
 
-test('the sheet says Expand in words', () => {
-  assert.match(read('sheet.js'), /<span class="lbl">\$\{up \? 'Expand' : 'Collapse'\}/);
+test('the sheet has no Expand button: its handle moves it (series 2 round 5, move H)', () => {
+  assert.doesNotMatch(read('sheet.js'), /'Expand'|Expand the sheet|Collapse the sheet/);
 });
 
 test('the picker moves through a list and finds by name', async () => {
@@ -571,7 +571,7 @@ test('B45: whatever a tap opens in the panel scrolls clear of the bar', () => {
   const sheet = read('sheet.js');
   assert.match(sheet, /addEventListener\('toggle'/);
   assert.match(sheet, /e\.target === opening && e\.target\.open/, 'only when opened by hand, not by a poll');
-  assert.match(read('panel/looks.js'), /S\.panel\.tab\(\) !== 'looks'\) content\.style\.removeProperty\('--look-bar'\)/, "another tab's scroll isn't padded for a bar it doesn't have");
+  assert.match(read('panel/looks.js'), /const shown = !\(bar\.hidden \|\| S\.panel\.tab\(\) !== 'looks'\);\s*if \(!shown\) content\.style\.removeProperty\('--look-bar'\);/, "another tab's scroll isn't padded for a bar it doesn't have");
 });
 
 test('B46: the phone boot loader is under the chip bar, not on the toggle', () => {
@@ -1041,13 +1041,13 @@ test('Status splits what matters from diagnostics, and repeats no amber', async 
   assert.match(css, /\.list-rows li \.what small \{[^}]*var\(--t-meta\)/, 'controller rows at 14px');
 });
 
-test('the phone sheet keeps Expand on the handle and tabs to themselves', () => {
+test('the phone sheet has no rail toggle, and its peek is the handle and one line over the tab bar', () => {
+  // (Until series 2 round 5 Expand sat on the handle and the tabs were in the sheet: a 68 px peek.)
   const sheet = /\/\* bottom sheet \*\/[\s\S]*?\.panel \{/.exec(css)[0];
-  assert.match(sheet, /\.rail-toggle \{[^}]*position: absolute; top: calc\(var\(--handle\) - var\(--tap\)\)/);
-  assert.match(sheet, /\.rail-toggle \{[^}]*height: var\(--tap\)/, 'a full tap tall box, not a pseudo-element');
+  assert.match(sheet, /\.tabs \.rail-toggle \{ display: none; \}/);
   assert.match(sheet, /\.ico svg \{ width: 20px; height: 20px; \}/);
-  assert.match(css, /--peek: 68px/);
-  assert.match(read('sheet.js'), /const PEEK = 68;/);
+  assert.match(css, /--peek: calc\(var\(--handle\) \+ var\(--peek-line\) \+ var\(--tabbar\)\);/);
+  assert.match(read('sheet.js'), /const PEEK = 52;/);
 });
 
 test('a long look name wraps instead of being cut off', () => {
@@ -1700,7 +1700,7 @@ test('the half sheet is one fixed height on every tab', () => {
   const sheet = read('sheet.js');
   assert.match(sheet, /const HALF = 0\.64;/);
   assert.doesNotMatch(sheet, /TALL_/);
-  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\), full: h - STRIP/);
+  assert.match(sheet, /half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\), full: h - STRIP \};/);
   assert.doesNotMatch(sheet, /READING|fitHalf/);
 });
 
@@ -2575,7 +2575,7 @@ test('Refinement 2: sticky bars never clip', () => {
   const app = read('app.js');
   // Scrolling into view lands a tab bar's height below the top edge and an action bar's height above the bottom.
   assert.match(css, /\.content \{ scroll-padding-top: var\(--tabs-h, 44px\); \}/);
-  assert.match(app, /style\.setProperty\('--tabs-h', document\.querySelector\('\.tabs'\)\.offsetHeight \+ 'px'\)/);
+  assert.match(app, /\$\('content'\)\.style\.setProperty\('--tabs-h', above \+ 'px'\);/); // a phone's tabs are below the content since series 2 round 5
   assert.match(css, /scroll-padding-bottom: calc\(var\(--look-bar, 0px\) \+ 8px\)/);
   // A short fade at the top edge, stuck in place, so a heading scrolled under it reads as scrolled rather than cut.
   const fade = /\.content::before \{([^}]*)\}/.exec(css)[1];

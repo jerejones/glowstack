@@ -19,6 +19,7 @@ import { createLooks } from './panel/looks.js';
 import { createAim, rectGap, labelSpot } from './card-place.js';
 import { tapHint, showTapHint, hintSeen, markHintSeen, runAt } from './map-control.js';
 import { fitCrumbs, crumbKind } from './crumbs.js';
+import { peekLine } from './peek.js';
 import { escapeCloses } from './picker.js';
 import { inspectSentences, inspectTechnical, inspectRows, cardDock, DETAILS_OPEN } from './inspect.js';
 import { createSetup } from './panel/setup.js';
@@ -201,8 +202,26 @@ function resize() {
 // syncTabsInset keeps scrolling into view a tab bar's height clear of the
 // content's top edge, whatever the bar's height at this width.
 function syncTabsInset() {
-  $('content').style.setProperty('--tabs-h', document.querySelector('.tabs').offsetHeight + 'px');
+  // A phone's tabs are at the bottom of the screen: only the handle is above the content there.
+  const above = S.panel.layout() === 'sheet' ? 8 : document.querySelector('.tabs').offsetHeight;
+  $('content').style.setProperty('--tabs-h', above + 'px');
 }
+
+// showPeek keeps the lowered sheet's one line on the current tab's state.
+let calSteps = null;
+function showPeek() {
+  if (!S.panel) return;
+  const house = S.house.filter((l) => !l.ephemeral);
+  S.panel.setPeekLine(peekLine({
+    tab: S.panel.tab(),
+    previewing: S.preview?.layers?.length || 0,
+    looks: S.houseRead || S.houseStatus === 'available' ? house.map((l) => layerName(S, l)) : null,
+    status: S.statusSummary || null,
+    cal: calSteps,
+    presets: S.presets ? { n: S.presets.length, pinned: S.presets.filter((p) => p.pinned).length } : null,
+  }));
+}
+S.showPeek = showPeek;
 
 // setInsets keeps framing to the map the chip bar and sheet leave free.
 function setInsets() {
@@ -1000,6 +1019,9 @@ async function main() {
   S.on('tab', renderHint); // the caption is the Looks tab's
   for (const ev of ['preview', 'select', 'show', 'tab', 'calprogress']) S.on(ev, () => S.refreshStateKey?.());
   for (const ev of ['tab', 'detent', 'layout', 'preview']) S.on(ev, () => S.moveToasts());
+  S.on('calprogress', (st) => { calSteps = st?.progress ? { done: st.progress.filter((i) => i.done).length, total: st.progress.length } : null; });
+  for (const ev of ['tab', 'preview', 'house', 'status', 'statusSummary', 'calprogress', 'presets', 'layout']) S.on(ev, showPeek);
+  showPeek();
   bindChrome();
   bindMap();
   bootStep = 'draw the map';

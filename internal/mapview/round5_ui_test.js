@@ -354,3 +354,89 @@ test('Refinement 8: Calibrate keeps the panel\'s one width', () => {
   assert.match(c, /^body\.calibrating \{ --panel-space: var\(--panel-w\); \}/m);
   assert.match(design(), /The panel is one width on every tab and in Calibrate/);
 });
+
+test('H: the phone shell has its tabs in a bottom bar and a sheet that follows the finger', async () => {
+  const { DETENTS, DETENT_WORDS, detentStep, settle, dragsSheet } = await import('./static/sheet.js');
+  const c = css(), phone = c.slice(c.indexOf('/* bottom sheet */')), sheet = read('sheet.js'), html = read('index.html');
+  // The bar: fixed to the bottom of the screen, opaque, padded by the safe area, 44 px targets, hidden while calibrating.
+  assert.match(phone, /\.tabs \{\s*position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; height: calc\(var\(--tabbar\) \+ var\(--safe-b\)\);\s*padding: 2px 10px calc\(2px \+ var\(--safe-b\)\);/);
+  assert.match(phone, /\.handle, \.tabs \{ background: var\(--panel-bg\); \}/);
+  assert.match(phone, /\.tabs button \{ height: var\(--tap\); \}/);
+  assert.match(phone, /body\.calibrating \.tabs \{ display: none; \}/);
+  assert.match(c, /--tabbar: 48px;/);
+  // It leaves the sheet: sheet.js moves it after the panel on a phone (last on screen, last in the Tab order) and back elsewhere.
+  assert.match(sheet, /const home = layout === 'sheet' \? document\.body : panel;/);
+  assert.match(sheet, /if \(home === panel\) panel\.insertBefore\(tabBar, \$\('content'\)\); else panel\.after\(tabBar\);/);
+  // The sheet sits above the bar: its foot is padded by the bar, and its content ends there.
+  assert.match(phone, /padding-bottom: calc\(var\(--tabbar\) \+ var\(--safe-b\)\);/);
+  assert.match(phone, /\.content \{ flex: none; height: calc\(var\(--sheet-visible\) - var\(--handle\) - var\(--tabbar\) - var\(--safe-b\)\);/);
+  // No Expand button anywhere on a phone; the handle is a named control with its state.
+  assert.match(phone, /\.tabs \.rail-toggle \{ display: none; \}/);
+  assert.doesNotMatch(sheet + html, /Expand/);
+  assert.match(html, /<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" title="[^"]+" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="[^"]+"><i><\/i><\/div>/);
+  assert.match(sheet, /handle\.setAttribute\('aria-valuenow', DETENTS\.indexOf\(d\)\);\s*handle\.setAttribute\('aria-valuetext', DETENT_WORDS\[d\]\);/);
+  assert.deepEqual(DETENTS, ['peek', 'half', 'full']);
+  assert.deepEqual(Object.keys(DETENT_WORDS), DETENTS);
+  // Up and Down step the detents; Home and End go to the ends; at an end a key does nothing.
+  assert.equal(detentStep('peek', 'ArrowUp'), 'half');
+  assert.equal(detentStep('half', 'ArrowUp'), 'full');
+  assert.equal(detentStep('full', 'ArrowUp'), '');
+  assert.equal(detentStep('full', 'ArrowDown'), 'half');
+  assert.equal(detentStep('peek', 'ArrowDown'), '');
+  assert.equal(detentStep('half', 'Home'), 'peek');
+  assert.equal(detentStep('half', 'End'), 'full');
+  assert.equal(detentStep('half', 'a'), '');
+  // A release settles on the nearest detent; a flick decides by velocity.
+  const h = { peek: 100, half: 540, full: 644 };
+  assert.equal(settle(h, 360), 'half');
+  assert.equal(settle(h, 250), 'peek');
+  assert.equal(settle(h, 620), 'full');
+  assert.equal(settle(h, 500, 0.9), 'peek', 'a flick down from near half goes on to the peek');
+  assert.equal(settle(h, 200, -0.9), 'half', 'a flick up from near the peek goes to half');
+  assert.equal(settle(h, 560, -0.9), 'full');
+  assert.equal(settle(h, 360, 0.2), 'half', 'a slow drag is not a flick');
+  // Content scrolls; only at its top, going down, does the touch move the sheet.
+  assert.equal(dragsSheet({ scrollTop: 0, dx: 0, dy: 20 }), true);
+  assert.equal(dragsSheet({ scrollTop: 40, dx: 0, dy: 20 }), false, 'scrolled content scrolls');
+  assert.equal(dragsSheet({ scrollTop: 0, dx: 0, dy: -20 }), false, 'upward is a scroll');
+  assert.equal(dragsSheet({ scrollTop: 0, dx: 30, dy: 20 }), false, 'sideways is a slider or a swipe');
+  assert.equal(dragsSheet({ scrollTop: 0, dx: 0, dy: 4 }), false, 'inside the slop');
+  // No transition longer than 250 ms, and none under reduced motion.
+  const ms = /transition: transform (0?\.\d+)s/.exec(phone)[1];
+  assert.ok(parseFloat(ms) <= 0.25, `the sheet settles in ${ms}s`);
+  assert.match(phone, /@media \(prefers-reduced-motion: reduce\) \{ \.panel \{ transition: none; \} \}/);
+  // The heights: the peek is the handle and one line (plus the apply bar while previewing) over the bar; half and full keep the map's band.
+  assert.match(sheet, /return \{ peek: PEEK \+ sb \+ peekExtra, half: Math\.max\(HALF_MIN \+ sb, Math\.round\(h \* HALF\)\), full: h - STRIP \};/);
+  assert.match(sheet, /const PEEK = 52;/);
+  assert.match(read('panel/looks.js'), /S\.panel\.setPeekExtra\?\.\(shown \? bar\.offsetHeight : 0\);/);
+  // Beside the map nothing changes: the handle and the peek's line are the phone's, and are not drawn there.
+  assert.match(c.slice(0, c.indexOf('/* bottom sheet */')), /^\.handle, \.peek-line \{ display: none; \}/m);
+  assert.match(design(), /a fixed bar at the bottom of the\s+screen/);
+});
+
+test('H: the peek says the current tab\'s state in one line', async () => {
+  const { peekLine } = await import('./static/peek.js');
+  // Looks: nothing, a preview, what is on the lights.
+  assert.equal(peekLine({ tab: 'looks', looks: [] }), 'Nothing on the lights');
+  assert.equal(peekLine({ tab: 'looks', previewing: 2, looks: ['Amber wash'] }), 'Previewing 2 looks');
+  assert.equal(peekLine({ tab: 'looks', previewing: 1 }), 'Previewing 1 look');
+  assert.equal(peekLine({ tab: 'looks', looks: ['Amber wash'] }), 'Amber wash on the lights');
+  assert.equal(peekLine({ tab: 'looks', looks: ['Amber wash', 'Slow drift'] }), '2 looks on the lights');
+  assert.equal(peekLine({ tab: 'looks', looks: null }), 'Checking the lights…');
+  // Status: the warning count, a fault in words, or all good.
+  assert.equal(peekLine({ tab: 'status', status: { fault: '', issues: 0 } }), 'All good');
+  assert.equal(peekLine({ tab: 'status', status: { fault: '', issues: 2 } }), '2 warnings to check');
+  assert.equal(peekLine({ tab: 'status', status: { fault: '1 controller unreachable: Shed', issues: 1 } }), '1 controller unreachable: Shed');
+  assert.equal(peekLine({ tab: 'status' }), 'Checking…');
+  // Setup: calibration progress. Presets: the count.
+  assert.equal(peekLine({ tab: 'setup', cal: { done: 33, total: 84 } }), 'Calibration: 33 of 84 steps');
+  assert.equal(peekLine({ tab: 'setup', cal: { done: 84, total: 84 } }), 'Calibrated: 84 of 84');
+  assert.equal(peekLine({ tab: 'setup' }), 'Set up the map');
+  assert.equal(peekLine({ tab: 'presets', presets: { n: 11, pinned: 6 } }), '11 presets, 6 pinned');
+  assert.equal(peekLine({ tab: 'presets', presets: { n: 1, pinned: 0 } }), '1 preset');
+  // It is in the sheet, under the handle, only at the peek; a tap or a drag on it moves the sheet.
+  assert.match(read('index.html'), /<p id="peekLine" class="peek-line" role="status"><\/p>/);
+  assert.match(css(), /body\[data-detent=peek\] \.peek-line \{ display: block; \}/);
+  assert.match(read('sheet.js'), /for \(const el of \[handle, peekLine\]\) \{/);
+  assert.match(read('app.js'), /for \(const ev of \['tab', 'preview', 'house', 'status', 'statusSummary', 'calprogress', 'presets', 'layout'\]\) S\.on\(ev, showPeek\);/);
+});

@@ -52,8 +52,10 @@
   --cal-map: 42%;        /* the map above calibration on a phone */
   --rail-w: 52px;
   --panel-space: var(--panel-w);
-  --peek: 68px;
-  --handle: 24px;
+  --handle: 24px;        /* the sheet's grabber */
+  --peek-line: 28px;     /* the one line of state a peeking sheet shows */
+  --tabbar: 48px;        /* the phone's tab bar, before the safe area */
+  --peek: calc(var(--handle) + var(--peek-line) + var(--tabbar));
   --strip: 200px;        /* the map above a full sheet, on every tab: STRIP in sheet.js */
   --sheet-visible: var(--peek);
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -430,7 +432,7 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   position: absolute; z-index: 5; top: 0; right: 0; bottom: 0; width: var(--panel-w);
   display: flex; flex-direction: column; background: var(--panel-bg); border-left: 1px solid var(--line);
 }
-.handle { display: none; }
+.handle, .peek-line { display: none; } /* the phone sheet's: nothing beside the map has them */
 .handle, .tabs { user-select: none; -webkit-user-select: none; }
 .tabs { display: flex; gap: 4px; padding: 8px 10px 6px; border-bottom: 1px solid var(--line); flex: none; }
 .tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border-color: transparent; }
@@ -470,20 +472,19 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 
 /* bottom sheet */
 @media (max-width: 699.98px) and (orientation: portrait), (max-width: 699.98px) and (min-height: 500px) {
-  /* Expand lives on the handle, leaving the tab bar to the tabs. Its box reaches
-   * up over the map, so the target is a full tap tall. */
-  .tabs .rail-toggle {
-    display: inline-flex; flex-direction: row; align-items: flex-end; gap: 2px; position: absolute; top: calc(var(--handle) - var(--tap)); right: 8px;
-    height: var(--tap); min-height: 0; min-width: 72px; padding: 0 6px 4px; border: 0; background: transparent;
-    color: var(--muted); font-size: var(--t-s);
-  }
+  /* The phone-native shell (move H). The four tabs are a fixed bar at the
+   * bottom of the screen, in the thumb zone, the same at every detent and on
+   * every tab; sheet.js moves the bar out of the sheet so it is the last
+   * thing on the screen and in the Tab order. The sheet sits above it and is
+   * moved by its handle: there is no Expand button. */
+  .tabs .rail-toggle { display: none; }
   .tabs button:not(.rail-toggle) .ico svg { width: 20px; height: 20px; }
   body:not([data-detent]) .panel { visibility: hidden; } /* never drawn before it has its height */
   .panel {
     position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: auto;
     height: calc(100% - var(--strip)); border-left: 0; border-top: 1px solid var(--line);
     border-radius: 16px 16px 0 0; box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
-    padding-bottom: var(--safe-b);
+    padding-bottom: calc(var(--tabbar) + var(--safe-b)); /* the tab bar lies over the sheet's foot */
     transform: translateY(calc(100% - var(--sheet-visible)));
     transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
     will-change: transform;
@@ -493,13 +494,27 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   /* The grabber and the tab strip are the sheet's fixed header, with their own
    * opaque background; the content scrolls in its own region below them (B146). */
   .handle, .tabs { background: var(--panel-bg); }
-  .handle { border-radius: 16px 16px 0 0; }
+  .handle { border-radius: 16px 16px 0 0; position: relative; }
   .handle { display: flex; justify-content: center; align-items: center; height: var(--handle); flex: none; touch-action: none; cursor: grab; }
   .handle i { width: 40px; height: 5px; border-radius: 3px; background: #6b7480; }
-  .tabs { padding: 0 10px; border-bottom: 1px solid var(--line); touch-action: none; height: calc(var(--peek) - var(--handle)); align-items: center; }
+  /* Its target is a full tap: the box reaches up over the map, as wide as a thumb needs. */
+  .handle::before { content: ''; position: absolute; left: 50%; bottom: 0; width: 120px; height: var(--tap); transform: translateX(-50%); }
+  .handle:focus-visible { outline: none; }
+  .handle:focus-visible i { outline: 2px solid #f8fafc; outline-offset: 3px; background: #cbd5e1; }
+  /* The peek's one line: the current tab's state, under the handle, only while the sheet is lowered. */
+  .peek-line { display: none; margin: 0; padding: 0 16px; height: var(--peek-line); flex: none; align-items: flex-start; font-size: var(--t-meta); line-height: 20px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  body[data-detent=peek] .peek-line { display: block; }
+  .tabs {
+    position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; height: calc(var(--tabbar) + var(--safe-b));
+    padding: 2px 10px calc(2px + var(--safe-b)); border-bottom: 0; border-top: 1px solid var(--line); align-items: center;
+  }
   .tabs button { height: var(--tap); }
-  .content { flex: none; height: calc(var(--sheet-visible) - var(--peek) - var(--safe-b)); overflow-y: hidden; --content-bottom: 16px; }
+  body.calibrating .tabs { display: none; } /* Calibrate is full-screen: the bar returns on Close */
+  body:not([data-detent]) .tabs { visibility: hidden; }
+  .content { flex: none; height: calc(var(--sheet-visible) - var(--handle) - var(--tabbar) - var(--safe-b)); overflow-y: hidden; --content-bottom: 16px; }
+  body[data-detent=peek] .content { height: calc(var(--sheet-visible) - var(--peek) - var(--safe-b)); } /* nothing, or the apply bar while a preview is up */
   body[data-detent=half] .content, body[data-detent=full] .content { overflow-y: auto; }
+  @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
   /* Under the chip bar, so it can't sit on the Preview/Lights toggle. */
   .boot-loading { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
   .map-error { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }

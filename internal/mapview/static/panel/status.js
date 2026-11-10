@@ -527,6 +527,9 @@ export function createStatus(S, root) {
     const issues = statusIssues(lit.cls === 'warn' ? '' : darkMessage(zeroNames), (st.solve.warnings || []).map((w) => warningSummary(g, w)), late.issue);
     const head = headline(lit, faultLine(g.controllers.map((c) => c.id), st.health, (id) => controllerName(g, id)), issues.length);
     $$('#stVerdict').className = `verdict ${head.cls}`;
+    // The phone's lowered sheet says this in one line (peek.js).
+    const summary = { fault: head.cls === 'bad' ? head.text : '', issues: issues.length + (lit.cls === 'warn' ? 1 : 0) };
+    if (JSON.stringify(summary) !== JSON.stringify(S.statusSummary)) { S.statusSummary = summary; S.emit('statusSummary', summary); }
     // The verdict says why and what to do: no second card for the same thing.
     const isDark = lit.cls === 'warn';
     // The effective result comes first; the controllers only say the wire works.
