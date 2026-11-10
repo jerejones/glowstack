@@ -20,6 +20,7 @@ import { createAim, rectGap, labelSpot } from './card-place.js';
 import { tapHint, showTapHint, hintSeen, markHintSeen, runAt } from './map-control.js';
 import { fitCrumbs, crumbKind } from './crumbs.js';
 import { peekLine } from './peek.js';
+import { announce, installRoving, selectionWords, mapWords } from './a11y.js';
 import { escapeCloses } from './picker.js';
 import { inspectSentences, inspectTechnical, inspectRows, cardDock, DETAILS_OPEN } from './inspect.js';
 import { createSetup } from './panel/setup.js';
@@ -112,6 +113,8 @@ function toast(msg, opts = {}) {
   }
   placeToasts();
   box.appendChild(el);
+  // Said through the one live region: politely, or at once when it is an error.
+  announce([text, ...details].join('. '), { assertive: !!(err || opts.error) });
   while (box.children.length > 3) box.firstChild.remove();
   setTimeout(() => el.remove(), opts.ms || (err || opts.error ? 8000 : 3500));
   return el;
@@ -304,6 +307,9 @@ function select(node, chain) {
   renderCrumbs();
   renderHint();
   applySelection();
+  const at = node ? { name: nodeName(node), zone: zoneOf(node) } : null;
+  announce(selectionWords(at?.name || '', at?.zone || ''));
+  describeMap();
   S.emit('select', S.sel);
   if (S.panel.detent() === 'full') frameFull();
 }
@@ -313,6 +319,23 @@ S.select = select;
 // clips an end (crumbs.js): the whole chain where it fits, else the older
 // ancestors folded into one "…" crumb that opens the whole chain as a menu.
 let crumbMenuClose = null;
+// zoneOf is the name of the zone a selected node is in ('' for a zone itself or Everything).
+function zoneOf(node) {
+  for (let nd = node.parent; nd; nd = nd.parent) {
+    const z = nd.members.find((m) => m.kind === 'zone');
+    if (z) return z.name || nodeName(nd);
+  }
+  return '';
+}
+// describeMap keeps the map's description, for someone who cannot see it,
+// on what is selected and what the map shows.
+function describeMap() {
+  const el = $('mapDesc');
+  if (!el) return;
+  const text = mapWords({ selected: S.sel ? nodeName(S.sel.node) : '', zone: S.sel ? zoneOf(S.sel.node) : '', showing: $('badge').textContent.trim() });
+  if (el.textContent !== text) el.textContent = text;
+}
+
 function renderCrumbs() {
   const box = $('crumbs'), menu = $('crumbMenu');
   const sel = S.sel;
@@ -832,6 +855,7 @@ function badge() {
   b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;
   b.title = m.title;
+  describeMap();
   // A calibration step is neither choice, and the chip says which it is.
   $('showSeg').hidden = m.showing === 'target' || m.showing === 'calibration';
   for (const t of $('showSeg').querySelectorAll('button')) {
@@ -997,6 +1021,8 @@ async function main() {
   if (q.get('pointer') === 'coarse') document.documentElement.classList.add('coarse');
   S.coarse = matchMedia('(pointer: coarse)').matches || q.get('pointer') === 'coarse';
   S.panel = createPanel({ onLayout, onDetent, onTab: (name) => { S.emit('tab', name); resize(); } });
+  // One Tab stop per group, arrow keys inside it; the tabs select as the focus moves along them.
+  installRoving(document, { onMove: (item, group) => { if (group.matches('[role=tablist]')) S.panel.arrowTo(item); } });
   showLoadingTabs();
   try { S.geo = await api('/api/map/geometry'); } catch (e) { await startWithoutMap(e); return; }
   geometrySignature = geometryKey(S.geo);

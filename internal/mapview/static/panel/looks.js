@@ -20,6 +20,7 @@ import { textField, wireClear, fitPlaceholder } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
 import { createUndo, mark, undoResult, TOAST_MS, cardLink, compactToast } from '../undo.js';
+import { announce, previewWords } from '../a11y.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const TARGET = 'glowstack.looks.target';
@@ -531,7 +532,7 @@ export function createLooks(S, root) {
   // openPicker opens the list for the next look, or for card c's own place.
   // On a phone it is its own full sheet, and the sheet goes back after.
   let detentBefore = '';
-  function openPicker(on, c = null) {
+  function openPicker(on, c = null, byKey = false) {
     opener.setAttribute('aria-expanded', 'false');
     picker.hidden = !on;
     pickFor = on ? c : null;
@@ -547,7 +548,8 @@ export function createLooks(S, root) {
     picker.querySelector('#lkPickTitle').textContent = title;
     picker.querySelector('#lkPickHint').hidden = !!pickFor || !!S.sel;
     document[on ? 'addEventListener' : 'removeEventListener']('pointerdown', outside, true);
-    if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse) search.focus({ preventScroll: true }); }
+    // A touch screen keeps its keyboard down; opened from a key, the list always takes the focus.
+    if (on) { search.value = ''; fillTargets(); fitPicker(); if (!S.coarse || byKey) search.focus({ preventScroll: true }); }
   }
   // fitPicker keeps the floating list inside the panel, above the Apply bar;
   // a sheet with too little room rises first.
@@ -596,16 +598,26 @@ export function createLooks(S, root) {
       await S.refresh();
     } catch (e) { S.fail('move the look', e); }
   }
+  // choose is the keyboard's and the screen reader's way to pick a place: it
+  // selects it on the map exactly as a tap would, halo and breadcrumb
+  // included, and Everything clears the selection.
   function choose(value) {
     if (pickFor) { moveLayer(pickFor, value); return; }
-    target = value;
+    const nd = value === 'all' ? null : S.tree.nodes.find((n) => nodeTarget(n) === value) || null;
+    target = nd ? '' : value;
     save(TARGET, target);
     openPicker(false);
     targetBtn.focus({ preventScroll: true });
-    if (S.sel && value !== nodeTarget(S.sel.node)) S.select(null);
+    if (nd) { if (!S.sel || S.sel.node !== nd) S.select(nd); else fillTargets(); }
+    else if (S.sel) S.select(null);
     else { fillTargets(); markPreviewed(); S.applyPoint?.(); }
   }
-  targetBtn.onclick = () => openPicker(picker.hidden);
+  // Typing anywhere in the list goes to its search field: the list is searchable by typing.
+  pickList.addEventListener('keydown', (e) => {
+    if (e.key.length !== 1 || e.key === ' ' || e.altKey || e.ctrlKey || e.metaKey) return;
+    search.focus({ preventScroll: true });
+  });
+  targetBtn.onclick = (e) => openPicker(picker.hidden, null, e.detail === 0);
   // The clear (x): back to Everything, whether the place came from the map or the list.
   $$('#lkTargetClear').onclick = () => {
     target = ''; save(TARGET, target);
@@ -903,7 +915,7 @@ export function createLooks(S, root) {
       const place = Object.assign(document.createElement('button'), { type: 'button', className: 'place target-select', title: 'Move this look somewhere else' });
       place.setAttribute('aria-haspopup', 'dialog');
       place.setAttribute('aria-expanded', 'false');
-      place.onclick = () => (pickFor === c ? openPicker(false) : openPicker(true, c));
+      place.onclick = (e) => (pickFor === c ? openPicker(false) : openPicker(true, c, e.detail === 0));
       escapeCloses(place, () => pickFor === c, () => { openPicker(false); place.focus(); });
       el.querySelector('.place-row').append(place);
     } else el.querySelector('.place-row').append(Object.assign(document.createElement('span'), { className: 'meta' }));
@@ -1255,6 +1267,7 @@ export function createLooks(S, root) {
   // apply promotes preview layers (all with ids empty) onto the lights,
   // then removes the lights layers the promoted copies stand in for.
   async function apply(ids, replace = []) {
+    const fromBar = $$('#lkBar').contains(document.activeElement);
     const list = ids.length ? ids : (S.preview ? S.preview.layers.map((l) => l.id) : []);
     // Read before promoting: a poll can empty the preview at any moment after.
     const going = (S.preview ? S.preview.layers : []).filter((l) => list.includes(l.id));
@@ -1289,12 +1302,39 @@ export function createLooks(S, root) {
     const outcome = lightOutcome(g, S.statusData?.brightness, applied);
     offerUndo(point, `put ${many ? list.length + ' looks' : names[0] || 'the look'} on the lights`);
     darkToast = applyToast(S, what, outcome, onLights(many ? `${names.length} looks` : String(names[0] || 'The look').replace(/\u00a0/g, ' '), many), undoAction()[0] || null);
+    // The bar is gone with the preview: the focus goes to the state card's
+    // heading, which now says what is on the lights, and Tab goes on from there.
+    if (fromBar && $$('#lkBar').hidden) { const t = $$('#lkStageTitle'); t.tabIndex = -1; t.focus({ preventScroll: true }); }
   }
   $$('#lkUndo').onclick = undoLast;
   $$('#lkPushAll').onclick = () => apply([], plan?.replace ? hidden : []);
-  $$('#lkClear').onclick = async () => {
-    try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.fail('clear the preview', e); }
-  };
+  async function clearPreview() {
+    // The bar goes with the preview: a keyboard is handed on to the library, not dropped.
+    const fromBar = $$('#lkBar').contains(document.activeElement);
+    try { await del('/api/map/preview/layers'); copies = {}; save(COPIES, copies); await S.refresh(); } catch (e) { S.fail('clear the preview', e); return; }
+    if (fromBar) focusLibrary();
+  }
+  $$('#lkClear').onclick = clearPreview;
+  // focusLibrary puts the focus on the library's current card.
+  function focusLibrary() {
+    const cards = [...root.querySelectorAll('.cards .preset')].filter((b) => b.getClientRects().length);
+    (cards.find((b) => b.tabIndex === 0) || cards[0])?.focus({ preventScroll: true });
+  }
+  // Escape with the focus in the library clears the preview, if there is one.
+  $$('.library').addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !picker.hidden || !S.preview?.layers?.length) return;
+    if (e.target.tagName === 'INPUT' && e.target.value) return; // the search field's Escape is its own
+    e.preventDefault();
+    e.stopPropagation();
+    clearPreview().then(focusLibrary);
+  });
+  // The preview's changes are said: a look added, removed, or all cleared.
+  let saidPreview = null;
+  S.on('preview', (st) => {
+    const names = (st?.layers || []).map((l) => layerName(S, l));
+    if (saidPreview) { const words = previewWords(saidPreview, names, st?.layers?.[0] ? targetName(g, st.layers[0].target) : ''); if (words) announce(words); }
+    saidPreview = names;
+  });
 
   // ---------- wiring ----------
 

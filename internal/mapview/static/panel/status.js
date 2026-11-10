@@ -490,7 +490,9 @@ export function createStatus(S, root) {
     box.hidden = false;
     const html = facts.map((f) => tileHTML(f, esc)).join('');
     // Drawn only on a change, so a poll can't replace the tile under a press.
-    if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+    // A focused tile is redrawn with the rest: the focus goes back to it, so a poll does not drop the keyboard.
+    const held = box.contains(document.activeElement) ? document.activeElement.id : '';
+    if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; if (held) box.querySelector('#' + held)?.focus({ preventScroll: true }); }
     for (const b of box.querySelectorAll('b:not(.words)')) fitFigure(b);
     $$('#stPowerTile').onclick = () => {
       const pwBox = $$('#stPower');

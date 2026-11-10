@@ -30,10 +30,11 @@ wider screens. app.js fills it in.
 </head>
 <body>
 <main id="stage">
-  <canvas id="gl" hidden></canvas>
-  <canvas id="map"></canvas>
+  <canvas id="gl" aria-hidden="true" hidden></canvas>
+  <canvas id="map" role="img" aria-label="Map of the lights" aria-describedby="mapDesc"></canvas>
+  <p id="mapDesc" class="sr-only"></p>
   <div id="chips" class="chipbar">
-    <span class="brand" title="Glowstack live map" aria-label="Glowstack live map"><img class="brand-mark" src="logo.svg" width="24" height="24" alt=""><b>Glowstack</b></span>
+    <span class="brand" title="Glowstack live map"><img class="brand-mark" src="logo.svg" width="24" height="24" alt="Glowstack live map"><b aria-hidden="true">Glowstack</b></span>
     <span id="badge" class="badge">connecting…</span>
   </div>
   <div id="mapControls" class="map-controls">
@@ -47,7 +48,7 @@ wider screens. app.js fills it in.
   <div id="hoverLabel" class="hover-label" role="tooltip" hidden></div>
   <div id="legend" class="legend" hidden></div>
   <div id="inspectCard" class="inspect card" hidden></div>
-  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div id="toasts" class="toasts"></div>
   <div id="mapError" class="map-error" hidden></div>
   <div id="bootLoading" class="state loading boot-loading" role="status"><span class="spinner" aria-hidden="true"></span><div class="state-text"><b>Loading Glowstack…</b></div></div>
 </main>
@@ -55,28 +56,31 @@ wider screens. app.js fills it in.
 <aside id="panel" class="panel">
   <div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" title="Drag, or press, to resize the panel" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="Lowered: one line"><i></i></div>
   <p id="peekLine" class="peek-line" role="status"></p>
-  <div id="panelToasts" class="toasts panel-toasts" aria-live="polite"></div>
-  <div class="tabs" role="tablist">
-    <button type="button" role="tab" data-tab="looks" title="Looks"><span class="ico" data-icon="looks"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 2l1.4 3.6L11.5 7 7.9 8.4 6.5 12 5.1 8.4 1.5 7l3.6-1.4zM12.5 10.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span><span class="lbl">Looks</span></button>
-    <button type="button" role="tab" data-tab="presets" title="Presets"><span class="ico" data-icon="presets"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h8a.5.5 0 0 1 .5.5v10.5L8 11l-4.5 2.5V3a.5.5 0 0 1 .5-.5z"/></svg></span><span class="lbl">Presets</span></button>
-    <button type="button" role="tab" data-tab="setup" title="Setup"><span class="ico" data-icon="setup"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.6 3.5L7.2 3.4L7.2 1.7L8.8 1.7L8.8 3.4L9.4 3.5L10.2 3.9L10.7 4.2L11.9 3.0L13.0 4.1L11.8 5.3L12.1 5.8L12.5 6.6L12.6 7.2L14.3 7.2L14.3 8.8L12.6 8.8L12.5 9.4L12.1 10.2L11.8 10.7L13.0 11.9L11.9 13.0L10.7 11.8L10.2 12.1L9.4 12.5L8.8 12.6L8.8 14.3L7.2 14.3L7.2 12.6L6.6 12.5L5.8 12.1L5.3 11.8L4.1 13.0L3.0 11.9L4.2 10.7L3.9 10.2L3.5 9.4L3.4 8.8L1.7 8.8L1.7 7.2L3.4 7.2L3.5 6.6L3.9 5.8L4.2 5.3L3.0 4.1L4.1 3.0L5.3 4.2L5.8 3.9zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg></span><span class="lbl">Setup</span></button>
-    <button type="button" role="tab" data-tab="status" title="Status"><span class="ico" data-icon="status"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8.5h3l2-5 3 9 2-4h3"/></svg></span><span class="lbl">Status</span></button>
-    <button type="button" id="railToggle" class="rail-toggle" title="Collapse the panel" aria-label="Collapse the panel"><span class="ico" data-icon="chevronRight"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5"/></svg></span></button>
+  <div id="panelToasts" class="toasts panel-toasts"></div>
+  <div class="tabs"><div class="tablist" role="tablist" aria-label="Sections">
+    <button type="button" role="tab" id="tabbtn-looks" aria-controls="tab-looks" data-tab="looks" title="Looks"><span class="ico" data-icon="looks"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 2l1.4 3.6L11.5 7 7.9 8.4 6.5 12 5.1 8.4 1.5 7l3.6-1.4zM12.5 10.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg></span><span class="lbl">Looks</span></button>
+    <button type="button" role="tab" id="tabbtn-presets" aria-controls="tab-presets" data-tab="presets" title="Presets"><span class="ico" data-icon="presets"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 2.5h8a.5.5 0 0 1 .5.5v10.5L8 11l-4.5 2.5V3a.5.5 0 0 1 .5-.5z"/></svg></span><span class="lbl">Presets</span></button>
+    <button type="button" role="tab" id="tabbtn-setup" aria-controls="tab-setup" data-tab="setup" title="Setup"><span class="ico" data-icon="setup"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.6 3.5L7.2 3.4L7.2 1.7L8.8 1.7L8.8 3.4L9.4 3.5L10.2 3.9L10.7 4.2L11.9 3.0L13.0 4.1L11.8 5.3L12.1 5.8L12.5 6.6L12.6 7.2L14.3 7.2L14.3 8.8L12.6 8.8L12.5 9.4L12.1 10.2L11.8 10.7L13.0 11.9L11.9 13.0L10.7 11.8L10.2 12.1L9.4 12.5L8.8 12.6L8.8 14.3L7.2 14.3L7.2 12.6L6.6 12.5L5.8 12.1L5.3 11.8L4.1 13.0L3.0 11.9L4.2 10.7L3.9 10.2L3.5 9.4L3.4 8.8L1.7 8.8L1.7 7.2L3.4 7.2L3.5 6.6L3.9 5.8L4.2 5.3L3.0 4.1L4.1 3.0L5.3 4.2L5.8 3.9zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg></span><span class="lbl">Setup</span></button>
+    <button type="button" role="tab" id="tabbtn-status" aria-controls="tab-status" data-tab="status" title="Status"><span class="ico" data-icon="status"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8.5h3l2-5 3 9 2-4h3"/></svg></span><span class="lbl">Status</span></button>
+    </div><button type="button" id="railToggle" class="rail-toggle" title="Collapse the panel" aria-label="Collapse the panel"><span class="ico" data-icon="chevronRight"><svg class="icon" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5L10.5 8 6 12.5"/></svg></span></button>
   </div>
   <div id="content" class="content">
     <div id="offlineBanner" class="offline-banner" role="status" hidden>Lost the connection to Glowstack. Reconnecting; controls come back when it does.</div>
     <div id="inspectRow" class="inspect row" hidden></div>
     <!-- The Looks skeleton paints before app.js runs; the same markup as skeletonHTML('looks') in states.js. -->
-    <section id="tab-looks" class="tab" role="tabpanel"><div class="skeleton" role="status" aria-busy="true" aria-label="Loading Looks…"><div class="looks-head"><span class="skel skel-title"></span></div><div class="stage skel-stage"><span class="skel skel-line"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div><div class="lib-filters"><span class="skel skel-seg"></span><span class="skel skel-seg"></span><span class="skel skel-seg"></span></div><div class="cards"><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div></div></div></section>
-    <section id="tab-presets" class="tab" role="tabpanel" hidden></section>
-    <section id="tab-setup" class="tab" role="tabpanel" hidden></section>
-    <section id="tab-status" class="tab" role="tabpanel" hidden></section>
+    <section id="tab-looks" class="tab" role="tabpanel" aria-labelledby="tabbtn-looks" tabindex="-1"><div class="skeleton" role="status" aria-busy="true" aria-label="Loading Looks…"><div class="looks-head"><span class="skel skel-title"></span></div><div class="stage skel-stage"><span class="skel skel-line"></span><span class="skel skel-row"></span><span class="skel skel-row"></span></div><div class="lib-filters"><span class="skel skel-seg"></span><span class="skel skel-seg"></span><span class="skel skel-seg"></span></div><div class="cards"><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div><div class="preset skel-card"><span class="skel skel-strip"></span><span class="skel skel-name"></span><span class="skel skel-sub"></span></div></div></div></section>
+    <section id="tab-presets" class="tab" role="tabpanel" aria-labelledby="tabbtn-presets" tabindex="-1" hidden></section>
+    <section id="tab-setup" class="tab" role="tabpanel" aria-labelledby="tabbtn-setup" tabindex="-1" hidden></section>
+    <section id="tab-status" class="tab" role="tabpanel" aria-labelledby="tabbtn-status" tabindex="-1" hidden></section>
   </div>
 </aside>
 
 <section id="calibrate" class="calibrate" hidden></section>
 
 <div id="bootError" class="boot-error" hidden></div>
+<!-- The one live region (move G): what changed, said politely; errors at once. -->
+<div id="live" class="sr-only" role="status" aria-live="polite"></div>
+<div id="liveAlert" class="sr-only" role="alert" aria-live="assertive"></div>
 
 <script type="module" src="app.js"></script>
 </body>

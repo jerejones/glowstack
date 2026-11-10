@@ -79,6 +79,12 @@ html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; 
 }
 
 * { box-sizing: border-box; }
+/* For a screen reader only: the live region, the map's description. */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* Reduced motion: nothing eases, slides or spins for longer than a blink. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; transition-delay: 0s !important; animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
 html, body {
   margin: 0; height: 100%; overflow: hidden; overscroll-behavior: contain;
   background: var(--bg); color: var(--fg);
@@ -435,6 +441,8 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 .handle, .peek-line { display: none; } /* the phone sheet's: nothing beside the map has them */
 .handle, .tabs { user-select: none; -webkit-user-select: none; }
 .tabs { display: flex; gap: 4px; padding: 8px 10px 6px; border-bottom: 1px solid var(--line); flex: none; }
+.tabs > .tablist { display: contents; } /* the four tabs, as one group for a screen reader: the rail's toggle is not a tab */
+.tab[role=tabpanel]:focus { outline: none; } /* focused only to hand the keyboard on */
 .tabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: transparent; border-color: transparent; }
 @media (hover: hover) { .tabs button:not(.on):hover { background: #1a1e24; border-color: var(--line); } }
 .tabs button.on { background: var(--on); border-color: var(--accent); color: #fff; }
@@ -984,6 +992,9 @@ button.hint-btn:hover, button.hint-btn[aria-expanded=true] { color: var(--fg); }
 .tab h2.sub, .tab h3.sub { margin: 16px 0 6px; color: #f3f4f6; }
 .nv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .nv > .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A progress row's name is the button that goes to its point: it looks like the name it was. */
+.cal-prog .nv-go { position: relative; display: block; min-width: 0; min-height: 0; height: auto; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cal-prog .nv-go::after { content: ''; position: absolute; inset: -12px 0; } /* a full tap tall, drawn no bigger */
 .nv > .value { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
 .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: var(--t-verdict); line-height: 1.25; font-weight: 650; letter-spacing: -0.01em; margin: 4px 0 10px; }
 .verdict > small { flex-basis: 100%; font-size: var(--t-help); font-weight: 400; letter-spacing: 0; color: var(--fg); }
@@ -1103,7 +1114,7 @@ body.calibrating .panel, body.calibrating .crumbs { display: none; }
 .cal-top #caBar { display: block; margin-top: 5px; max-width: 320px; }
 .cal-top #caBar:empty { display: none; }
 /* Keys, on the buttons they press: shown where there is a keyboard. */
-.calibrate kbd { font: inherit; font-size: var(--t-s); font-weight: 400; color: inherit; opacity: 0.7; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
+.calibrate kbd { font: inherit; font-size: var(--t-s); font-weight: 400; color: inherit; opacity: 0.92; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
 .nudges button { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
 .nudges kbd { margin: 0; border: 0; padding: 0; line-height: 1.1; }
 html.coarse .calibrate kbd { display: none; }

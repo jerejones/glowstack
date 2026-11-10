@@ -111,6 +111,28 @@ nothing (`--output=none`); real controllers only receive frames with
 `--output=all` or `--output=<ids>`. `--loopback` defaults to all, because it
 only reaches local fakes.
 
+### Checking the keyboard
+
+Everything on the live map works without a pointer (see "Keyboard and
+assistive technology" in `docs/design.md`). `scripts/keyboard-check.js`
+proves it against a running instance by driving a browser with the keyboard
+only: it previews a look on a chosen run and puts it on the lights, undoes
+that, pins and unpins a preset, creates one, runs a calibration step
+(nudge, confirm, back), lists each tab's Tab order, and checks that every
+stop shows a focus ring and every control has an accessible name.
+
+It changes the looks, presets and calibration of the instance it is pointed
+at and puts them back, so run it only against an example config with fake
+controllers, started as above:
+
+```sh
+# Playwright is not a dependency of this repo: say where yours is.
+PLAYWRIGHT=/path/to/node_modules/playwright \
+  node scripts/keyboard-check.js --url http://127.0.0.1:8080
+#   --phone            the phone's shell (390 x 844, a coarse pointer)
+#   --axe axe.min.js   also scan each tab with axe-core (not vendored here)
+```
+
 ## Home Assistant
 
 Each zone with a `device:` block in `areas.yaml` is a WLED device of its

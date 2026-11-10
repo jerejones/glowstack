@@ -56,6 +56,10 @@ export function dragsSheet({ scrollTop, dx, dy, slop = 6 }) {
   return scrollTop <= 0 && dy > slop && dy > Math.abs(dx);
 }
 
+// keyboardClick says a click came from the keyboard (Enter or Space on a
+// button): it has no pointer and no click count.
+export const keyboardClick = (e) => !!e && e.detail === 0 && !(e.pointerType);
+
 // guardSelection stops text selection while dragging() says so.
 export function guardSelection(doc, dragging) {
   doc.addEventListener('selectstart', (e) => { if (dragging()) e.preventDefault(); });
@@ -118,6 +122,7 @@ export function createPanel(hooks) {
       const on = b.dataset.tab === name;
       b.classList.toggle('on', on);
       b.setAttribute('aria-selected', on);
+      b.tabIndex = on ? 0 : -1;
     }
     for (const s of panel.querySelectorAll('.tab')) s.hidden = s.id !== 'tab-' + name;
     hooks.onTab(name);
@@ -169,12 +174,25 @@ export function createPanel(hooks) {
   }
 
   for (const b of tabs) {
-    b.onclick = () => {
+    b.onclick = (e) => {
       if (dragged) return;
       if (layout === 'side' && rail) setRail(false);
       if (layout === 'sheet' && detent === 'peek') setDetent('half');
       showTab(b.dataset.tab);
+      // Chosen with Enter or Space, the keyboard goes on into the tab: to
+      // its heading, or the panel itself where it has none. An arrow key
+      // that moves along the tabs selects as it goes and stays on the tab.
+      if (keyboardClick(e) && !arrowing) enterTab(b.dataset.tab);
     };
+  }
+  let arrowing = false;
+  // enterTab moves the focus into a tab's panel.
+  function enterTab(name) {
+    const sec = $('tab-' + name);
+    const head = [...sec.querySelectorAll('h1, h2')].find((h) => h.getClientRects().length);
+    const to = head || sec;
+    if (head && !head.hasAttribute('tabindex')) head.tabIndex = -1;
+    to.focus({ preventScroll: true });
   }
   const stepUp = () => setDetent(detent === 'peek' ? 'half' : detent === 'half' ? 'full' : 'half');
   $('railToggle').onclick = () => { if (layout !== 'sheet') setRail(!rail); };
@@ -304,6 +322,9 @@ export function createPanel(hooks) {
     showTab(routeTab() || 'looks', 'none');
   });
   Object.assign(panelApi, {
+    // arrowTo selects a tab the arrow keys moved the focus to: the focus stays on the tab.
+    arrowTo(b) { arrowing = true; try { b.click(); } finally { arrowing = false; } },
+    enterTab,
     layout: () => layout,
     detent: () => (layout === 'sheet' ? detent : null),
     setDetent,

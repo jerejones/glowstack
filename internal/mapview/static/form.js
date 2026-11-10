@@ -401,8 +401,14 @@ export function createForm(ctx) {
     const c = document.createElement('div');
     c.className = 'ctl';
     c.append(...[].concat(body));
-    // A slider has no <label> tied to it: its row's label is its name.
+    // A slider has no <label> tied to it: its row's label is its name. So is
+    // every other control in the row: the typed value beside a slider, a
+    // text field, a select, a checkbox (move G: a name for everything).
     for (const r of c.querySelectorAll('input[type=range]:not([aria-label])')) r.setAttribute('aria-label', label);
+    for (const r of c.querySelectorAll('input:not([type=range]):not([aria-label]), select:not([aria-label]), textarea:not([aria-label])')) {
+      if (r.closest('.channel-row')) continue; // the mixer's rows have labels of their own
+      r.setAttribute('aria-label', c.querySelector('input[type=range]') && r.type !== 'checkbox' ? `${label}, typed` : label);
+    }
     // A slider row: on a phone the value shares the label's line and the
     // track takes the next one whole.
     if (c.querySelector(':scope > input[type=range]') && c.querySelector(':scope > output')) f.classList.add('slider');

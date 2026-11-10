@@ -440,3 +440,177 @@ test('H: the peek says the current tab\'s state in one line', async () => {
   assert.match(read('sheet.js'), /for \(const el of \[handle, peekLine\]\) \{/);
   assert.match(read('app.js'), /for \(const ev of \['tab', 'preview', 'house', 'status', 'statusSummary', 'calprogress', 'presets', 'layout'\]\) S\.on\(ev, showPeek\);/);
 });
+
+// ---------- G: everything works without a pointer ----------
+
+test('G: roving focus moves by the arrow keys inside a group, and a group is one Tab stop', async () => {
+  const { roveTo, currentItem, GROUPS } = await import('./static/a11y.js');
+  const box = (left, top, w = 100, h = 40) => ({ left, top, right: left + w, bottom: top + h });
+  // A segmented bar: one row. Left and Right step, Up and Down step too, the ends stop.
+  const seg = [box(0, 0), box(100, 0), box(200, 0)];
+  assert.equal(roveTo(seg, 0, 'ArrowRight'), 1);
+  assert.equal(roveTo(seg, 1, 'ArrowLeft'), 0);
+  assert.equal(roveTo(seg, 1, 'ArrowDown'), 2);
+  assert.equal(roveTo(seg, 2, 'ArrowRight'), -1, 'the end does not wrap');
+  assert.equal(roveTo(seg, 0, 'ArrowLeft'), -1);
+  assert.equal(roveTo(seg, 2, 'Home'), 0);
+  assert.equal(roveTo(seg, 0, 'End'), 2);
+  assert.equal(roveTo(seg, 0, 'Home'), -1);
+  // The library grid: three across, two rows, the second one short.
+  const grid = [box(0, 0), box(110, 0), box(220, 0), box(0, 50), box(110, 50)];
+  assert.equal(roveTo(grid, 1, 'ArrowDown'), 4);
+  assert.equal(roveTo(grid, 2, 'ArrowDown'), 4, 'the nearest card in the row below');
+  assert.equal(roveTo(grid, 4, 'ArrowUp'), 1);
+  assert.equal(roveTo(grid, 3, 'ArrowDown'), -1);
+  assert.equal(roveTo(grid, 2, 'ArrowRight'), 3, 'Right goes on to the next row');
+  assert.equal(roveTo(grid, 0, 'End'), 4);
+  // A list (the preset rows, Calibrate's progress): one column, Up and Down step.
+  const list = [box(0, 0, 300), box(0, 50, 300), box(0, 100, 300)];
+  assert.equal(roveTo(list, 0, 'ArrowDown'), 1);
+  assert.equal(roveTo(list, 2, 'ArrowUp'), 1);
+  assert.equal(roveTo(list, 1, 'ArrowRight'), 2);
+  // A preset row's actions under each other's rows: Down keeps the column.
+  const rows = [box(200, 0, 60), box(270, 0, 60), box(340, 0, 40), box(200, 50, 60), box(270, 50, 60), box(340, 50, 40)];
+  assert.equal(roveTo(rows, 1, 'ArrowDown'), 4);
+  assert.equal(roveTo(rows, 5, 'ArrowUp'), 2);
+  assert.equal(roveTo(rows, 0, 'a'), -1);
+  assert.equal(roveTo([], 0, 'ArrowDown'), -1);
+  // The one Tab stop: the focused item, else the chosen one, else the first.
+  assert.equal(currentItem([{ focused: false, chosen: false }, { focused: false, chosen: true }, { focused: true, chosen: false }]), 2);
+  assert.equal(currentItem([{ focused: false, chosen: false }, { focused: false, chosen: true }]), 1);
+  assert.equal(currentItem([{ focused: false, chosen: false }, { focused: false, chosen: false }]), 0);
+  // Each group the plan names is a roving group: the library grid, the preset list, segmented controls, the target menu's chips, Calibrate's progress list, and the tabs.
+  const groups = GROUPS.map(([g]) => g);
+  for (const g of ['.cards', '.preset-library', '.seg', '.target-list', '.cal-prog', '[role=tablist]']) assert.ok(groups.includes(g), g);
+  // Their markup is there for them to find.
+  assert.match(read('index.html'), /<div class="tabs"><div class="tablist" role="tablist" aria-label="Sections">/);
+  assert.match(read('panel/looks.js'), /<div class="target-list" id="lkTargetList"><\/div>/);
+  assert.match(read('panel/presets.js'), /<div id="prList" class="preset-library"><\/div>/);
+  assert.match(read('panel/calibrate.js'), /<h3 id="caProgress">Progress<\/h3><div class="cal-prog">/);
+  assert.match(read('app.js'), /installRoving\(document, \{ onMove: \(item, group\) => \{ if \(group\.matches\('\[role=tablist\]'\)\) S\.panel\.arrowTo\(item\); \} \}\);/);
+  // Typing in a field is never taken, and an arrow in a group does not scroll the panel.
+  const a11y = read('a11y.js');
+  assert.match(a11y, /t\.tagName === 'INPUT' \|\| t\.tagName === 'TEXTAREA' \|\| t\.tagName === 'SELECT' \|\| t\.isContentEditable\) return;/);
+  assert.match(a11y, /e\.preventDefault\(\); \/\/ an arrow in a group never scrolls the panel from under it/);
+});
+
+test('G: one live region says what changed', async () => {
+  const { selectionWords, previewWords, mapWords, announce } = await import('./static/a11y.js');
+  assert.equal(selectionWords('Shed eave', 'Shed'), 'Selected Shed eave, in Shed');
+  assert.equal(selectionWords('Porch', 'Porch'), 'Selected Porch');
+  assert.equal(selectionWords('Porch'), 'Selected Porch');
+  assert.match(selectionWords(''), /^Selection cleared/);
+  // The preview: a look added, one removed, all cleared, nothing changed.
+  assert.equal(previewWords([], ['Amber wash'], 'Shed eave'), 'Previewing Amber wash on Shed eave');
+  assert.equal(previewWords(['Amber wash'], ['Slow drift', 'Amber wash'], 'Everything'), 'Previewing Slow drift on Everything: 2 looks in the preview');
+  assert.equal(previewWords(['Amber wash'], []), 'Preview cleared');
+  assert.equal(previewWords(['A', 'B'], ['B']), 'Removed from the preview: 1 look left');
+  assert.equal(previewWords(['A'], ['A']), '');
+  // The map's description says what is selected and how to choose without a pointer.
+  assert.match(mapWords({ selected: 'Shed eave', zone: 'Shed', showing: 'Showing your preview' }), /^Selected: Shed eave, in Shed\. Showing your preview\. To choose a run, an area or a zone without a pointer, use the Next look control on Looks\.$/);
+  assert.match(mapWords({}), /^Nothing selected: the next look goes on everything\./);
+  // announce is safe without a page (these tests), and the page has the two regions: polite, and assertive for errors.
+  announce('nothing to say to');
+  const html = read('index.html');
+  assert.match(html, /<div id="live" class="sr-only" role="status" aria-live="polite"><\/div>/);
+  assert.match(html, /<div id="liveAlert" class="sr-only" role="alert" aria-live="assertive"><\/div>/);
+  // One region: the toast boxes are not live regions of their own, and every toast goes through announce.
+  assert.doesNotMatch(html, /class="toasts[^"]*" aria-live/);
+  assert.match(read('app.js'), /announce\(\[text, \.\.\.details\]\.join\('\. '\), \{ assertive: !!\(err \|\| opts\.error\) \}\);/);
+  assert.match(read('app.js'), /announce\(selectionWords\(at\?\.name \|\| '', at\?\.zone \|\| ''\)\);/);
+  assert.match(read('panel/looks.js'), /const words = previewWords\(saidPreview, names,/);
+  // Calibration: a step change is said, and a confirmation leads it.
+  const { stepWords } = await import('./static/panel/calibrate.js');
+  assert.equal(stepWords('', { title: 'Line up Shed eave 2', on: 'on Shed eave' }), 'Line up Shed eave 2, on Shed eave');
+  assert.equal(stepWords('Line up Shed eave 2|on Shed eave', { title: 'Line up Shed eave 3', on: 'on Shed eave' }, true), 'Confirmed. Line up Shed eave 3, on Shed eave');
+  assert.equal(stepWords('A|b', { title: 'A', on: 'b' }), '');
+  assert.equal(stepWords('A|b', { title: 'A', on: 'b' }, true), 'Confirmed: A.');
+  // The map itself: a named image with a description.
+  assert.match(html, /<canvas id="map" role="img" aria-label="Map of the lights" aria-describedby="mapDesc"><\/canvas>/);
+});
+
+test('G: the accessible-name audit: no interactive element in the page\'s markup is left without a name', () => {
+  const files = ['index.html', '404.html', 'app.js', 'form.js', 'field.js', 'picker.js', 'states.js', 'dialog.js', 'panel/looks.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js', 'panel/calibrate.js'];
+  const nameless = [];
+  const named = (attrs) => /aria-label(ledby)?=|\$\{attrs\}/.test(attrs);
+  for (const f of files) {
+    const src = read(f);
+    // Fields: a label of their own, or one wrapped around them.
+    for (const m of src.matchAll(/<(input|select|textarea)\b([^>]*)>/g)) {
+      if (/type="hidden"/.test(m[2]) || named(m[2])) continue;
+      const before = src.slice(Math.max(0, m.index - 200), m.index);
+      const wrapped = before.lastIndexOf('<label') > before.lastIndexOf('</label>');
+      if (!wrapped && m[1] !== 'select' || (m[1] === 'select' && !wrapped && !/\/\/[^\n]*<select>/.test(src.slice(src.lastIndexOf('\n', m.index), m.index + 9)))) nameless.push(`${f}: <${m[1]}${m[2].slice(0, 60)}>`);
+    }
+    // Buttons: words inside, or a name when the inside is only an icon.
+    for (const m of src.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+      if (named(m[1])) continue;
+      const words = m[2].replace(/\$\{icon\([^)]*\)\}/g, '').replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '').trim();
+      if (!words) nameless.push(`${f}: <button${m[1].slice(0, 70)}>`);
+    }
+    // Every icon-only control with a name also has a tooltip.
+    for (const m of src.matchAll(/<button\b([^>]*)>\s*\$\{icon\([^)]*\)\}\s*<\/button>/g)) {
+      if (!/title=/.test(m[1])) nameless.push(`${f}: icon-only button without a title <button${m[1].slice(0, 70)}>`);
+    }
+  }
+  // Buttons whose words are filled in by script are named there: these are the ones this audit cannot read, each checked by hand.
+  const filledByScript = ['id="lkPushAll"', 'id="lkSwap"', 'id="suCal"', 'data-act="try"', 'class="picker-btn"', 'id="lkTarget"'];
+  assert.match(read('picker.js'), /if \(label\) \{ btn\.setAttribute\('aria-label', label\);/);
+  assert.match(read('panel/looks.js'), /targetBtn\.setAttribute\('aria-label', ctl\.aria\);/);
+  const left = nameless.filter((n) => !filledByScript.some((k) => n.includes(k)));
+  assert.deepEqual(left, [], 'interactive elements with no accessible name');
+  assert.match(read('panel/looks.js'), /go\.setAttribute\('aria-label', plan\.label\);/);
+  // The ones the plan names: the More glyph, the clear x, the brightness icon, Hide key, the sheet handle.
+  assert.match(read('panel/presets.js'), /data-act="more" class="icon-btn" aria-haspopup="menu" aria-expanded="false" aria-label="\$\{esc\(`More for \$\{presetName\(p\)\}`\)\}" title="More: edit, duplicate or delete"/);
+  assert.match(read('app.js'), /class="x" aria-label="Clear the selection" title="Clear the selection"/);
+  assert.match(read('panel/looks.js'), /class="bri-label" title="How bright this look is"/);
+  assert.match(read('panel/setup.js'), /textContent: folded \? 'Show key' : 'Hide key'/);
+  assert.match(read('index.html'), /id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" title="/);
+  // Form rows name every control in them, and an error is tied to its field.
+  assert.match(read('form.js'), /r\.setAttribute\('aria-label', c\.querySelector\('input\[type=range\]'\) && r\.type !== 'checkbox' \? `\$\{label\}, typed` : label\);/);
+  assert.match(read('field.js'), /input\.setAttribute\('aria-describedby', err\.id\);/);
+});
+
+test('G: focus is kept, handed on and given back', async () => {
+  const { keyboardClick } = await import('./static/sheet.js');
+  assert.equal(keyboardClick({ detail: 0 }), true);
+  assert.equal(keyboardClick({ detail: 1 }), false, 'a mouse click');
+  assert.equal(keyboardClick({ detail: 0, pointerType: 'touch' }), false);
+  const sheet = read('sheet.js'), looks = read('panel/looks.js'), presets = read('panel/presets.js'), status = read('panel/status.js');
+  // The tabs: an arrow selects and stays; Enter or Space goes on into the panel's heading.
+  assert.match(sheet, /if \(keyboardClick\(e\) && !arrowing\) enterTab\(b\.dataset\.tab\);/);
+  assert.match(sheet, /b\.tabIndex = on \? 0 : -1;/);
+  for (const t of ['looks', 'presets', 'setup', 'status']) assert.match(read('index.html'), new RegExp(`role="tab" id="tabbtn-${t}" aria-controls="tab-${t}" data-tab="${t}"`));
+  // Choosing a place from the list selects it on the map, and focus goes back to the control.
+  assert.match(looks, /if \(nd\) \{ if \(!S\.sel \|\| S\.sel\.node !== nd\) S\.select\(nd\); else fillTargets\(\); \}/);
+  assert.match(looks, /openPicker\(false\);\s*targetBtn\.focus\(\{ preventScroll: true \}\);\s*if \(nd\)/);
+  // Applying leaves the focus on the state card; clearing hands it to the library; Escape in the library clears a preview.
+  assert.match(looks, /if \(fromBar && \$\$\('#lkBar'\)\.hidden\) \{ const t = \$\$\('#lkStageTitle'\); t\.tabIndex = -1; t\.focus\(\{ preventScroll: true \}\); \}/);
+  assert.match(looks, /if \(fromBar\) focusLibrary\(\);/);
+  assert.match(looks, /if \(e\.key !== 'Escape' \|\| !picker\.hidden \|\| !S\.preview\?\.layers\?\.length\) return;/);
+  // A redraw does not drop the keyboard: the preset rows and the Status tiles give the focus back.
+  assert.match(presets, /row\.dataset\.preset = p\.id;/);
+  assert.match(presets, /\.querySelector\(`\[data-act="\$\{at\.act\}"\]`\)\?\.focus\(\{ preventScroll: true \}\);/);
+  assert.match(status, /if \(held\) box\.querySelector\('#' \+ held\)\?\.focus\(\{ preventScroll: true \}\);/);
+  // Menus give the focus back to their opener on Escape; dialogs are the browser's own modal.
+  assert.match(presets, /escapeCloses\(row\.querySelector\('\.menu-wrap'\), \(\) => !menu\.hidden, \(\) => \{ close\(\); more\.focus\(\); \}\);/);
+  assert.match(read('app.js'), /escapeCloses\(menu, \(\) => !menu\.hidden, \(\) => \{ close\(\); fold\.focus\(\); \}\);/);
+  assert.match(read('dialog.js'), /d\.showModal\(\);/);
+});
+
+test('G: reduced motion, the focus ring, and the documented keys', () => {
+  const c = css();
+  // Under reduced motion no transition or animation runs longer than 1 ms.
+  const rm = /@media \(prefers-reduced-motion: reduce\) \{\s*\*, \*::before, \*::after \{([^}]*)\}/.exec(c)[1];
+  assert.match(rm, /transition-duration: 0\.01ms !important;/);
+  assert.match(rm, /animation-duration: 0\.01ms !important;/);
+  // One focus ring, offset, on everything.
+  assert.match(c, /^:focus-visible \{ outline: 2px solid #f8fafc; outline-offset: 2px; \}/m);
+  // No visible chrome was added for any of this: the live region and the map's description are for a screen reader only.
+  assert.match(c, /^\.sr-only \{ position: absolute; width: 1px; height: 1px;/m);
+  // The keys are written down.
+  const d = design();
+  assert.match(d, /### Keyboard and assistive technology/);
+  for (const k of ['Tab', 'Arrow keys', 'Home', 'End', 'Enter', 'Space', 'Escape']) assert.ok(d.slice(d.indexOf('### Keyboard and assistive technology')).includes(k), k);
+  assert.match(fs.readFileSync(path.join(__dirname, '..', '..', 'README.md'), 'utf8'), /scripts\/keyboard-check\.js/);
+});

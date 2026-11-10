@@ -1630,6 +1630,54 @@ desk.
   the inspect card, then clears the selection, then lowers the sheet.
 - **Later:** embedded in HA as a dashboard panel (iframe or custom card).
 
+### Keyboard and assistive technology
+
+Everything on the live map works without a mouse or a finger, and says what
+it is. No chrome is added for it: the focus ring is the only thing drawn.
+
+| Key | Where | What it does |
+|---|---|---|
+| Tab, Shift+Tab | Everywhere | To the next or previous control, in the order things appear. A group (below) is one stop. |
+| Arrow keys | A group: the tabs, a segmented bar, a row of toggles, the library grid, the preset rows' actions, the list of places, Calibrate's progress list | Move inside the group: Left and Right along it, Up and Down to the row above or below in a grid or a list. They never scroll the panel. |
+| Home, End | A group | To its first or last item. |
+| Enter, Space | A button, a card, a toggle, a tab | Press it: a card previews its look, a pin toggles, a tab chosen this way hands the focus on to its panel's heading. |
+| Arrow keys | The tabs | Select the tab the focus moves to, and stay on the tab. |
+| Escape | A menu, a list, a dialog | Closes it, and the focus goes back to what opened it. |
+| Escape | The library, with a preview up | Clears the preview. |
+| Escape | Elsewhere | Unpins the inspect card, then clears the selection, then lowers a phone's sheet. |
+| Up, Down, Home, End | A phone's sheet handle ("Panel height") | Step the sheet between its detents, or to the lowest or the highest. Enter and Space step like a tap. |
+| −, + (Shift: by ten), Enter, Escape | Calibrate, in a step | Nudge the pixel, confirm, ask before stopping. |
+
+- **The map without a pointer.** The canvas cannot be tabbed through run by
+  run, so the **Next look:** control is the way to choose a place: its list
+  has Everything, the zones, the areas and every drawn run, typing anywhere
+  in it searches, and choosing one selects it on the map exactly as a tap
+  would, halo and breadcrumb included. The breadcrumb's crumbs are buttons.
+  The map itself is a named image ("Map of the lights") whose description
+  says what is selected and what it is showing.
+- **Focus.** It is always visible (a 2 px ring, offset) and never dropped:
+  closing a menu or a dialog returns it to the opener; putting the preview
+  on the lights leaves it on the state card's heading, which then says what
+  is on them; clearing the preview hands it to the library; a list that is
+  redrawn under it (the preset rows after a pin, the Status tiles on a
+  poll) gives it back. Only a dialog traps it, and Escape closes that.
+- **What changed is said.** One polite live region announces a selection
+  ("Selected Shed eave, in Shed"), a look added to or removed from the
+  preview, the preview cleared, a look put on the lights, an undo, a
+  calibration step and its confirmation; an error is said at once
+  (assertive). Toasts are spoken through that same region. Toggles carry
+  `aria-pressed`, disclosures `aria-expanded`, the tabs are a `tablist`,
+  and a phone's sheet handle is a slider with its detent as its value.
+- **Names.** Every control has an accessible name, and every icon-only one
+  a tooltip too; form rows name every control in them, and an error is tied
+  to its field.
+- **Motion and size.** Under reduced motion nothing eases or animates.
+  Text may wrap at 200% zoom or with larger text; no control is clipped.
+  On a touch screen every target is at least 44 px.
+
+`scripts/keyboard-check.js` proves the walkthroughs against a running
+instance (README, "Checking the keyboard").
+
 ## Controller health API
 
 `GET /api/v1/status` includes a stable `health.controllers` map keyed by

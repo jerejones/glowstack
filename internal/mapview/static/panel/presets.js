@@ -92,6 +92,14 @@ export function createPresets(S, root) {
     escapeCloses(row.querySelector('.menu-wrap'), () => !menu.hidden, () => { close(); more.focus(); });
   }
 
+  // keyed is the row action last pressed from the keyboard, and when.
+  let keyed = null;
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const b = e.target.closest?.('.preset-actions [data-act]');
+    keyed = b ? { id: b.closest('.preset-entry')?.dataset.preset, act: b.dataset.act, t: Date.now() } : null;
+  });
+
   function renderList() {
     closeMenu?.();
     if (S.library.presets === 'failed') {
@@ -102,10 +110,15 @@ export function createPresets(S, root) {
     $('#prNew').disabled = busy || S.library.catalog === 'failed';
     const query = $('#prSearch').value.toLowerCase().trim();
     const list = S.presets.filter((p) => `${presetName(p)} ${p.id} ${p.effect}`.toLowerCase().includes(query));
-    const box = $('#prList'); box.replaceChildren();
+    const box = $('#prList');
+    // A redraw keeps the keyboard's place: the same action on the same preset has the focus after it.
+    // (Saving disables the row for a moment, which drops the focus to the page: a key press just made on a row counts as still there.)
+    const here = box.contains(document.activeElement) ? { id: document.activeElement.closest('.preset-entry')?.dataset.preset, act: document.activeElement.dataset.act } : null;
+    const at = here || (keyed && document.activeElement === document.body && Date.now() - keyed.t < 4000 ? keyed : null);
+    box.replaceChildren();
     S.tiles?.watch(box);
     for (const p of list) {
-      const row = document.createElement('article'); row.className = 'preset-entry';
+      const row = document.createElement('article'); row.className = 'preset-entry'; row.dataset.preset = p.id;
       const effect = (S.catalog.effects || []).find((e) => e.id === p.effect);
       row.innerHTML = `<div class="preset-body" title="Show this on the map; the lights don't change"><span class="swatch"></span><div class="preset-title"><b>${esc(presetName(p))}</b><span class="muted small">${esc(effect ? effectSummary(effect) : humanize(p.effect))}</span></div></div><div class="preset-actions">
         <button type="button" data-act="try" title="Show this on the map; the lights don't change"></button>
@@ -148,6 +161,7 @@ export function createPresets(S, root) {
     box.querySelector('#prEmptyNew')?.addEventListener('click', () => openEditor());
     markTry();
     if (busy) setBusy(true);
+    if (at?.id && at.act) [...box.querySelectorAll('.preset-entry')].find((r) => r.dataset.preset === at.id)?.querySelector(`[data-act="${at.act}"]`)?.focus({ preventScroll: true });
   }
   const markName = (message) => {
     setFieldError($('#prName'), message);

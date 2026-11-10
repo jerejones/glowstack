@@ -77,9 +77,18 @@ export function wireClear(input, onChange, scroller) {
   update();
 }
 
+let errIds = 0;
 // setFieldError shows message under input's field, or clears it with ''.
 export function setFieldError(input, message) {
-  input.closest('.field, .f').querySelector('.field-err').textContent = message;
-  if (message) input.setAttribute('aria-invalid', 'true');
-  else input.removeAttribute('aria-invalid');
+  const err = input.closest('.field, .f').querySelector('.field-err');
+  err.textContent = message;
+  // The error is tied to its field: a screen reader reads it with the field.
+  if (message) {
+    if (!err.id) err.id = `${input.id || 'field'}Err${input.id ? '' : ++errIds}`;
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', err.id);
+  } else {
+    input.removeAttribute('aria-invalid');
+    input.removeAttribute('aria-describedby');
+  }
 }

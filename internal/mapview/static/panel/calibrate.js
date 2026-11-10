@@ -18,6 +18,7 @@ import { stateHTML, warningHTML } from '../states.js';
 import { runName, nodeDisplay, controllerName, humanText } from '../names.js';
 import { runPoints, pointWords, nextTarget, calKey, NUDGE_KEYS, progressBar, progressGroups, clusterAt, CLUSTER } from '../cal-points.js';
 import { confirmDialog } from '../dialog.js';
+import { announce } from '../a11y.js';
 
 const BASE = '/api/v1/calibration';
 const BETWEEN = 'Between runs'; // the progress group for links and gaps
@@ -92,7 +93,7 @@ export function createSession({ fetch, storage, onState }) {
     nudge: (by) => call('/nudge', { by }),
     set: (index) => call('/set', { index }),
     side: (side) => call('/side', { side }),
-    confirm: (opts) => call('/confirm', opts || { next: C.next }),
+    confirm: (opts) => { justConfirmed = true; return call('/confirm', opts || { next: C.next }); },
     forget: () => call('/forget', {}),
     setNext(v) {
       C.next = v;
@@ -282,6 +283,19 @@ export function sheetShift(rows, edge, max = 64) {
 }
 
 // createCalibrate is the mode's screen in root.
+// What the step last said to a screen reader, and whether a confirmation is what changed it.
+let saidStep = '', justConfirmed = false;
+
+// stepWords is what a redraw of the step announces: the new step when it
+// changed ("Line up Shed eave 2, on Shed eave"), led by "Confirmed." when a
+// confirmation brought it; '' when nothing changed. prev is the last step
+// said, as "title|on".
+export function stepWords(prev, step, confirmed = false) {
+  const now = `${step.title}|${step.on || ''}`;
+  if (now === prev) return confirmed ? `Confirmed: ${step.title}.` : '';
+  return `${confirmed ? 'Confirmed. ' : ''}${step.title}${step.on ? `, ${step.on}` : ''}`;
+}
+
 export function createCalibrate(S, root) {
   const g = S.geo;
   const nodeLabel = (id) => nodeDisplay(g, id);
@@ -552,6 +566,11 @@ export function createCalibrate(S, root) {
       const c = cs[st.side];
       // Every step keeps its heading, with a cursor to move or without.
       const step = stepTitle(st, nodeLabel, runLabel);
+      // A change of step, and a confirmation, are said (move G).
+      const said = stepWords(saidStep, step, justConfirmed);
+      if (said) announce(said);
+      saidStep = `${step.title}|${step.on || ''}`;
+      justConfirmed = false;
       const i = (st.progress || []).findIndex((it) => JSON.stringify(it.target) === JSON.stringify(st.target));
       parts.push(`<div class="cal-step">${i >= 0 ? `<small>${esc(stepPlace(st.progress[i]))}</small>` : ''}<h2>${esc(step.title)}</h2>${step.on ? `<p>${esc(step.on)}</p>` : ''}</div>`);
       const upNext = nextTarget(st.progress, st.target);
@@ -567,7 +586,7 @@ export function createCalibrate(S, root) {
           <tr><th>Test pixel</th><td>${c.index < 0 ? '—' : `Pixel ${c.index} on ${esc(controllerName(g, c.controller))}`}</td></tr>
           <tr><th>The layout puts it at</th><td>Pixel ${c.estimate}</td></tr><tr><th>Position</th><td>${esc(sourceWords(c.source))}</td></tr></table>
           <details class="ids"${wasIds && wasIds.open ? ' open' : ''}><summary>Technical names</summary><p class="muted small">${esc(st.label || '—')}${c.index < 0 ? '' : ` · ${esc(c.controller)}:${c.index}`}</p></details>
-          ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" placeholder="Pixel number" min="${c.min}" max="${c.max}" class="cal-pixel"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
+          ${!c.fixed && c.index >= 0 ? `<form class="row" data-form="set"><input type="number" inputmode="numeric" name="i" aria-label="Pixel number" placeholder="Pixel number" min="${c.min}" max="${c.max}" class="cal-pixel"><button type="submit">Go to pixel</button></form>` : ''}</details>`);
       }
       if (st.target && st.target.kind === 'gap') {
         parts.push(`<form class="row" data-form="gap"><label>Length <input name="len" value="${st.length != null ? st.length.toFixed(3) + ' m' : ''}" size="9" placeholder="2.5 m"></label><button type="submit">Confirm length</button></form>`);
@@ -635,7 +654,7 @@ export function createCalibrate(S, root) {
         const go = () => (active ? session.target(it.target) : session.start(it.target));
         acts.push(go);
         const redo = it.done && !(isHere && active) ? `<button type="button" class="quiet redo" data-a="${acts.length - 1}" title="Measure this again, starting from the pixel it was measured at">Redo</button>` : '';
-        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><span class="name">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></span><span class="value muted">${isHere ? `<span class="here-tag">${active ? 'Now' : 'Start here'}</span>` : ''}${esc(row.value)}</span>${redo}</li>`;
+        return `<li class="nv ${it.done ? 'done' : ''}${here}"${isHere ? ' aria-current="step"' : ''} data-a="${acts.length - 1}" title="${esc(row.title)}"><button type="button" class="name nv-go" data-a="${acts.length - 1}" aria-label="${esc(`${row.name}: ${it.done ? 'measured' : 'not measured'}${isHere ? ', current' : ''}. Go to this point`)}">${it.done ? icon('check') : '<svg class="icon" width="12" height="12" aria-hidden="true"></svg>'}<span>${esc(row.name)}</span></button><span class="value muted">${isHere ? `<span class="here-tag">${active ? 'Now' : 'Start here'}</span>` : ''}${esc(row.value)}</span>${redo}</li>`;
       }).join('')}</ul></details>`;
       const doneOpen = openDone || sorted.done.some((gr) => gr.key === hereGroup);
       parts.push(`<h3 id="caProgress">Progress</h3><div class="cal-prog">
@@ -657,7 +676,7 @@ export function createCalibrate(S, root) {
           ${btn('Bands', () => showBands({ kind: 'bands', run: $$('[name=run]').value }))}</div>
         <p class="muted small">Light test bands across a whole controller, or mark pixels that don't light on it, by number.</p>
         <div class="row"><select name="ctl" aria-label="Controller">${ctls}</select>${btn('Bands on controller', () => showBands({ kind: 'bands', controller: $$('[name=ctl]').value }))}</div>
-        <form class="row" data-form="dead"><input type="number" name="a" placeholder="First" style="width:6em"><input type="number" name="b" placeholder="Last" style="width:6em"><button type="submit">Mark as dead</button></form>
+        <form class="row" data-form="dead"><input type="number" name="a" aria-label="First dead pixel" placeholder="First" style="width:6em"><input type="number" name="b" aria-label="Last dead pixel" placeholder="Last" style="width:6em"><button type="submit">Mark as dead</button></form>
       </details>`);
     }
 

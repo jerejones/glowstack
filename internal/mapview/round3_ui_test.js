@@ -173,7 +173,7 @@ test('C: one target control, a button with a border and a chevron, labeled for w
   assert.match(css, /^button\.target-select \{[^}]*border: 1px solid var\(--control-line\);/m);
   // Selecting on the map changes its text in the same task: the select event is synchronous.
   assert.match(looks, /S\.on\('select', \(\) => \{ fillTargets\(\); renderStage\(\); \}\);/);
-  assert.match(read('app.js'), /applySelection\(\);\s*S\.emit\('select', S\.sel\);/);
+  assert.match(read('app.js'), /applySelection\(\);[\s\S]{0,260}?S\.emit\('select', S\.sel\);/); // the announcement sits between them since series 2 round 5
   assert.match(design, /\*\*Next look:\*\*/);
 });
 
@@ -347,7 +347,7 @@ test('E: on a phone the toast sits in the sheet above the sticky bar, not over t
   assert.equal(sheetToastTop({ visible: 540, bar: 0, safe: 20 }), 512);
   assert.equal(sheetToastTop({ visible: 20, bar: 60, safe: 0 }), 0);
   assert.match(css, /\.panel-toasts \{ display: flex; position: absolute;[^}]*transform: translateY\(-100%\); \}/);
-  assert.match(read('index.html'), /<div id="panelToasts" class="toasts panel-toasts" aria-live="polite"><\/div>/);
+  assert.match(read('index.html'), /<div id="panelToasts" class="toasts panel-toasts"><\/div>/);
   assert.match(read('app.js'), /const box = \$\(toastHome\(S\.calibrating, !!\$\('caToasts'\), sheetUp\(\)\)\);/);
 });
 

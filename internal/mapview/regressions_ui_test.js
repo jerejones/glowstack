@@ -1118,7 +1118,7 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   assert.match(src, /\/api\/v1\/preview\/layers\/.*\{ target: value \}/, 'moving a layer patches only that layer');
   assert.match(src, /escapeCloses\(place, \(\) => pickFor === c/, 'Escape closes it, even with focus left on the button');
   // Choosing for a layer must not change where the next look goes.
-  const move = /function choose\(value\) \{[\s\S]*?target = value;/.exec(src)[0];
+  const move = /function choose\(value\) \{[\s\S]*?save\(TARGET, target\);/.exec(src)[0];
   assert.match(move, /if \(pickFor\) \{ moveLayer\(pickFor, value\); return; \}/);
 });
 
@@ -2812,10 +2812,10 @@ test('Refinement 7 (round 2): a designed loading state, painted before the scrip
   // The shell is static: dark page, brand, chip, tab bar with its icons, the map's loading card.
   assert.match(html, /<meta name="theme-color" content="#0d0e10">/);
   assert.match(html, /<div id="bootLoading" class="state loading boot-loading" role="status">[^<]*<span class="spinner" aria-hidden="true"><\/span><div class="state-text"><b>Loading Glowstack…<\/b>/);
-  assert.match(html, /<div class="tabs" role="tablist">\s*<button type="button" role="tab" data-tab="looks" title="Looks"><span class="ico" data-icon="looks"><svg/);
+  assert.match(html, /<div class="tabs"><div class="tablist" role="tablist" aria-label="Sections">\s*<button type="button" role="tab" id="tabbtn-looks" aria-controls="tab-looks" data-tab="looks" title="Looks"><span class="ico" data-icon="looks"><svg/);
   // The Looks skeleton is in the HTML, verbatim the same as the helper's, so the first paint has it.
   const looks = skeletonHTML('looks');
-  assert.ok(html.includes(`<section id="tab-looks" class="tab" role="tabpanel">${looks}</section>`), 'index.html carries skeletonHTML(\'looks\')');
+  assert.ok(html.includes(`<section id="tab-looks" class="tab" role="tabpanel" aria-labelledby="tabbtn-looks" tabindex="-1">${looks}</section>`), 'index.html carries skeletonHTML(\'looks\')');
   assert.match(looks, /^<div class="skeleton" role="status" aria-busy="true" aria-label="Loading Looks…">/);
   assert.equal((looks.match(/<div class="preset skel-card">/g) || []).length, 6, 'two rows of three cards at the wide panel');
   for (const cls of ['looks-head', 'stage skel-stage', 'lib-filters', 'cards']) assert.ok(looks.includes(`class="${cls}"`), `${cls}: the real layout's classes, so the columns follow the same rules`);
