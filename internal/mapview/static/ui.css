@@ -763,6 +763,10 @@ html:not(.coarse) { --swatch-h: 36px; }
 .preset .name {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
+/* Every look card keeps a two-line title slot, so the cards of a grid are one height and its rows are level across the whole library, whatever the names; the description sits directly under the slot. */
+.cards .preset .name { min-height: 2.6em; }
+/* Not at a phone's half detent: the slot's extra line there costs a whole row of the library (three effect rows became two), and the sheet's floors come first. */
+body[data-detent=half] .cards .preset .name { min-height: 0; }
 /* A row is as tall as its name needs: it is never cut for the controls. */
 .layer .name-line b { overflow-wrap: anywhere; }
 .preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-sub); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

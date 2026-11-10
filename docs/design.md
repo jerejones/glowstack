@@ -1664,6 +1664,14 @@ desk.
   be lit, the server draws the sprite with the effect's density raised.
   That is a hint for the picture only and never changes what goes on the
   lights; nothing is faked in the browser. A layer row keeps a small chip.
+- **Look cards.** A card is its swatch, its name and one line under it (the
+  description, or its state). The name clamps at two lines, and every card
+  keeps a two-line title slot whether its name needs one line or two, so
+  the cards of a grid are one height and its rows are level across the
+  whole library; the description sits directly under the slot. The one
+  exception is a phone's half detent, where the slot's extra line would
+  cost a whole row of the library: there a card is as tall as its name
+  (the two cards of a row still match each other).
 - **Status tiles.** Status's four headline tiles (lights lit, controllers,
   late frames, power estimate) are one component with one structure: a
   value in one size, weight and line, tabular numerals, over a one-line

@@ -405,3 +405,14 @@ test('Refinement 2: Status tiles that read alone', async () => {
   assert.match(status, /<details id="stDiag"[^>]*><summary>Diagnostics<\/summary>[\s\S]*?id="stLateNote">\$\{LATE_NOTE\}<\/p><\/details>/);
   assert.match(design(), /"since start ·\s+0\.2%"/);
 });
+
+test('Refinement 3: even card rows: every look card keeps a two-line title slot', () => {
+  const sheet = css();
+  // Names clamp at two lines, as before, and every card reserves both: 2 lines at the name's 1.3 line height.
+  assert.match(sheet, /\.preset \.name \{ font-size: var\(--t-body\); font-weight: 600; line-height: 1\.3; \}/);
+  assert.match(sheet, /\.preset \.name \{\s*display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;/);
+  assert.match(sheet, /\n\.cards \.preset \.name \{ min-height: 2\.6em; \}/);
+  // The one place it is not used: a phone's half detent, where it cost a floor (a whole row of the library).
+  assert.match(sheet, /\nbody\[data-detent=half\] \.cards \.preset \.name \{ min-height: 0; \}/);
+  assert.match(design(), /two-line title slot/);
+});
