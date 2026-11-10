@@ -2689,7 +2689,7 @@ test('Refinement 3 (round 2): one primary-action shape per role', () => {
     { file: 'panel/setup.js', re: /<button type="button" id="suCal" class="go icon-btn">/, bar: null },
     { file: 'panel/calibrate.js', re: /'Start calibrating'\}`, \(\) => session\.start\([^)]*\)[^,]*, 'go icon-btn'\)/, bar: null },
     { file: 'states.js', re: /<button type="button" class="go" id="\$\{esc\(action\.id\)\}">/, bar: null },
-    { file: 'dialog.js', re: /<button value="yes" class="\$\{danger \? 'danger' : 'go'\}">/, bar: null },
+    { file: 'dialog.js', re: /<button value="yes" class="\$\{danger \? 'danger' : 'go'\}"\$\{focus === 'confirm' \? ' autofocus' : ''\}>/, bar: null },
   ];
   for (const p of primaries) assert.match(read(p.file), p.re, `${p.file}: ${p.re}`);
   // No other primary exists.

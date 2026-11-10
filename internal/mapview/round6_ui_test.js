@@ -71,3 +71,48 @@ test('B151: the state card is as tall as what it shows', () => {
   assert.match(sheet, /\n  \.stage:has\(> #lkRows > \.layer\)[^{]*\{ padding-bottom: 10px; \}\n  body\[data-detent=half\] \.stage:has\(> #lkRows > \.layer\)[^{]*\{ padding-bottom: 6px; \}\n  #lkRows > \.layer\.two-line:last-of-type \.name-line \{ padding-bottom: 0; \}/);
   assert.match(design(), /keeps no room for one/);
 });
+
+test('B152: Escape always reaches "Stop calibrating?", and Enter then stops', async () => {
+  const { typingField, stepRise, MIN_MAP } = await import('./static/panel/calibrate.js');
+  const { calKey } = await import('./static/cal-points.js');
+  const { confirmHTML } = await import('./static/dialog.js');
+  // A checkbox is not typing: with the focus on the dock's "Go to next after" box, Escape still asks.
+  for (const type of ['checkbox', 'radio', 'range', 'button']) assert.equal(typingField({ tagName: 'INPUT', type }), false, type);
+  for (const type of ['text', 'number', 'search', '']) assert.equal(typingField({ tagName: 'INPUT', type }), true, type || 'no type');
+  assert.equal(typingField({ tagName: 'TEXTAREA' }), true);
+  assert.equal(typingField({ tagName: 'SELECT' }), true);
+  assert.equal(typingField({ tagName: 'DIV', isContentEditable: true }), true);
+  for (const el of [{ tagName: 'BUTTON' }, { tagName: 'CANVAS' }, { tagName: 'BODY' }, { tagName: 'SUMMARY' }, { tagName: 'LI' }, null]) assert.equal(typingField(el), false);
+  const esc = { code: 'Escape', key: 'Escape' };
+  // From the map, the dock, the progress list and the body: every focus that is not typing.
+  for (const at of [{}, { button: true }, { field: typingField({ tagName: 'INPUT', type: 'checkbox' }) }, { field: typingField({ tagName: 'CANVAS' }), button: false }]) assert.deepEqual(calKey(esc, at), { stop: true });
+  assert.equal(calKey(esc, { field: typingField({ tagName: 'INPUT', type: 'number' }) }), null, 'a field being typed in keeps its keys');
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /const field = typingField\(t\) \|\| !!root\.querySelector\('\.picker\.open'\);/);
+  // The question is a dialog whose focus opens on Stop, with each button's key beside it; other questions still open on the safe answer.
+  const stop = confirmHTML({ title: 'Stop calibrating?', confirm: 'Stop', cancel: 'Keep calibrating', danger: true, focus: 'confirm', keys: true });
+  assert.match(stop, /<button value="no">Keep calibrating<kbd>Esc<\/kbd><\/button><button value="yes" class="danger" autofocus>Stop<kbd>Enter<\/kbd><\/button>/);
+  const other = confirmHTML({ title: 'Discard your changes?', confirm: 'Discard', danger: true });
+  assert.match(other, /<button value="no" autofocus>Cancel<\/button><button value="yes" class="danger">Discard<\/button>/);
+  assert.match(cal, /confirm: 'Stop', cancel: 'Keep calibrating', danger: true, focus: 'confirm', keys: true \}\);/);
+  assert.match(read('dialog.js'), /d\.showModal\(\);/, 'a modal dialog, not an inline line');
+  // The Stop button's hint says what Escape does.
+  assert.match(cal, /id="caStop"[^>]*title="End calibration and return the lights to normal\. Esc asks first; Enter then stops\."/);
+  assert.match(css(), /html\.coarse dialog\.confirm kbd \{ display: none; \}/, 'no key hints on touch');
+});
+
+test('B152: a phone step\'s controls show together above the dock', async () => {
+  const { stepRise, MIN_MAP } = await import('./static/panel/calibrate.js');
+  // The sheet rises by what the heading-to-Previous-and-Next span lacks, and no more than the map strip can give.
+  assert.equal(stepRise(190, 197, 154), 0, 'it fits: nothing moves');
+  assert.equal(stepRise(206, 147, 154), 59, 'the dock grew a Back row: the sheet rises by the shortfall');
+  assert.equal(stepRise(206.4, 147, 154), 60, 'whole pixels, rounded up');
+  assert.equal(stepRise(400, 147, 154), 154, 'never past the least strip of map');
+  assert.equal(stepRise(400, 147, -20), 0, 'a short screen that has no strip to give keeps its sheet');
+  assert.equal(MIN_MAP, 200);
+  const cal = read('panel/calibrate.js');
+  assert.match(cal, /const head = body\.querySelector\('\.cal-step'\), nav = body\.querySelector\('\.cal-step ~ \.cal-nav'\);/);
+  assert.match(cal, /const rise = span \? stepRise\(span\.bottom - span\.top, body\.clientHeight, root\.getBoundingClientRect\(\)\.top - MIN_MAP\) : 0;/);
+  assert.match(cal, /if \(span && stepChanged\) body\.scrollTop = Math\.min\(span\.top, Math\.max\(body\.scrollTop, span\.bottom - body\.clientHeight\)\);/, 'only a new step moves the scroll: a poll never does');
+  assert.match(design(), /Escape then Enter stops/);
+});

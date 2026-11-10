@@ -200,6 +200,28 @@ export function stepScroll(row, view, headTop) {
   return Math.max(0, Math.min(row.bottom + 12 - view, headTop));
 }
 
+// typingField says a key press in el is typing: a text field, a select, an
+// editable region. A checkbox or a radio is not: nothing is typed there, so
+// calibration's keys work with the focus on one (the dock's "Go to next
+// after" box swallowed Escape before, B152).
+export function typingField(el) {
+  const tag = el?.tagName;
+  if (tag === 'INPUT') return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range'].includes(String(el.type || '').toLowerCase());
+  return tag === 'TEXTAREA' || tag === 'SELECT' || !!el?.isContentEditable;
+}
+
+// stepRise is how far a phone's calibration sheet rises so that a step's own
+// controls show together without scrolling: span is the height from the step's
+// heading through its Previous and Next row, view the scroller's height, room
+// what the strip of map above can give up. 0 when they fit already.
+export function stepRise(span, view, room) {
+  return Math.max(0, Math.min(Math.ceil(span - view), Math.floor(room)));
+}
+// MIN_MAP is the least strip of map a phone's calibration keeps: the full sheet's (sheet.js STRIP).
+export const MIN_MAP = 200;
+// STEP_ROOM is the clear space, px, a step's controls keep from the scroller's edges.
+const STEP_ROOM = 8;
+
 // returnTab is the tab to go back to when the mode closes, '' to stay.
 export const returnTab = (from, tab) => (from && from !== tab ? from : '');
 
@@ -356,7 +378,7 @@ export function createCalibrate(S, root) {
 
   root.innerHTML = `
     <div class="cal-top"><span class="what"><b id="caLabel">Calibration</b><small id="caCount"></small><span id="caBar"></span></span>
-      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal (Esc asks first)">${icon('stop')}Stop<kbd>Esc</kbd></button><button type="button" id="caClose" title="Back to the map">Close</button></div>
+      <button type="button" id="caStop" class="danger icon-btn" title="End calibration and return the lights to normal. Esc asks first; Enter then stops.">${icon('stop')}Stop<kbd>Esc</kbd></button><button type="button" id="caClose" title="Back to the map">Close</button></div>
     <div class="cal-toasts" id="caToasts" aria-live="polite"></div>
     <div class="cal-body" id="caBody"></div>
     <div class="cal-dock" id="caDock" hidden>
@@ -382,12 +404,16 @@ export function createCalibrate(S, root) {
   // ---------- keys ----------
   // While a step is on: − and + move the test pixel (Shift: by ten), Enter
   // confirms, Escape asks before stopping. Typing in a field is left alone,
-  // and Enter on any other button presses that button.
+  // and Enter on any other button presses that button. Escape reaches the
+  // question from wherever the focus is (B152): the map, the dock, its
+  // checkbox, the progress list, nothing at all. Only a field being typed in
+  // or an open list keeps it. The question opens with the focus on Stop, so
+  // Escape then Enter stops, as the Stop button's hint says.
   let asking = false;
   async function askStop() {
     if (asking) return;
     asking = true;
-    const yes = await confirmDialog({ title: 'Stop calibrating?', body: 'The lights go back to what they were showing. What you have confirmed is kept.', confirm: 'Stop', cancel: 'Keep calibrating', danger: true });
+    const yes = await confirmDialog({ title: 'Stop calibrating?', body: 'The lights go back to what they were showing. What you have confirmed is kept.', confirm: 'Stop', cancel: 'Keep calibrating', danger: true, focus: 'confirm', keys: true });
     asking = false;
     if (yes) stop();
   }
@@ -395,7 +421,7 @@ export function createCalibrate(S, root) {
     if (!open || !C.st?.active || e.defaultPrevented || e.repeat && e.key === 'Enter') return;
     const t = e.target, tag = t?.tagName;
     if (t?.closest?.('dialog')) return; // a dialog's keys are its own
-    const field = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!t?.isContentEditable || !!root.querySelector('.picker.open');
+    const field = typingField(t) || !!root.querySelector('.picker.open');
     const button = (tag === 'BUTTON' && !t.dataset.by && t.id !== 'caConfirm') || tag === 'SUMMARY' || tag === 'A';
     const k = calKey(e, { field, button });
     if (!k) return;
@@ -698,6 +724,7 @@ export function createCalibrate(S, root) {
       const here = body.querySelector('li.here')?.getBoundingClientRect(), head = body.querySelector('.cal-step')?.getBoundingClientRect();
       body.scrollTop = stepScroll(here ? { bottom: here.bottom - at } : null, body.clientHeight, head ? head.top - at : 0);
     }
+    stepChanged = !!stepKey && stepKey !== shownStep;
     shownStep = stepKey;
     for (const el of body.querySelectorAll('[data-a]')) el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); acts[+el.dataset.a](); };
     for (const b of body.querySelectorAll('[data-retry]')) b.onclick = () => session.retry();
@@ -728,17 +755,27 @@ export function createCalibrate(S, root) {
 
   // fitSheet settles the phone's sheet so its edge doesn't cut a row in
   // half, the way a half-height bottom sheet settles on a whole card.
-  let shift = 0;
+  // In a step it first rises by what the step's own controls need (B152):
+  // the heading, the "Next:" line and the Previous and Next row show together
+  // above the dock, whatever the dock holds (the Back row, a why line), down
+  // to a MIN_MAP strip of map.
+  let shift = 0, stepChanged = false;
   function fitSheet() {
     const body = $$('#caBody');
-    let next = 0;
+    let next = 0, span = null;
     if (S.panel?.layout?.() === 'sheet') {
       root.style.removeProperty('top');
       const at = body.getBoundingClientRect().top - body.scrollTop;
       const rows = [...body.children].map((el) => { const r = el.getBoundingClientRect(); return { top: r.top - at, bottom: r.bottom - at }; });
-      next = sheetShift(rows, body.clientHeight);
+      const head = body.querySelector('.cal-step'), nav = body.querySelector('.cal-step ~ .cal-nav');
+      if (head && nav) span = { top: head.getBoundingClientRect().top - at - STEP_ROOM, bottom: nav.getBoundingClientRect().bottom - at + STEP_ROOM };
+      const rise = span ? stepRise(span.bottom - span.top, body.clientHeight, root.getBoundingClientRect().top - MIN_MAP) : 0;
+      next = rise || sheetShift(rows, body.clientHeight);
     }
     root.style.top = next ? `calc(var(--cal-map) - ${next}px)` : '';
+    // A new step settles with those controls in view: its heading at the top when it took a rise to fit them.
+    if (span && stepChanged) body.scrollTop = Math.min(span.top, Math.max(body.scrollTop, span.bottom - body.clientHeight));
+    stepChanged = false;
     document.body.style?.setProperty('--cal-shift', next + 'px');
     if (next !== shift) { shift = next; S.resize(); }
   }

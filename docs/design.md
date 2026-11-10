@@ -476,9 +476,17 @@ The Calibrate panel (on the live map) is built to lead and to guide:
 - **One next action.** In a step the dock's one primary is **Confirm**. The
   nudge pad (−10, −1, +1, +10) shows its keys where there is a keyboard: −
   and + move by one, with Shift by ten, Enter confirms, and Escape asks
-  before stopping. Typing in a field is never taken. One line says what
-  comes next ("Next: Shed eave, point 3 of 5"), before a session and during
-  a step.
+  before stopping. Escape reaches that question from wherever the focus is
+  (the map, the dock and its checkbox, the progress list, nothing at all);
+  only a field being typed in, or an open list, keeps its keys. The question
+  is a dialog ("Stop calibrating?") that opens with the focus on **Stop**
+  and shows each button's key, so Escape then Enter stops and Escape again
+  keeps calibrating; the Stop button's hint says the same. One line says
+  what comes next ("Next: Shed eave, point 3 of 5"), before a session and
+  during a step. On a phone the step's heading, that line, Previous and Next
+  and the whole dock (nudges, Confirm, Back) show together without
+  scrolling: when the dock grows, the sheet rises by what the step lacks,
+  down to a 200 px strip of map.
 - **Back and Redo.** **Back to the previous point**, in the dock, reopens
   the point confirmed last at the pixel it was measured at. Every finished
   row in Progress offers **Redo**.

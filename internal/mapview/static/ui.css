@@ -1271,6 +1271,9 @@ dialog.confirm { background: #1a1e24; color: var(--fg); border: 1px solid var(--
 dialog.confirm::backdrop { background: rgba(0, 0, 0, 0.6); }
 dialog.confirm h3 { margin-top: 0; }
 dialog.confirm .row { margin-top: 10px; }
+dialog.confirm kbd { font: inherit; font-size: var(--t-s); font-weight: 400; color: inherit; opacity: 0.92; margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; border-radius: 4px; }
+html.coarse dialog.confirm kbd { display: none; }
+@media (pointer: coarse) { dialog.confirm kbd { display: none; } }
 
 /* The picker that replaces native selects. */
 .picker { display: block; flex: 1 1 8em; min-width: 0; width: 100%; }

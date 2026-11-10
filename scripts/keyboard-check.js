@@ -209,8 +209,33 @@ async function main() {
     await key('Escape'); await wait(400);
     check('Escape closes the dialog and the focus goes back where it was', await S(() => !document.querySelector('dialog[open]') && document.activeElement?.id === 'caConfirm'), JSON.stringify(await S(focused)));
   }
-  // Put the measurement back as it was.
+  // Put the measurement back as it was (the map reloads when the layout changes).
   await api('/api/v1/calibration/forget', 'POST', {});
+  await wait(2500);
+  await page.waitForFunction(() => window.glowstack?.view && !document.getElementById('bootLoading'), null, { timeout: 30000 }); await wait(1500);
+  // Escape reaches the question from every focus position, with the focus on Stop (B152).
+  // The map has no Tab stop: a click on an empty corner of it is the one pointer press here.
+  const places = {
+    'the body, nothing focused': () => S(() => document.activeElement?.blur()),
+    'the map': async () => { await S(() => document.activeElement?.blur()); await page.mouse.click(6, PHONE ? 70 : 120); },
+    'a nudge button in the dock': () => S(() => document.querySelector('#calibrate [data-by="1"]').focus()),
+    "the dock's checkbox": () => S(() => document.getElementById('caNext').focus()),
+    'the progress list': () => S(() => document.querySelector('.cal-prog summary, .cal-prog button').focus()),
+  };
+  for (const [name, go] of Object.entries(places)) {
+    await go(); await wait(200);
+    await key('Escape'); await wait(450);
+    const asked = await S(() => { const d = document.querySelector('dialog[open]'); return d ? { title: d.querySelector('h3')?.textContent || '', on: document.activeElement?.value || '' } : null; });
+    check(`Escape from ${name} asks "Stop calibrating?" with the focus on Stop`, asked && /Stop calibrating/.test(asked.title) && asked.on === 'yes', JSON.stringify(asked));
+    if (asked) { await key('Escape'); await wait(350); }
+  }
+  check('Escape twice keeps calibrating', (await api('/api/v1/calibration')).active === true);
+  // Stop the way the Stop button's hint says: Escape, then Enter.
+  await S(() => document.activeElement?.blur());
+  await key('Escape'); await wait(450);
+  await key('Enter'); await wait(1800);
+  st = await api('/api/v1/calibration');
+  check('Escape then Enter stops the session', !st.active && await S(() => !document.querySelector('dialog[open]') && !document.body.classList.contains('calibrating')));
   await api('/api/v1/calibration/end', 'POST');
   st = await api('/api/v1/calibration');
   check('the calibration is left as it was found', st.progress.filter((i) => i.done).length === before.progress.filter((i) => i.done).length && !st.active);

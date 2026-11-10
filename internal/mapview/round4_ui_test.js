@@ -391,7 +391,7 @@ test('F: the keys: minus and plus nudge, Shift is ten, Enter confirms, Escape as
   assert.equal(dock.match(/class="go\b/g).length, 1, 'Confirm is the dock\'s single primary');
   // Escape asks first, and stopping is the same Stop as the button's; the map's own Escape stands down.
   assert.match(cal, /else if \(k\.stop\) askStop\(\);/);
-  assert.match(cal, /confirmDialog\(\{ title: 'Stop calibrating\?'[^}]*confirm: 'Stop', cancel: 'Keep calibrating', danger: true \}\);\s*asking = false;\s*if \(yes\) stop\(\);/);
+  assert.match(cal, /confirmDialog\(\{ title: 'Stop calibrating\?'[^}]*confirm: 'Stop', cancel: 'Keep calibrating', danger: true, focus: 'confirm', keys: true \}\);\s*asking = false;\s*if \(yes\) stop\(\);/);
   assert.match(cal, /if \(!open \|\| !C\.st\?\.active \|\| e\.defaultPrevented/, 'only while a step is on');
   assert.match(read('app.js'), /if \(S\.calibrating\) return; \/\/ calibration has its own keys/);
   // The warning and Stop are still there, as prominent as before.
