@@ -1396,15 +1396,18 @@ desk.
     The inspect card's first line is the same name. On touch, the first
     tap's selection shows the name in the breadcrumb.
   - *The panel points at the map.* Hovering or focusing a library card or
-    a preset row draws a quieter soft halo on the pixels it would go on
-    (the current target); a controller's row on Status draws it on that
-    controller's runs, and a run's row there on that run. (Setup lists only
-    the runs the map does not draw, so its rows have nothing to point at.)
-    The halo fades in over 120 ms, at once under reduced motion, and goes
-    when the pointer or focus leaves. A controller's row points on a tap on
-    touch. With nothing selected and nothing pointed at, the map shows no
-    halo at any detent: a halo is for an explicit selection, a hover or
-    focus from the panel, or a tapped controller row, and nothing else.
+    a preset row draws a thin outline at half strength around the runs it
+    would go on (the current target); a controller's row on Status draws it
+    around that controller's runs, and a run's row there around that run.
+    (Setup lists only the runs the map does not draw, so its rows have
+    nothing to point at.) The outline is 1.5 px, 2 px clear of the run, so
+    it changes nothing the run shows and an unlit run inside it is still its
+    thin line: pointing at Everything never thickens the house. It fades in
+    over 120 ms, at once under reduced motion, and goes when the pointer or
+    focus leaves. A controller's row points on a tap on touch. With nothing
+    selected and nothing pointed at, the map shows no mark at any detent: a
+    mark is for an explicit selection, a hover or focus from the panel, or a
+    tapped controller row, and nothing else.
   - *The map points at the panel.* Hovering a run on the map shows the row
     for it where one is on screen (Status's Runs list, a Calibrate progress
     row) in that row's hover style, and no other row. A Status warning that

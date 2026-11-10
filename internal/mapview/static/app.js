@@ -419,9 +419,9 @@ S.renderHint = renderHint;
 
 // ---------- the panel points at the map ----------
 
-// pointAt draws the pointing halo along ranges, or clears it with null: the
+// pointAt outlines ranges on the map, or clears the outline with null: the
 // pixels a hovered card would go on, a controller's runs, one run. What is
-// selected already has its halo, so pointing at the same pixels adds none.
+// selected is marked already, so pointing at the same pixels adds nothing.
 let pointed = null;
 const reducedMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
 function pointAt(ranges) {
@@ -429,14 +429,20 @@ function pointAt(ranges) {
   applyPoint();
 }
 S.pointAt = pointAt;
-// applyPoint shows what is pointed at. With nothing selected and nothing
-// pointed at there is no halo, at any detent: a halo is for an explicit
-// selection, a hover or focus from the panel, or a tapped controller row.
+// applyPoint shows what is pointed at: S.pointing is the ranges the overlay
+// outlines, with when they were first pointed at (the outline fades in from
+// then; fade false shows it at once, for reduced motion). With nothing
+// selected and nothing pointed at there is no mark, at any detent: a mark is
+// for an explicit selection, a hover or focus from the panel, or a tapped
+// controller row.
+S.pointing = null;
 function applyPoint() {
-  if (!S.view || !S.view.setHighlight) return;
   let show = pointed;
   if (show && S.sel && JSON.stringify(show) === JSON.stringify(S.sel.node.ranges)) show = null;
-  S.view.setHighlight(show, !reducedMotion.matches);
+  const key = JSON.stringify(show);
+  if (key === (S.pointing ? S.pointing.key : 'null')) return;
+  S.pointing = show ? { ranges: show, key, since: performance.now(), fade: !reducedMotion.matches } : null;
+  markDirty();
 }
 S.applyPoint = applyPoint;
 

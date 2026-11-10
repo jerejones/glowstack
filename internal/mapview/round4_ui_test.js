@@ -187,7 +187,7 @@ test('C2: one state language for runs on the map', async () => {
   // The overlay draws the lines under everything else, only over the live colors, never in a calibration step.
   const overlay = read('overlay.js');
   assert.match(overlay, /if \(o\.mode === 'live' && S\.rgb && S\.tree && !\(S\.calibrating && S\.cal\?\.active\)\)/);
-  assert.match(overlay, /runLines\(o\);\s*if \(o\.mode === 'flow'/);
+  assert.match(overlay, /runLines\(o\);\s*outlines\(\);\s*if \(o\.mode === 'flow'/);
   assert.match(overlay, /if \(unlit\.has\(hovered\)\) \{ strokeRun\(all\[hovered\], RUN_LINE\.hovered\);/);
   // The key is repainted when the states change, and a states-only key takes nothing from the framing.
   assert.match(read('panel/setup.js'), /key\.classList\.toggle\('states-only', !!states && !\(legendHTML \+ note\)\);/);

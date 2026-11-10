@@ -75,6 +75,65 @@ export const RUN_LINE = {
 };
 export const TARGET_COLOR = '#22d3ee'; // the one color reserved for "current"
 
+// OUTLINE is the thin line drawn around a run's path, clear of the run by a
+// small gap, so whatever the run shows inside it is untouched: the page's
+// interaction blue, width px thick, gap px from the widest thing the run
+// draws (a lit pixel). What the panel points at has it at `pointed` of its
+// strength. It replaced a 15 px translucent halo, which over a whole house
+// read as every run being a thick gray tube (B150).
+export const OUTLINE = { color: '#7cc4ff', width: 1.5, gap: 2, pointed: 0.5, fade: 120 };
+
+// outlineWidths is the outline for a run drawn d px wide: `inner` is the
+// width left clear along the path, `outer` the stroke that leaves the
+// outline's two edges around it.
+export const outlineWidths = (d) => ({ inner: d + 2 * OUTLINE.gap, outer: d + 2 * (OUTLINE.gap + OUTLINE.width) });
+
+// outlineChunks cuts polylines of [x, y, d] (d: how wide the run draws at
+// that point, px) into pieces of one whole-pixel width each, as a map from
+// that width to its pieces. Neighboring pieces share a point, so their round
+// ends meet and the outline follows a run that shrinks with distance.
+export function outlineChunks(parts) {
+  const out = new Map();
+  const add = (d, piece) => { if (!out.has(d)) out.set(d, []); out.get(d).push(piece); };
+  for (const part of parts) {
+    if (!part.length) continue;
+    let d = Math.round(part[0][2] || 0), piece = [part[0]];
+    for (let i = 1; i < part.length; i++) {
+      piece.push(part[i]);
+      const next = Math.round(part[i][2] || 0);
+      if (next !== d) { add(d, piece); d = next; piece = [part[i]]; }
+    }
+    if (piece.length > 1 || part.length === 1) add(d, piece);
+  }
+  return out;
+}
+
+// strokeOutline draws the outline of parts on ctx, which must be a layer of
+// its own: the outer stroke first, then the inside cut back out of it, so
+// two runs that meet share one outline and nothing is left over the lights.
+// The caller composites the layer at the state's strength.
+export function strokeOutline(ctx, parts, color = OUTLINE.color) {
+  const chunks = outlineChunks(parts);
+  const pass = (width) => {
+    for (const [d, pieces] of chunks) {
+      ctx.lineWidth = width(outlineWidths(d));
+      ctx.beginPath();
+      for (const piece of pieces) {
+        ctx.moveTo(piece[0][0], piece[0][1]);
+        if (piece.length === 1) ctx.lineTo(piece[0][0] + 0.01, piece[0][1]); // one pixel: a dot of the outline's width
+        for (let i = 1; i < piece.length; i++) ctx.lineTo(piece[i][0], piece[i][1]);
+      }
+      ctx.stroke();
+    }
+  };
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = color;
+  pass((w) => w.outer);
+  ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = '#000';
+  pass((w) => w.inner);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 // runLit says any pixel of a run (ranges of [first, last]) is lit in rgb.
 export function runLit(rgb, ranges) {
   for (const [a, b] of ranges) for (let i = 3 * a, end = 3 * b + 3; i < end; i++) if (rgb[i] > 8) return true;

@@ -262,13 +262,12 @@ test('C: the panel points at the map with the soft halo', async () => {
   assert.match(status, /pointOn\(\$\$\('#stCtl'\), 'li\[data-ctl\]', \(el\) => controllerRanges\(g, el\.dataset\.ctl\), S\);/);
   assert.match(status, /pointOn\(box, 'li\[data-run-row\]:not\(\.warn\)',/); // a warning's row outlines its run in amber instead (round 4)
   assert.match(status, /if \(S\.coarse\) \$\$\('#stCtl'\)\.addEventListener\('click'/, 'a tap on a phone');
-  // The halo: a fade unless motion is reduced, cleared at once; never doubled over the selection.
-  const app = read('app.js'), scene = read('scene.js');
-  assert.match(app, /S\.view\.setHighlight\(show, !reducedMotion\.matches\);/);
+  // The mark (a thin outline since B150; a halo before): a fade unless motion is reduced, cleared at once; never doubled over the selection.
+  const app = read('app.js'), overlay = read('overlay.js');
+  assert.match(app, /S\.pointing = show \? \{ ranges: show, key, since: performance\.now\(\), fade: !reducedMotion\.matches \} : null;/);
   assert.match(app, /if \(show && S\.sel && JSON\.stringify\(show\) === JSON\.stringify\(S\.sel\.node\.ranges\)\) show = null;/);
-  assert.match(scene, /u\.value = fade \? 0 : POINT_ALPHA;/);
-  assert.match(scene, /POINT_FADE_MS = 120/);
-  assert.match(read('plan.js'), /setHighlight\(ranges\) \{/);
+  assert.match(overlay, /const k = pt\.fade \? Math\.min\(1, \(performance\.now\(\) - pt\.since\) \/ OUTLINE\.fade\) : 1;/);
+  assert.equal((await import('./static/map-control.js')).OUTLINE.fade, 120);
   // Owner decisions: no camera buttons, reset-view control or map toolbar came with it.
   assert.doesNotMatch(read('index.html') + app, /Reset view|Fit lights|map-toolbar|data-view="(street|overhead|free|fit)"/i);
 });

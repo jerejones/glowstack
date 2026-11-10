@@ -10,7 +10,7 @@
 // (scene.js or plan.js).
 import { api, load, save, esc, outputName, count, fmt, ramp, spacingColor, SPACING_FULL, nthColor, PALETTE, humanize, inRanges, readableLabel } from './util.js';
 import { controllerName, controllerLabel, nodeDisplay, runName } from './names.js';
-import { RUN_LINE, runLit, unlitRuns } from './map-control.js';
+import { RUN_LINE, OUTLINE, strokeOutline, runLit, unlitRuns } from './map-control.js';
 import { clusterPoints, runPoints, CLUSTER, MARKER, TARGET as TARGET_RING, OTHERS } from './cal-points.js';
 
 const CTRL = '#facc15', CTRL_OFF = '#9ca3af';
@@ -728,6 +728,78 @@ export function createOverlay(S) {
     if (key !== statesKey) { statesKey = key; S.refreshStateKey?.(); }
   }
 
+  // ----- outlines -----
+  // rangeParts is pixel ranges as screen polylines of [x, y, d], d being how
+  // wide a lit pixel draws there: one polyline per run a range crosses, broken
+  // where pixels are not drawn, sampled so that every corner (an edge's first
+  // and last pixel) is kept. Worked out again only when the view or the
+  // ranges change.
+  const partsCache = new Map();
+  function rangeParts(ranges, key) {
+    const stamp = [S.plan, S.view.version, S.view.size?.().w, S.view.size?.().h, pixelAt(0), pixelAt(n - 1)].join();
+    const hit = partsCache.get(key);
+    if (hit && hit.stamp === stamp && hit.vis === S.visibility) return hit.parts;
+    const size = S.view.litSize ? (p) => S.view.litSize(p) : () => 5;
+    const parts = [];
+    for (const [a, b] of ranges) {
+      const stride = Math.max(1, Math.floor((b - a) / 600));
+      let part = [], last = -1;
+      const flush = () => { if (part.length) parts.push(part); part = []; };
+      for (let p = a; p <= b; p++) {
+        const corner = p === a || p === b || px.edge[p] !== px.edge[p - 1] || px.edge[p] !== px.edge[p + 1];
+        if (last >= 0 && px.run[p] !== px.run[last]) flush();
+        if (!corner && p - last < stride && part.length) continue;
+        const q = pixelAt(p);
+        if (!q) { flush(); last = -1; continue; }
+        part.push([q[0], q[1], size(p)]);
+        last = p;
+      }
+      flush();
+    }
+    if (partsCache.size > 8) partsCache.clear();
+    partsCache.set(key, { stamp, vis: S.visibility, parts });
+    return parts;
+  }
+  // The outlines draw on a layer of their own, the size of the map, and are
+  // laid over it at their state's strength: cutting an outline's inside back
+  // out must not cut the plan or the pixels a 2-D view drew on this canvas.
+  let layer = null;
+  function outlineLayer() {
+    if (typeof document === 'undefined' || !ctx.canvas || !ctx.drawImage) return null;
+    if (!layer) layer = document.createElement('canvas');
+    const { width, height } = ctx.canvas;
+    if (layer.width !== width || layer.height !== height) { layer.width = width; layer.height = height; }
+    const l = layer.getContext('2d');
+    l.setTransform(1, 0, 0, 1, 0, 0);
+    l.clearRect(0, 0, width, height);
+    l.setTransform(ctx.getTransform());
+    return l;
+  }
+  function drawOutline(parts, strength) {
+    const l = parts.length && strength > 0 ? outlineLayer() : null;
+    if (!l) return;
+    strokeOutline(l, parts);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = strength;
+    ctx.drawImage(layer, 0, 0);
+    ctx.restore();
+  }
+  // outlines marks what the panel points at (app.js, S.pointing): the thin
+  // outline at half strength, fading in. Not over a calibration step.
+  let outlined = { pointed: false };
+  function outlines() {
+    const next = { pointed: false };
+    const pt = S.pointing;
+    if (pt && S.tree && !(S.calibrating && S.cal?.active)) {
+      const k = pt.fade ? Math.min(1, (performance.now() - pt.since) / OUTLINE.fade) : 1;
+      drawOutline(rangeParts(pt.ranges, 'pointed' + pt.key), OUTLINE.pointed * k);
+      if (k < 1) S.markDirty?.();
+      next.pointed = true;
+    }
+    outlined = next;
+  }
+
   // calCursors rings the physical target, not the moving test pixel.
   // The white pixel follows nudges; the target stays on the model corner.
   function cursorPoints() {
@@ -817,6 +889,7 @@ export function createOverlay(S) {
     ctx = c;
     const m = mappings.get(st.mapping), o = shown();
     runLines(o);
+    outlines();
     if (o.mode === 'flow' && m) { arrows(m); flowLabels(m); }
     if (o.mode === 'stretch' && m) spacingLabels(m);
     if (o.mode === 'outputs') outputStarts();
@@ -837,5 +910,5 @@ export function createOverlay(S) {
     flushLabels();
   }
 
-  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: () => lineStates, runPaths, calClusters: () => calClusters, live: () => shown().mode === 'live' };
+  return { st, apply, draw, outputs, outputOf, mapping, flows, remember, shown, focus, placed: () => lastPlaced, arrows: () => lastArrows, hiddenLabels: () => lastPlaced.hidden || 0, lineStates: () => lineStates, outlined: () => outlined, rangeParts, runPaths, calClusters: () => calClusters, live: () => shown().mode === 'live' };
 }

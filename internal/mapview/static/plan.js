@@ -20,7 +20,7 @@ export function openPlan(canvas, plan, planIndex, opts) {
   let W = 1, H = 1, dpr = 1, insetTop = 0, insetBottom = 0, padSide = 0, padEdge = 0;
   const v = { k: 50, tx: 0, ty: 0 };
   let auto = true, version = 0;
-  let colors = null, gray = new Set(), selection = null, pointed = null;
+  let colors = null, gray = new Set(), selection = null;
   let img = null, cache = null;
 
   const drawn = [];
@@ -182,12 +182,6 @@ export function openPlan(canvas, plan, planIndex, opts) {
       ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
       haloPath(ctx, selection); ctx.stroke();
     }
-    // The pointing halo: what the panel is pointing at, quieter than the selection's.
-    if (pointed && pointed.length) {
-      ctx.globalAlpha = 0.34; ctx.strokeStyle = '#fff';
-      ctx.lineWidth = Math.max(15, 1.6 * clamp(0.017 * v.k * 1.275, 4, 24));
-      haloPath(ctx, pointed); ctx.stroke();
-    }
     ctx.globalAlpha = 1;
 
     for (const p of drawn) {
@@ -239,8 +233,6 @@ export function openPlan(canvas, plan, planIndex, opts) {
     frameArrived() {},
     setGray(ctrls) { gray = ctrls; changed(); },
     setSelection(sel) { selection = sel; changed(); },
-    setHighlight(ranges) { pointed = ranges && ranges.length ? ranges : null; changed(); },
-    highlight: () => pointed,
     render,
     tick: () => false,
     toScreen: (x, y) => [x * v.k + v.tx, y * v.k + v.ty, 1],
@@ -261,6 +253,8 @@ export function openPlan(canvas, plan, planIndex, opts) {
     },
     screenOf: (p) => (isDrawn[p] ? [px.x[p] * v.k + v.tx, px.y[p] * v.k + v.ty] : null),
     pixelRadius: (p) => sizeOf(p) / 2,
+    // litSize is how wide pixel p draws when it is lit, in CSS px (render).
+    litSize: (p) => Math.min(sizeOf(p) * 1.5, 30),
     setView(name) { if (name === 'fit' || name === 'street') { auto = true; fit(); emit(); } },
     cameraState: () => ({ mode: auto ? 'fit' : 'free', auto, hasFree: false }),
     restore() { auto = true; fit(); emit(); },
