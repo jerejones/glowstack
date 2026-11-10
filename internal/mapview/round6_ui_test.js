@@ -404,6 +404,8 @@ test('Refinement 2: Status tiles that read alone', async () => {
   assert.match(status, /\$\$\('#stLateTile'\)\.onclick = \(\) => openDiagnostics\(\);/);
   assert.match(status, /<details id="stDiag"[^>]*><summary>Diagnostics<\/summary>[\s\S]*?id="stLateNote">\$\{LATE_NOTE\}<\/p><\/details>/);
   assert.match(design(), /"since start ·\s+0\.2%"/);
+  // A phone's two rows of tiles are each as tall as their own tiles: no blank third line in the row that has none.
+  assert.match(css(), /@media \(max-width: 699\.98px\) \{ \.tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); grid-auto-rows: auto; \} \}/);
 });
 
 test('Refinement 3: even card rows: a grid with a two-line name keeps a two-line title slot in every card', async () => {

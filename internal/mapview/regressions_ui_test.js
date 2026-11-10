@@ -2803,7 +2803,7 @@ test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay be
   assert.match(css, /\.tiles \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); grid-auto-rows: 1fr; gap: 6px; margin: 0 0 10px; \}/);
   assert.match(css, /\.tiles \.stat\.bad b \{ color: #fca5a5; \}\s*\.tiles \.stat\.warn b \{ color: var\(--warn\); \}/, 'state colors on the figure');
   const phone = css.slice(css.indexOf('@media (max-width: 699.98px)'));
-  assert.match(phone, /\.tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/, 'two by two on a phone');
+  assert.match(phone, /\.tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); grid-auto-rows: auto; \}/, 'two by two on a phone');
   assert.match(css, /\.verdict\.warn \{ color: var\(--warn\); \}/, 'the warning beneath stays amber');
 });
 

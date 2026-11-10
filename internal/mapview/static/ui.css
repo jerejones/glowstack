@@ -1088,7 +1088,7 @@ button.stat:hover { border-color: #8b95a3; background: var(--card2); }
 button.stat.link span, button.stat.link small { display: flex; align-items: center; gap: 2px; }
 button.stat.link span .icon, button.stat.link small .icon { flex: none; width: 12px; height: 12px; }
 button.stat.link:hover span, button.stat.link:focus-visible span { text-decoration: underline; text-underline-offset: 2px; color: var(--fg); }
-@media (max-width: 699.98px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } } /* after the base rule, which would otherwise win on order */
+@media (max-width: 699.98px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; } } /* after the base rule, which would otherwise win on order. Two rows on a phone: each is as tall as its own tiles, so a row without a third line has no blank one */
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
 .stat b { display: block; font-size: var(--t-title); font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .stat span { display: block; color: var(--muted); font-size: var(--t-sub); }
