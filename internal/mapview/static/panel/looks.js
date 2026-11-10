@@ -194,18 +194,48 @@ export function liveFold({ compact, preview, live, open }) {
   return { summary, folded: summary && !open };
 }
 
+// The two target controls are told apart in words (series 2 round 5): a
+// layer row's says where this look is, the Library header's where the next
+// look goes. Each label is used for that one control and nothing else.
+export const THIS_LOOK = 'This look:';
+export const NEXT_LOOK = 'Next look:';
+
+// removeWords is the Remove button for a layer: the word is always
+// "Remove". When the selection is a proper part of the layer's place, it
+// takes the look off that part only, and the scope is in the button's
+// accessible name and tooltip ("Remove from Shed eave"), never another name
+// for the button. lane is 'preview' or 'house'; part is the selection's
+// name, or '' for the whole layer; rest is the part's target in words.
+export function removeWords({ lane, part = '', rest = '' }) {
+  if (part) return { text: 'Remove', aria: `Remove from ${part}`, title: `Remove from ${part}: turn off ${rest || part} and leave the rest of this look on`, scoped: true };
+  return { text: 'Remove', aria: 'Remove', title: lane === 'preview' ? 'Remove from the preview' : 'Remove from the lights', scoped: false };
+}
+
+// fitLine picks, from candidates in order (longest first), the first line
+// that fits(text): a card's state line shows in full or drops its place,
+// and never ends in an ellipsis.
+export function fitLine(candidates, fits) {
+  return candidates.find((t) => fits(t)) ?? candidates[candidates.length - 1];
+}
+// stateLines are a library card's candidates for a state line such as
+// "Previewing on Shed eave": whole, then without the place.
+export function stateLines(line) {
+  const m = /^(Previewing|Live) on /.exec(line);
+  return m ? [line, `${m[1]} elsewhere`, m[1]] : [line];
+}
+
 // targetControl is the one control that sets where the next preview goes,
 // in words: its label, the place it shows, its accessible name, and whether
 // it carries a clear (x) back to Everything. where is the current place's
 // name; everything says the place is every light.
 export function targetControl(where, everything) {
-  return { label: 'Preview on', text: where, aria: `Preview the next look on ${where}. Change where the next look goes`, title: 'Where the next look goes', clear: !everything };
+  return { label: NEXT_LOOK, text: where, aria: `Next look: ${where}. Change where the next look goes`, title: 'Where the next look goes', clear: !everything };
 }
 
 // placeControl is a preview row's own place in the same style and the same
 // word, labeled for what it changes: that layer, not the next one.
 export function placeControl(where) {
-  return { label: 'On:', text: where, title: `This look is on ${where}. Move it somewhere else.` };
+  return { label: THIS_LOOK, text: where, title: `This look is on ${where}. Move it somewhere else.` };
 }
 
 // previewFold is the same fold for the preview's own rows (B143): on the
@@ -410,7 +440,7 @@ export function createLooks(S, root) {
     <section class="library" aria-label="Presets and effects">
       <div class="catalog-head" id="lkCatalogHead">
         <h2 class="group-head">Library</h2>
-        <div class="target-ctl"><span class="muted" id="lkTargetLabel">Preview on</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next look goes" aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Preview on Everything again" title="Back to Everything" hidden>${icon('close')}</button></div>
+        <div class="target-ctl"><span class="muted" id="lkTargetLabel">${NEXT_LOOK}</span><button type="button" class="target-select" id="lkTarget" aria-expanded="false" aria-controls="lkPicker" title="Where the next look goes" aria-haspopup="dialog"><b id="lkTargetName"></b>${icon('chevronDown')}</button><button type="button" class="icon-btn target-clear" id="lkTargetClear" aria-label="Next look: back to Everything" title="Back to Everything" hidden>${icon('close')}</button></div>
         <div class="target-picker" id="lkPicker" role="dialog" aria-label="Where the next look goes" hidden>
           <div class="pick-head"><h2 id="lkPickTitle"></h2><button type="button" class="icon-btn" id="lkPickClose" aria-label="Close" title="Close">${icon('close')}</button></div>
           ${textField({ ariaLabel: 'Find a place', id: 'lkTargetSearch', type: 'search', placeholder: 'Find a place' })}
@@ -686,13 +716,13 @@ export function createLooks(S, root) {
     for (const b of root.querySelectorAll('.preset')) {
       const live = liveLine(house, b.dataset.look, t, sameTarget, (x) => targetName(g, x));
       b.classList.toggle('live', !!live);
-      b.querySelector('.live-badge').lastChild.textContent = live;
-      b.querySelector('.live-badge').title = live ? 'On the lights now' : '';
+      fitBadge(b.querySelector('.live-badge'), live);
+      b.querySelector('.live-badge').title = live ? `On the lights now${/ on /.test(live) ? `: ${live}` : ''}` : '';
       const inPreview = on.has(b.dataset.look), other = !inPreview && elsewhere.has(b.dataset.look);
       b.classList.toggle('in-preview', inPreview);
       b.classList.toggle('elsewhere', other);
       const line = previewLine(layers, b.dataset.look, t, sameTarget, (x) => targetName(g, x)) || 'Previewing';
-      b.querySelector('.in-badge').lastChild.textContent = line;
+      fitBadge(b.querySelector('.in-badge'), line);
       b.querySelector('.in-badge').title = line;
       b.setAttribute('aria-pressed', inPreview ? 'true' : 'false');
     }
@@ -747,6 +777,14 @@ export function createLooks(S, root) {
     return 1 / 60;
   }
   const briOf = (l) => { const v = parseQty('fraction', valuesFor(S, l).brightness ?? 1); return Number.isFinite(v) ? v : 1; };
+
+  // fitBadge writes a card's state line whole, or without its place when the
+  // card is too narrow for it: never cut with an ellipsis (stateLines).
+  function fitBadge(badge, line) {
+    const text = badge.lastChild;
+    if (!badge.offsetParent) { text.textContent = line; return; } // not on screen: nothing to measure
+    text.textContent = fitLine(stateLines(line), (t) => { text.textContent = t; return text.scrollWidth <= text.clientWidth; });
+  }
 
   // removeScope says what Remove does to layer l given the selection:
   // '' removes the whole layer; a target id means the selection is a
@@ -889,10 +927,10 @@ export function createLooks(S, root) {
     note.className = orig ? 'note copy-note' : 'note';
     note.textContent = orig ? `Editing a preview of ${layerName(S, l)}. It goes on the lights when you update them.` : '';
     const part = removeScope(l), rm = el.querySelector('[data-a=remove]');
-    rm.querySelector('span').textContent = part ? 'Remove here' : 'Remove';
-    rm.classList.toggle('worded', !!part);
-    rm.setAttribute('aria-label', part ? 'Remove here' : 'Remove');
-    rm.title = part ? `Remove from ${nodeName(S.sel.node)}: turn off ${targetName(g, part)} and leave the rest of this look on` : (c.lane === 'preview' ? 'Remove from the preview' : 'Remove from the lights');
+    const words = removeWords({ lane: c.lane, part: part ? nodeName(S.sel.node) : '', rest: part ? targetName(g, part) : '' });
+    rm.querySelector('span').textContent = words.text;
+    rm.setAttribute('aria-label', words.aria);
+    rm.title = words.title;
     if (c.form && !c.patch.busy()) c.form.update(l);
     if (c.only) c.only.hidden = (S.preview?.layers.length || 0) < 2;
     fitControls(c);

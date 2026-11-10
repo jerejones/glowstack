@@ -157,23 +157,23 @@ test('B3: a swatch shows the look as a motion trail, wherever a look is a card o
 test('C: one target control, a button with a border and a chevron, labeled for what it changes', async () => {
   const { targetControl, placeControl } = await import('./static/panel/looks.js');
   // (Round 4's C2 put "next" in its accessible name and gave it the tooltip "Where the next look goes".)
-  assert.deepEqual(targetControl('Everything', true), { label: 'Preview on', text: 'Everything', aria: 'Preview the next look on Everything. Change where the next look goes', title: 'Where the next look goes', clear: false });
+  assert.deepEqual(targetControl('Everything', true), { label: 'Next look:', text: 'Everything', aria: 'Next look: Everything. Change where the next look goes', title: 'Where the next look goes', clear: false });
   const sel = targetControl('Porch rail', false);
   assert.equal(sel.text, 'Porch rail', 'a selection on the map is what the control shows');
   assert.equal(sel.clear, true, 'with a clear (x) back to Everything');
   // A preview row's own place: the same word and style, labeled for that layer.
-  assert.deepEqual(placeControl('Everything'), { label: 'On:', text: 'Everything', title: 'This look is on Everything. Move it somewhere else.' });
+  assert.deepEqual(placeControl('Everything'), { label: 'This look:', text: 'Everything', title: 'This look is on Everything. Move it somewhere else.' });
   const looks = read('panel/looks.js');
   // Exactly one control sets where the next preview goes.
   assert.equal(looks.match(/id="lkTarget"/g).length, 1);
   assert.doesNotMatch(looks, /New previews go on|Goes on</);
   assert.match(looks, /<button type="button" class="target-select" id="lkTarget"[^>]*aria-haspopup="dialog"><b id="lkTargetName"><\/b>\$\{icon\('chevronDown'\)\}<\/button>/);
-  assert.match(looks, /id="lkTargetClear" aria-label="Preview on Everything again"/);
+  assert.match(looks, /id="lkTargetClear" aria-label="Next look: back to Everything"/);
   assert.match(css, /^button\.target-select \{[^}]*border: 1px solid var\(--control-line\);/m);
   // Selecting on the map changes its text in the same task: the select event is synchronous.
   assert.match(looks, /S\.on\('select', \(\) => \{ fillTargets\(\); renderStage\(\); \}\);/);
   assert.match(read('app.js'), /applySelection\(\);\s*S\.emit\('select', S\.sel\);/);
-  assert.match(design, /\*\*Preview on\*\*/);
+  assert.match(design, /\*\*Next look:\*\*/);
 });
 
 test('C: the tap is taught once per device, in one line', async () => {

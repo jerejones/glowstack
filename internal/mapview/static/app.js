@@ -27,7 +27,7 @@ import { createCalibrate, OWN_RELOAD } from './panel/calibrate.js';
 import { runVisibility } from './run-visibility.js';
 import { createHousePoll, lightOutcome, zeroRanges, dimSent } from './house-status.js';
 import { createLibrary } from './library.js';
-import { mapStatus, badgeHTML, showButton } from './map-status.js';
+import { mapStatus, badgeHTML, showButton, lookScope } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure, skeletonHTML } from './states.js';
 import { frameInsets, framePad, toastBottom, toastHome, sheetToastTop } from './map-frame.js';
@@ -793,6 +793,13 @@ S.streamRate = streamRate;
 S.labelAvoid = () => occupiedRects(document, $('stage').getBoundingClientRect(), { sheetTop: S.panel.layout() === 'sheet' && !S.calibrating ? $('stage').getBoundingClientRect().height - S.panel.covered() : null });
 // litNow says whether what's on the lights can be seen, for the chip.
 const litNow = () => lightOutcome(S.geo, S.statusData?.brightness, S.house.filter((l) => !l.ephemeral).map((l) => targetRanges(S.geo, S.tree, l.target)), S.houseStatus === 'available');
+// houseScope is where the looks on the lights are: everywhere, one named place, or part of the house.
+function houseScope() {
+  const on = S.house.filter((l) => !l.ephemeral);
+  if (!S.tree || !on.length) return null;
+  const total = S.tree.nodes.find((nd) => nd.members.some((m) => m.kind === 'all'))?.count || 0;
+  return lookScope(on.map((l) => targetRanges(S.geo, S.tree, l.target)), on.map((l) => l.target), total, (t) => targetName(S.geo, t));
+}
 S.refreshBadge = badge;
 let badgeShown = false;
 // badge shows what the map is showing, on the chip and on the toggle.
@@ -800,7 +807,7 @@ function badge() {
   badgeShown = true;
   const step = S.calibrating && S.cal?.active ? S.cal.target?.kind || '' : '';
   const target = ['anchor', 'end'].includes(step);
-  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, calActive: !!S.cal?.active, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed, reading: S.houseStatus === 'loading' && !S.statusFailed, dimZones: S.dimZones || 0, looks: S.house.filter((l) => !l.ephemeral).map((l) => layerName(S, l)), levels: S.statusData?.brightness && S.geo?.zones ? S.geo.zones.map((z) => S.statusData.brightness.zones?.[z.id] ?? 1) : null });
+  const m = mapStatus({ connected: S.connected, connecting: S.connecting, show: S.show, preview: S.preview, target, measuring: target ? '' : step, calActive: !!S.cal?.active, mode: S.overlay?.shown().mode, lit: S.geo?.mapless ? null : litNow(), mapless: !!S.mapFailed, fresh: S.houseStatus === 'available' && !S.statusFailed, reading: S.houseStatus === 'loading' && !S.statusFailed, dimZones: S.dimZones || 0, looks: S.house.filter((l) => !l.ephemeral).map((l) => layerName(S, l)), scope: houseScope(), levels: S.statusData?.brightness && S.geo?.zones ? S.geo.zones.map((z) => S.statusData.brightness.zones?.[z.id] ?? 1) : null });
   const b = $('badge');
   b.innerHTML = badgeHTML(m, S.panel.layout() === 'sheet');
   b.className = 'badge ' + m.cls;

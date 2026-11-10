@@ -26,7 +26,7 @@ const MEASURING = { bands: 'Test bands', link: 'Lining up a link', gap: 'Measuri
 // the tab says why, once. looks names the looks on the lights (stack order)
 // and levels is each zone's brightness, 0–1; with looks on and lit the chip
 // names them (see litWords).
-export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true, reading = false, dimZones = 0, looks = [], levels = null }) {
+export function mapStatus({ connected, connecting = false, show, preview, target, measuring = '', calActive = false, mode = 'live', lit = null, mapless = false, fresh = true, reading = false, dimZones = 0, looks = [], levels = null, scope = null }) {
   const previewing = !!(preview && preview.previewing);
   // Only a preview that exists, and isn't hidden, is on the map.
   const showing = target ? 'target' : measuring ? 'calibration' : previewing && show !== 'house' ? 'preview' : 'lights';
@@ -46,11 +46,13 @@ export function mapStatus({ connected, connecting = false, show, preview, target
   // Looks are on the lights and dark zones hide them: say that, not "nothing lit".
   if (lit?.dark) {
     const zones = !lit.empty && lit.zones.length > 0;
-    return { ...toggle, text: lit.dark === 'none' ? (zones ? 'Lights: dark' : 'Lights: nothing lit') : 'Lights: partly lit', detail: zones ? ', zones at 0%' : lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message };
+    // A preview the Lights view is hiding is said on every tab, as on Looks.
+    return { ...toggle, text: lit.dark === 'none' ? (zones ? 'Lights: dark' : 'Lights: nothing lit') : 'Lights: partly lit', detail: zones ? ', zones at 0%' : previewing ? ' · preview hidden' : lit.empty ? ' · no looks on them' : '', cls: 'unlit', title: lit.message + (previewing ? ' A preview is hidden: Preview shows it.' : '') };
   }
   if (looks.length) {
-    const w = litWords(looks, levels);
-    return { ...toggle, ...w, detail: w.detail + (previewing ? ' · preview hidden' : ''), cls: 'house', title: `On the lights: ${looks.join(', ')}. The map shows what the lights show.` };
+    const w = litWords(looks, levels, scope);
+    const hidden = previewing ? ' · preview hidden' : '';
+    return { ...toggle, ...w, detail: w.detail + hidden, shortDetail: hidden || w.shortDetail, cls: 'house', title: `On ${w.where}: ${looks.join(', ')}. The map shows what the lights show.` };
   }
   return { ...toggle, text: 'Showing the lights', detail: previewing ? ' · preview hidden' : ' · no preview', cls: 'house', title: 'The map shows what the lights show' };
 }
@@ -60,21 +62,41 @@ export function mapStatus({ connected, connecting = false, show, preview, target
 export const NAMES_SHOWN = 2;
 
 // litWords is the chip with looks on the lights: the names (two, then
-// "+N more") and the state word, with the zones' level as the detail. short
-// is the phone's form, the state and the count of looks.
-export function litWords(looks, levels) {
+// "+N more") and where they are. scope is { all, place }: all says the looks
+// cover every light; otherwise place names the one place they are on, or is
+// '' when they are on several, which reads "part of the house". The chip
+// says coverage in those words and never by quoting zone brightness: the
+// detail is the zones' level only when some zone is not at 100%. short and
+// shortDetail are the phone's two lines: the count, then the place.
+export function litWords(looks, levels, scope = null) {
   const names = looks.slice(0, NAMES_SHOWN).map((n) => String(n).replace(/\u00a0/g, ' ')).join(', ') + (looks.length > NAMES_SHOWN ? `, +${looks.length - NAMES_SHOWN} more` : '');
-  const zones = zonesPhrase(levels);
-  return { names, text: `${names} on the lights`, short: `${plural(looks.length, 'look')} on the lights`, detail: zones ? ` · ${zones}` : '' };
+  const part = !!scope && !scope.all;
+  const where = !part ? 'the lights' : scope.place || 'part of the house';
+  const level = levelPhrase(levels);
+  const detail = level ? ` · ${level}` : '';
+  return { names, where, text: `${names} on ${where}`, short: `${plural(looks.length, 'look')} on the lights`, detail, shortDetail: part ? ` · ${scope.place ? `on ${scope.place} only` : 'on part of the house'}` : detail };
 }
 
-// zonesPhrase is the zones that are on and their level: one figure when they
-// agree, a range when they don't; '' with no reading or every zone at 0.
-export function zonesPhrase(levels) {
+// levelPhrase is the brightness of the zones that are on, said only when it
+// is not simply 100%: one figure when they agree, a range when they don't.
+// '' with no reading, with every zone at 0, or with all of them at 100%.
+export function levelPhrase(levels) {
   const on = (levels || []).filter((l) => l > 0).map((l) => Math.round(l * 100));
   if (!on.length) return '';
   const lo = Math.min(...on), hi = Math.max(...on);
-  return `${plural(on.length, 'zone')} at ${lo === hi ? `${lo}%` : `${lo}–${hi}%`}`;
+  if (lo === 100 && hi === 100) return '';
+  return `brightness ${lo === hi ? `${lo}%` : `${lo}–${hi}%`}`;
+}
+
+// lookScope is where the looks on the lights are, for the chip: ranges is
+// each look's pixel ranges (null for an unknown target), targets their
+// target ids, total the number of pixels on runs, nameOf a target's name.
+export function lookScope(ranges, targets, total, nameOf) {
+  const lit = new Set();
+  for (const rs of ranges) for (const [a, b] of rs || []) for (let p = a; p <= b; p++) lit.add(p);
+  if (!total || lit.size >= total) return { all: true, place: '' };
+  const same = targets.length > 0 && targets.every((t) => t === targets[0]);
+  return { all: false, place: same ? nameOf(targets[0]) : '' };
 }
 
 // showButton is one Preview/Lights button's state: off, with the reason, until
@@ -96,9 +118,10 @@ export function showButton(choice, { ready, failed, canPreview, word }) {
 // sit centered. (The header's chip may be one or two lines tall as the state
 // changes; a hollow pill was the worse of the two.)
 // stackedLines says how many lines the stacked chip has for a status.
-export const stackedLines = (m) => (m.detail ? 2 : 1);
+export const stackedLines = (m) => ((m.short ? m.shortDetail ?? m.detail : m.detail) ? 2 : 1);
 export function badgeHTML(m, stacked = false) {
-  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${m.detail ? `<span class="detail">${esc(m.detail.replace(/^( · |, )/, ''))}</span>` : ''}</span>`;
+  const second = m.shortDetail ?? m.detail;
+  if (stacked && m.short) return `<span class="stack"><span>${esc(m.short)}</span>${second ? `<span class="detail">${esc(second.replace(/^( · |, )/, ''))}</span>` : ''}</span>`;
   if (m.names) return `<span><b>${esc(m.names)}</b>${esc(m.text.slice(m.names.length))}<span class="detail">${esc(m.detail)}</span></span>`;
   if (stacked && m.detail) return `<span class="stack"><span>${esc(m.text)}</span><span class="detail">${esc(m.detail.replace(/^( · |, )/, '').replace(' shown dim', ' dim'))}</span></span>`;
   if (stacked) return `<span class="stack"><span>${esc(m.text)}</span></span>`;

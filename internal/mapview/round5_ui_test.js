@@ -125,8 +125,8 @@ test('Refinement 1: a one-line state is a one-line pill, with no empty line kept
     assert.doesNotMatch(html, /&nbsp;|reserved|<span[^>]*>\s*<\/span>/, `${m.text}: no empty line`);
   }
   // The states with nothing more to say are one line.
-  for (const i of [3, 5, 6, 7]) assert.equal(stackedLines(states[i]), 1, states[i].text);
-  for (const i of [0, 1, 2, 4]) assert.equal(stackedLines(states[i]), 2, states[i].text);
+  for (const i of [2, 3, 5, 6, 7]) assert.equal(stackedLines(states[i]), 1, states[i].text);
+  for (const i of [0, 1, 4]) assert.equal(stackedLines(states[i]), 2, states[i].text);
   // The pill centers what it has and is never shorter than the logo button beside it.
   const c = css();
   assert.match(c, /^\.badge \{\s*display: inline-flex; align-items: center; min-height: var\(--tap\);/m);
@@ -180,4 +180,52 @@ test('Refinement 3: the inspect card is name first, three rows at most, in one p
   const rest = app.slice(app.indexOf('<table class="rows">'), app.indexOf('<summary>Details</summary>'));
   assert.doesNotMatch(rest, /Color|Output|Pixel/);
   assert.doesNotMatch(app, /cardCorner/);
+});
+
+test('Refinement 4: this look and the next look in words; one word per action; the chip says where', async () => {
+  const { THIS_LOOK, NEXT_LOOK, placeControl, targetControl, removeWords, fitLine, stateLines } = await import('./static/panel/looks.js');
+  assert.equal(placeControl('Everything').label, 'This look:');
+  assert.equal(targetControl('Shed eave', false).label, 'Next look:');
+  assert.notEqual(THIS_LOOK, NEXT_LOOK);
+  // The string audit: each label is one control's, and no action has two names.
+  const looks = read('panel/looks.js');
+  assert.doesNotMatch(looks, /Remove here|'On:'|>Preview on<|Preview on Everything/);
+  assert.equal(looks.match(/THIS_LOOK/g).length, 2, 'declared, and used by the row control only');
+  assert.equal(looks.match(/NEXT_LOOK/g).length, 3, 'declared, and used by the Library header only');
+  // Remove is always "Remove"; a partial scope is its name and tooltip.
+  const whole = removeWords({ lane: 'preview' }), part = removeWords({ lane: 'house', part: 'Shed eave', rest: 'Shed eave' });
+  assert.equal(whole.text, 'Remove');
+  assert.equal(part.text, 'Remove');
+  assert.equal(part.aria, 'Remove from Shed eave');
+  assert.match(part.title, /^Remove from Shed eave: turn off Shed eave and leave the rest of this look on$/);
+  assert.equal(removeWords({ lane: 'house' }).title, 'Remove from the lights');
+  // A card's state line is whole or drops its place: never an ellipsis.
+  assert.deepEqual(stateLines('Previewing on Everything'), ['Previewing on Everything', 'Previewing elsewhere', 'Previewing']);
+  assert.deepEqual(stateLines('Live on Porch rail'), ['Live on Porch rail', 'Live elsewhere', 'Live']);
+  assert.deepEqual(stateLines('Previewing'), ['Previewing']);
+  const fits = (n) => (t) => t.length <= n;
+  assert.equal(fitLine(stateLines('Previewing on Everything'), fits(30)), 'Previewing on Everything');
+  assert.equal(fitLine(stateLines('Previewing on Everything'), fits(22)), 'Previewing elsewhere');
+  assert.equal(fitLine(stateLines('Previewing on Everything'), fits(12)), 'Previewing');
+  // The chip: a look on one run names it; several places read "part of the house"; no zone brightness as coverage.
+  const { mapStatus, badgeHTML, lookScope, levelPhrase } = await import('./static/map-status.js');
+  const name = (t) => ({ 'run:shed-eave': 'Shed eave', porch: 'Porch' }[t] || t);
+  assert.deepEqual(lookScope([[[0, 99]]], ['all'], 100, name), { all: true, place: '' });
+  assert.deepEqual(lookScope([[[10, 19]]], ['run:shed-eave'], 100, name), { all: false, place: 'Shed eave' });
+  assert.deepEqual(lookScope([[[10, 19]], [[30, 39]]], ['run:shed-eave', 'porch'], 100, name), { all: false, place: '' });
+  assert.deepEqual(lookScope([[[0, 49]], [[50, 99]]], ['a', 'b'], 100, name), { all: true, place: '' }, 'two halves cover the house');
+  const base = { connected: true, show: '', preview: null, looks: ['Amber wash'], levels: [1, 1, 1, 1] };
+  const one = mapStatus({ ...base, scope: { all: false, place: 'Shed eave' } });
+  assert.equal(one.text, 'Amber wash on Shed eave');
+  assert.doesNotMatch(one.text + one.detail, /zones? at/);
+  assert.equal(badgeHTML(one), '<span><b>Amber wash</b> on Shed eave<span class="detail"></span></span>');
+  assert.equal(badgeHTML(one, true), '<span class="stack"><span>1 look on the lights</span><span class="detail">on Shed eave only</span></span>');
+  assert.equal(mapStatus({ ...base, looks: ['A', 'B'], scope: { all: false, place: '' } }).text, 'A, B on part of the house');
+  assert.equal(mapStatus({ ...base, scope: { all: true, place: '' } }).text, 'Amber wash on the lights');
+  assert.equal(mapStatus({ ...base, levels: [0.4, 1], scope: { all: true, place: '' } }).detail, ' · brightness 40–100%');
+  assert.equal(levelPhrase([1, 1, 1]), '');
+  // A hidden preview is said in the dark state too, on any tab.
+  const dark = mapStatus({ connected: true, show: 'house', preview: { previewing: true }, lit: { dark: 'none', empty: true, zones: [], message: 'Nothing is lit.' } });
+  assert.equal(dark.text + dark.detail, 'Lights: nothing lit · preview hidden');
+  assert.match(read('app.js'), /scope: houseScope\(\),/);
 });

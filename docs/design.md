@@ -1346,21 +1346,22 @@ desk.
   on the map. A selection made while a preview is up moves no existing
   layer: it only sets where the next one goes.
 - **The map is a control, and says so.**
-  - *One target control.* The Library's header has **Preview on** followed
+  - *One target control.* The Library's header has **Next look:** followed
     by a select-styled button (a border and a chevron) showing where the
     next preview goes: "Everything", or the selection's name. It opens the
     list of places (the same chain the breadcrumb offers, searchable). A
     selection on the map changes its text at once, and a clear (x) beside
     it returns to Everything. A preview row's own place uses the same
-    control style and the same word, **On:** ("On: Everything"), so each is
-    labeled for what it changes: the next look, or that layer.
+    control style under the label **This look:** ("This look: Everything"),
+    so the two are told apart in words: the next look, or that layer. The
+    breadcrumb stays the map's own readout of the selection.
   - *The tap is taught once.* "Tap a run on the map to choose where the
     next look goes." ("Click" with a mouse) is a quiet caption on the map
     where the breadcrumb will be, on the Looks tab only, until this device's
     first selection and never again. It is said in that one place: not in
     the empty Looks card, not in the control's list, not on another tab and
     not while calibrating. Tapping a run chooses a target and changes no
-    light, so the words are "choose" and "Preview on"; "light" and "put on
+    light, so the words are "choose" and "next look"; "light" and "put on
     the lights" are kept for the action that changes the lights. No tour, no
     modal.
   - *Hover and tap name things.* With a mouse, a run's name and zone show
@@ -1383,9 +1384,23 @@ desk.
     row) in that row's hover style, and no other row. A Status warning that
     names a run ("Calibrate this run") outlines that run in amber on the map
     while the warning is hovered or focused.
-  - *Next look, or this layer.* **Preview on** sits beside the Library
-    heading, and its tooltip and accessible name say "next" ("Where the next
-    look goes"). A layer's **On:** is inside that layer's row.
+  - *Next look, or this layer.* **Next look:** sits beside the Library
+    heading, with the tooltip "Where the next look goes". A layer's **This
+    look:** is inside that layer's row.
+  - *One word per action.* A layer's Remove is always the word "Remove".
+    When the selection is a proper part of the layer's place it takes the
+    look off that part only, and the scope is in the button's tooltip and
+    accessible name ("Remove from Shed eave"), never another name for the
+    button. A library card's state line ("Previewing on Shed eave", "Live on
+    Porch") shows whole or drops its place ("Previewing elsewhere"); it is
+    never cut with an ellipsis.
+  - *The chip says where.* With looks on the lights the header chip names
+    them and where they are: "on the lights" when they cover every light,
+    the place's name when they are all on one place ("Ember drift on Door
+    loop"), "on part of the house" otherwise. It never quotes zone
+    brightness as if it were coverage; the zones' level is added only when
+    some zone is not at 100%. A preview the Lights view is hiding is said in
+    every state and on every tab (" · preview hidden").
 - **Names.** Setup's Names option names things in every "Color the map by"
   view: every drawn run once, at its middle, or each point, gap and link
   while Points is on, and it adds the descriptions to the controllers'
@@ -1405,7 +1420,7 @@ desk.
   | Warned | A 4 px amber outline, only while a Status warning for that run is pointed at. |
 - **Panel tabs.** Looks, Setup and Status; the open one is remembered per
   device.
-  - *Looks*: where looks go (**Preview on**), presets first and then effects, the preview
+  - *Looks*: where looks go (**Next look:**), presets first and then effects, the preview
     (a card per layer with its brightness, **Tweak** and Remove), the bar
     that puts the preview on the lights, and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy

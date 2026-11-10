@@ -992,7 +992,7 @@ test('jargon is gone or explained', async () => {
   const setup = read('panel/setup.js'), looks = read('panel/looks.js'), cal = read('panel/calibrate.js');
   assert.doesNotMatch(setup, />Even runs too</);
   assert.doesNotMatch(setup, />Copy view</);
-  assert.match(looks, /label: 'On:'/);
+  assert.match(looks, /export const THIS_LOOK = 'This look:';/); // "On:" until series 2 round 5
   assert.doesNotMatch(looks, />Apply to</);
   assert.doesNotMatch(looks, /Next look on/);
   assert.doesNotMatch(cal, /At the estimate/);
@@ -1111,7 +1111,7 @@ test('B71: the catalog control says where the next look goes, and a layer has it
   // The control sits with what it governs: the catalog, above the cards.
   const head = /<div class="catalog-head"[\s\S]*?<div class="cards" id="lkPresets">/.exec(src);
   assert.ok(head, 'the Goes on control is in the catalog heading');
-  assert.match(head[0], /id="lkTargetLabel">Preview on</);
+  assert.match(head[0], /id="lkTargetLabel">\$\{NEXT_LOOK\}</); // "Preview on" until series 2 round 5
   // A preview layer's place is a control of its own, on its own card.
   assert.match(src, /className: 'place target-select'/);
   assert.match(src, /<span class="muted">\$\{pc\.label\}<\/span><b>\$\{esc\(pc\.text\)\}<\/b>/);
@@ -1847,7 +1847,7 @@ test('action buttons lead with an icon; the header says it sets new previews', (
   assert.match(setup, /icon\('target'\)\}\$\{running/);
   assert.match(status, /\$\{icon\('target'\)\}Calibrate/);
   assert.match(cal, /id="caConfirm"[^>]*>\$\{icon\('check'\)\}Confirm/);
-  assert.match(looks, /id="lkTargetLabel">Preview on</);
+  assert.match(looks, /id="lkTargetLabel">\$\{NEXT_LOOK\}</);
   assert.match(looks, /<span class="muted">\$\{pc\.label\}<\/span><b>\$\{esc\(pc\.text\)\}/, "the card's own control keeps its name");
 });
 
@@ -2248,7 +2248,7 @@ test('B126: Calibrating is said only during an active session', async () => {
 test('the library scope and a row\'s place are one kind of control (round 3, move C)', () => {
   // Round 3 replaced the underlined word in a sentence with a labeled, select-styled button; the row's place uses the same style.
   const looks = read('panel/looks.js');
-  assert.match(looks, /<span class="muted" id="lkTargetLabel">Preview on<\/span><button type="button" class="target-select" id="lkTarget"/);
+  assert.match(looks, /<span class="muted" id="lkTargetLabel">\$\{NEXT_LOOK\}<\/span><button type="button" class="target-select" id="lkTarget"/);
   assert.match(looks, /className: 'place target-select'/);
   assert.match(/^button\.target-select \{[^}]*\}/m.exec(css)[0], /border: 1px solid var\(--control-line\)/);
 });
@@ -2428,7 +2428,7 @@ test('B132: a phone row\'s Goes on keeps its place name; Remove drops its word f
   assert.doesNotMatch(phone, /\.layer\.tight \[data-a=remove\] span \{ display: none; \}/);
   assert.match(looks, /function fitControls\(c\)/);
   assert.match(looks, /box\.scrollWidth > box\.clientWidth \+ 1\) el\.classList\.add\('tight'\)/);
-  assert.match(looks, /rm\.setAttribute\('aria-label', part \? 'Remove here' : 'Remove'\)/, 'the icon-only Remove still has its name');
+  assert.match(looks, /rm\.setAttribute\('aria-label', words\.aria\);/, 'Remove always has its name');
 });
 
 test('B133: on a phone a Tweak row stacks, and a slider track gets the card\'s width', () => {
@@ -2711,15 +2711,15 @@ test('Refinement 3 (round 2): one primary-action shape per role', () => {
 });
 
 test('Refinement 4 (round 2): the chip names what is on the lights, with weight', async () => {
-  const { mapStatus, badgeHTML, litWords, zonesPhrase, NAMES_SHOWN } = await import('./static/map-status.js');
+  const { mapStatus, badgeHTML, litWords, levelPhrase, NAMES_SHOWN } = await import('./static/map-status.js');
   const base = { connected: true, show: '', target: false, preview: { previewing: false }, lit: { dark: '', zones: [], ids: [], message: '' } };
   const two = mapStatus({ ...base, looks: ['Lantern', 'Porch glitter'], levels: [1, 1, 1, 1] });
   assert.equal(two.text, 'Lantern, Porch glitter on the lights');
-  assert.equal(two.detail, ' · 4 zones at 100%');
+  assert.equal(two.detail, '', 'zones at 100% are not coverage, and are not said (series 2 round 5)');
   assert.equal(two.cls, 'house');
   assert.equal(two.short, '2 looks on the lights', 'the phone says the state and the count');
-  assert.equal(badgeHTML(two), '<span><b>Lantern, Porch glitter</b> on the lights<span class="detail"> · 4 zones at 100%</span></span>', 'names in weight, the state word plain');
-  assert.equal(badgeHTML(two, true), '<span class="stack"><span>2 looks on the lights</span><span class="detail">4 zones at 100%</span></span>');
+  assert.equal(badgeHTML(two), '<span><b>Lantern, Porch glitter</b> on the lights<span class="detail"></span></span>', 'names in weight, the state word plain');
+  assert.equal(badgeHTML(two, true), '<span class="stack"><span>2 looks on the lights</span></span>');
   // Two names, then a count.
   assert.equal(NAMES_SHOWN, 2);
   assert.equal(litWords(['A', 'B', 'C', 'D'], [1]).names, 'A, B, +2 more');
@@ -2727,12 +2727,13 @@ test('Refinement 4 (round 2): the chip names what is on the lights, with weight'
   assert.equal(litWords(['Solo'], null).short, '1 look on the lights');
   assert.equal(litWords(['Solo'], null).detail, '', 'no reading, no level');
   // Levels: one figure when the zones agree, a range when not, zones at 0 left out.
-  assert.equal(zonesPhrase([1, 1]), '2 zones at 100%');
-  assert.equal(zonesPhrase([0.5, 1, 0]), '2 zones at 50–100%');
-  assert.equal(zonesPhrase([0, 0]), '');
-  assert.equal(zonesPhrase(null), '');
+  assert.equal(levelPhrase([1, 1]), '');
+  assert.equal(levelPhrase([0.5, 1, 0]), 'brightness 50–100%');
+  assert.equal(levelPhrase([0.4, 0.4]), 'brightness 40%');
+  assert.equal(levelPhrase([0, 0]), '');
+  assert.equal(levelPhrase(null), '');
   // A hidden preview is still said; nothing on the lights reads as before.
-  assert.equal(mapStatus({ ...base, preview: { previewing: true }, show: 'house', looks: ['Lantern'], levels: [1] }).detail, ' · 1 zone at 100% · preview hidden');
+  assert.equal(mapStatus({ ...base, preview: { previewing: true }, show: 'house', looks: ['Lantern'], levels: [1] }).detail, ' · preview hidden');
   assert.equal(mapStatus(base).text, 'Showing the lights');
   assert.equal(mapStatus({ ...base, lit: { dark: 'none', zones: ['Yard'], ids: ['a'], message: 'x' }, looks: ['Lantern'], levels: [0] }).text, 'Lights: dark', 'dark zones come first');
   // The chip is body size; the state word is in the text color, the green on the rim.
