@@ -1561,8 +1561,8 @@ desk.
   is a plain count or nothing to judge (0 lights lit with no looks on them,
   0 late frames, a power estimate). Green is a health check that passed
   (every controller reachable; every light the looks cover is lit). Amber
-  needs attention (lights a look covers are dark at 0%, frames are late,
-  power is being dimmed). Red has failed (a controller can't be reached).
+  needs attention (lights a look covers are dark at 0%, more than 1% of
+  frames are late, power is being dimmed). Red has failed (a controller can't be reached).
   The same number is never two colors unless the states differ. The power
   tile is a link to the Power section and looks like one (a chevron after
   its label, the label underlined on hover and focus, a tooltip): pressing
@@ -1575,6 +1575,15 @@ desk.
   under the heading. Each thing is explained once: the headline says why
   the lights are dark, the Controllers note only says what "Sending"
   means, and Diagnostics has one line on what a late frame is.
+  *Late frames* are counted by the server from when Glowstack started and
+  never reset (a frame is late when it started after the following one was
+  due), so the tile's label is "late since start" and its tooltip gives the
+  count out of all frames and the uptime. The figure is neutral while late
+  frames are at most 1% of all frames since start; above that it is amber
+  and Status counts one more warning, which says the share and opens
+  Diagnostics. *Controllers*: with every controller reachable the list is
+  one line ("8 controllers, all sending") that opens to the rows; with any
+  unreachable, or not yet known, it is open with the failing ones first.
 - **Preview or live.** Each viewer picks what its map shows: the preview
   (preview layers over the house; the house's own frames when nothing is
   previewed) or live, what the lights show, even while someone

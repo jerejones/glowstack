@@ -52,13 +52,14 @@ test('B142: the Status tiles are one component with one color rule', async () =>
   assert.deepEqual(cls({ lit: 0, total: 0 }), ['', 'ok', '', ''], 'nothing lit, no looks: 0 lights and 0 late frames are both neutral');
   assert.deepEqual(cls({ lit: 500, total: 500 }), ['ok', 'ok', '', ''], 'lit: every covered light shows');
   assert.deepEqual(cls({ lit: 500, total: 500, health: { up: 7, n: 8, cls: 'bad', text: '' } }), ['ok', 'bad', '', ''], 'one controller unreachable');
-  assert.deepEqual(cls({ lit: 500, total: 500, late: 7 }), ['ok', 'ok', 'warn', ''], 'late frames');
+  assert.deepEqual(cls({ lit: 500, total: 500, late: 7, frames: 100 }), ['ok', 'ok', 'warn', ''], 'late frames over the threshold');
+  assert.deepEqual(cls({ lit: 500, total: 500, late: 7, frames: 100000 }), ['ok', 'ok', '', ''], 'a few late frames in many are neutral (series 2 round 5)');
   assert.deepEqual(cls({ lit: 0, total: 500 }), ['warn', 'ok', '', ''], 'covered but dark needs attention');
   assert.deepEqual(cls({ lit: 500, total: 500, power: { ...power, limiting: 'Dimmed to 80.0%' } }), ['ok', 'ok', '', 'warn']);
   assert.deepEqual(cls({ lit: 0, total: 0, health: { up: 0, n: 8, cls: '', text: '' } }), ['', '', '', ''], 'no report yet is neutral');
   // One-line labels, the same at both viewports; "8 of 8" is the figure.
   const facts = tileFacts({ lit: 0, total: 0, health: ok, late: 0, fps, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
-  assert.deepEqual(facts.map((f) => [f.v, f.label]), [['0', 'lights lit'], ['8 of 8', 'controllers'], ['0', 'late frames'], ['Not configured', 'power estimate']]); // "Not set" until series 2 round 4
+  assert.deepEqual(facts.map((f) => [f.v, f.label]), [['0', 'lights lit'], ['8 of 8', 'controllers'], ['0', 'late since start'], ['Not configured', 'power estimate']]); // "Not set" until series 2 round 4
   // One markup for all four; only the tag differs, and the power tile is the link.
   const shape = (h) => h.replace(/^<(button|div)[^>]*>/, '<T>').replace(/<\/(button|div)>$/, '</T>').replace(/<b(?: class="words")?>[^<]*<\/b><span>[^<]*(<svg.*<\/svg>)?<\/span>/, '<b></b><span></span>'); // the link's label ends with a chevron (series 2 round 4)
   assert.equal(new Set(facts.map((f) => shape(tileHTML(f)))).size, 1);
@@ -399,7 +400,7 @@ test('Refinement 2: Status leads with what needs action; one explanation in one 
   assert.match(SENDING_NOTE, /^Sending means /);
   assert.doesNotMatch(status, /so those frames are dark/);
   // Late frames: one line, under Diagnostics.
-  assert.match(LATE_NOTE, /^A late frame took longer to draw than the frame rate allows/);
+  assert.match(LATE_NOTE, /^A late frame started after the next was due/);
   assert.ok(LATE_NOTE.length <= 95, 'one line at the panel\'s width');
   assert.match(status, /<details id="stDiag" class="section-disclosure"><summary>Diagnostics<\/summary><div class="stats" id="stDiagStats"><\/div><p class="muted small" id="stLateNote">\$\{LATE_NOTE\}<\/p><\/details>/);
 });

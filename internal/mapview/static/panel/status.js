@@ -115,6 +115,37 @@ export function litCount(g, st, layers) {
   return minusCount(on, dark);
 }
 
+// Late frames, as the server counts them (internal/clock: Ticker.Late): a
+// frame is late when it started after the following frame was due, and the
+// count runs from when Glowstack started and is never reset. So the window
+// is "since start", and the tile says so. A count means little without the
+// frames it is out of: LATE_SHARE is the share of all frames since start
+// above which the figure needs attention. At or below it the tile is
+// neutral and is not a warning; above it the tile is amber and Status
+// counts a warning that explains it and leads to Diagnostics.
+export const LATE_SHARE = 0.01;
+export const LATE_LABEL = 'late since start';
+const sharePct = (x) => (x >= 0.1 ? Math.round(x * 100) : x >= 0.001 ? (x * 100).toFixed(1) : '< 0.1') + '%';
+export function lateFacts({ late = 0, frames = 0, uptime = '' }) {
+  const share = frames > 0 ? late / frames : 0;
+  const over = frames > 0 && share > LATE_SHARE;
+  const since = uptime ? `since Glowstack started ${uptime} ago` : 'since Glowstack started';
+  const line = `${Math.round(LATE_SHARE * 100)}%`;
+  const title = !late ? `No frame has been late ${since}.`
+    : `${plural(late, 'frame')} of ${count(frames)} ${late === 1 ? 'was' : 'were'} late ${since}${frames ? ` (${sharePct(share)})` : ''}. Amber above ${line}.`;
+  return { share, over, title, issue: over ? { kind: 'late', summary: `Frames are late: ${sharePct(share)} of them ${since}, over the ${line} line. Effects may stutter.`, detail: '', plain: LATE_NOTE, fix: { label: 'Open Diagnostics', diag: true } } : null };
+}
+
+// controllersSummary is the Controllers list as one line, and whether it
+// starts open: with every controller reachable it is a line that expands
+// to the rows; with any unreachable (or not yet known) it is open, the
+// failing ones first. shared is what every row would say ("Sending").
+export function controllersSummary({ n, reachable, down, shared = '' }) {
+  if (down > 0) return { open: true, text: `${plural(n, 'controller')}, ${down} unreachable` };
+  if (reachable < n) return { open: true, text: plural(n, 'controller') };
+  return { open: false, text: `${plural(n, 'controller')}, all ${(shared || 'reachable').toLowerCase()}` };
+}
+
 // tileFacts is the four headline tiles, each a figure, its one-line label
 // and a state: lights lit, controllers, late frames and the power estimate
 // (or "Not configured", which goes to the Power section). power is the /api/map/power
@@ -127,18 +158,19 @@ export function litCount(g, st, layers) {
 // attention: lights a look covers are dark, frames are late, power is being
 // dimmed. 'bad' (red) has failed: a controller can't be reached. So 0 lights
 // lit with no looks and 0 late frames are both neutral: neither is a state.
-export function tileFacts({ lit, total, health, late, fps, power }) {
+export function tileFacts({ lit, total, health, late, fps, power, frames = 0, uptime = '' }) {
   const lights = lit === null ? { v: '—', cls: '', title: 'Reading the lights' }
     : { v: count(lit), cls: !total ? '' : lit < total ? 'warn' : 'ok', title: total ? `${count(total)} covered by the looks on the lights` : 'No looks are on the lights' };
   const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls === 'bad' ? 'bad' : health.cls === 'ok' ? 'ok' : '', title: health.text };
-  const frames = { v: count(late), cls: late ? 'warn' : '', title: `${late ? 'Frames that took longer than the frame rate allows. ' : ''}${fmt(fps.measured, 1)} fps of ${fps.target}` };
+  const lf = lateFacts({ late, frames, uptime });
+  const framesTile = { v: count(late), cls: lf.over ? 'warn' : '', title: `${lf.title} Now ${fmt(fps.measured, 1)} fps of ${fps.target}.` };
   const pw = !power ? { v: '—', cls: '', title: 'Reading the power estimate' }
     : !power.anyKnown ? { v: 'Not configured', words: true, cls: '', title: 'No LED current is set, so there is no estimate. Go to the Power section.' }
     : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : '', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
   return [
     { ...lights, label: 'lights lit' },
     { ...ctl, label: 'controllers' },
-    { ...frames, label: 'late frames' },
+    { ...framesTile, label: LATE_LABEL },
     { ...pw, label: 'power estimate', power: true },
   ];
 }
@@ -210,11 +242,11 @@ export function leadsWithWarnings(head, issues) {
 export const SENDING_NOTE = 'Sending means Glowstack is sending frames to the controller, whether or not anything is lit.';
 
 // LATE_NOTE is the one line that explains the late-frames figure, under Diagnostics.
-export const LATE_NOTE = 'A late frame took longer to draw than the frame rate allows, so the lights got it late.';
+export const LATE_NOTE = 'A late frame started after the next was due. Counted since start; amber above 1% of frames.';
 
 // statusIssues is the one list of warning cards, most urgent first. The
 // headline counts it and renderIssues draws it, so the two can't disagree.
-export const statusIssues = (dark, list) => groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null, darkZones: true }] : []), ...list]);
+export const statusIssues = (dark, list, late = null) => groupIssues([...(dark ? [{ summary: dark, detail: '', fix: null, darkZones: true }] : []), ...list, ...(late ? [late] : [])]);
 
 // powerSummary is the power estimate in words: name(id) reads a
 // controller. An output with no LED current is unknown, never zero, and
@@ -336,7 +368,8 @@ export function createStatus(S, root) {
     <div id="stHealth" class="health" hidden></div>
     <div id="stIssues"></div>
     <div id="stBody" hidden>
-    <h2 class="status-head">Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>${SENDING_NOTE}</p><ul class="list-rows" id="stCtl"></ul>
+    <h2 class="status-head">Controllers <small id="stCtlShared"></small></h2><p class="muted small" id="stCtlNote" hidden>${SENDING_NOTE}</p>
+    <details id="stCtlMore"><summary></summary><ul class="list-rows" id="stCtl"></ul></details>
     <div id="stRunsBox"><h2 class="status-head">Runs <small>drawn vs measured length</small></h2>
     <p class="muted" id="stRunsFine" hidden></p>
     <ul class="list-rows run-rows" id="stRuns"></ul>
@@ -394,6 +427,20 @@ export function createStatus(S, root) {
     if (key !== S.grayKey) { S.grayKey = key; S.gray = set; if (S.view) S.view.setGray(set); }
   }
 
+  // openDiagnostics opens the Diagnostics section and brings it into view, with the focus on it.
+  function openDiagnostics() {
+    const d = $$('#stDiag');
+    d.open = true;
+    d.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    d.querySelector('summary').focus({ preventScroll: true });
+  }
+  // The Controllers disclosure: the person's choice holds until the health changes.
+  let ctlChoice = null, ctlDefault = null, settingCtl = false;
+  $$('#stCtlMore').addEventListener('toggle', () => {
+    if (settingCtl) { settingCtl = false; return; }
+    ctlChoice = $$('#stCtlMore').open;
+  });
+
   // renderIssues keeps layout warnings right under the verdict, in plain
   // words, each with its fix. It redraws only when they change, so an open
   // disclosure survives the poll.
@@ -411,7 +458,7 @@ export function createStatus(S, root) {
     for (const b of box.querySelectorAll('[data-fix]')) {
       const item = items[+b.dataset.fix];
       const { fix } = item.group ? item.group[+b.dataset.one] : item;
-      b.onclick = () => (fix.retry ? location.reload() : fix.run ? S.calib.open({ run: fix.run }) : S.panel.openTab(fix.tab));
+      b.onclick = () => (fix.retry ? location.reload() : fix.diag ? openDiagnostics() : fix.run ? S.calib.open({ run: fix.run }) : S.panel.openTab(fix.tab));
     }
   }
 
@@ -438,7 +485,7 @@ export function createStatus(S, root) {
     const lit = g.mapless ? null : litCount(g, st, layers);
     const total = layers ? normRanges(layers.flatMap((r) => r || [])).reduce((n, r) => n + r[1] - r[0] + 1, 0) : 0;
     const pw = lastPower && lastPower.frame ? { ...powerSummary(lastPower, (id) => controllerName(g, id)), anyKnown: lastPower.estimate.some((o) => o.known) } : null;
-    const facts = tileFacts({ lit, total, health: { up, n: ids.length, cls: health.cls, text: health.text }, late: st.late_frames || 0, fps: { measured: st.measured_fps, target: st.fps }, power: pw });
+    const facts = tileFacts({ lit, total, health: { up, n: ids.length, cls: health.cls, text: health.text }, late: st.late_frames || 0, frames: st.frames || 0, uptime: readableDuration(st.uptime), fps: { measured: st.measured_fps, target: st.fps }, power: pw });
     const box = $$('#stTiles');
     box.hidden = false;
     const html = facts.map((f) => tileHTML(f, esc)).join('');
@@ -476,7 +523,8 @@ export function createStatus(S, root) {
     const zero = g.zones.filter((z) => st.brightness?.zones?.[z.id] === 0);
     const zeroNames = zero.map((z) => z.name || z.id);
     // A dark verdict says it itself, with its own Turn on: no second card.
-    const issues = statusIssues(lit.cls === 'warn' ? '' : darkMessage(zeroNames), (st.solve.warnings || []).map((w) => warningSummary(g, w)));
+    const late = lateFacts({ late: st.late_frames || 0, frames: st.frames || 0, uptime: readableDuration(st.uptime) });
+    const issues = statusIssues(lit.cls === 'warn' ? '' : darkMessage(zeroNames), (st.solve.warnings || []).map((w) => warningSummary(g, w)), late.issue);
     const head = headline(lit, faultLine(g.controllers.map((c) => c.id), st.health, (id) => controllerName(g, id)), issues.length);
     $$('#stVerdict').className = `verdict ${head.cls}`;
     // The verdict says why and what to do: no second card for the same thing.
@@ -501,13 +549,20 @@ export function createStatus(S, root) {
     $$('#stDiagStats').innerHTML = [
       stat(`${fmt(st.measured_fps, 1)}`, `fps of ${st.fps}`),
       stat(`${fmt(st.frame_ms, 2)} ms`, `per frame, max ${fmt(st.max_frame_ms, 1)}`),
-      stat(count(st.late_frames), 'frames late', 'Frames that took longer than the frame rate allows'),
+      stat(count(st.late_frames), 'frames late since start', late.title),
       // The median: the first draws compile shaders and would swamp a mean.
       stat(`${fmt(perf.draw.p50, 2)} ms`, 'to draw the map', `this device; median of the last ${perf.draw.n} draws, p95 ${fmt(perf.draw.p95, 2)} ms`),
     ].join('');
 
     const shared = sharedFact(g.controllers.map((c) => controllerFact(healthOf(st.health, c.id), nothingLit)));
-    $$('#stCtlShared').textContent = shared ? asOf(`all ${shared.toLowerCase()}`, readAt) : '';
+    // Healthy, the list is one line that opens to the rows; with a fault it is open, the failing first.
+    const reach = g.controllers.map((c) => healthOf(st.health, c.id)?.reachable);
+    const sum = controllersSummary({ n: g.controllers.length, reachable: reach.filter((r) => r === true).length, down: reach.filter((r) => r === false).length, shared });
+    $$('#stCtlShared').textContent = readAt ? asOf('', readAt).trim() : '';
+    $$('#stCtlMore summary').textContent = sum.text;
+    const more = $$('#stCtlMore');
+    if (sum.open !== ctlDefault) { ctlDefault = sum.open; ctlChoice = null; } // the health changed: its default applies again
+    if (more.open !== (ctlChoice ?? sum.open)) { settingCtl = true; more.open = ctlChoice ?? sum.open; }
     // An unreachable controller sorts first; the rest keep the config's order.
     // A focused row is redrawn with the list: the focus goes back to it, so
     // a keyboard does not lose its place to a poll.

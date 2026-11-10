@@ -298,3 +298,47 @@ test('Refinement 6: the phone preview card and an apply button that never wraps'
   assert.doesNotMatch(c, /\.bar-main \.go \{[^}]*text-wrap: balance/);
   assert.match(read('panel/looks.js'), /go\.setAttribute\('aria-label', plan\.label\);/);
 });
+
+test('Refinement 7: late frames say their window and have a threshold; healthy controllers are one line', async () => {
+  const { lateFacts, LATE_SHARE, LATE_LABEL, LATE_NOTE, tileFacts, statusIssues, headline, controllersSummary } = await import('./static/panel/status.js');
+  // The window is what the server counts: since start, never reset (internal/clock Ticker.Late).
+  const clock = fs.readFileSync(path.join(__dirname, '..', 'clock', 'clock.go'), 'utf8');
+  assert.match(clock, /func \(t \*Ticker\) Late\(\) uint64 \{ return t\.late\.Load\(\) \}/);
+  assert.doesNotMatch(clock, /late\.Store\(0\)/, 'the count is never reset, so the window is since start');
+  assert.equal(LATE_LABEL, 'late since start');
+  assert.equal(LATE_SHARE, 0.01);
+  assert.match(LATE_NOTE, /Counted since start; amber above 1% of frames\.$/);
+  // At or below the threshold: neutral, no warning.
+  const few = lateFacts({ late: 3, frames: 144000, uptime: '1 hour' });
+  assert.equal(few.over, false);
+  assert.equal(few.issue, null);
+  assert.equal(few.title, '3 frames of 144,000 were late since Glowstack started 1 hour ago (< 0.1%). Amber above 1%.');
+  assert.equal(lateFacts({ late: 1, frames: 100 }).over, false, 'exactly 1% is not over it');
+  assert.equal(lateFacts({ late: 0, frames: 0 }).over, false);
+  assert.equal(lateFacts({ late: 0, frames: 500, uptime: '12 s' }).title, 'No frame has been late since Glowstack started 12 s ago.');
+  // Above it: amber, and a warning that explains it and leads to Diagnostics.
+  const many = lateFacts({ late: 5000, frames: 144000, uptime: '1 hour' });
+  assert.equal(many.over, true);
+  assert.match(many.issue.summary, /^Frames are late: 3\.5% of them since Glowstack started 1 hour ago, over the 1% line\. Effects may stutter\.$/);
+  assert.deepEqual(many.issue.fix, { label: 'Open Diagnostics', diag: true });
+  assert.equal(many.issue.plain, LATE_NOTE);
+  const base = { lit: 0, total: 0, health: { up: 2, n: 2, cls: 'ok', text: '' }, fps: { measured: 40, target: 40 }, power: null };
+  assert.equal(tileFacts({ ...base, late: 3, frames: 144000 })[2].cls, '');
+  assert.equal(tileFacts({ ...base, late: 5000, frames: 144000 })[2].cls, 'warn');
+  // The warnings summary counts it only above the threshold.
+  const lit = { cls: '', text: 'Nothing is lit: no looks are on the lights' };
+  assert.equal(statusIssues('', [], few.issue).length, 0);
+  assert.equal(headline(lit, '', statusIssues('', [], few.issue).length).cls, '');
+  assert.equal(statusIssues('', [], many.issue).length, 1);
+  assert.equal(headline(lit, '', statusIssues('', [], many.issue).length).text, '1 warning to check below');
+  const status = read('panel/status.js');
+  assert.match(status, /fix\.diag \? openDiagnostics\(\)/);
+  // Controllers: one line when every one is reachable, open with the failing first otherwise.
+  assert.deepEqual(controllersSummary({ n: 8, reachable: 8, down: 0, shared: 'Sending' }), { open: false, text: '8 controllers, all sending' });
+  assert.deepEqual(controllersSummary({ n: 8, reachable: 7, down: 1, shared: '' }), { open: true, text: '8 controllers, 1 unreachable' });
+  assert.deepEqual(controllersSummary({ n: 8, reachable: 5, down: 0 }), { open: true, text: '8 controllers' }, 'not yet known is not healthy');
+  assert.equal(controllersSummary({ n: 1, reachable: 1, down: 0, shared: 'Sending' }).text, '1 controller, all sending');
+  assert.match(status, /<details id="stCtlMore"><summary><\/summary><ul class="list-rows" id="stCtl"><\/ul><\/details>/);
+  assert.match(status, /const byFault = \[\.\.\.g\.controllers\]\.sort\(/, 'failing ones first');
+  assert.match(status, /if \(sum\.open !== ctlDefault\) \{ ctlDefault = sum\.open; ctlChoice = null; \}/, 'a fault opens it again whatever was chosen');
+});

@@ -1030,7 +1030,7 @@ test('one word for previewing, in purple, and stacking is said out loud', () => 
 test('Status splits what matters from diagnostics, and repeats no amber', async () => {
   const status = read('panel/status.js');
   assert.match(status, /<details id="stDiag" class="section-disclosure"><summary>Diagnostics/);
-  assert.ok(status.indexOf("'frames late'") > status.indexOf('stDiagStats').valueOf(), 'frame numbers are in the diagnostics');
+  assert.ok(status.indexOf("'frames late since start'") > status.indexOf('stDiagStats').valueOf(), 'frame numbers are in the diagnostics');
   const { groupIssues } = await import('./static/panel/status.js');
   const spacing = (s) => ({ summary: s, kind: 'spacing', fix: { label: 'Calibrate this run', run: 'r' } });
   assert.equal(groupIssues([spacing('a'), spacing('a')]).length, 1, 'a repeat is dropped');
@@ -2783,10 +2783,10 @@ test('Refinement 6 (round 2): Status leads with four tiles; the warnings stay be
   assert.equal(litCount(g, {}, null), null, 'layers not read yet');
   const health = { up: 1, n: 2, cls: 'bad', text: "Controllers: 1 isn't reachable" };
   const facts = tileFacts({ lit: 10, total: 20, health, late: 0, fps: { measured: 40.02, target: 40 }, power: { overall: '1.08 A', limiting: 'None needed', partial: false, anyKnown: true } });
-  assert.deepEqual(facts.map((f) => [f.v, f.label, f.cls]), [['10', 'lights lit', 'warn'], ['1 of 2', 'controllers', 'bad'], ['0', 'late frames', ''], ['1.08 A', 'power estimate', '']]);
+  assert.deepEqual(facts.map((f) => [f.v, f.label, f.cls]), [['10', 'lights lit', 'warn'], ['1 of 2', 'controllers', 'bad'], ['0', 'late since start', ''], ['1.08 A', 'power estimate', '']]); // the label says the window since series 2 round 5
   assert.equal(facts[3].power, true, 'the power tile links to the Power section');
-  const full = tileFacts({ lit: 20, total: 20, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 3, fps: { measured: 39, target: 40 }, power: null });
-  assert.deepEqual(full.map((f) => [f.v, f.cls]), [['20', 'ok'], ['2 of 2', 'ok'], ['3', 'warn'], ['—', '']]);
+  const full = tileFacts({ lit: 20, total: 20, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 3, frames: 100, fps: { measured: 39, target: 40 }, power: null });
+  assert.deepEqual(full.map((f) => [f.v, f.cls]), [['20', 'ok'], ['2 of 2', 'ok'], ['3', 'warn'], ['—', '']]); // 3 of 100 frames: over the 1% line
   const notSet = tileFacts({ lit: 0, total: 0, health: { up: 2, n: 2, cls: 'ok', text: '' }, late: 0, fps: { measured: 40, target: 40 }, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
   assert.equal(notSet[0].cls, '', 'nothing on the lights is not a warning');
   assert.deepEqual([notSet[3].v, notSet[3].cls], ['Not configured', '']);
