@@ -527,8 +527,8 @@ test('Refinement 4: the power tile says "Not configured" and is a link; qualifie
   assert.equal(facts[3].v, 'Not configured');
   assert.match(facts[3].title, /Go to the Power section\.$/);
   const tile = tileHTML(facts[3]);
-  assert.match(tile, /^<button type="button" id="stPowerTile" class="stat link" title="/, 'a button, with a tooltip');
-  assert.match(tile, /<span>power estimate<svg/, 'a chevron after its label');
+  assert.match(tile, /^<button type="button" id="stPowerTile" class="stat wordy link" title="/, 'a button, with a tooltip');
+  assert.match(tile, /<span>Not configured<svg/, 'a chevron after its second line (the words, since B148)');
   assert.doesNotMatch(tileHTML(facts[0]), /link|<svg/, 'the plain tiles are not links');
   assert.match(css, /button\.stat \{[^}]*cursor: pointer; \}/);
   assert.match(css, /button\.stat\.link:hover span, button\.stat\.link:focus-visible span \{ text-decoration: underline;/);

@@ -1517,8 +1517,12 @@ desk.
   lights; nothing is faked in the browser. A layer row keeps a small chip.
 - **Status tiles.** Status's four headline tiles (lights lit, controllers,
   late frames, power estimate) are one component: a figure in one size,
-  weight and line, tabular numerals, and a one-line label. A word such as
-  "Not configured" uses the figure's style and shrinks only when it would not fit.
+  weight and line, tabular numerals, and a one-line label. A value that is
+  words, not a number ("Not configured"), is secondary: the tile's label
+  takes the figure's line in the label's own quiet style and the words sit
+  under it at the label's size and weight, so a config gap never outweighs
+  the numbers beside it. A worded figure with a number in it ("At least
+  12.40 A") keeps the figure's style and shrinks only when it would not fit.
   The color rule: a count is neutral, and color is for state only. Neutral
   is a plain count or nothing to judge (0 lights lit with no looks on them,
   0 late frames, a power estimate). Green is a health check that passed

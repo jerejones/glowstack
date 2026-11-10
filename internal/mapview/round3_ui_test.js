@@ -60,9 +60,9 @@ test('B142: the Status tiles are one component with one color rule', async () =>
   const facts = tileFacts({ lit: 0, total: 0, health: ok, late: 0, fps, power: { overall: 'Unknown', limiting: 'Unknown', partial: false, anyKnown: false } });
   assert.deepEqual(facts.map((f) => [f.v, f.label]), [['0', 'lights lit'], ['8 of 8', 'controllers'], ['0', 'late frames'], ['Not configured', 'power estimate']]); // "Not set" until series 2 round 4
   // One markup for all four; only the tag differs, and the power tile is the link.
-  const shape = (h) => h.replace(/^<(button|div)[^>]*>/, '<T>').replace(/<\/(button|div)>$/, '</T>').replace(/<b>[^<]*<\/b><span>[^<]*(<svg.*<\/svg>)?<\/span>/, '<b></b><span></span>'); // the link's label ends with a chevron (series 2 round 4)
+  const shape = (h) => h.replace(/^<(button|div)[^>]*>/, '<T>').replace(/<\/(button|div)>$/, '</T>').replace(/<b(?: class="words")?>[^<]*<\/b><span>[^<]*(<svg.*<\/svg>)?<\/span>/, '<b></b><span></span>'); // the link's label ends with a chevron (series 2 round 4)
   assert.equal(new Set(facts.map((f) => shape(tileHTML(f)))).size, 1);
-  assert.match(tileHTML(facts[3]), /^<button type="button" id="stPowerTile" class="stat link" title="[^"]*Go to the Power section\."><b>Not configured<\/b><span>power estimate<svg[^]*<\/svg><\/span><\/button>$/);
+  assert.match(tileHTML(facts[3]), /^<button type="button" id="stPowerTile" class="stat wordy link" title="[^"]*Go to the Power section\."><b class="words">power estimate<\/b><span>Not configured<svg[^]*<\/svg><\/span><\/button>$/); // the words under the label since series 2 round 5 (B148)
   assert.match(tileHTML(facts[1]), /^<div class="stat ok"/);
   // The figure shrinks only while it does not fit, never grows, and stops at the floor.
   const el = (fits) => ({ style: { fontSize: 'x' }, clientWidth: 100, get scrollWidth() { return fits(parseFloat(this.style.fontSize) || 22) ? 100 : 140; } });

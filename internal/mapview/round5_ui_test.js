@@ -54,3 +54,26 @@ test('B147: the breadcrumb folds older ancestors into one crumb instead of scrol
   assert.match(app, /aria-label="\$\{esc\(name\)\}" title=/, 'a shortened crumb keeps its whole name');
   assert.match(read('index.html'), /id="crumbMenu" class="crumb-menu" role="menu"/);
 });
+
+test('B148: a tile whose value is words uses the label style, so it never outweighs the numbers', async () => {
+  const { tileFacts, tileHTML } = await import('./static/panel/status.js');
+  const base = { lit: 0, total: 0, health: { up: 8, n: 8, cls: 'ok', text: '' }, late: 0, fps: { measured: 30, target: 30 } };
+  const gap = tileFacts({ ...base, power: { anyKnown: false, overall: '', limiting: '' } })[3];
+  assert.equal(gap.words, true);
+  // The label has the figure's line, the words follow, and the tile is still the link to Power.
+  const html = tileHTML(gap);
+  assert.match(html, /^<button type="button" id="stPowerTile" class="stat wordy link"/);
+  assert.match(html, /<b class="words">power estimate<\/b><span>Not configured<svg/);
+  // With LED current configured the tile shows its number in the figure's style.
+  const known = tileFacts({ ...base, power: { anyKnown: true, overall: '3.20 A', limiting: 'Off' } })[3];
+  assert.ok(!known.words);
+  assert.match(tileHTML(known), /class="stat link"[^>]*><b>3\.20 A<\/b><span>power estimate/);
+  // Numeric tiles are unchanged, and none of them is wordy.
+  for (const f of tileFacts({ ...base, power: null }).slice(0, 3)) assert.match(tileHTML(f), /^<div class="stat[^"]*" title="[^"]*"><b>[^<]+<\/b><span>/);
+  // Both lines of a wordy tile are the label's size and weight; the figure's box keeps its height.
+  const c = css();
+  assert.match(c, /\.tiles \.stat b\.words \{ color: var\(--muted\); font-size: var\(--t-meta\); font-weight: 400; \}/);
+  assert.match(c, /\.tiles \.stat\.wordy span \{ color: var\(--fg\); font-size: var\(--t-meta\); font-weight: 400; \}/);
+  assert.match(c, /^\.stat span \{ display: block; color: var\(--muted\); font-size: var\(--t-meta\); \}/m);
+  assert.match(read('panel/status.js'), /querySelectorAll\('b:not\(\.words\)'\)\) fitFigure/);
+});

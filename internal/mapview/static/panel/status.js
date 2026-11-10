@@ -133,7 +133,7 @@ export function tileFacts({ lit, total, health, late, fps, power }) {
   const ctl = { v: `${health.up} of ${health.n}`, cls: health.cls === 'bad' ? 'bad' : health.cls === 'ok' ? 'ok' : '', title: health.text };
   const frames = { v: count(late), cls: late ? 'warn' : '', title: `${late ? 'Frames that took longer than the frame rate allows. ' : ''}${fmt(fps.measured, 1)} fps of ${fps.target}` };
   const pw = !power ? { v: '—', cls: '', title: 'Reading the power estimate' }
-    : !power.anyKnown ? { v: 'Not configured', cls: '', title: 'No LED current is set, so there is no estimate. Go to the Power section.' }
+    : !power.anyKnown ? { v: 'Not configured', words: true, cls: '', title: 'No LED current is set, so there is no estimate. Go to the Power section.' }
     : { v: power.overall, cls: power.limiting.startsWith('Dimmed') ? 'warn' : '', title: `Power limiting: ${power.limiting}. Opens the Power section.` };
   return [
     { ...lights, label: 'lights lit' },
@@ -149,7 +149,12 @@ export function tileFacts({ lit, total, health, late, fps, power }) {
 export function tileHTML(f, e = (s) => s) {
   const tag = f.power ? 'button' : 'div', attrs = f.power ? ' type="button" id="stPowerTile"' : '';
   // The link's label carries a chevron, and underlines on hover and focus (ui.css).
-  return `<${tag}${attrs} class="stat${f.cls ? ' ' + f.cls : ''}${f.power ? ' link' : ''}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}${f.power ? icon('chevronRight') : ''}</span></${tag}>`;
+  const chevron = f.power ? icon('chevronRight') : '';
+  // A value that is words, not a number (B148), is secondary: the label takes
+  // the figure's line in its own quiet style and the words sit under it at
+  // the label's size, so a config gap never outweighs the numbers beside it.
+  if (f.words) return `<${tag}${attrs} class="stat wordy${f.power ? ' link' : ''}" title="${e(f.title)}"><b class="words">${e(f.label)}</b><span>${e(f.v)}${chevron}</span></${tag}>`;
+  return `<${tag}${attrs} class="stat${f.cls ? ' ' + f.cls : ''}${f.power ? ' link' : ''}" title="${e(f.title)}"><b>${e(f.v)}</b><span>${e(f.label)}${chevron}</span></${tag}>`;
 }
 
 // fitFigure shrinks a tile's figure, a step at a time, only while it does
@@ -439,7 +444,7 @@ export function createStatus(S, root) {
     const html = facts.map((f) => tileHTML(f, esc)).join('');
     // Drawn only on a change, so a poll can't replace the tile under a press.
     if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
-    for (const b of box.querySelectorAll('b')) fitFigure(b);
+    for (const b of box.querySelectorAll('b:not(.words)')) fitFigure(b);
     $$('#stPowerTile').onclick = () => {
       const pwBox = $$('#stPower');
       const details = pwBox.querySelector('details');
