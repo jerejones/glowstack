@@ -100,6 +100,7 @@ function toast(msg, opts = {}) {
   // after an apply Undo beside it (opts.actions).
   const actions = [opts.action, ...(opts.actions || [])].filter(Boolean);
   if (actions.length) el.classList.add('has-action');
+  if (actions.length > 1) el.classList.add('two-acts');
   let after = el.querySelector('.msg');
   for (const a of actions) {
     const act = Object.assign(document.createElement('button'), { type: 'button', className: 'act' + (a.quiet ? ' quiet' : ''), textContent: a.label });

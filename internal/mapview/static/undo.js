@@ -51,3 +51,15 @@ export function undoResult(e) {
   if (e.status === 409 || e.status === 404) return { text: 'That change can no longer be undone: the lights were changed again since.', warn: true, gone: true };
   return { text: "Couldn't undo. The lights are unchanged.", warn: true, gone: false };
 }
+
+// cardLink says whether the card shows its "Undo last change" link: only
+// one Undo is on screen at a time. While a toast that carries Undo is
+// showing, the card has none; when the toast leaves (its ten seconds, a
+// dismissal, or a newer message taking its place) the quiet link appears
+// for the rest of its five minutes.
+export const cardLink = ({ link, toastShowing }) => !!link && !toastShowing;
+
+// compactToast is the confirmation on a phone, where the toast is one line
+// with Undo beside it: the sentence without what it replaced (the card
+// above already says what is on the lights).
+export const compactToast = (text) => text.replace(/, in place of [^.]*\./, '.');

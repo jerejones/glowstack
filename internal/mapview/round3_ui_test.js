@@ -325,7 +325,7 @@ test('E: undo restores a stack exactly, through the layer API, and is never a po
   // Zone brightness changes are not undoable and offer no undo.
   assert.doesNotMatch(read('house-status.js'), /undo/i);
   // The toast carries Undo for TOAST_MS; the card link is quieter and goes on its timer.
-  assert.match(looks, /if \(!r\.warn\) return S\.toast\(r\.text, \{ ms: TOAST_MS, actions \}\);/);
+  assert.match(looks, /if \(!r\.warn\) return S\.toast\([^;]*, \{ ms: TOAST_MS, actions \}\);/); // a phone's text is compact since series 2 round 5
   assert.match(looks, /<button type="button" class="target-btn" id="lkUndo"[^>]*>Undo last change<\/button>/);
   assert.match(looks, /if \(undo\.link\(\)\) undoTimer = setTimeout\(renderUndo, undo\.linkLeft\(\) \+ 50\);/);
   // The consequence is already on the button before the apply; nothing permanent was added.

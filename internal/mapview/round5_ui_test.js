@@ -229,3 +229,34 @@ test('Refinement 4: this look and the next look in words; one word per action; t
   assert.equal(dark.text + dark.detail, 'Lights: nothing lit · preview hidden');
   assert.match(read('app.js'), /scope: houseScope\(\),/);
 });
+
+test('Refinement 5: one Undo at a time, and a compact toast on the phone', async () => {
+  const { cardLink, compactToast, createUndo, TOAST_MS, LINK_MS } = await import('./static/undo.js');
+  // The card's link shows only when no toast carries Undo, for as long as the link lives.
+  assert.equal(cardLink({ link: true, toastShowing: true }), false);
+  assert.equal(cardLink({ link: true, toastShowing: false }), true);
+  assert.equal(cardLink({ link: false, toastShowing: false }), false);
+  // Over time: toast for ten seconds, then the link until five minutes, never both.
+  let t = 0;
+  const undo = createUndo(() => t);
+  undo.set('u1', 'put the look on the lights');
+  for (const at of [0, 5000, TOAST_MS - 1, TOAST_MS, 60000, LINK_MS - 1, LINK_MS]) {
+    t = at;
+    const toast = undo.toast(), card = cardLink({ link: undo.link(), toastShowing: toast });
+    assert.ok(!(toast && card), `two Undo controls at ${at} ms`);
+    assert.equal(toast || card, at < LINK_MS, `an Undo is offered at ${at} ms`);
+  }
+  // A toast dismissed early hands over at once: the rule reads the page, not the clock.
+  const looks = read('panel/looks.js');
+  assert.match(looks, /const toastShowing = !!document\.querySelector\('\.toast \[data-act=undo\]'\);/);
+  assert.match(looks, /new MutationObserver\(\(\) => renderUndo\(\)\)/);
+  assert.match(css(), /\.stage-undo\.held \{ visibility: hidden; \}/);
+  // The phone's confirmation is the sentence without what it replaced, on one line with Undo.
+  assert.equal(compactToast('The look is on the lights, in place of Amber wash.'), 'The look is on the lights.');
+  assert.equal(compactToast('2 looks are on the lights.'), '2 looks are on the lights.');
+  assert.match(looks, /S\.panel\.layout\(\) === 'sheet' \? compactToast\(r\.text\) : r\.text/);
+  const phone = css().slice(css().indexOf('.toast.has-action { align-items: center;'));
+  assert.match(phone, /^\.toast\.has-action \{ align-items: center; padding: 1px 2px 1px 10px; gap: 6px; \}/);
+  assert.match(phone, /\.toast\.has-action\.two-acts \{ flex-wrap: wrap;/, 'a fix and Undo together still take their own line');
+  assert.match(read('app.js'), /if \(actions\.length > 1\) el\.classList\.add\('two-acts'\);/);
+});

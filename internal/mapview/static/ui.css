@@ -403,6 +403,7 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
 }
 /* The quieter Undo on the "On the lights" card: a link, there for five minutes. */
 .stage-undo { margin: 4px 4px 0; text-align: right; font-size: var(--t-help); }
+.stage-undo.held { visibility: hidden; } /* the toast has the Undo for now: one at a time, and no jump when it leaves */
 .stage-undo[hidden] { display: none; }
 .stage-undo button { min-height: var(--tap); }
 
@@ -505,11 +506,14 @@ body.calibrating .map-hint, body.calibrating .hover-label { display: none; }
   .map-error { top: calc(max(8px, env(safe-area-inset-top)) + var(--tap) + 8px); transform: translateX(-50%); }
   /* Chip and toggle share one row at the top at every detent, so the toggle
    * never moves as the sheet does, and framing keeps the map below it. */
-  /* A toast's fix takes its own line, so the sentence keeps two. */
-  .toast.has-action { flex-wrap: wrap; }
-  .toast.has-action .msg { flex: 1 1 calc(100% - var(--tap) - 8px); order: 1; }
-  .toast.has-action button:not(.act) { order: 2; }
-  .toast.has-action .act { order: 3; margin-left: auto; }
+  /* A toast with one action (Undo) is one compact line: the message, the action, the dismiss.
+   * Two actions (a fix and Undo) take their own line, so the sentence keeps two. */
+  .toast.has-action { align-items: center; padding: 1px 2px 1px 10px; gap: 6px; }
+  .toast.has-action .msg { min-width: 0; }
+  .toast.has-action.two-acts { flex-wrap: wrap; align-items: flex-start; padding: 8px 10px; gap: 8px; }
+  .toast.has-action.two-acts .msg { flex: 1 1 calc(100% - var(--tap) - 8px); order: 1; }
+  .toast.has-action.two-acts button:not(.act) { order: 2; }
+  .toast.has-action.two-acts .act { order: 3; margin-left: auto; }
   /* The chip's budget is the row less the brand (44), the toggle (140) and the gaps: at 14 px (the
    * phone's meta size; its two stacked lines would not fit the pill at body size) every state's
    * first line is whole, "Showing your preview" and "Colored by Controllers" included. */

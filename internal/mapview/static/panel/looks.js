@@ -19,7 +19,7 @@ import { icon } from '../icons.js';
 import { textField, wireClear, fitPlaceholder } from '../field.js';
 import { escapeCloses } from '../picker.js';
 import { effectMotion, spriteURL, spriteStyle, guardSprite } from '../tiles.js';
-import { createUndo, mark, undoResult, TOAST_MS } from '../undo.js';
+import { createUndo, mark, undoResult, TOAST_MS, cardLink, compactToast } from '../undo.js';
 
 const COPIES = 'glowstack.copies'; // preview copy id → the lights layer it stands in for
 const TARGET = 'glowstack.looks.target';
@@ -366,7 +366,7 @@ export function applyResult(what, outcome, name = what) {
 const applyToast = (S, what, outcome, name, undo) => {
   const r = applyResult(what, outcome, name);
   const actions = undo ? [{ ...undo, id: 'undo', quiet: r.warn }] : [];
-  if (!r.warn) return S.toast(r.text, { ms: TOAST_MS, actions });
+  if (!r.warn) return S.toast(S.panel.layout() === 'sheet' ? compactToast(r.text) : r.text, { ms: TOAST_MS, actions });
   return S.toast(r.text, { ms: TOAST_MS, warn: true, action: r.zones && { label: turnOnLabel(r.zones.names), run: () => turnOnZones(S, api, r.zones.ids, r.zones.names) }, actions });
 };
 
@@ -834,9 +834,23 @@ export function createLooks(S, root) {
   const undoAction = () => (undo.point() ? [{ id: 'undo', label: 'Undo', run: undoLast }] : []);
   function renderUndo() {
     if (undo.point() && S.houseStatus === 'available' && stackKey() !== undoStack) { undo.clear(); clearTimeout(undoTimer); }
-    const p = undo.link() ? undo.point() : null;
-    $$('#lkUndoLine').hidden = !p;
+    // One Undo at a time: the toast's while it shows, then the card's link.
+    const toastShowing = !!document.querySelector('.toast [data-act=undo]');
+    const offered = undo.link() ? undo.point() : null;
+    const p = cardLink({ link: !!offered, toastShowing }) ? offered : null;
+    // The link's line is held, empty, while the toast has the Undo: the
+    // card does not grow under the pointer when the toast leaves.
+    const line = $$('#lkUndoLine');
+    line.hidden = !offered;
+    line.classList.toggle('held', !!offered && !p);
+    $$('#lkUndo').tabIndex = p ? 0 : -1;
+    $$('#lkUndo').toggleAttribute('aria-hidden', !!offered && !p);
     if (p) $$('#lkUndo').setAttribute('aria-label', `Undo last change: ${p.what}`);
+  }
+  // A toast arriving or leaving changes which Undo is the one on screen.
+  if (typeof MutationObserver === 'function') {
+    const seen = new MutationObserver(() => renderUndo());
+    for (const id of ['toasts', 'panelToasts', 'caToasts']) { const box = document.getElementById(id); if (box) seen.observe(box, { childList: true }); }
   }
   // undoLast puts the lights' stack back as it was before the last change.
   // It restores looks only: no power command, no zone brightness.

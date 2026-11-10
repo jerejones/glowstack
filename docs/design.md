@@ -1494,9 +1494,12 @@ desk.
   only ever one of many. A choice among several is a segmented bar.
 - **Undo after apply.** Every change to the real lights made from the map
   (Put, Add, Update, Replace, and Remove on a live look) can be taken back
-  once. The confirmation toast carries **Undo** for 10 seconds, and the
-  "On the lights" card keeps a quieter **Undo last change** link until the
-  next change or for 5 minutes, whichever is first. One level only. The
+  once, and one Undo is on screen at a time. The confirmation toast carries
+  **Undo** for 10 seconds; while it shows, the "On the lights" card has no
+  link (its line is held, so the card does not grow later). When the toast
+  leaves, the card's quieter **Undo last change** link appears and stays
+  until the next change or for 5 minutes, whichever is first. On a phone
+  the toast is one compact line, the message and Undo. One level only. The
   offer is for the stack that page left: if the looks on the lights are no
   longer those (another screen or Home Assistant added or removed one), the
   offer is withdrawn rather than take that change back too.
