@@ -248,11 +248,11 @@ test('nothing is under the caption size, and small text uses it', () => {
   for (const m of css.matchAll(/font-size: ([^;]+);/g)) assert.match(m[1], /var\(--t-[a-z0-9]+\)/, m[0]);
 });
 
-test('the panel is one width on every tab, and Calibrate keeps its own', () => {
+test('the panel is one width on every tab, and Calibrate has the same', () => {
   assert.match(css, /--panel-w: 400px/);
   assert.match(css, /--panel-w: 580px/);
   assert.doesNotMatch(css, /data-tab=[a-z]+\][^{]*\{ --panel-w/);
-  assert.match(css, /body\.calibrating \{ --panel-w: 500px; \}/);
+  assert.doesNotMatch(css, /body\.calibrating \{ --panel-w:/); // its own 500 px until series 2 round 5
 });
 
 test('B116: a segment inside a tab is at least as wide as its own label', () => {

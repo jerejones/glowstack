@@ -342,3 +342,15 @@ test('Refinement 7: late frames say their window and have a threshold; healthy c
   assert.match(status, /const byFault = \[\.\.\.g\.controllers\]\.sort\(/, 'failing ones first');
   assert.match(status, /if \(sum\.open !== ctlDefault\) \{ ctlDefault = sum\.open; ctlChoice = null; \}/, 'a fault opens it again whatever was chosen');
 });
+
+test('Refinement 8: Calibrate keeps the panel\'s one width', () => {
+  const c = css();
+  // One width beside the map from 1280 px up, with no override for the mode.
+  assert.match(c, /@media \(min-width: 1280px\) \{\s*:root \{ --panel-w: 580px; \}\s*\}/);
+  assert.doesNotMatch(c, /body\.calibrating \{ --panel-w:/);
+  // The Calibrate panel and the tabs' panel are both that wide, and the map gives the same room to each.
+  assert.match(c, /\.panel \{[^}]*width: var\(--panel-w\);/);
+  assert.match(c, /\.calibrate \{[^}]*width: var\(--panel-w\);/);
+  assert.match(c, /^body\.calibrating \{ --panel-space: var\(--panel-w\); \}/m);
+  assert.match(design(), /The panel is one width on every tab and in Calibrate/);
+});

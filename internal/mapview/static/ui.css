@@ -68,7 +68,6 @@ html.coarse { --tap: 44px; --t-s: 13px; --t-m: 15px; --t-h3: 16px; --t-l: 17px; 
 
 @media (min-width: 1280px) {
   :root { --panel-w: 580px; }
-  body.calibrating { --panel-w: 500px; } /* Calibrate's own width, whichever tab opened it */
 }
 @media (max-width: 1099.98px) {
   :root { --layout: side; --panel-w: 300px; }

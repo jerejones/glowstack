@@ -1591,7 +1591,10 @@ desk.
 - **Calibration mode.** On a phone, calibration (see "Calibration mode"
   above) takes the screen below a strip of map that keeps the cursor in
   view: what is being measured and Stop at the top, nudges and Confirm in
-  the thumb zone. Wider screens show it in place of the panel. The map
+  the thumb zone. Wider screens show it in place of the panel, at the
+  panel's own width: The panel is one width on every tab and in Calibrate
+  (580 px from 1280 px up), so entering and leaving the mode does not move
+  the map's edge. The map
   draws close markers as one with a count, the current target in cyan, and
   frames each step; a double tap there fits the mode's view without
   remembering it as the device's camera.
