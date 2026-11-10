@@ -881,7 +881,7 @@ test('the last polish: pin glyph, type sizes, contrast and the Preview reason', 
   const card2 = /--card2: (#[0-9a-f]{6})/.exec(css)[1];
   const strong = /--line-strong: (#[0-9a-f]{6})/.exec(css)[1];
   assert.ok(ratio(strong, card2) >= 3, `control border ${strong} on a raised card`);
-  assert.ok(ratio(/\.handle i \{[^}]*background: (#[0-9a-f]{6})/.exec(css)[1], card2) >= 3, 'sheet handle');
+  assert.ok(ratio(/\.handle i \{[^}]*--grab: (#[0-9a-f]{6})/.exec(css)[1], card2) >= 3, 'sheet handle');
   const app = read('app.js');
   assert.match(app, /aria-disabled/, 'a tap on the unavailable Preview still explains itself');
   assert.doesNotMatch(app, /t\.disabled = !m\.canPreview/);

@@ -19,6 +19,13 @@ export const toastHome = (calibrating, panelReady, sheet = false) => (calibratin
 // safe area, with a gap. visible is how much of the sheet shows.
 export const sheetToastTop = ({ visible, bar = 0, safe = 0 }) => Math.max(0, visible - bar - safe - 8);
 
+// toastRow is the room a phone's sheet reserves at its foot for its toasts,
+// in px: their height and a gap, so the sheet's scroll area ends above them
+// and a toast covers no card. 0 with no toast showing, and 0 while the sheet
+// has its sticky bar (the apply bar during a preview): the toast then sits
+// above that bar, as before, and the bar does not move under a thumb.
+export const toastRow = ({ height = 0, bar = 0 }) => (height > 0 && !bar ? Math.ceil(height) + 8 : 0);
+
 // toastBottom is how far above the stage's bottom toasts sit: over the
 // toggle, the legend and the sheet.
 export const toastBottom = ({ floats }) => (floats ?? 0) + 8;

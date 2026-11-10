@@ -506,11 +506,17 @@ canvas.sw.rs.tall, #stage canvas.sw.rs.tall { height: 26px; }
   .handle, .tabs { background: var(--panel-bg); }
   .handle { border-radius: 16px 16px 0 0; position: relative; }
   .handle { display: flex; justify-content: center; align-items: center; height: var(--handle); flex: none; touch-action: none; cursor: grab; }
-  .handle i { width: 40px; height: 5px; border-radius: 3px; background: #6b7480; }
+  /* The grabber is a shallow chevron that says which way a tap goes: up at the peek and at half, down at full. Two bars, hinged at the middle. */
+  .handle i { position: relative; width: 40px; height: 8px; --grab: #6b7480; }
+  .handle i::before, .handle i::after { content: ''; position: absolute; top: 2px; width: 21px; height: 4px; border-radius: 2px; background: var(--grab); transition: transform 0.22s; }
+  .handle i::before { left: 0; transform-origin: 100% 50%; transform: rotate(-13deg); }
+  .handle i::after { right: 0; transform-origin: 0 50%; transform: rotate(13deg); }
+  body[data-detent=full] .handle i::before { transform: rotate(13deg); }
+  body[data-detent=full] .handle i::after { transform: rotate(-13deg); }
   /* Its target is a full tap: the box reaches up over the map, as wide as a thumb needs. */
   .handle::before { content: ''; position: absolute; left: 50%; bottom: 0; width: 120px; height: var(--tap); transform: translateX(-50%); }
   .handle:focus-visible { outline: none; }
-  .handle:focus-visible i { outline: 2px solid #f8fafc; outline-offset: 3px; background: #cbd5e1; }
+  .handle:focus-visible i { outline: 2px solid #f8fafc; outline-offset: 3px; --grab: #cbd5e1; }
   /* The peek's one line: the current tab's state, under the handle, only while the sheet is lowered. */
   .peek-line { display: none; margin: 0; padding: 0 16px; height: var(--peek-line); flex: none; align-items: flex-start; font-size: var(--t-sub); line-height: 20px; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
   body[data-detent=peek] .peek-line { display: block; }
@@ -521,7 +527,7 @@ canvas.sw.rs.tall, #stage canvas.sw.rs.tall { height: 26px; }
   .tabs button { height: var(--tap); }
   body.calibrating .tabs { display: none; } /* Calibrate is full-screen: the bar returns on Close */
   body:not([data-detent]) .tabs { visibility: hidden; }
-  .content { flex: none; height: calc(var(--sheet-visible) - var(--handle) - var(--tabbar) - var(--safe-b)); overflow-y: hidden; --content-bottom: 16px; }
+  .content { flex: none; height: calc(var(--sheet-visible) - var(--handle) - var(--tabbar) - var(--safe-b) - var(--toast-row, 0px)); overflow-y: hidden; --content-bottom: 16px; }
   body[data-detent=peek] .content { height: calc(var(--sheet-visible) - var(--peek) - var(--safe-b)); } /* nothing, or the apply bar while a preview is up */
   body[data-detent=half] .content, body[data-detent=full] .content { overflow-y: auto; }
   @media (prefers-reduced-motion: reduce) { .panel { transition: none; } }
@@ -768,10 +774,10 @@ html:not(.coarse) { --swatch-h: 36px; }
 .preset .name {
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
 }
-/* Every look card keeps a two-line title slot, so the cards of a grid are one height and its rows are level across the whole library, whatever the names; the description sits directly under the slot. */
-.cards .preset .name { min-height: 2.6em; }
+/* In a grid where any name takes two lines, every card keeps a two-line title slot (looks.js levelCards marks the grid), so its cards are one height and its rows are level; the description sits directly under the slot. A grid of one-line names needs no slot to be level, and spends no line on one. */
+.cards.tall-names .preset .name { min-height: 2.6em; }
 /* Not at a phone's half detent: the slot's extra line there costs a whole row of the library (three effect rows became two), and the sheet's floors come first. */
-body[data-detent=half] .cards .preset .name { min-height: 0; }
+body[data-detent=half] .cards.tall-names .preset .name { min-height: 0; }
 /* A row is as tall as its name needs: it is never cut for the controls. */
 .layer .name-line b { overflow-wrap: anywhere; }
 .preset .sub, .preset .in-badge { height: 1.4em; font-size: var(--t-sub); line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -825,6 +831,9 @@ body[data-detent=half] .cards .preset .name { min-height: 0; }
 .lib-group { margin: 8px 0 4px; font-size: var(--t-body); font-weight: 600; color: var(--muted); }
 .lib-group[hidden], #lkMoreBox[hidden] { display: none; }
 #lkMoreBox { margin-top: 6px; }
+/* "More looks (N)" is a disclosure whose heading is the control: the group heading's own quiet style, with the disclosure's chevron. */
+#lkMoreBox > summary.lib-group { margin: 0; color: var(--muted); }
+#lkMoreBox[open] > summary.lib-group { margin-bottom: 4px; }
 .bar-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .bar-note { margin: 0; min-width: 0; color: var(--muted); font-size: var(--t-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* A note too long to share a line takes its own, whole, under the buttons. */

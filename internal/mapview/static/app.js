@@ -33,7 +33,7 @@ import { createLibrary } from './library.js';
 import { mapStatus, badgeHTML, showButton, lookScope } from './map-status.js';
 import { icon, fillIcons } from './icons.js';
 import { stateHTML, showState, bootFailure, skeletonHTML } from './states.js';
-import { frameInsets, framePad, toastBottom, toastHome, sheetToastTop } from './map-frame.js';
+import { frameInsets, framePad, toastBottom, toastHome, sheetToastTop, toastRow } from './map-frame.js';
 import { foldable, merged } from './toast-merge.js';
 import { createTiles } from './tiles.js';
 import { runName, controllerName, areaName, zoneName } from './names.js';
@@ -129,7 +129,12 @@ function placeToasts() {
   // In the sheet they end just above its sticky bar, when it has one showing.
   const bar = [...document.querySelectorAll('#content .look-bar, #content .editor-actions')].find((b) => b.offsetParent);
   $('panelToasts').style.top = sheetToastTop({ visible: S.panel.covered(), bar: bar ? bar.offsetHeight : 0, safe: parseFloat(getComputedStyle($('panel')).paddingBottom) || 0 }) + 'px';
+  // The sheet's toasts have a row of their own above the tab bar: the scroll area ends above them.
+  const inSheet = S.panel.layout() === 'sheet' && $('panelToasts').children.length > 0;
+  $('content').style.setProperty('--toast-row', toastRow({ height: inSheet ? $('panelToasts').offsetHeight : 0, bar: bar ? bar.offsetHeight : 0 }) + 'px');
 }
+// A toast arriving or leaving the sheet gives, or takes back, its row.
+if (typeof MutationObserver === 'function') new MutationObserver(() => placeToasts()).observe($('panelToasts'), { childList: true });
 S.placeToasts = placeToasts;
 // moveToasts carries messages already showing to where they belong now.
 S.moveToasts = () => {

@@ -111,6 +111,23 @@ export const MORE_GAP = 120;
 export function showMore({ layout, filter, query, rest, empty }) {
   return layout !== 'sheet' && filter === 'pinned' && !query && rest > 0 && empty > MORE_GAP;
 }
+// moreGroup is that second group as a disclosure, so "Pinned" means the same
+// thing wherever it is read: the pinned looks, then "More looks (N)", whose
+// heading is the control. It is in the list on the Pinned segment with no
+// search, when there are looks the list does not show: beside the map, and
+// on a phone's full sheet (a half sheet is the pinned looks alone, as it
+// was). It opens by itself only beside the map and only when the pane would
+// otherwise be empty (showMore); on a phone it starts closed. choice is what
+// this device last set it to by hand (true, false, or null for never).
+export const MORE_OPEN = 'glowstack.looks.more';
+export function moreGroup({ layout, detent = '', filter, query, rest, empty, choice = null }) {
+  const show = filter === 'pinned' && !query && rest > 0 && (layout !== 'sheet' || detent === 'full');
+  return { show, open: show && (choice ?? showMore({ layout, filter, query, rest, empty })) };
+}
+export const moreHeading = (n) => `More looks (${n})`;
+// tallNames says some name in a grid takes more than one line: names is each
+// name's [height, line height] in px.
+export const tallNames = (names) => names.some(([h, line]) => h > line * 1.5);
 // chipFilter is the list a tap on a segment shows: that segment's, or, when
 // it is the chip left beside an open search (already the one listed), the
 // next in the bar's order, so the lists can still be switched while searching.
@@ -481,7 +498,7 @@ export function createLooks(S, root) {
       </div>
       <h3 class="group-head lib-group" id="lkPinnedHead" hidden>Pinned</h3>
       <div class="cards" id="lkPresets"></div>
-      <div id="lkMoreBox" hidden><h3 class="group-head lib-group" id="lkMoreHead">More looks</h3><div class="cards" id="lkMore"></div></div>
+      <details id="lkMoreBox" class="lib-more" hidden><summary class="lib-group" id="lkMoreHead">More looks</summary><div class="cards" id="lkMore"></div></details>
       <details class="words" id="lkWords"><summary>What these words mean</summary><p class="muted small">A look is what the lights show: a saved preset, or an effect with your own settings. It goes on a zone (what Home Assistant controls), an area (part of a zone) or a run (one strip of lights).</p><p class="muted small">${BRIGHTNESS_RULE}</p></details>
     </section>
     <div class="look-bar" id="lkBar" hidden>
@@ -717,9 +734,13 @@ export function createLooks(S, root) {
     const unpinned = ready ? S.presets.filter((p) => !p.pinned) : [], effects = ready ? S.catalog.effects || [] : [];
     const content = root.parentElement, bar = $$('#lkBar');
     const floor = bar && !bar.hidden && bar.offsetParent ? bar.getBoundingClientRect().top : content.getBoundingClientRect().bottom;
-    const show = showMore({ layout: S.panel.layout(), filter: which, query: q, rest: unpinned.length + effects.length, empty: floor - grid.getBoundingClientRect().bottom + content.scrollTop });
-    box.hidden = !show;
-    $$('#lkPinnedHead').hidden = !show;
+    const rest = unpinned.length + effects.length;
+    const group = moreGroup({ layout: S.panel.layout(), detent: S.panel.detent(), filter: which, query: q, rest, empty: floor - grid.getBoundingClientRect().bottom + content.scrollTop, choice: load(MORE_OPEN, null) });
+    const show = group.open;
+    box.hidden = !group.show;
+    if (box.open !== group.open) box.open = group.open;
+    $$('#lkMoreHead').textContent = moreHeading(rest);
+    $$('#lkPinnedHead').hidden = !group.show;
     const key = show ? JSON.stringify([unpinned.map((p) => [p.id, p.name, p.effect, p.params]), effects.map((e) => e.id)]) : '';
     if (key === moreKey) return;
     moreKey = key;
@@ -745,7 +766,22 @@ export function createLooks(S, root) {
 
   // markPreviewed shows which cards are in the preview on the current
   // target: the same look on somewhere else isn't this one.
+  // levelCards marks each grid in which some name takes two lines, so that
+  // every card of that grid keeps the two-line title slot (ui.css) and the
+  // grid's rows are level. Measured again only when a grid's cards or its
+  // width change.
+  function levelCards() {
+    for (const grid of root.querySelectorAll('.cards')) {
+      const names = [...grid.querySelectorAll('.preset .name')];
+      const key = `${names.length}|${grid.clientWidth}|${names.map((n) => n.textContent.length).join()}`;
+      if (grid.dataset.level === key || !grid.clientWidth) continue;
+      grid.dataset.level = key;
+      grid.classList.remove('tall-names');
+      grid.classList.toggle('tall-names', tallNames(names.map((n) => [n.offsetHeight, parseFloat(getComputedStyle(n).lineHeight) || 18])));
+    }
+  }
   function markPreviewed() {
+    levelCards();
     const t = currentTarget();
     const layers = S.preview ? S.preview.layers : [];
     const on = new Set(layers.filter((l) => sameTarget(l.target, t)).map(lookKey));
@@ -1383,7 +1419,9 @@ export function createLooks(S, root) {
   S.tiles?.watch($$('#lkMore'));
   // The room the Pinned list leaves changes with the stage and the window.
   const refitMore = () => { renderMore(); markPreviewed(); };
-  for (const ev of ['layout', 'preview', 'house', 'ready']) S.on(ev, refitMore);
+  for (const ev of ['layout', 'preview', 'house', 'ready', 'detent']) S.on(ev, refitMore);
+  // The heading is the control: a press opens or closes the group, and this device remembers it.
+  $$('#lkMoreHead').onclick = (e) => { e.preventDefault(); save(MORE_OPEN, !$$('#lkMoreBox').open); refitMore(); };
   if (typeof ResizeObserver === 'function') new ResizeObserver(refitMore).observe($$('#lkStage'));
   // The rows' words are fitted to the width they have, so refit on a resize.
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => { for (const c of cards.values()) fitControls(c); fitStageHead(); fitDark(); }).observe($$('#lkRows'));

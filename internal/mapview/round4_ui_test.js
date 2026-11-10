@@ -573,9 +573,9 @@ test('Refinement 6: the desktop Looks panel fills with "More looks" when the Pin
   assert.equal(showMore({ ...base, rest: 0 }), false, 'nothing left to show');
   const looks = read('panel/looks.js');
   // Pinned first and labeled, then More looks: the unpinned presets, then the effects, as the same cards.
-  assert.match(looks, /<h3 class="group-head lib-group" id="lkPinnedHead" hidden>Pinned<\/h3>\s*<div class="cards" id="lkPresets"><\/div>\s*<div id="lkMoreBox" hidden><h3 class="group-head lib-group" id="lkMoreHead">More looks<\/h3><div class="cards" id="lkMore"><\/div><\/div>/);
+  assert.match(looks, /<h3 class="group-head lib-group" id="lkPinnedHead" hidden>Pinned<\/h3>\s*<div class="cards" id="lkPresets"><\/div>\s*<details id="lkMoreBox" class="lib-more" hidden><summary class="lib-group" id="lkMoreHead">More looks<\/summary><div class="cards" id="lkMore"><\/div><\/details>/);
   assert.match(looks, /\[\.\.\.lookCards\.presets\(unpinned\), \.\.\.lookCards\.effects\(effects\)\]/);
-  assert.match(looks, /\$\$\('#lkPinnedHead'\)\.hidden = !show;/);
+  assert.match(looks, /\$\$\('#lkPinnedHead'\)\.hidden = !group\.show;/); // the group is a disclosure since series 2 round 6
   // Measured against the apply bar's place; the segments and the bar are not touched.
   assert.match(looks, /const floor = bar && !bar\.hidden && bar\.offsetParent \? bar\.getBoundingClientRect\(\)\.top : content\.getBoundingClientRect\(\)\.bottom;/);
   const more = looks.slice(looks.indexOf('function renderMore()'), looks.indexOf('// A tap on a segment lists that segment.'));

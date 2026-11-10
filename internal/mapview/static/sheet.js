@@ -23,6 +23,10 @@ const HALF = 0.64; // of the window's height at the half detent, tab bar include
 const HALF_MIN = 300; // with the tab bar: room for a look card above the Apply bar on a short phone
 export const DETENTS = ['peek', 'half', 'full'];
 export const DETENT_WORDS = { peek: 'Lowered: one line', half: 'Half height', full: 'Full height' };
+// handleWords is what the handle does next, as its name and its tooltip: a
+// tap or Enter steps the sheet up from the peek and from half, and back down
+// from full. Its grabber is a chevron pointing the same way (ui.css).
+export const handleWords = (d) => (d === 'full' ? 'Collapse the panel' : 'Expand the panel');
 
 // detentStep is the detent a key on the handle goes to: Up and Down step,
 // Home and End go to the ends, and anything else leaves it ('' for no move).
@@ -137,6 +141,8 @@ export function createPanel(hooks) {
     if (d === 'peek') $('content').scrollTop = 0;
     handle.setAttribute('aria-valuenow', DETENTS.indexOf(d));
     handle.setAttribute('aria-valuetext', DETENT_WORDS[d]);
+    handle.setAttribute('aria-label', handleWords(d));
+    handle.dataset.tip = handleWords(d);
     showRail();
     if (!quiet) hooks.onDetent(d);
   }

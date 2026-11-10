@@ -1285,9 +1285,11 @@ desk.
       the pointer and letting go settles on the nearest detent, a flick
       going on to the next one. The move takes 220 ms, and none under
       reduced motion. Tapping the handle steps between detents. There is no
-      Expand button. The handle is a named control with its state ("Panel
-      height: Half height"): Up and Down step the detents, Home and End go
-      to the ends. A finger on the sheet's content scrolls it; only with the
+      Expand button: the handle says which way a tap goes. Its grabber is
+      a shallow chevron, up at the peek and at half and down at full, and
+      its name and tooltip are "Expand the panel" or "Collapse the panel"
+      with its state as its value ("Half height"): Up and Down step the
+      detents, Home and End go to the ends. A finger on the sheet's content scrolls it; only with the
       content at its top and the finger going down does the same touch move
       the sheet.
     - *Peek means something.* The lowered sheet shows one line that says
@@ -1299,7 +1301,10 @@ desk.
     - *The apply bar* sits directly above the tab bar whenever a preview is
       up on Looks, at every detent: the lowered sheet rises by the bar's
       height, so putting a look on the lights is always one thumb press
-      away. Toasts sit above it.
+      away. Toasts sit above it. With no apply bar (after a look has gone
+      on the lights, say) a toast has that same row directly above the tab
+      bar to itself: the sheet's scroll area ends above it for as long as
+      it shows, so a toast covers no card.
     The chips float over the map.
   - From 700 to 1100 px, and on a phone held sideways, a 300 px side panel
     that folds to an icon rail.
@@ -1540,12 +1545,16 @@ desk.
     (a card per layer with its brightness, **Tweak** and Remove), the bar
     that puts the preview on the lights, and what is on the lights. Tweaking a
     layer that is on the lights edits a preview copy; applying the copy
-    replaces the original. Beside the map, when the Pinned list would leave
-    more than 120 px of the panel empty, the rest of the library follows it
-    under **More looks** (the unpinned presets, then the effects, as the
-    same cards), and the pinned group is labeled **Pinned**. The segments
-    stay filters, a search lists only what it found, and a phone's sheet
-    shows the one list.
+    replaces the original. **Pinned** means the same thing beside the map
+    and on a phone: the pinned looks, labeled **Pinned**, then the rest of
+    the library (the unpinned presets, then the effects, as the same cards)
+    in a disclosure whose heading is the control and says how many it holds
+    ("More looks (9)"). Beside the map it is open by itself when the Pinned
+    list would otherwise leave more than 120 px of the panel empty, and
+    closed when the pinned looks fill it; on a phone's full sheet it starts
+    closed. Opening or closing it by hand is remembered per device. A
+    phone's half sheet is the pinned looks alone. The segments stay
+    filters, and a search lists only what it found.
   - *Setup*: calibration first (a card with its progress bar while anything
     is left to measure), the overlays and their legend, the model's layers
     or the plan, the camera, the stream rate, and the runs the
@@ -1671,10 +1680,12 @@ desk.
   That is a hint for the picture only and never changes what goes on the
   lights; nothing is faked in the browser. A layer row keeps a small chip.
 - **Look cards.** A card is its swatch, its name and one line under it (the
-  description, or its state). The name clamps at two lines, and every card
-  keeps a two-line title slot whether its name needs one line or two, so
-  the cards of a grid are one height and its rows are level across the
-  whole library; the description sits directly under the slot. The one
+  description, or its state). The name clamps at two lines. In a grid where
+  any name takes two lines, every card keeps a two-line title slot whether
+  its own name needs one line or two, so the cards of a grid are one height
+  and its rows are level across the whole library; the description sits
+  directly under the slot. A grid whose names are all one line is level
+  already and spends no line on a slot. The one
   exception is a phone's half detent, where the slot's extra line would
   cost a whole row of the library: there a card is as tall as its name
   (the two cards of a row still match each other).
@@ -1754,7 +1765,7 @@ it is. No chrome is added for it: the focus ring is the only thing drawn.
 | Escape | A menu, a list, a dialog | Closes it, and the focus goes back to what opened it. |
 | Escape | The library, with a preview up | Clears the preview. |
 | Escape | Elsewhere | Unpins the inspect card, then clears the selection, then lowers a phone's sheet. |
-| Up, Down, Home, End | A phone's sheet handle ("Panel height") | Step the sheet between its detents, or to the lowest or the highest. Enter and Space step like a tap. |
+| Up, Down, Home, End | A phone's sheet handle ("Expand the panel", "Collapse the panel") | Step the sheet between its detents, or to the lowest or the highest. Enter and Space step like a tap. |
 | −, + (Shift: by ten), Enter, Escape | Calibrate, in a step | Nudge the pixel, confirm, ask before stopping. |
 
 - **The map without a pointer.** The canvas cannot be tabbed through run by

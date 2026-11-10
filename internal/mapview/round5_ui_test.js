@@ -368,11 +368,12 @@ test('H: the phone shell has its tabs in a bottom bar and a sheet that follows t
   assert.match(sheet, /if \(home === panel\) panel\.insertBefore\(tabBar, \$\('content'\)\); else panel\.after\(tabBar\);/);
   // The sheet sits above the bar: its foot is padded by the bar, and its content ends there.
   assert.match(phone, /padding-bottom: calc\(var\(--tabbar\) \+ var\(--safe-b\)\);/);
-  assert.match(phone, /\.content \{ flex: none; height: calc\(var\(--sheet-visible\) - var\(--handle\) - var\(--tabbar\) - var\(--safe-b\)\);/);
+  assert.match(phone, /\.content \{ flex: none; height: calc\(var\(--sheet-visible\) - var\(--handle\) - var\(--tabbar\) - var\(--safe-b\) - var\(--toast-row, 0px\)\);/);
   // No Expand button anywhere on a phone; the handle is a named control with its state.
   assert.match(phone, /\.tabs \.rail-toggle \{ display: none; \}/);
-  assert.doesNotMatch(sheet + html, /Expand/);
-  assert.match(html, /<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" data-tip="[^"]+" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="[^"]+"><i><\/i><\/div>/);
+  assert.doesNotMatch(html, /<button[^>]*>\s*Expand/); // no Expand button; since series 2 round 6 the handle's own name says which way it goes
+  assert.doesNotMatch(sheet, /lkExpand|expandBtn/);
+  assert.match(html, /<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Expand the panel" data-tip="[^"]+" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-valuetext="[^"]+"><i><\/i><\/div>/);
   assert.match(sheet, /handle\.setAttribute\('aria-valuenow', DETENTS\.indexOf\(d\)\);\s*handle\.setAttribute\('aria-valuetext', DETENT_WORDS\[d\]\);/);
   assert.deepEqual(DETENTS, ['peek', 'half', 'full']);
   assert.deepEqual(Object.keys(DETENT_WORDS), DETENTS);
@@ -568,7 +569,7 @@ test('G: the accessible-name audit: no interactive element in the page\'s markup
   assert.match(read('app.js'), /class="x" aria-label="Clear the selection" data-tip="Clear the selection"/);
   assert.match(read('panel/looks.js'), /<div class="bri" data-tip="Brightness"><span class="bri-label">/); // the page's tooltip since series 2 round 6
   assert.match(read('panel/setup.js'), /textContent: folded \? 'Show key' : 'Hide key'/);
-  assert.match(read('index.html'), /id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" data-tip="/);
+  assert.match(read('index.html'), /id="handle" class="handle" role="slider" tabindex="0" aria-label="Expand the panel" data-tip="/);
   // Form rows name every control in them, and an error is tied to its field.
   assert.match(read('form.js'), /r\.setAttribute\('aria-label', c\.querySelector\('input\[type=range\]'\) && r\.type !== 'checkbox' \? `\$\{label\}, typed` : label\);/);
   assert.match(read('field.js'), /input\.setAttribute\('aria-describedby', err\.id\);/);

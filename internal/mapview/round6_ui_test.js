@@ -406,14 +406,20 @@ test('Refinement 2: Status tiles that read alone', async () => {
   assert.match(design(), /"since start ·\s+0\.2%"/);
 });
 
-test('Refinement 3: even card rows: every look card keeps a two-line title slot', () => {
+test('Refinement 3: even card rows: a grid with a two-line name keeps a two-line title slot in every card', async () => {
   const sheet = css();
   // Names clamp at two lines, as before, and every card reserves both: 2 lines at the name's 1.3 line height.
   assert.match(sheet, /\.preset \.name \{ font-size: var\(--t-body\); font-weight: 600; line-height: 1\.3; \}/);
   assert.match(sheet, /\.preset \.name \{\s*display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;/);
-  assert.match(sheet, /\n\.cards \.preset \.name \{ min-height: 2\.6em; \}/);
+  // The slot is kept by every card of a grid in which some name takes two lines; a grid of one-line names is level without it.
+  assert.match(sheet, /\n\.cards\.tall-names \.preset \.name \{ min-height: 2\.6em; \}/);
+  const { tallNames } = await import('./static/panel/looks.js');
+  assert.equal(tallNames([[18, 18.2], [18, 18.2]]), false);
+  assert.equal(tallNames([[18, 18.2], [36, 18.2]]), true);
+  assert.equal(tallNames([]), false);
+  assert.match(read('panel/looks.js'), /grid\.classList\.toggle\('tall-names', tallNames\(/);
   // The one place it is not used: a phone's half detent, where it cost a floor (a whole row of the library).
-  assert.match(sheet, /\nbody\[data-detent=half\] \.cards \.preset \.name \{ min-height: 0; \}/);
+  assert.match(sheet, /\nbody\[data-detent=half\] \.cards\.tall-names \.preset \.name \{ min-height: 0; \}/);
   assert.match(design(), /two-line title slot/);
 });
 
@@ -503,7 +509,7 @@ test('Refinement 5: icon buttons say what they are, in a tooltip drawn in the pa
     'app.js': [/class="x" aria-label="Clear the selection" data-tip="Clear the selection">/, /aria-label="Dismiss" data-tip="Dismiss">/],
     'panel/looks.js': [/id="lkTargetClear" aria-label="Next look: back to Everything" data-tip="Back to Everything" hidden>/, /<div class="bri" data-tip="Brightness"><span class="bri-label">\$\{icon\('sun'\)\}/, /id="lkPickClose" aria-label="Close" data-tip="Close">/],
     'panel/presets.js': [/data-act="more"[^>]*data-tip="More: edit, duplicate or delete">\$\{icon\('more'\)\}/],
-    'index.html': [/<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Panel height" data-tip="[^"]+"/, /id="railToggle" class="rail-toggle" data-tip="Collapse the panel" aria-label="Collapse the panel"/, /id="resetView" class="reset-view" data-tip="[^"]+" hidden>/],
+    'index.html': [/<div id="handle" class="handle" role="slider" tabindex="0" aria-label="Expand the panel" data-tip="Expand the panel"/, /id="railToggle" class="rail-toggle" data-tip="Collapse the panel" aria-label="Collapse the panel"/, /id="resetView" class="reset-view" data-tip="[^"]+" hidden>/],
     'field.js': [/class="field-clear"[^>]*data-tip="Clear" hidden>/],
     'form.js': [/rm\.dataset\.tip = 'Remove';/],
   };
@@ -513,7 +519,50 @@ test('Refinement 5: icon buttons say what they are, in a tooltip drawn in the pa
   }
   // Nothing else gained one: a control with words keeps to its words ("Hide key" stays a text button).
   const all = ['index.html', 'app.js', 'field.js', 'form.js', 'sheet.js', 'panel/looks.js', 'panel/presets.js', 'panel/setup.js', 'panel/status.js', 'panel/calibrate.js'].map(read).join('\n');
-  assert.equal((all.match(/data-tip[=`]|dataset\.tip = /g) || []).length, 13);
+  assert.equal((all.match(/data-tip[=`]|dataset\.tip = /g) || []).length, 14); // the handle's is also set as its detent changes
   assert.doesNotMatch(read('panel/setup.js'), /data-tip|dataset\.tip/);
   assert.match(design(), /one small tooltip, drawn in the page/);
+});
+
+test('Refinement 6: the phone shell\'s edges: a toast row, a handle that says which way, Pinned the same on both', async () => {
+  const { toastRow, sheetToastTop } = await import('./static/map-frame.js');
+  const { handleWords, DETENT_WORDS } = await import('./static/sheet.js');
+  const { moreGroup, showMore, moreHeading, MORE_OPEN, MORE_GAP } = await import('./static/panel/looks.js');
+  const sheet = css(), app = read('app.js'), looks = read('panel/looks.js');
+  const phone = sheet.slice(sheet.indexOf('@media (max-width: 699.98px)'));
+  // (a) The sheet's toast has a row of its own above the tab bar: the scroll area gives up its height and a gap.
+  assert.equal(toastRow({ height: 46 }), 54);
+  assert.equal(toastRow({ height: 45.2 }), 54, 'whole pixels');
+  assert.equal(toastRow({ height: 0 }), 0, 'no toast, no row');
+  assert.equal(toastRow({ height: 46, bar: 60 }), 0, 'above the apply bar it sits as before: the bar does not move under a thumb');
+  assert.match(phone, /\.content \{ flex: none; height: calc\(var\(--sheet-visible\) - var\(--handle\) - var\(--tabbar\) - var\(--safe-b\) - var\(--toast-row, 0px\)\);/);
+  assert.match(app, /\$\('content'\)\.style\.setProperty\('--toast-row', toastRow\(\{ height: inSheet \? \$\('panelToasts'\)\.offsetHeight : 0, bar: bar \? bar\.offsetHeight : 0 \}\) \+ 'px'\);/);
+  assert.match(app, /new MutationObserver\(\(\) => placeToasts\(\)\)\.observe\(\$\('panelToasts'\), \{ childList: true \}\);/, 'the row comes and goes with the toast');
+  assert.equal(sheetToastTop({ visible: 540, bar: 0, safe: 48 }), 484, 'the toast itself is where it was: directly above the tab bar');
+  // (b) The handle says which way a tap goes, in its name, its tooltip and its shape; there is still no Expand button.
+  assert.equal(handleWords('peek'), 'Expand the panel');
+  assert.equal(handleWords('half'), 'Expand the panel');
+  assert.equal(handleWords('full'), 'Collapse the panel');
+  assert.deepEqual(Object.keys(DETENT_WORDS), ['peek', 'half', 'full']);
+  assert.match(read('sheet.js'), /handle\.setAttribute\('aria-label', handleWords\(d\)\);\s*handle\.dataset\.tip = handleWords\(d\);/);
+  assert.match(phone, /\.handle i::before \{ left: 0; transform-origin: 100% 50%; transform: rotate\(-13deg\); \}/, 'up: the middle is the high point');
+  assert.match(phone, /body\[data-detent=full\] \.handle i::before \{ transform: rotate\(13deg\); \}/, 'down at full');
+  assert.doesNotMatch(read('index.html'), /<button[^>]*>\s*(Expand|Collapse)/);
+  // (c) Pinned lists the same groups on both viewports: the pinned looks, then "More looks (N)" as a disclosure.
+  const base = { filter: 'pinned', query: '', rest: 9, empty: 400, choice: null };
+  assert.deepEqual(moreGroup({ ...base, layout: 'wide' }), { show: true, open: true }, 'beside the map, open when the pane would otherwise be empty');
+  assert.deepEqual(moreGroup({ ...base, layout: 'wide', empty: MORE_GAP }), { show: true, open: false }, 'listed, closed, when the pinned looks fill the pane');
+  assert.deepEqual(moreGroup({ ...base, layout: 'sheet', detent: 'full' }), { show: true, open: false }, 'a phone\'s full sheet: the same group, closed by default');
+  assert.deepEqual(moreGroup({ ...base, layout: 'sheet', detent: 'half' }), { show: false, open: false }, 'a half sheet is unchanged');
+  assert.deepEqual(moreGroup({ ...base, layout: 'sheet', detent: 'peek' }), { show: false, open: false });
+  assert.deepEqual(moreGroup({ ...base, layout: 'sheet', detent: 'full', choice: true }), { show: true, open: true }, 'opened by hand, it stays open');
+  assert.deepEqual(moreGroup({ ...base, layout: 'wide', choice: false }), { show: true, open: false }, 'closed by hand, it stays closed');
+  for (const o of [{ filter: 'presets' }, { query: 'glit' }, { rest: 0 }]) assert.equal(moreGroup({ ...base, layout: 'wide', ...o }).show, false);
+  assert.equal(showMore({ ...base, layout: 'wide' }), true);
+  assert.equal(moreHeading(9), 'More looks (9)');
+  assert.equal(MORE_OPEN, 'glowstack.looks.more');
+  assert.match(looks, /<details id="lkMoreBox" class="lib-more" hidden><summary class="lib-group" id="lkMoreHead">More looks<\/summary><div class="cards" id="lkMore"><\/div><\/details>/);
+  assert.match(looks, /\$\$\('#lkMoreHead'\)\.onclick = \(e\) => \{ e\.preventDefault\(\); save\(MORE_OPEN, !\$\$\('#lkMoreBox'\)\.open\); refitMore\(\); \};/);
+  assert.match(looks, /for \(const ev of \['layout', 'preview', 'house', 'ready', 'detent'\]\) S\.on\(ev, refitMore\);/);
+  assert.match(design(), /More looks \(9\)/);
 });
